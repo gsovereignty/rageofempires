@@ -450,6 +450,37 @@ void cavalry_moves_faster_than_foot_units() {
     require(simulation.units()[1].position == aoe::TilePosition(4, 3));
 }
 
+void blocked_cavalry_does_not_bank_movement_credit() {
+    aoe::Simulation simulation(aoe::GameMap(8, 1));
+    const aoe::EntityId scout = simulation.add_unit(
+        aoe::UnitKind::scout_cavalry,
+        aoe::Player::blue,
+        {1, 0}
+    );
+    simulation.add_unit(
+        aoe::UnitKind::villager,
+        aoe::Player::red,
+        {7, 0}
+    );
+    require(simulation.command_unit(scout, {6, 0}));
+    const int remainder_before =
+        simulation.units().front().movement_speed_remainder;
+
+    simulation.add_unit(
+        aoe::UnitKind::villager,
+        aoe::Player::blue,
+        {2, 0}
+    );
+    simulation.update();
+
+    const aoe::Unit& blocked = simulation.units().front();
+    require(blocked.position == aoe::TilePosition(1, 0));
+    require(!blocked.moving);
+    require(
+        blocked.movement_speed_remainder == remainder_before
+    );
+}
+
 void save_preserves_movement_cooldown() {
     aoe::Simulation simulation(aoe::GameMap(8, 5));
     const aoe::EntityId villager = simulation.add_unit(
@@ -22394,6 +22425,10 @@ int main() {
         beach_and_shallows_follow_live_dat_restrictions
     );
     run("relative movement speed", cavalry_moves_faster_than_foot_units);
+    run(
+        "blocked cavalry movement credit",
+        blocked_cavalry_does_not_bank_movement_credit
+    );
     run("movement cooldown save", save_preserves_movement_cooldown);
     run(
         "wheelbarrow movement speed",

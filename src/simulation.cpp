@@ -6646,6 +6646,8 @@ void Simulation::update() {
             --unit.movement_cooldown;
             continue;
         }
+        const int movement_speed_remainder_before =
+            unit.movement_speed_remainder;
         constexpr int cavalry_movement_denominator = 320;
         const bool in_formation = unit.formation_move_interval > 0;
         if (in_formation) {
@@ -6772,15 +6774,10 @@ void Simulation::update() {
             unit.movement_cooldown = movement_interval - 1;
             unit.moving = unit.next_path_step < unit.path.size();
         } else {
-            if (fixed_point_cavalry) {
-                unit.movement_speed_remainder +=
-                    cavalry_movement_denominator;
-            }
-            if (fixed_point_ship) {
-                unit.movement_speed_remainder += 100;
-            }
-            if (fixed_point_unique) {
-                unit.movement_speed_remainder += 100;
+            if (in_formation || fixed_point_cavalry ||
+                fixed_point_ship || fixed_point_unique) {
+                unit.movement_speed_remainder =
+                    movement_speed_remainder_before;
             }
             route_unit(unit, unit.destination);
         }

@@ -345,7 +345,9 @@ int main() {
             throw std::runtime_error("mode/local slot mismatch");
         }
 
-        aoe::Simulation simulation(aoe::GameMap(12, 8));
+        // Modern choice: every bootable reconstruction harness uses the
+        // same recovered maximum extent as the SDL app.
+        aoe::Simulation simulation(aoe::GameMap(255, 255));
         const auto config = make_config(simulation, indices);
         const std::filesystem::path checkpoint_save =
             env_required("AOE_MULTIPLAYER_CHECKPOINT_SAVE");

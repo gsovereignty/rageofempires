@@ -83,6 +83,15 @@ viewport remains presentation geometry rather than a map-size limit. A
 headless `AOE_MAP_DIMENSION_PATH` diagnostic records the map presented by a
 real app launch; no original diagnostic was recovered.
 
+Modern choice: playable app boundaries accept only 255x255 scenarios and
+saves. This covers bundled launch, `AOE_SCENARIO_PATH`, campaign selection,
+editor input/load, save restore, replay reset, random-map start, and SDL
+multiplayer (which shares the active simulation). The frontend size control
+therefore exposes only `MAXIMUM`; smaller recovered presets remain in the
+generation/import APIs for fidelity and compatibility tests. The standalone
+multiplayer roster harness also boots a 255x255 map. No original policy
+requiring only the maximum was recovered.
+
 ## Reconstruction contract
 
 - `RandomMapKind`: Arabia, Black Forest, Islands, Rivers.

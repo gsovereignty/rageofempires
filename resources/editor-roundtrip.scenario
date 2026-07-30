@@ -1,5 +1,5 @@
 AOE-ARCHAEOLOGY-SCENARIO 63
-map 16 12
+map 255 255
 trigger_syntax strict
 match 1 0 0 0 0 0 0 0
 formation blue 0

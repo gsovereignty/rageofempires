@@ -22,6 +22,13 @@ phase. They no longer inherit the coarse simulation tick rate. This clock is
 presentation-only and is absent from saves, replays, deterministic hashes, and
 multiplayer commands.
 
+Movement animation follows physical displacement, not pending order state.
+Fixed-point cavalry, ships, formation members, and other units can retain a
+move order during an accumulator, cooldown, regroup, or blockage tick without
+changing position. Those waits render a standing frame instead of cycling the
+moving graphic on one tile. A unit selects moving art for the presentation
+interval immediately after an authoritative position change.
+
 ## Original evidence
 
 The supplied installer executable is a dummy, so substantial behavior evidence
@@ -36,6 +43,9 @@ integration mathematics.
 
 - Authoritative reconstruction positions remain integer tiles. Smooth motion
   is presentation interpolation, not original-style sub-tile simulation.
+- Fractional-speed units still alternate displaced and non-displaced logical
+  ticks. Standing art on the latter removes on-tile oscillation, but true
+  continuous sub-tile integration remains open.
 - Walking art currently uses a bounded 100 ms frame period because exact
   per-graphic timing metadata has not been proved and integrated.
 - A very late frame runs every due deterministic step and can therefore cause

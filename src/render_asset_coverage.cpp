@@ -1579,7 +1579,6 @@ RenderAction render_action_for(const Unit& unit) {
     if (unit.repair_target_id != 0 || unit.resource_building_id != 0) {
         return RenderAction::working;
     }
-    if (unit.moving) return RenderAction::moving;
     return RenderAction::idle;
 }
 

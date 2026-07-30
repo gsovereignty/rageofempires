@@ -29,6 +29,11 @@ changing position. Those waits render a standing frame instead of cycling the
 moving graphic on one tile. A unit selects moving art for the presentation
 interval immediately after an authoritative position change.
 
+Blocked fixed-point movement restores the accumulator value from before the
+blocked tick. Cavalry, ships, unique units, and paced formation members cannot
+bank movement credit against an occupied or newly invalid path and later
+release it as a burst when the obstruction clears.
+
 ## Original evidence
 
 The supplied installer executable is a dummy, so substantial behavior evidence

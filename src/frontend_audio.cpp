@@ -102,6 +102,7 @@ int selected_sound(UnitKind kind) noexcept {
     if (kind == UnitKind::packed_trebuchet ||
         kind == UnitKind::trebuchet) return 291;
     if (kind == UnitKind::relic) return 488;
+    if (kind == UnitKind::trade_cart) return 305;
     if (kind == UnitKind::sheep) return 458;
     if (kind == UnitKind::deer) return 56;
     return -1;
@@ -143,8 +144,8 @@ int trained_sound(UnitKind kind) noexcept {
     if (kind == UnitKind::camel_rider ||
         kind == UnitKind::heavy_camel) return 430;
     if (kind == UnitKind::sheep || kind == UnitKind::deer ||
-        kind == UnitKind::boar || kind == UnitKind::relic ||
-        kind == UnitKind::trade_cart) return -1;
+        kind == UnitKind::boar || kind == UnitKind::relic) return -1;
+    if (kind == UnitKind::trade_cart) return 305;
     return 337;
 }
 

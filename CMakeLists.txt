@@ -200,11 +200,6 @@ target_compile_options(
     renderer_asset_coverage_audit PRIVATE -Wall -Wextra -Wpedantic
 )
 if(AOE_ASSET_AUDIT_DATA_ROOT)
-    get_filename_component(
-        AOE_ASSET_AUDIT_APP_ROOT
-        "${AOE_ASSET_AUDIT_DATA_ROOT}"
-        DIRECTORY
-    )
     add_custom_target(
         refresh_renderer_asset_coverage
         COMMAND
@@ -230,28 +225,6 @@ if(AOE_ASSET_AUDIT_DATA_ROOT)
             --current
             "${CMAKE_CURRENT_BINARY_DIR}/renderer_asset_coverage_current.json"
         DEPENDS renderer_asset_coverage_audit
-        VERBATIM
-    )
-    add_custom_target(
-        run_renderer_runtime_coverage
-        COMMAND
-            "${CMAKE_COMMAND}" -E env
-            "AOE_ASSET_ROOT=${AOE_ASSET_AUDIT_APP_ROOT}"
-            "${Python3_EXECUTABLE}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_renderer_runtime_coverage.py"
-            "$<TARGET_FILE:aoe_reconstruction>"
-            "${CMAKE_CURRENT_SOURCE_DIR}/resources"
-            "${CMAKE_CURRENT_BINARY_DIR}/renderer_runtime_fallbacks.json"
-        COMMAND
-            "${Python3_EXECUTABLE}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/tools/compare_runtime_static_coverage.py"
-            "${CMAKE_CURRENT_SOURCE_DIR}/generated/renderer_asset_coverage_v2.json"
-            "${CMAKE_CURRENT_BINARY_DIR}/renderer_runtime_fallbacks.json"
-        COMMAND
-            "${Python3_EXECUTABLE}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_runtime_fallbacks.py"
-            "${CMAKE_CURRENT_BINARY_DIR}/renderer_runtime_fallbacks.json"
-        DEPENDS aoe_reconstruction renderer_asset_coverage_audit
         VERBATIM
     )
 endif()
@@ -481,10 +454,6 @@ target_compile_options(
     aoe_multiplayer_roster_sdl PRIVATE -Wall -Wextra -Wpedantic
 )
 target_link_libraries(aoe_reconstruction PRIVATE aoe_core SDL3::SDL3)
-target_compile_definitions(
-    aoe_reconstruction PRIVATE
-    AOE_DEFAULT_ASSET_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/../original-assets/app"
-)
 if(AOE_MPG123_INCLUDE_DIR)
     target_include_directories(
         aoe_reconstruction PRIVATE "${AOE_MPG123_INCLUDE_DIR}"
@@ -495,20 +464,28 @@ else()
     target_compile_definitions(aoe_reconstruction PRIVATE AOE_HAVE_MPG123=0)
 endif()
 target_compile_options(aoe_reconstruction PRIVATE -Wall -Wextra -Wpedantic)
-# Track the scenario itself, not just the executable: a POST_BUILD command
-# is skipped when the target does not relink, which used to leave a stale
-# demo.scenario beside the binary.
+file(
+    GLOB_RECURSE AOE_RUNTIME_RESOURCE_FILES
+    CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/resources/*"
+)
+# Track every runtime resource, not just executable relinks.
 add_custom_command(
     OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/deployed-demo-scenario.stamp"
     COMMAND ${CMAKE_COMMAND} -E make_directory
         "$<TARGET_FILE_DIR:aoe_reconstruction>/resources"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/resources"
+        "$<TARGET_FILE_DIR:aoe_reconstruction>/resources"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_SOURCE_DIR}/resources/demo.scenario"
-        "$<TARGET_FILE_DIR:aoe_reconstruction>/resources/demo.scenario"
+        "${CMAKE_CURRENT_SOURCE_DIR}/generated/resource_manifest.json"
+        "$<TARGET_FILE_DIR:aoe_reconstruction>/resource-manifest.json"
     COMMAND ${CMAKE_COMMAND} -E touch
         "${CMAKE_CURRENT_BINARY_DIR}/deployed-demo-scenario.stamp"
-    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/resources/demo.scenario"
-    COMMENT "Deploying demo.scenario beside aoe_reconstruction"
+    DEPENDS
+        ${AOE_RUNTIME_RESOURCE_FILES}
+        "${CMAKE_CURRENT_SOURCE_DIR}/generated/resource_manifest.json"
+    COMMENT "Deploying tracked runtime resources"
     VERBATIM
 )
 add_custom_target(aoe_deploy_demo_scenario ALL
@@ -527,12 +504,20 @@ if(APPLE)
         src/audio_system.cpp
         ${DEMO_SCENARIO}
     )
+    add_custom_command(
+        TARGET aoe_reconstruction_app POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            "$<TARGET_BUNDLE_CONTENT_DIR:aoe_reconstruction_app>/Resources/resources"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/resources"
+            "$<TARGET_BUNDLE_CONTENT_DIR:aoe_reconstruction_app>/Resources/resources"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_CURRENT_SOURCE_DIR}/generated/resource_manifest.json"
+            "$<TARGET_BUNDLE_CONTENT_DIR:aoe_reconstruction_app>/Resources/resource-manifest.json"
+        VERBATIM
+    )
     target_link_libraries(
         aoe_reconstruction_app PRIVATE aoe_core SDL3::SDL3
-    )
-    target_compile_definitions(
-        aoe_reconstruction_app PRIVATE
-        AOE_DEFAULT_ASSET_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/../original-assets/app"
     )
     target_compile_options(
         aoe_reconstruction_app PRIVATE -Wall -Wextra -Wpedantic
@@ -788,17 +773,36 @@ add_test(
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/hud_layout_sdl_smoke.sh
         $<TARGET_FILE:aoe_reconstruction>
 )
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../original-assets/app/Sound")
-    add_test(
-        NAME aoe_audio_playback_sdl_smoke
-        COMMAND
-            bash
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/audio_playback_sdl_smoke.sh
-            $<TARGET_FILE:aoe_reconstruction>
-            ${CMAKE_CURRENT_SOURCE_DIR}/../original-assets/app
-    )
-    set_tests_properties(aoe_audio_playback_sdl_smoke PROPERTIES TIMEOUT 20)
-endif()
+add_test(
+    NAME aoe_self_containment_guard
+    COMMAND
+        "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_self_containment.py"
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+)
+add_test(
+    NAME aoe_command_icon_manifest
+    COMMAND
+        "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_command_icon_manifest.py"
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+)
+add_test(
+    NAME aoe_technology_icon_bindings
+    COMMAND
+        "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/generate_technology_icon_bindings.py"
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+        --check
+)
+add_test(
+    NAME aoe_runtime_resource_manifest
+    COMMAND
+        "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/generate_resource_manifest.py"
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+        --check
+)
 add_test(
     NAME aoe_selection_visual_sdl_smoke
     COMMAND

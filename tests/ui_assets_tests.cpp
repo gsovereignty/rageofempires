@@ -50,7 +50,7 @@ int main() {
     } catch (const std::invalid_argument&) {
     }
 
-    if (const char* root = std::getenv("AOE_ASSET_ROOT")) {
+    if (const char* root = std::getenv("AOE_RESEARCH_ASSET_ROOT")) {
         const auto live = aoe::audit_ui_assets(root);
         check(live.archive_available, "live archive available");
         check(live.palette_available, "live palette available");

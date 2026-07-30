@@ -234,7 +234,15 @@ LegacyDatFile LegacyDatFile::from_decompressed(
             graphic.deltas.push_back(value);
         }
         if (angle_sounds_used != 0) {
-            reader.skip(static_cast<std::size_t>(graphic.angle_count) * 12);
+            graphic.angle_sounds.resize(
+                static_cast<std::size_t>(graphic.angle_count)
+            );
+            for (auto& angle : graphic.angle_sounds) {
+                for (LegacyGraphicSound& sound : angle) {
+                    sound.frame = reader.i16();
+                    sound.sound_id = reader.i16();
+                }
+            }
         }
         if (graphic.graphic_id != static_cast<std::int16_t>(index)) {
             throw LegacyDatError{"graphic ID breaks sequential DAT alignment"};
@@ -298,20 +306,32 @@ const LegacySound* LegacyDatFile::sound(std::size_t id) const noexcept {
 }
 const LegacySoundItem* select_legacy_sound_item(
     const LegacySound& sound,
-    std::int16_t civilization
+    std::int16_t civilization,
+    std::uint32_t roll
 ) noexcept {
-    const auto select = [&sound](std::int16_t candidate_civilization) {
-        const LegacySoundItem* selected = nullptr;
+    const auto select = [&sound, roll](
+                            std::int16_t candidate_civilization
+                        ) -> const LegacySoundItem* {
+        std::uint32_t total{};
         for (const LegacySoundItem& item : sound.items) {
-            if (item.civilization != candidate_civilization) {
-                continue;
-            }
-            if (selected == nullptr ||
-                item.probability > selected->probability) {
-                selected = &item;
+            if (item.civilization == candidate_civilization &&
+                item.probability > 0) {
+                total += static_cast<std::uint32_t>(item.probability);
             }
         }
-        return selected;
+        if (total == 0) return nullptr;
+        std::uint32_t selected_roll = roll % total;
+        for (const LegacySoundItem& item : sound.items) {
+            if (item.civilization != candidate_civilization ||
+                item.probability <= 0) {
+                continue;
+            }
+            const auto weight =
+                static_cast<std::uint32_t>(item.probability);
+            if (selected_roll < weight) return &item;
+            selected_roll -= weight;
+        }
+        return nullptr;
     };
     if (const LegacySoundItem* exact = select(civilization)) {
         return exact;

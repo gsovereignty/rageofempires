@@ -159,7 +159,8 @@ void validate_trigger_runtime_semantics(
             switch (effect.kind) {
                 case TriggerEffectKind::message:
                     if (!represented_player(effect.player) ||
-                        effect.amount <= 0 || effect.text.empty()) {
+                        effect.amount <= 0 || effect.text.empty() ||
+                        effect.audio_file.size() > 4096) {
                         throw std::invalid_argument(
                             "invalid message trigger effect"
                         );
@@ -7305,7 +7306,8 @@ void Simulation::apply_trigger_effect(const TriggerEffect& effect) {
         case TriggerEffectKind::message:
             scenario_messages_.push_back({
                 effect.text, effect.player,
-                tick_number_ + static_cast<std::uint64_t>(effect.amount)
+                tick_number_ + static_cast<std::uint64_t>(effect.amount),
+                effect.audio_file
             });
             break;
         case TriggerEffectKind::complete_objective: {

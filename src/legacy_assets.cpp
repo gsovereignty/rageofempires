@@ -455,7 +455,7 @@ std::vector<std::filesystem::path> discover_legacy_music_tracks(
     if (std::filesystem::is_directory(root / "app" / "Sound")) {
         root /= "app";
     }
-    const std::filesystem::path stream = root / "Sound" / "stream";
+    const std::filesystem::path stream = root / "Sound" / "music";
     std::vector<std::filesystem::path> tracks;
     std::error_code error;
     std::filesystem::directory_iterator iterator{stream, error};

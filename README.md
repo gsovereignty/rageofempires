@@ -453,16 +453,16 @@ Finder-compatible app bundle:
 open "build/AoE Archaeology.app"
 ```
 
-Development builds automatically use `../original-assets/app` when that
-installation tree exists. `AOE_ASSET_ROOT` overrides this default, allowing a
-different extracted original HD installation without copying its art into this
-repository or app bundle:
+The game is self-contained. Development builds and installed bundles do not
+search sibling directories or accept an external asset-root override.
+Reconstruction-owned procedural terrain, sprites, UI, and audio remain active
+when commercial archives are unavailable.
 
-```sh
-AOE_ASSET_ROOT="/path/to/extracted/app" ./build/aoe_reconstruction
-```
+Legacy research tools may inspect an explicitly supplied archive path outside
+the normal build/test/runtime graph. Product binaries never consume that path.
+See [`docs/SELF_CONTAINMENT_INVENTORY.md`](docs/SELF_CONTAINMENT_INVENTORY.md).
 
-`AOE_ASSET_ROOT` may contain loose `Terrain/Textures` PNGs for Grass, Water,
+Research asset roots may contain loose `Terrain/Textures` PNGs for Grass, Water,
 Beach, and Shallows. Missing loose textures fall back individually to SLPs
 15001, 15002, 15017, and 15014 from `Data/terrain.drs`, using palette 50500
 from `Data/interfac.drs`. Forest, berry, gold, and stone ground tiles reuse
@@ -894,25 +894,9 @@ events. Civilization-specific DAT records take precedence over generic records
 with deterministic fallback. See
 [`AUDIO_ARCHIVE_FIDELITY.md`](AUDIO_ARCHIVE_FIDELITY.md).
 
-Set `AOE_ASSET_ROOT` to either the extracted installation directory (the one
-containing `Sound`) or its parent (the one containing `app/Sound`):
-
-```sh
-AOE_ASSET_ROOT="/path/to/extracted/app" ./build/aoe_reconstruction
-```
-
-With installer files in this repository, this minimal extraction enables music
-and shoreline ambience outside the source and build trees:
-
-```sh
-mkdir -p /tmp/aoe-original-audio
-innoextract --output-dir /tmp/aoe-original-audio \
-  --include app/Sound/stream/town.mp3 \
-  --include app/Sound/terrain/Wave1.wav \
-  ../setup.exe
-AOE_ASSET_ROOT=/tmp/aoe-original-audio/app \
-  ./build/aoe_reconstruction
-```
+Commercial audio is research evidence only. Game runtime does not load it from
+an installation or workspace path. Reconstruction-native synthesized cues
+provide hermetic playback without external media.
 
 SDL3 plays the WAV ambience without another dependency. MP3 music is enabled
 when CMake finds a host `mpg123` library. It defaults on for host-SDL developer

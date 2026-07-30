@@ -485,17 +485,17 @@ void test_music_discovery() {
         "aoe-legacy-music-discovery-test";
     std::filesystem::remove_all(root);
     std::filesystem::create_directories(
-        root / "app" / "Sound" / "stream"
+        root / "app" / "Sound" / "music"
     );
     for (const std::string name :
          {"Zeta.MP3", "town.mp3", "Alpha.wav", "notes.txt"}) {
-        std::ofstream{root / "app" / "Sound" / "stream" / name}.put('x');
+        std::ofstream{root / "app" / "Sound" / "music" / name}.put('x');
     }
     std::filesystem::create_directories(
-        root / "app" / "Sound" / "stream" / "nested"
+        root / "app" / "Sound" / "music" / "nested"
     );
     std::ofstream{
-        root / "app" / "Sound" / "stream" / "nested" / "ignored.mp3"
+        root / "app" / "Sound" / "music" / "nested" / "ignored.mp3"
     }.put('x');
 
     const auto tracks = aoe::discover_legacy_music_tracks(root);
@@ -566,10 +566,10 @@ void test_live_unit_event_sound_mapping() {
         "naval event fields follow live DAT"
     );
     check(
-        aoe::selected_sound(aoe::UnitKind::trade_cart) == -1 &&
-            aoe::trained_sound(aoe::UnitKind::trade_cart) == -1 &&
+        aoe::selected_sound(aoe::UnitKind::trade_cart) == 305 &&
+            aoe::trained_sound(aoe::UnitKind::trade_cart) == 305 &&
             aoe::movement_sound(aoe::UnitKind::trade_cart) == 306,
-        "civilization-varying Trade Cart fields stay unsupported"
+        "Trade Cart fields use source-civilization DAT selection"
     );
 
     int selected{};
@@ -586,8 +586,8 @@ void test_live_unit_event_sound_mapping() {
         trained += aoe::trained_sound(kind) >= 0;
     }
     check(
-        selected == 94 && commanded == 93 &&
-            moved == 93 && trained == 91,
+        selected == 95 && commanded == 93 &&
+            moved == 93 && trained == 92,
         "all 96 represented UnitKind event mappings stay accounted"
     );
     int buildings{};
@@ -608,7 +608,7 @@ void test_live_unit_event_sound_mapping() {
 }
 
 void test_installed_assets_if_requested() {
-    const char* root = std::getenv("AOE_ASSET_ROOT");
+    const char* root = std::getenv("AOE_RESEARCH_ASSET_ROOT");
     if (root == nullptr || *root == '\0') {
         return;
     }

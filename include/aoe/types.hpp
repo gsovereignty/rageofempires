@@ -313,6 +313,9 @@ enum class UnitKind {
     elite_woad_raider,
 };
 
+inline constexpr std::size_t unit_kind_count =
+    static_cast<std::size_t>(UnitKind::elite_woad_raider) + 1;
+
 enum class Player {
     blue,
     red,
@@ -526,6 +529,9 @@ enum class BuildingKind {
     wonder,
 };
 
+inline constexpr std::size_t building_kind_count =
+    static_cast<std::size_t>(BuildingKind::wonder) + 1;
+
 enum class TriggerConditionKind {
     elapsed_ticks, unit_exists, unit_destroyed, building_exists,
     building_destroyed, resource_at_least, area_presence,
@@ -565,6 +571,7 @@ struct TriggerEffect {
     int amount{};
     TilePosition position{};
     std::string text;
+    std::string audio_file;
 };
 
 struct ObjectiveState {
@@ -582,6 +589,7 @@ struct ScenarioMessage {
     std::string text;
     Player player{Player::blue};
     std::uint64_t expires_tick{};
+    std::string audio_file;
 
     bool operator==(const ScenarioMessage&) const = default;
 };

@@ -403,7 +403,8 @@ void save_game(const Simulation& simulation, const std::filesystem::path& path) 
                    << effect.entity << ' ' << effect.objective_id << ' '
                    << effect.trigger_id << ' ' << effect.state << ' '
                    << effect.amount << ' ' << effect.position.x << ' '
-                   << effect.position.y << ' ' << std::quoted(effect.text);
+                   << effect.position.y << ' ' << std::quoted(effect.text)
+                   << ' ' << std::quoted(effect.audio_file);
         }
         output << '\n';
     }
@@ -411,7 +412,8 @@ void save_game(const Simulation& simulation, const std::filesystem::path& path) 
         output << "scenario-message "
                << static_cast<int>(message.player) << ' '
                << message.expires_tick << ' '
-               << std::quoted(message.text) << '\n';
+               << std::quoted(message.text) << ' '
+               << std::quoted(message.audio_file) << '\n';
     }
     const MatchRules& match = simulation.match_rules();
     output << "match " << match.conquest_enabled << ' '
@@ -1245,6 +1247,9 @@ Simulation load_game(const std::filesystem::path& path) {
                         effect.objective_id >> effect.trigger_id >>
                         state >> effect.amount >> effect.position.x >>
                         effect.position.y >> std::quoted(effect.text);
+                    if (version >= 112) {
+                        input >> std::quoted(effect.audio_file);
+                    }
                     if (kind < 0 || kind > 13 || player < 0 || player > 2 ||
                         target < 0 || target > 2 || resource < 0 ||
                         resource > 4 || unit < 0 ||
@@ -1352,6 +1357,9 @@ Simulation load_game(const std::filesystem::path& path) {
                 int player{};
                 input >> player >> message.expires_tick >>
                     std::quoted(message.text);
+                if (version >= 112) {
+                    input >> std::quoted(message.audio_file);
+                }
                 if (player < 0 || player > 1) {
                     throw std::runtime_error(
                         "invalid scenario message player in save"
@@ -2549,7 +2557,8 @@ Simulation load_game(const std::filesystem::path& path) {
             (effect.kind == TriggerEffectKind::add_resource &&
              effect.resource == ResourceKind::none) ||
             (effect.kind == TriggerEffectKind::message &&
-             (effect.amount <= 0 || effect.text.empty())) ||
+             (effect.amount <= 0 || effect.text.empty() ||
+              effect.audio_file.size() > 4096)) ||
             (effect.kind == TriggerEffectKind::complete_objective &&
              std::ranges::none_of(
                  objectives,

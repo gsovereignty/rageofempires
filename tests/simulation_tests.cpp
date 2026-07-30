@@ -19428,7 +19428,8 @@ void executable_scenario_triggers_are_deterministic_and_persistent() {
         {4, 70, true, false, "elapsed_ticks >= 2",
          "create_unit villager blue 2 2"},
         {5, 60, true, false, "area_presence blue 0 0 4 4 >= 1",
-         "message player=blue ticks=30 text=\"villagers_present\""},
+         "message player=blue ticks=30 audio=\"voice.mp3\" "
+         "text=\"villagers_present\""},
         {6, 50, true, false, "elapsed_ticks >= 2",
          "diplomacy ally"},
         {7, 0, true, false, "elapsed_ticks >= 4",
@@ -19453,6 +19454,9 @@ void executable_scenario_triggers_are_deterministic_and_persistent() {
     require(simulation.economy(aoe::Player::blue).wood == 4);
     simulation.update();
     require(simulation.scenario_messages().size() == 1);
+    require(
+        simulation.scenario_messages().front().audio_file == "voice.mp3"
+    );
 
     const auto path = std::filesystem::temp_directory_path() /
         "aoe-trigger-runtime-v100.save";
@@ -19825,12 +19829,15 @@ void campaign_manifest_and_progress_are_bounded_and_atomic() {
                << "name \"Learning Campaign\"\n"
                << "description \"Reconstruction-authored.\"\n"
                << "human-player blue\n"
-               << "scenario 10 \"missions/one.scenario\" \"One\"\n"
+               << "scenario 10 \"missions/one.scenario\" \"One\" "
+                  "\"c1s1.mp3\" \"c1s1end.mp3\"\n"
                << "scenario 20 \"missions/two.scenario\" \"Two\"\n"
                << "scenario 30 \"missions/three.scenario\" \"Three\"\n";
     }
     const aoe::Campaign campaign = aoe::load_campaign(manifest);
     require(campaign.scenarios.size() == 3);
+    require(campaign.scenarios[0].briefing_audio == "c1s1.mp3");
+    require(campaign.scenarios[0].debrief_audio == "c1s1end.mp3");
     require(campaign.scenarios[1].id == 20);
     require(campaign.manifest_digest.starts_with("fnv1a64-v1:"));
     const auto canonical = directory / "canonical.campaign";

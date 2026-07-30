@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <charconv>
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
@@ -77,6 +78,39 @@ constexpr float default_camera_zoom = 1.25F;
 constexpr float minimum_camera_zoom = 1.0F;
 constexpr float maximum_camera_zoom = 2.0F;
 
+std::optional<unsigned> taunt_number(std::string_view text) {
+    while (!text.empty() && text.front() == ' ') text.remove_prefix(1);
+    while (!text.empty() && text.back() == ' ') text.remove_suffix(1);
+    unsigned number{};
+    const auto [end, error] = std::from_chars(
+        text.data(), text.data() + text.size(), number
+    );
+    if (error != std::errc{} ||
+        end != text.data() + text.size() ||
+        number < 1 || number > 42) {
+        return std::nullopt;
+    }
+    return number;
+}
+
+bool panel_hotkey_matches(std::string_view hotkey, SDL_Keycode key) {
+    if (hotkey == "ESC") return key == SDLK_ESCAPE;
+    if (hotkey == "<") {
+        return key == SDLK_COMMA || key == SDLK_LEFT;
+    }
+    if (hotkey == ">") {
+        return key == SDLK_PERIOD || key == SDLK_RIGHT;
+    }
+    if (hotkey.size() != 1) return false;
+    const unsigned char expected =
+        static_cast<unsigned char>(hotkey.front());
+    const char* key_name = SDL_GetKeyName(key);
+    return key_name != nullptr && key_name[0] != '\0' &&
+        key_name[1] == '\0' &&
+        std::toupper(static_cast<unsigned char>(key_name[0])) ==
+            std::toupper(expected);
+}
+
 struct CameraView {
     float x{};
     float y{};
@@ -95,6 +129,8 @@ struct CampaignPresentation {
     CampaignScenarioEntry scenario;
     bool visible{};
     bool outcome_processed{};
+    bool narration_started{};
+    bool debrief_narration_started{};
     Screen screen{Screen::briefing};
     std::string optional_narration_path;
     std::string optional_cinematic_path;
@@ -267,6 +303,8 @@ std::vector<BrowserEntry> active_browser_entries;
 std::size_t active_browser_selection{};
 std::filesystem::path active_browser_root;
 int active_command_hover{-1};
+PanelPage active_command_page{PanelPage::root};
+std::size_t active_command_subpage{};
 std::optional<TilePosition> active_build_preview_tile;
 std::optional<TilePosition> active_wall_drag_start;
 struct VisibleMapSignal {
@@ -275,6 +313,7 @@ struct VisibleMapSignal {
 };
 std::vector<VisibleMapSignal> active_map_signals;
 std::uint64_t active_last_signal_sequence{};
+std::uint64_t active_last_taunt_sequence{};
 
 std::string_view ui_text(std::string_view key) {
     return active_string_table != nullptr
@@ -573,6 +612,7 @@ struct LegacySprites {
     LegacySprite hud_actions;
     std::map<std::int32_t, LegacySprite> action_command_icons;
     std::map<std::int32_t, LegacySprite> unit_command_icons;
+    std::map<std::int32_t, LegacySprite> technology_command_icons;
     std::array<LegacySprite, 4> resource_icons;
     LegacySprite portrait_frame;
     LegacySprite market_western_blue;
@@ -724,6 +764,11 @@ struct LegacySprites {
             icon.destroy();
         }
         unit_command_icons.clear();
+        for (auto& [frame, icon] : technology_command_icons) {
+            static_cast<void>(frame);
+            icon.destroy();
+        }
+        technology_command_icons.clear();
         for (LegacySprite& icon : resource_icons) {
             icon.destroy();
         }
@@ -1519,10 +1564,62 @@ bool building_has_death_sound(BuildingKind kind) {
         kind != BuildingKind::fish_trap;
 }
 
+TilePosition active_audio_listener_tile{};
+
+std::pair<float, float> world_effect_mix(TilePosition source) {
+    const float dx = static_cast<float>(
+        source.x - active_audio_listener_tile.x
+    );
+    const float dy = static_cast<float>(
+        source.y - active_audio_listener_tile.y
+    );
+    const float distance = std::hypot(dx, dy);
+    return {
+        std::clamp(1.0F - distance / 32.0F, 0.0F, 1.0F),
+        std::clamp((dx - dy) / 16.0F, -1.0F, 1.0F)
+    };
+}
+
+void play_world_effect(
+    AudioSystem& audio,
+    int sound_id,
+    TilePosition source,
+    AudioCategory category = AudioCategory::combat,
+    std::optional<Civilization> source_civilization = std::nullopt
+) {
+    if (sound_id < 0) return;
+    const auto [gain, pan] = world_effect_mix(source);
+    if (gain <= 0.0F) return;
+    audio.play_effect(
+        sound_id, category, gain, pan, source_civilization
+    );
+}
+
+int death_animation_slp(UnitKind kind) {
+    if (const auto animation = unit_animation_set(kind);
+        animation && animation->death_slp >= 0) {
+        return animation->death_slp;
+    }
+    if (const UnitDeathAnimationSet* animation =
+            unit_death_animation_set(kind)) {
+        return animation->slp;
+    }
+    return -1;
+}
+
+std::pair<int, int> attack_animation(UnitKind kind) {
+    if (const auto animation = unit_animation_set(kind);
+        animation && animation->attack_slp >= 0) {
+        return {animation->attack_slp, animation->attack_frames};
+    }
+    return {-1, 0};
+}
+
 class FrontendAudioEvents {
 public:
     void prime(const Simulation& simulation) {
         cooldowns_.clear();
+        attack_animation_frames_.clear();
         moving_.clear();
         known_units_.clear();
         conversion_targets_.clear();
@@ -1542,6 +1639,17 @@ public:
         }
         selection_ = simulation.selected_units();
         selected_building_ = simulation.selected_building();
+        known_scenario_audio_.clear();
+        for (const ScenarioMessage& message :
+             simulation.scenario_messages()) {
+            if (!message.audio_file.empty()) {
+                known_scenario_audio_.insert({
+                    message.text,
+                    message.audio_file,
+                    message.expires_tick
+                });
+            }
+        }
         world_tick_ = simulation.tick_number();
     }
 
@@ -1597,6 +1705,24 @@ public:
         }
         world_tick_ = simulation.tick_number();
 
+        std::set<std::tuple<std::string, std::string, std::uint64_t>>
+            present_scenario_audio;
+        for (const ScenarioMessage& message :
+             simulation.scenario_messages()) {
+            if (message.audio_file.empty()) continue;
+            const auto key = std::tuple{
+                message.text,
+                message.audio_file,
+                message.expires_tick
+            };
+            present_scenario_audio.insert(key);
+            if (!known_scenario_audio_.contains(key) &&
+                message.player == active_view_player) {
+                audio->play_narration(message.audio_file);
+            }
+        }
+        known_scenario_audio_ = std::move(present_scenario_audio);
+
         std::set<EntityId> present;
         for (const Unit& unit : simulation.units()) {
             present.insert(unit.id);
@@ -1604,19 +1730,62 @@ public:
                 belongs_to_local_view(
                     unit.owner, active_view_player
                 )) {
-                audio->play_effect(trained_sound(unit.kind));
+                play_world_effect(
+                    *audio, trained_sound(unit.kind), unit.position,
+                    AudioCategory::combat,
+                    simulation.civilization(unit.owner)
+                );
             }
             const int previous = cooldowns_.contains(unit.id)
                 ? cooldowns_.at(unit.id)
                 : unit.attack_cooldown;
             if (unit.attack_cooldown > previous &&
                 simulation.is_visible_to_controller(active_view_player, unit.position)) {
-                audio->play_effect(unit_attack_sound(unit.kind));
+                attack_animation_frames_[unit.id] = 0;
+            }
+            if (const auto pending =
+                    attack_animation_frames_.find(unit.id);
+                pending != attack_animation_frames_.end()) {
+                const auto [slp, frame_count] =
+                    attack_animation(unit.kind);
+                const auto [gain, pan] =
+                    world_effect_mix(unit.position);
+                const bool graphic_sounds =
+                    gain > 0.0F &&
+                    audio->play_graphic_frame_sounds(
+                        slp,
+                        pending->second,
+                        0,
+                        gain,
+                        pan,
+                        simulation.civilization(unit.owner)
+                    );
+                if (!graphic_sounds) {
+                    if (pending->second == 0) {
+                        play_world_effect(
+                            *audio,
+                            unit_attack_sound(unit.kind),
+                            unit.position,
+                            AudioCategory::combat,
+                            simulation.civilization(unit.owner)
+                        );
+                    }
+                    attack_animation_frames_.erase(pending);
+                } else if (++pending->second >= frame_count) {
+                    attack_animation_frames_.erase(pending);
+                }
             }
             const bool was_moving = moving_.contains(unit.id) &&
                 moving_.at(unit.id);
-            if (unit.moving && !was_moving) {
-                audio->play_effect(movement_sound(unit.kind));
+            if (unit.moving && !was_moving &&
+                simulation.is_visible_to_controller(
+                    active_view_player, unit.position
+                )) {
+                play_world_effect(
+                    *audio, movement_sound(unit.kind), unit.position,
+                    AudioCategory::combat,
+                    simulation.civilization(unit.owner)
+                );
             }
             const EntityId previous_conversion =
                 conversion_targets_.contains(unit.id)
@@ -1629,12 +1798,18 @@ public:
             if (unit.kind == UnitKind::missionary &&
                 unit.conversion_target_id != 0 &&
                 previous_conversion == 0) {
-                audio->play_effect(417);
+                play_world_effect(
+                    *audio, 417, unit.position, AudioCategory::combat,
+                    simulation.civilization(unit.owner)
+                );
             }
             if (unit.kind == UnitKind::missionary &&
                 unit.healing_target_id != 0 &&
                 previous_healing == 0) {
-                audio->play_effect(418);
+                play_world_effect(
+                    *audio, 418, unit.position, AudioCategory::combat,
+                    simulation.civilization(unit.owner)
+                );
             }
             conversion_targets_[unit.id] = unit.conversion_target_id;
             healing_targets_[unit.id] = unit.healing_target_id;
@@ -1659,6 +1834,12 @@ public:
                 return !present.contains(entry.first);
             }
         );
+        std::erase_if(
+            attack_animation_frames_,
+            [&present = known_units_](const auto& entry) {
+                return !present.contains(entry.first);
+            }
+        );
 
         std::set<EntityId> present_buildings;
         for (const Building& building : simulation.buildings()) {
@@ -1670,8 +1851,10 @@ public:
                 (building.kind == BuildingKind::bombard_tower ||
                  building.kind == BuildingKind::outpost ||
                  building.kind == BuildingKind::wonder)) {
-                audio->play_effect(
-                    building.kind == BuildingKind::wonder ? 383 : 23
+                play_world_effect(
+                    *audio,
+                    building.kind == BuildingKind::wonder ? 383 : 23,
+                    building.position
                 );
             }
             const int previous =
@@ -1681,7 +1864,7 @@ public:
             if (building.kind == BuildingKind::bombard_tower &&
                 building.attack_cooldown > previous &&
                 simulation.is_building_visible(active_view_player, building)) {
-                audio->play_effect(411);
+                play_world_effect(*audio, 411, building.position);
             }
             building_cooldowns_[building.id] = building.attack_cooldown;
         }
@@ -1689,19 +1872,38 @@ public:
 
         for (const UnitDeathEffect& effect :
              simulation.death_effects()) {
-            if (effect.ticks_remaining == effect.total_ticks &&
-                simulation.is_visible_to_controller(active_view_player, effect.position)) {
-                const int sound = unit_death_sound(effect.kind);
-                if (sound >= 0) {
-                    audio->play_effect(sound);
-                }
+            if (!simulation.is_visible_to_controller(
+                    active_view_player, effect.position
+                )) {
+                continue;
+            }
+            const int elapsed = std::max(
+                effect.total_ticks - effect.ticks_remaining, 0
+            );
+            const auto [gain, pan] = world_effect_mix(effect.position);
+            const bool graphic_sounds =
+                gain > 0.0F &&
+                audio->play_graphic_frame_sounds(
+                    death_animation_slp(effect.kind),
+                    elapsed,
+                    0,
+                    gain,
+                    pan,
+                    simulation.civilization(effect.owner)
+                );
+            if (elapsed == 0 && !graphic_sounds) {
+                play_world_effect(
+                    *audio, unit_death_sound(effect.kind), effect.position,
+                    AudioCategory::combat,
+                    simulation.civilization(effect.owner)
+                );
             }
         }
         for (const ImpactEffect& effect : simulation.impact_effects()) {
             if (effect.ticks_remaining == effect.total_ticks &&
                 effect.source_kind != UnitKind::petard &&
                 simulation.is_visible_to_controller(active_view_player, effect.position)) {
-                audio->play_effect(323);
+                play_world_effect(*audio, 323, effect.position);
             }
         }
         for (const BuildingRubbleEffect& effect :
@@ -1709,13 +1911,14 @@ public:
             if (building_has_death_sound(effect.kind) &&
                 effect.ticks_remaining == effect.total_ticks &&
                 simulation.is_visible_to_controller(active_view_player, effect.position)) {
-                audio->play_effect(323);
+                play_world_effect(*audio, 323, effect.position);
             }
         }
     }
 
 private:
     std::map<EntityId, int> cooldowns_;
+    std::map<EntityId, int> attack_animation_frames_;
     std::map<EntityId, bool> moving_;
     std::map<EntityId, EntityId> conversion_targets_;
     std::map<EntityId, EntityId> healing_targets_;
@@ -1724,6 +1927,8 @@ private:
     std::set<EntityId> known_buildings_;
     std::vector<EntityId> selection_;
     std::optional<EntityId> selected_building_;
+    std::set<std::tuple<std::string, std::string, std::uint64_t>>
+        known_scenario_audio_;
     std::uint64_t world_tick_{};
 };
 
@@ -3612,23 +3817,17 @@ LegacySprites load_local_legacy_sprites(
             sprites.hud_actions,
             ui_asset_mapping(UiAssetRole::action_sheet).resource_id
         );
-        constexpr std::array<std::int32_t, 17> action_command_frames{
-            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
-        };
-        for (const std::int32_t frame : action_command_frames) {
-            attempt_interface(
-                sprites.action_command_icons[frame],
-                ui_icons::command_sheet,
-                static_cast<std::size_t>(frame)
-            );
-        }
-        constexpr std::array<std::int32_t, 15> command_unit_frames{
-            1, 8, 15, 17, 20, 24, 27, 31, 33, 64, 74, 78, 80, 87, 95
-        };
-        for (const std::int32_t frame : command_unit_frames) {
+        for (std::int32_t frame = 0; frame < 134; ++frame) {
             attempt_interface(
                 sprites.unit_command_icons[frame],
                 ui_icons::unit_sheet,
+                static_cast<std::size_t>(frame)
+            );
+        }
+        for (std::int32_t frame = 0; frame < 118; ++frame) {
+            attempt_interface(
+                sprites.technology_command_icons[frame],
+                ui_icons::technology_sheet,
                 static_cast<std::size_t>(frame)
             );
         }
@@ -9969,7 +10168,11 @@ void render_hud(
             : SDL_Color{239, 226, 185, 255}
     );
     const SelectionPanelModel selection_panel =
-        build_selection_panel(simulation, active_view_player);
+        build_selection_panel(
+            simulation,
+            active_view_player,
+            active_command_page,
+            active_command_subpage);
     const bool observer_mode =
         simulation.observer_perspective(active_view_player);
     const bool has_selection =
@@ -10139,20 +10342,25 @@ void render_hud(
             );
             float label_x = button.x + 3.0F;
             const LegacySprite* icon_sprite = nullptr;
-            if (command.action_archive_icon_id) {
-                const auto icon =
-                    active_legacy_sprites.action_command_icons.find(
-                        *command.action_archive_icon_id);
-                if (icon !=
-                    active_legacy_sprites.action_command_icons.end()) {
-                    icon_sprite = &icon->second;
-                }
-            } else if (command.proven_archive_icon_id) {
+            if (command.icon &&
+                command.icon->evidence ==
+                    ui_icons::Evidence::exact_executable_dispatch &&
+                command.icon->sheet == ui_icons::unit_sheet) {
                 const auto icon =
                     active_legacy_sprites.unit_command_icons.find(
-                        *command.proven_archive_icon_id);
+                        command.icon->frame);
+                if (icon != active_legacy_sprites.unit_command_icons.end()) {
+                    icon_sprite = &icon->second;
+                }
+            } else if (command.icon &&
+                command.icon->evidence ==
+                    ui_icons::Evidence::exact_executable_dispatch &&
+                command.icon->sheet == ui_icons::technology_sheet) {
+                const auto icon =
+                    active_legacy_sprites.technology_command_icons.find(
+                        command.icon->frame);
                 if (icon !=
-                    active_legacy_sprites.unit_command_icons.end()) {
+                    active_legacy_sprites.technology_command_icons.end()) {
                     icon_sprite = &icon->second;
                 }
             }
@@ -13927,6 +14135,8 @@ ScenarioStartup load_bundled_scenario() {
                     std::move(selected),
                     true,
                     false,
+                    false,
+                    false,
                     CampaignPresentation::Screen::briefing,
                     {},
                     {},
@@ -14706,6 +14916,20 @@ int SdlApp::run() {
     FrontendAudioEvents audio_events;
     audio_events.prime(simulation);
     if (audio != nullptr) {
+        audio->set_listener_civilization(
+            simulation.civilization(active_view_player)
+        );
+        if (const char* proof_context =
+                SDL_getenv("AOE_AUDIO_PROOF_CONTEXT");
+            proof_context != nullptr &&
+            std::string_view{proof_context} == "gameplay") {
+            audio->set_music_context(AudioMusicContext::gameplay, true);
+        } else {
+            audio->set_music_context(
+                AudioMusicContext::civilization,
+                true
+            );
+        }
         if (const char* requested =
                 SDL_getenv("AOE_AUDIO_PROOF_SOUND")) {
             audio->play_effect(SDL_atoi(requested));
@@ -14901,6 +15125,11 @@ int SdlApp::run() {
     std::optional<EntityId> pending_rally_building;
     bool pending_conversion = false;
     bool pending_trade_route = false;
+    bool pending_repair = false;
+    bool pending_heal = false;
+    bool pending_relic_action = false;
+    bool pending_embark = false;
+    bool pending_disembark = false;
     const auto clear_command_target_modes = [
         &pending_attack_move,
         &pending_attack_ground,
@@ -14909,7 +15138,12 @@ int SdlApp::run() {
         &pending_garrison,
         &pending_rally_building,
         &pending_conversion,
-        &pending_trade_route
+        &pending_trade_route,
+        &pending_repair,
+        &pending_heal,
+        &pending_relic_action,
+        &pending_embark,
+        &pending_disembark
     ] {
         pending_attack_move = false;
         pending_attack_ground = false;
@@ -14919,6 +15153,11 @@ int SdlApp::run() {
         pending_rally_building.reset();
         pending_conversion = false;
         pending_trade_route = false;
+        pending_repair = false;
+        pending_heal = false;
+        pending_relic_action = false;
+        pending_embark = false;
+        pending_disembark = false;
     };
     if (const char* preview = SDL_getenv("AOE_BUILD_PREVIEW")) {
         const auto builder = std::ranges::find_if(
@@ -14999,6 +15238,11 @@ int SdlApp::run() {
         &pending_rally_building,
         &pending_conversion,
         &pending_trade_route,
+        &pending_repair,
+        &pending_heal,
+        &pending_relic_action,
+        &pending_embark,
+        &pending_disembark,
         &simulation
     ](BuildingKind kind) {
         if (!building_available_to_player(
@@ -15015,6 +15259,11 @@ int SdlApp::run() {
         pending_rally_building.reset();
         pending_conversion = false;
         pending_trade_route = false;
+        pending_repair = false;
+        pending_heal = false;
+        pending_relic_action = false;
+        pending_embark = false;
+        pending_disembark = false;
     };
     const auto apply_editor_cursor = [&]() {
         if (!scenario_editor ||
@@ -15199,7 +15448,10 @@ int SdlApp::run() {
                      simulation.selected_building())) {
                     const SelectionPanelModel panel =
                         build_selection_panel(
-                            simulation, active_view_player);
+                            simulation,
+                            active_view_player,
+                            active_command_page,
+                            active_command_subpage);
                     if (static_cast<std::size_t>(active_command_hover) <
                             panel.commands.size()) {
                         const CommandButtonModel& button =
@@ -15216,7 +15468,56 @@ int SdlApp::run() {
                             continue;
                         }
                         clear_command_target_modes();
-                        if (button.command == PanelCommand::stop) {
+                        if (button.command ==
+                            PanelCommand::open_economic_buildings) {
+                            active_command_page =
+                                PanelPage::economic_buildings;
+                            active_command_subpage = 0;
+                        } else if (
+                            button.command ==
+                            PanelCommand::open_military_buildings) {
+                            active_command_page =
+                                PanelPage::military_buildings;
+                            active_command_subpage = 0;
+                        } else if (
+                            button.command ==
+                            PanelCommand::open_defensive_buildings) {
+                            active_command_page =
+                                PanelPage::defensive_buildings;
+                            active_command_subpage = 0;
+                        } else if (
+                            button.command ==
+                                PanelCommand::open_production) {
+                            active_command_page = PanelPage::production;
+                            active_command_subpage = 0;
+                        } else if (
+                            button.command ==
+                                PanelCommand::open_research) {
+                            active_command_page = PanelPage::research;
+                            active_command_subpage = 0;
+                        } else if (
+                            button.command ==
+                                PanelCommand::previous_page) {
+                            if (active_command_subpage > 0) {
+                                --active_command_subpage;
+                            }
+                        } else if (
+                            button.command == PanelCommand::next_page) {
+                            if (active_command_subpage + 1 <
+                                panel.page_count) {
+                                ++active_command_subpage;
+                            }
+                        } else if (button.command == PanelCommand::back) {
+                            active_command_page = PanelPage::root;
+                            active_command_subpage = 0;
+                        } else if (
+                            button.command ==
+                                PanelCommand::construct_building &&
+                            button.building) {
+                            set_build_mode(*button.building);
+                            active_command_page = PanelPage::root;
+                            active_command_subpage = 0;
+                        } else if (button.command == PanelCommand::stop) {
                             for (EntityId id :
                                  simulation.selected_units()) {
                                 GameCommand command = StopUnitCommand{id};
@@ -15247,6 +15548,66 @@ int SdlApp::run() {
                             pending_rally_building.reset();
                             control_group_status =
                                 "RIGHT CLICK FRIENDLY GARRISON BUILDING";
+                        } else if (
+                            button.command == PanelCommand::convert) {
+                            pending_conversion = true;
+                            control_group_status =
+                                "RIGHT CLICK ENEMY UNIT TO CONVERT";
+                        } else if (
+                            button.command == PanelCommand::repair) {
+                            pending_repair = true;
+                            control_group_status =
+                                "RIGHT CLICK DAMAGED FRIENDLY BUILDING";
+                        } else if (
+                            button.command == PanelCommand::heal) {
+                            pending_heal = true;
+                            control_group_status =
+                                "RIGHT CLICK WOUNDED FRIENDLY UNIT";
+                        } else if (
+                            button.command ==
+                                PanelCommand::collect_relic ||
+                            button.command ==
+                                PanelCommand::deposit_relic) {
+                            pending_relic_action = true;
+                            control_group_status =
+                                button.command ==
+                                        PanelCommand::collect_relic
+                                    ? "RIGHT CLICK RELIC"
+                                    : "RIGHT CLICK FRIENDLY MONASTERY";
+                        } else if (
+                            button.command == PanelCommand::embark) {
+                            pending_embark = true;
+                            control_group_status =
+                                "RIGHT CLICK FRIENDLY TRANSPORT SHIP";
+                        } else if (
+                            button.command == PanelCommand::disembark) {
+                            pending_disembark = true;
+                            control_group_status =
+                                "RIGHT CLICK VALID SHORE TILE";
+                        } else if (
+                            button.command == PanelCommand::trade_route) {
+                            pending_trade_route = true;
+                            control_group_status =
+                                "RIGHT CLICK ALLIED TRADE ENDPOINT";
+                        } else if (
+                            button.command ==
+                                PanelCommand::pack_trebuchet ||
+                            button.command ==
+                                PanelCommand::unpack_trebuchet) {
+                            const bool pack =
+                                button.command ==
+                                    PanelCommand::pack_trebuchet;
+                            for (EntityId id :
+                                 simulation.selected_units()) {
+                                GameCommand command =
+                                    PackTrebuchetCommand{id, pack};
+                                if (execute(simulation, command)) {
+                                    replay.record(
+                                        simulation.tick_number(),
+                                        std::move(command)
+                                    );
+                                }
+                            }
                         } else if (
                             button.command >=
                                 PanelCommand::stance_aggressive &&
@@ -15350,6 +15711,23 @@ int SdlApp::run() {
                                     simulation.tick_number(),
                                     std::move(command)
                                 );
+                            }
+                        } else if (
+                            button.command == PanelCommand::research &&
+                            button.technology &&
+                            simulation.selected_building()) {
+                            GameCommand command =
+                                ResearchTechnologyCommand{
+                                    *simulation.selected_building(),
+                                    *button.technology,
+                                };
+                            if (execute(simulation, command)) {
+                                replay.record(
+                                    simulation.tick_number(),
+                                    std::move(command)
+                                );
+                                active_command_page = PanelPage::root;
+                                active_command_subpage = 0;
                             }
                         }
                     }
@@ -15750,6 +16128,168 @@ int SdlApp::run() {
                         if (assigned) {
                             pending_trade_route = false;
                         }
+                    } else if (pending_embark &&
+                        !simulation.selected_units().empty()) {
+                        const auto transport = std::ranges::find_if(
+                            simulation.units(),
+                            [tile](const Unit& unit) {
+                                return unit.kind ==
+                                           UnitKind::transport_ship &&
+                                    unit.owner == active_view_player &&
+                                    unit.garrisoned_in == 0 &&
+                                    unit.position == tile;
+                            }
+                        );
+                        bool assigned = false;
+                        if (transport != simulation.units().end()) {
+                            for (EntityId passenger :
+                                 simulation.selected_units()) {
+                                GameCommand command =
+                                    EmbarkCommand{
+                                        passenger, transport->id};
+                                if (execute(simulation, command)) {
+                                    replay.record(
+                                        simulation.tick_number(),
+                                        std::move(command)
+                                    );
+                                    assigned = true;
+                                }
+                            }
+                        }
+                        if (assigned) pending_embark = false;
+                    } else if (pending_disembark &&
+                        !simulation.selected_units().empty()) {
+                        bool assigned = false;
+                        for (EntityId transport :
+                             simulation.selected_units()) {
+                            GameCommand command =
+                                DisembarkCommand{transport, tile};
+                            if (execute(simulation, command)) {
+                                replay.record(
+                                    simulation.tick_number(),
+                                    std::move(command)
+                                );
+                                assigned = true;
+                            }
+                        }
+                        if (assigned) pending_disembark = false;
+                    } else if (pending_repair &&
+                        !simulation.selected_units().empty()) {
+                        const auto target = std::ranges::find_if(
+                            simulation.buildings(),
+                            [&simulation, tile](
+                                const Building& building) {
+                                const BuildingRules& rules =
+                                    rules_for(building.kind);
+                                return building.owner ==
+                                           active_view_player &&
+                                    building.completed() &&
+                                    building.hit_points <
+                                        simulation.maximum_hit_points(
+                                            building) &&
+                                    tile.x >= building.position.x &&
+                                    tile.y >= building.position.y &&
+                                    tile.x < building.position.x +
+                                        rules.footprint_width &&
+                                    tile.y < building.position.y +
+                                        rules.footprint_height;
+                            }
+                        );
+                        bool assigned = false;
+                        if (target != simulation.buildings().end()) {
+                            for (EntityId villager :
+                                 simulation.selected_units()) {
+                                GameCommand command = MoveUnitCommand{
+                                    villager, target->position
+                                };
+                                if (execute(simulation, command)) {
+                                    replay.record(
+                                        simulation.tick_number(),
+                                        std::move(command)
+                                    );
+                                    assigned = true;
+                                }
+                            }
+                        }
+                        if (assigned) pending_repair = false;
+                    } else if (pending_heal &&
+                        !simulation.selected_units().empty()) {
+                        const auto target = std::ranges::find_if(
+                            simulation.units(),
+                            [&simulation, tile](const Unit& unit) {
+                                return unit.owner == active_view_player &&
+                                    unit.garrisoned_in == 0 &&
+                                    unit.position == tile &&
+                                    unit.hit_points <
+                                        simulation.maximum_hit_points(unit);
+                            }
+                        );
+                        bool assigned = false;
+                        if (target != simulation.units().end()) {
+                            for (EntityId monk :
+                                 simulation.selected_units()) {
+                                GameCommand command =
+                                    HealUnitCommand{monk, target->id};
+                                if (execute(simulation, command)) {
+                                    replay.record(
+                                        simulation.tick_number(),
+                                        std::move(command)
+                                    );
+                                    assigned = true;
+                                }
+                            }
+                        }
+                        if (assigned) pending_heal = false;
+                    } else if (pending_relic_action &&
+                        !simulation.selected_units().empty()) {
+                        const auto relic = std::ranges::find_if(
+                            simulation.units(),
+                            [tile](const Unit& unit) {
+                                return unit.kind == UnitKind::relic &&
+                                    unit.garrisoned_in == 0 &&
+                                    unit.position == tile;
+                            }
+                        );
+                        const auto monastery = std::ranges::find_if(
+                            simulation.buildings(),
+                            [tile](const Building& building) {
+                                const BuildingRules& rules =
+                                    rules_for(building.kind);
+                                return building.kind ==
+                                           BuildingKind::monastery &&
+                                    building.owner == active_view_player &&
+                                    building.completed() &&
+                                    tile.x >= building.position.x &&
+                                    tile.y >= building.position.y &&
+                                    tile.x < building.position.x +
+                                        rules.footprint_width &&
+                                    tile.y < building.position.y +
+                                        rules.footprint_height;
+                            }
+                        );
+                        bool assigned = false;
+                        for (EntityId monk :
+                             simulation.selected_units()) {
+                            std::optional<GameCommand> command;
+                            if (relic != simulation.units().end()) {
+                                command =
+                                    CollectRelicCommand{monk, relic->id};
+                            } else if (
+                                monastery != simulation.buildings().end()) {
+                                command = DepositRelicCommand{
+                                    monk, monastery->id
+                                };
+                            }
+                            if (command &&
+                                execute(simulation, *command)) {
+                                replay.record(
+                                    simulation.tick_number(),
+                                    std::move(*command)
+                                );
+                                assigned = true;
+                            }
+                        }
+                        if (assigned) pending_relic_action = false;
                     } else if (pending_conversion &&
                         !simulation.selected_units().empty()) {
                         const auto target = std::ranges::find_if(
@@ -17364,6 +17904,41 @@ int SdlApp::run() {
                     scenario_presentation.objectives_visible =
                         !scenario_presentation.objectives_visible;
                     continue;
+                }
+                if (!event.key.repeat &&
+                    !replaying &&
+                    (simulation.selected_unit() ||
+                     simulation.selected_building()) &&
+                    (SDL_GetModState() &
+                     (SDL_KMOD_CTRL | SDL_KMOD_ALT | SDL_KMOD_GUI)) == 0) {
+                    const SelectionPanelModel panel =
+                        build_selection_panel(
+                            simulation,
+                            active_view_player,
+                            active_command_page,
+                            active_command_subpage
+                        );
+                    const auto match = std::ranges::find_if(
+                        panel.commands,
+                        [&event](const CommandButtonModel& button) {
+                            return button.enabled &&
+                                panel_hotkey_matches(
+                                    button.hotkey, event.key.key
+                                );
+                        }
+                    );
+                    if (match != panel.commands.end()) {
+                        active_command_hover = static_cast<int>(
+                            std::distance(panel.commands.begin(), match)
+                        );
+                        SDL_Event activation{};
+                        activation.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
+                        activation.button.button = SDL_BUTTON_LEFT;
+                        activation.button.x = mouse_position.x;
+                        activation.button.y = mouse_position.y;
+                        SDL_PushEvent(&activation);
+                        continue;
+                    }
                 }
                 const SDL_Keymod debug_modifiers = SDL_GetModState();
                 if (!event.key.repeat &&
@@ -19626,6 +20201,18 @@ int SdlApp::run() {
                 multiplayer_runtime->waiting_for_turn();
             multiplayer_presentation->chat_log =
                 multiplayer_runtime->chat_log();
+            for (const LockstepChatMessage& message :
+                 multiplayer_runtime->chat_log()) {
+                if (message.sequence <= active_last_taunt_sequence) {
+                    continue;
+                }
+                if (audio) {
+                    if (const auto number = taunt_number(message.text)) {
+                        audio->play_taunt(*number);
+                    }
+                }
+                active_last_taunt_sequence = message.sequence;
+            }
             multiplayer_presentation->signal_log =
                 multiplayer_runtime->signal_log();
             for (const LockstepMapSignal& signal :
@@ -19831,6 +20418,91 @@ int SdlApp::run() {
             audio->set_paused(
                 paused ||
                 (multiplayer_runtime && multiplayer_runtime->paused())
+            );
+            AudioMusicContext music_context =
+                AudioMusicContext::gameplay;
+            if (active_frontend_screen != FrontendScreen::hidden) {
+                music_context = AudioMusicContext::menu;
+            } else if (
+                simulation.outcome() != MatchOutcome::ongoing) {
+                const bool local_victory =
+                    simulation.outcome() == MatchOutcome::allied_victory ||
+                    (active_view_player == Player::blue &&
+                     simulation.outcome() == MatchOutcome::blue_victory) ||
+                    (active_view_player == Player::red &&
+                     simulation.outcome() == MatchOutcome::red_victory);
+                music_context = local_victory
+                    ? AudioMusicContext::victory
+                    : AudioMusicContext::defeat;
+            } else if (campaign_modal) {
+                music_context = AudioMusicContext::menu;
+            } else if (
+                simulation.victory_countdown(Player::blue) > 0 ||
+                simulation.victory_countdown(Player::red) > 0) {
+                music_context = AudioMusicContext::countdown;
+            }
+            audio->set_music_context(music_context, true);
+            if (campaign_presentation &&
+                campaign_presentation->visible &&
+                campaign_presentation->screen ==
+                    CampaignPresentation::Screen::briefing &&
+                !campaign_presentation->narration_started &&
+                (!campaign_presentation->optional_narration_path.empty() ||
+                 !campaign_presentation->scenario
+                      .briefing_audio.empty())) {
+                const std::filesystem::path narration =
+                    !campaign_presentation->optional_narration_path.empty()
+                    ? campaign_presentation->optional_narration_path
+                    : campaign_presentation->scenario.briefing_audio;
+                audio->play_narration(narration);
+                campaign_presentation->narration_started = true;
+            }
+            if (campaign_presentation &&
+                campaign_presentation->visible &&
+                campaign_presentation->screen ==
+                    CampaignPresentation::Screen::debrief &&
+                !campaign_presentation->debrief_narration_started &&
+                !campaign_presentation->scenario.debrief_audio.empty()) {
+                audio->play_narration(
+                    campaign_presentation->scenario.debrief_audio
+                );
+                campaign_presentation->debrief_narration_started = true;
+            }
+
+            const float projected_x =
+                (static_cast<float>(view_pixel_width) * 0.5F /
+                     camera.zoom +
+                 camera.x - static_cast<float>(map_origin_x())) /
+                half_tile_width;
+            const float projected_y =
+                (static_cast<float>(view_pixel_height) * 0.5F /
+                     camera.zoom +
+                 camera.y - static_cast<float>(map_origin_y)) /
+                half_tile_height;
+            const TilePosition listener_tile{
+                std::clamp(
+                    static_cast<int>(std::floor(
+                        (projected_y + projected_x) / 2.0F
+                    )),
+                    0,
+                    simulation.map().width() - 1
+                ),
+                std::clamp(
+                    static_cast<int>(std::floor(
+                        (projected_y - projected_x) / 2.0F
+                    )),
+                    0,
+                    simulation.map().height() - 1
+                ),
+            };
+            const std::uint64_t ambience_variation =
+                static_cast<std::uint64_t>(listener_tile.x) *
+                    0x9E3779B185EBCA87ULL ^
+                static_cast<std::uint64_t>(listener_tile.y);
+            active_audio_listener_tile = listener_tile;
+            audio->set_terrain_ambience(
+                simulation.map().terrain_at(listener_tile),
+                ambience_variation
             );
         }
         audio_events.update(simulation, audio.get());

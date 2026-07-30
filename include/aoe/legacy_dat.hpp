@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -22,6 +23,11 @@ struct LegacyGraphicDelta {
     std::int16_t display_angle{};
 };
 
+struct LegacyGraphicSound {
+    std::int16_t frame{};
+    std::int16_t sound_id{};
+};
+
 struct LegacyGraphic {
     std::string name;
     std::string filename;
@@ -33,6 +39,7 @@ struct LegacyGraphic {
     std::int16_t graphic_id{};
     std::uint8_t mirroring_mode{};
     std::vector<LegacyGraphicDelta> deltas;
+    std::vector<std::array<LegacyGraphicSound, 3>> angle_sounds;
 };
 
 struct LegacySoundItem {
@@ -51,10 +58,11 @@ struct LegacySound {
 };
 
 // Exact civilization records take precedence over generic (-1) records.
-// Highest probability wins; DAT order breaks ties deterministically.
+// roll is mapped across positive DAT probability weights.
 [[nodiscard]] const LegacySoundItem* select_legacy_sound_item(
     const LegacySound& sound,
-    std::int16_t civilization
+    std::int16_t civilization,
+    std::uint32_t roll
 ) noexcept;
 
 // Read-only parser for the stable prefix of HD Edition's raw-DEFLATE

@@ -3817,6 +3817,13 @@ LegacySprites load_local_legacy_sprites(
             sprites.hud_actions,
             ui_asset_mapping(UiAssetRole::action_sheet).resource_id
         );
+        for (std::int32_t frame = 0; frame < 14; ++frame) {
+            attempt_interface(
+                sprites.action_command_icons[frame],
+                ui_icons::command_sheet,
+                static_cast<std::size_t>(frame)
+            );
+        }
         for (std::int32_t frame = 0; frame < 134; ++frame) {
             attempt_interface(
                 sprites.unit_command_icons[frame],
@@ -10343,6 +10350,15 @@ void render_hud(
             float label_x = button.x + 3.0F;
             const LegacySprite* icon_sprite = nullptr;
             if (command.icon &&
+                command.icon->sheet == ui_icons::command_sheet) {
+                const auto icon =
+                    active_legacy_sprites.action_command_icons.find(
+                        command.icon->frame);
+                if (icon !=
+                    active_legacy_sprites.action_command_icons.end()) {
+                    icon_sprite = &icon->second;
+                }
+            } else if (command.icon &&
                 command.icon->evidence ==
                     ui_icons::Evidence::exact_executable_dispatch &&
                 command.icon->sheet == ui_icons::unit_sheet) {

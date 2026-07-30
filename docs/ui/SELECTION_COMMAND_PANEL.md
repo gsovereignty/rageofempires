@@ -18,10 +18,12 @@ opens a separate defenses page so no page exceeds 15 cells. Fishing ships
 expose Fish Trap directly. Construction buttons carry `BuildingKind` and enter
 the same placement/`ConstructBuildingCommand` path used by hotkeys.
 
-No action-sheet frame identity has been proven. Command buttons therefore use
-procedural beveled cells and the model leaves every archive icon ID empty.
-Mapped archive HUD and portrait-frame assets are used only when they decode;
-fallback rendering remains complete.
+No action-sheet frame identity has been proven. Command buttons use procedural
+beveled cells and retain candidate `btncmd` frame mappings with `unknown`
+evidence, rather than promoting them to exact executable dispatch. Available
+candidate frames render from the packaged archive; unmapped or undecodable
+frames keep the labeled procedural fallback. Mapped archive HUD and portrait
+assets are used only when they decode; fallback rendering remains complete.
 
 Proof:
 

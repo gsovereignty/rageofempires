@@ -52,15 +52,10 @@ else()
     find_package(SDL3 3.4 CONFIG REQUIRED)
 endif()
 
-if(AOE_BUILD_SDL3)
-    set(AOE_ENABLE_MPG123_DEFAULT OFF)
-else()
-    set(AOE_ENABLE_MPG123_DEFAULT ON)
-endif()
 option(
     AOE_ENABLE_MPG123
     "Use a host mpg123 library for original MP3 music playback"
-    ${AOE_ENABLE_MPG123_DEFAULT}
+    ON
 )
 set(
     AOE_ASSET_AUDIT_DATA_ROOT ""
@@ -69,7 +64,12 @@ set(
 )
 if(AOE_ENABLE_MPG123)
     find_path(AOE_MPG123_INCLUDE_DIR mpg123.h)
-    find_library(AOE_MPG123_LIBRARY NAMES mpg123)
+    if(NOT AOE_MPG123_INCLUDE_DIR)
+        message(WARNING
+            "mpg123 headers not found: gameplay MP3 music disabled. Install "
+            "mpg123 or set AOE_MPG123_INCLUDE_DIR."
+        )
+    endif()
 endif()
 
 add_library(aoe_core
@@ -485,13 +485,11 @@ target_compile_definitions(
     aoe_reconstruction PRIVATE
     AOE_DEFAULT_ASSET_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/../original-assets/app"
 )
-if(AOE_MPG123_INCLUDE_DIR AND AOE_MPG123_LIBRARY)
+if(AOE_MPG123_INCLUDE_DIR)
     target_include_directories(
         aoe_reconstruction PRIVATE "${AOE_MPG123_INCLUDE_DIR}"
     )
-    target_link_libraries(
-        aoe_reconstruction PRIVATE "${AOE_MPG123_LIBRARY}"
-    )
+    target_link_libraries(aoe_reconstruction PRIVATE ${CMAKE_DL_LIBS})
     target_compile_definitions(aoe_reconstruction PRIVATE AOE_HAVE_MPG123=1)
 else()
     target_compile_definitions(aoe_reconstruction PRIVATE AOE_HAVE_MPG123=0)
@@ -539,12 +537,12 @@ if(APPLE)
     target_compile_options(
         aoe_reconstruction_app PRIVATE -Wall -Wextra -Wpedantic
     )
-    if(AOE_MPG123_INCLUDE_DIR AND AOE_MPG123_LIBRARY)
+    if(AOE_MPG123_INCLUDE_DIR)
         target_include_directories(
             aoe_reconstruction_app PRIVATE "${AOE_MPG123_INCLUDE_DIR}"
         )
         target_link_libraries(
-            aoe_reconstruction_app PRIVATE "${AOE_MPG123_LIBRARY}"
+            aoe_reconstruction_app PRIVATE ${CMAKE_DL_LIBS}
         )
         target_compile_definitions(
             aoe_reconstruction_app PRIVATE AOE_HAVE_MPG123=1
@@ -790,6 +788,17 @@ add_test(
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/hud_layout_sdl_smoke.sh
         $<TARGET_FILE:aoe_reconstruction>
 )
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../original-assets/app/Sound")
+    add_test(
+        NAME aoe_audio_playback_sdl_smoke
+        COMMAND
+            bash
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/audio_playback_sdl_smoke.sh
+            $<TARGET_FILE:aoe_reconstruction>
+            ${CMAKE_CURRENT_SOURCE_DIR}/../original-assets/app
+    )
+    set_tests_properties(aoe_audio_playback_sdl_smoke PROPERTIES TIMEOUT 20)
+endif()
 add_test(
     NAME aoe_selection_visual_sdl_smoke
     COMMAND

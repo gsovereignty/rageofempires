@@ -9867,10 +9867,10 @@ void render_hud(
     }
     set_color(renderer, {239, 226, 185, 255});
     const SDL_Rect information_clip{
-        static_cast<int>(information_panel.x + 3.0F),
-        static_cast<int>(information_panel.y + 3.0F),
-        static_cast<int>(information_panel.w - 6.0F),
-        static_cast<int>(information_panel.h - 6.0F),
+        static_cast<int>(information_panel.x + 8.0F),
+        static_cast<int>(information_panel.y + 8.0F),
+        std::max(0, static_cast<int>(information_panel.w - 16.0F)),
+        std::max(0, static_cast<int>(information_panel.h - 16.0F)),
     };
     SDL_SetRenderClipRect(renderer, &information_clip);
 
@@ -9903,7 +9903,7 @@ void render_hud(
     SDL_SetRenderClipRect(renderer, nullptr);
     if (complete_resource_icons) {
         constexpr std::array<float, 4> icon_x{
-            4.0F, 88.0F, 172.0F, 256.0F
+            10.0F, 94.0F, 178.0F, 262.0F
         };
         const Economy& blue = simulation.economy(active_view_player);
         const std::array<int, 4> amounts{
@@ -9915,7 +9915,7 @@ void render_hud(
         for (std::size_t index = 0; index < icon_x.size(); ++index) {
             const SDL_FRect icon{
                 icon_x[index],
-                2.0F,
+                4.0F,
                 16.0F,
                 16.0F,
             };
@@ -9927,11 +9927,13 @@ void render_hud(
             );
             std::ostringstream amount;
             amount << labels[index] << ' ' << amounts[index];
+            const std::string amount_text =
+                hud_layout::truncate_debug_text(amount.str(), 64);
             SDL_RenderDebugText(
                 renderer,
                 icon_x[index] + 19.0F,
-                6.0F,
-                amount.str().c_str()
+                8.0F,
+                amount_text.c_str()
             );
         }
         std::ostringstream population;
@@ -9943,12 +9945,20 @@ void render_hud(
         if (paused && simulation.outcome() == MatchOutcome::ongoing) {
             population << " PAUSED";
         }
+        const std::string population_text =
+            hud_layout::truncate_debug_text(
+                population.str(), view_pixel_width - 370
+            );
         SDL_RenderDebugText(
-            renderer, 344.0F, 6.0F, population.str().c_str()
+            renderer, 362.0F, 8.0F, population_text.c_str()
         );
     } else {
+        const std::string economy_text =
+            hud_layout::truncate_debug_text(
+                economy.str(), view_pixel_width - 20
+            );
         SDL_RenderDebugText(
-            renderer, 4.0F, 6.0F, economy.str().c_str()
+            renderer, 10.0F, 8.0F, economy_text.c_str()
         );
     }
     SDL_SetRenderClipRect(renderer, &information_clip);
@@ -9975,54 +9985,124 @@ void render_hud(
         SDL_SetRenderClipRect(renderer, &information_clip);
     }
     if (has_selection) {
-        const SDL_FRect portrait{270.0F, top + 30.0F, 72.0F, 72.0F};
-        set_color(renderer, {26, 20, 14, 255});
-        SDL_RenderFillRect(renderer, &portrait);
-        set_color(renderer, {196, 164, 98, 255});
-        SDL_RenderRect(renderer, &portrait);
-        if (active_legacy_sprites.portrait_frame.texture != nullptr) {
-            SDL_RenderTexture(
-                renderer,
-                active_legacy_sprites.portrait_frame.texture,
-                nullptr,
-                &portrait
-            );
-        }
-        set_color(
-            renderer,
-            original_background
-                ? SDL_Color{54, 38, 23, 255}
-                : SDL_Color{239, 226, 185, 255}
-        );
-        SDL_RenderDebugText(
-            renderer, 354.0F, top + 31.0F,
-            selection_panel.title.c_str()
-        );
-        std::ostringstream detail;
-        detail << "HP " << selection_panel.hit_points << '/'
-               << selection_panel.maximum_hit_points
-               << "  " << selection_panel.status;
-        if (selection_panel.garrison_count > 0) {
-            detail << "  GARRISON " << selection_panel.garrison_count;
-        }
-        if (selection_panel.carried_amount > 0) {
-            detail << "  CARRY " << selection_panel.carried_amount << ' '
-                   << name(selection_panel.carried_resource);
-        }
-        SDL_RenderDebugText(
-            renderer, 354.0F, top + 51.0F, detail.str().c_str()
-        );
-        if (selection_panel.progress_percent >= 0) {
-            const SDL_FRect track{354.0F, top + 75.0F, 260.0F, 8.0F};
-            set_color(renderer, {8, 10, 12, 255});
-            SDL_RenderFillRect(renderer, &track);
-            const SDL_FRect fill{
-                track.x, track.y,
-                track.w * selection_panel.progress_percent / 100.0F,
-                track.h,
+        if (information_clip.w >= 180) {
+            const SDL_FRect portrait{
+                information_panel.x + 15.0F,
+                top + 30.0F,
+                72.0F,
+                72.0F
             };
-            set_color(renderer, {196, 160, 58, 255});
-            SDL_RenderFillRect(renderer, &fill);
+            set_color(renderer, {26, 20, 14, 255});
+            SDL_RenderFillRect(renderer, &portrait);
+            set_color(renderer, {196, 164, 98, 255});
+            SDL_RenderRect(renderer, &portrait);
+            const LegacySprite* portrait_sprite = nullptr;
+            if (simulation.selected_unit()) {
+                const auto selected = std::ranges::find(
+                    simulation.units(),
+                    *simulation.selected_unit(),
+                    &Unit::id
+                );
+                if (selected != simulation.units().end()) {
+                    const LegacyAnimation* animation =
+                        legacy_action_for(simulation, *selected, false);
+                    if (animation != nullptr && !animation->frames.empty() &&
+                        animation->frames.front().texture != nullptr) {
+                        portrait_sprite = &animation->frames.front();
+                    }
+                }
+            }
+            if (portrait_sprite != nullptr) {
+                const SDL_Rect portrait_clip{
+                    static_cast<int>(portrait.x + 2.0F),
+                    static_cast<int>(portrait.y + 2.0F),
+                    static_cast<int>(portrait.w - 4.0F),
+                    static_cast<int>(portrait.h - 4.0F),
+                };
+                SDL_SetRenderClipRect(renderer, &portrait_clip);
+                const hud_layout::FloatRect fitted = hud_layout::contain(
+                    portrait_sprite->width,
+                    portrait_sprite->height,
+                    {
+                        portrait.x + 2.0F,
+                        portrait.y + 2.0F,
+                        portrait.w - 4.0F,
+                        portrait.h - 4.0F,
+                    }
+                );
+                const SDL_FRect destination{
+                    fitted.x, fitted.y, fitted.width, fitted.height
+                };
+                SDL_RenderTexture(
+                    renderer,
+                    portrait_sprite->texture,
+                    nullptr,
+                    &destination
+                );
+                SDL_SetRenderClipRect(renderer, &information_clip);
+            } else {
+                set_color(renderer, {104, 91, 68, 255});
+                const SDL_FRect head{
+                    portrait.x + 28.0F, portrait.y + 14.0F, 16.0F, 16.0F
+                };
+                const SDL_FRect body{
+                    portrait.x + 20.0F, portrait.y + 34.0F, 32.0F, 26.0F
+                };
+                SDL_RenderFillRect(renderer, &head);
+                SDL_RenderFillRect(renderer, &body);
+            }
+            set_color(
+                renderer,
+                original_background
+                    ? SDL_Color{54, 38, 23, 255}
+                    : SDL_Color{239, 226, 185, 255}
+            );
+            const float text_x = portrait.x + portrait.w + 12.0F;
+            const int text_width = std::max(
+                0,
+                information_clip.x + information_clip.w -
+                    static_cast<int>(text_x) - 8
+            );
+            const std::string title = hud_layout::truncate_debug_text(
+                selection_panel.title, text_width
+            );
+            SDL_RenderDebugText(
+                renderer, text_x, top + 31.0F, title.c_str()
+            );
+            std::ostringstream detail;
+            detail << "HP " << selection_panel.hit_points << '/'
+                   << selection_panel.maximum_hit_points
+                   << "  " << selection_panel.status;
+            if (selection_panel.garrison_count > 0) {
+                detail << "  GARRISON " << selection_panel.garrison_count;
+            }
+            if (selection_panel.carried_amount > 0) {
+                detail << "  CARRY " << selection_panel.carried_amount << ' '
+                       << name(selection_panel.carried_resource);
+            }
+            const std::string detail_text = hud_layout::truncate_debug_text(
+                detail.str(), text_width
+            );
+            SDL_RenderDebugText(
+                renderer, text_x, top + 51.0F, detail_text.c_str()
+            );
+            if (selection_panel.progress_percent >= 0) {
+                const SDL_FRect track{
+                    text_x,
+                    top + 75.0F,
+                    static_cast<float>(std::min(260, text_width)),
+                    8.0F
+                };
+                set_color(renderer, {8, 10, 12, 255});
+                SDL_RenderFillRect(renderer, &track);
+                const SDL_FRect fill{
+                    track.x, track.y,
+                    track.w * selection_panel.progress_percent / 100.0F,
+                    track.h,
+                };
+                set_color(renderer, {196, 160, 58, 255});
+                SDL_RenderFillRect(renderer, &fill);
+            }
         }
         SDL_SetRenderClipRect(renderer, nullptr);
         for (std::size_t index = 0;
@@ -10881,13 +10961,17 @@ void render_hud(
             &portrait
         );
     }
-    if (!control_group_status.empty()) {
-        SDL_RenderDebugText(
-            renderer,
-            270.0F,
-            top + 92.0F,
-            control_group_status.c_str()
+    if (!control_group_status.empty() && information_clip.w >= 180) {
+        SDL_SetRenderClipRect(renderer, &information_clip);
+        const std::string group_text = hud_layout::truncate_debug_text(
+            control_group_status, information_clip.w - 16
         );
+        SDL_RenderDebugText(
+            renderer, static_cast<float>(information_clip.x + 8),
+            top + 92.0F,
+            group_text.c_str()
+        );
+        SDL_SetRenderClipRect(renderer, nullptr);
     }
     if (false && simulation.selected_building()) {
         const auto selected = std::ranges::find_if(

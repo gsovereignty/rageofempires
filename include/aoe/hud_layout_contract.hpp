@@ -4,6 +4,7 @@
 #include <array>
 #include <cstdint>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -35,6 +36,15 @@ struct FrameMetrics {
     int hotspot_y{};
 
     auto operator<=>(const FrameMetrics&) const = default;
+};
+
+struct FloatRect {
+    float x{};
+    float y{};
+    float width{};
+    float height{};
+
+    auto operator<=>(const FloatRect&) const = default;
 };
 
 struct BackgroundDraw {
@@ -187,7 +197,53 @@ inline constexpr int game_background_frame_count = 8;
 }
 
 [[nodiscard]] constexpr Rect top_status_strip() {
-    return {2, 2, 420, 16};
+    return {8, 4, 404, 14};
+}
+
+[[nodiscard]] constexpr Rect inset(Rect rect, int margin) {
+    const int safe_margin = std::max(0, margin);
+    return {
+        rect.x + safe_margin,
+        rect.y + safe_margin,
+        std::max(0, rect.width - safe_margin * 2),
+        std::max(0, rect.height - safe_margin * 2),
+    };
+}
+
+[[nodiscard]] inline std::string truncate_debug_text(
+    std::string_view text,
+    int pixel_width
+) {
+    constexpr int glyph_width = 8;
+    const std::size_t capacity = pixel_width > 0
+        ? static_cast<std::size_t>(pixel_width / glyph_width)
+        : 0U;
+    if (text.size() <= capacity) return std::string{text};
+    if (capacity < 4U) return {};
+    return std::string{text.substr(0, capacity - 3U)} + "...";
+}
+
+[[nodiscard]] constexpr FloatRect contain(
+    int source_width,
+    int source_height,
+    FloatRect bounds
+) {
+    if (source_width <= 0 || source_height <= 0 ||
+        bounds.width <= 0.0F || bounds.height <= 0.0F) {
+        return {};
+    }
+    const float scale = std::min(
+        bounds.width / static_cast<float>(source_width),
+        bounds.height / static_cast<float>(source_height)
+    );
+    const float width = static_cast<float>(source_width) * scale;
+    const float height = static_cast<float>(source_height) * scale;
+    return {
+        bounds.x + (bounds.width - width) * 0.5F,
+        bounds.y + (bounds.height - height) * 0.5F,
+        width,
+        height,
+    };
 }
 
 [[nodiscard]] constexpr Rect centered_top_control(int screen_width) {

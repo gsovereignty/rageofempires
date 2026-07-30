@@ -59,6 +59,38 @@ void paint_disc(
     }
 }
 
+// Modern choice: no original feature-scaling rule was recovered. Blob
+// counts already grow with the dimension, but the radii were fixed, so
+// coverage grew as the dimension while the map grew as its square and the
+// large presets came out nearly featureless. Scaling a radius by
+// sqrt(dimension / reference) makes blob area grow with the dimension, so
+// count x area tracks map area and feature density is the same at every
+// preset. The reference is 96, the largest dimension the fixed radii were
+// authored against, and the scale never shrinks a radius, so every preset
+// at or below 96 tiles generates exactly as before.
+constexpr int feature_reference_dimension = 96;
+
+[[nodiscard]] int scale_feature_area(int extent, int dimension) {
+    const double factor = std::sqrt(
+        static_cast<double>(dimension) /
+        static_cast<double>(feature_reference_dimension)
+    );
+    return std::max(
+        extent,
+        static_cast<int>(std::lround(static_cast<double>(extent) * factor))
+    );
+}
+
+// Corridors are one-dimensional, so their widths scale with the dimension
+// itself rather than with its square root; a five-tile river across 255
+// tiles reads as a scratch.
+[[nodiscard]] int scale_feature_span(int extent, int dimension) {
+    return std::max(
+        extent,
+        extent * dimension / feature_reference_dimension
+    );
+}
+
 void paint_symmetric_blobs(
     GameMap& map,
     FixedRandom& random,
@@ -67,12 +99,16 @@ void paint_symmetric_blobs(
     int min_radius,
     int max_radius
 ) {
+    const int dimension = std::max(map.width(), map.height());
     for (int index = 0; index < count; ++index) {
         const TilePosition center{
             random.between(3, map.width() / 2 - 2),
             random.between(3, map.height() - 4),
         };
-        const int radius = random.between(min_radius, max_radius);
+        const int radius = scale_feature_area(
+            random.between(min_radius, max_radius),
+            dimension
+        );
         paint_disc(map, center, radius, terrain);
         paint_disc(map, mirror(map, center), radius, terrain);
     }
@@ -215,12 +251,19 @@ void add_standard_starts(
 }
 
 void add_elevation(Scenario& scenario, FixedRandom& random) {
-    for (int blob = 0; blob < 8; ++blob) {
+    const int dimension =
+        std::max(scenario.map.width(), scenario.map.height());
+    // Same density argument as the terrain blobs: count grows with the
+    // dimension and radius with its square root, so hill coverage tracks
+    // map area instead of thinning out on the larger presets.
+    const int blobs = std::max(8, 8 * dimension / feature_reference_dimension);
+    for (int blob = 0; blob < blobs; ++blob) {
         const TilePosition center{
             random.between(4, scenario.map.width() / 2 - 2),
             random.between(4, scenario.map.height() - 5),
         };
-        const int radius = random.between(2, 5);
+        const int radius =
+            scale_feature_area(random.between(2, 5), dimension);
         for (int y = center.y - radius; y <= center.y + radius; ++y) {
             for (int x = center.x - radius; x <= center.x + radius; ++x) {
                 const TilePosition tile{x, y};
@@ -278,12 +321,13 @@ Scenario generate_once(
         }
         paint_disc(scenario.map, blue, dimension / 7, Terrain::grass);
         paint_disc(scenario.map, red, dimension / 7, Terrain::grass);
+        const int route_half_width = scale_feature_span(2, dimension);
         for (int x = blue.x; x <= red.x; ++x) {
             const int bend = static_cast<int>(
                 std::sin(static_cast<double>(x) / 5.0) * 2.0
             );
             paint_disc(
-                scenario.map, {x, dimension / 2 + bend}, 2,
+                scenario.map, {x, dimension / 2 + bend}, route_half_width,
                 Terrain::grass
             );
         }
@@ -298,27 +342,38 @@ Scenario generate_once(
                 scenario.map, random, Terrain::forest,
                 std::max(5, dimension / 10), 2, 3
             );
+            const int river_half_width = scale_feature_span(2, dimension);
+            const int ford_half_height =
+                scale_feature_span(1, dimension) / 2;
             for (int y = 0; y < dimension; ++y) {
                 const int bend = static_cast<int>(
                     std::sin(static_cast<double>(y) / 6.0) * 3.0
                 );
                 const int center = dimension / 2 + bend;
-                for (int x = center - 2; x <= center + 2; ++x) {
+                for (int x = center - river_half_width;
+                     x <= center + river_half_width; ++x) {
                     scenario.map.set_terrain({x, y}, Terrain::water);
                 }
                 scenario.map.set_terrain(
-                    {center - 3, y}, Terrain::beach
+                    {center - river_half_width - 1, y}, Terrain::beach
                 );
                 scenario.map.set_terrain(
-                    {center + 3, y}, Terrain::beach
+                    {center + river_half_width + 1, y}, Terrain::beach
                 );
             }
-            for (int y : {dimension / 3, 2 * dimension / 3}) {
-                const int center = dimension / 2 + static_cast<int>(
-                    std::sin(static_cast<double>(y) / 6.0) * 3.0
-                );
-                for (int x = center - 2; x <= center + 2; ++x) {
-                    scenario.map.set_terrain({x, y}, Terrain::shallows);
+            // The fords have to grow with the river, or a wide river has
+            // no crossing at all.
+            for (int ford : {dimension / 3, 2 * dimension / 3}) {
+                for (int y = ford - ford_half_height;
+                     y <= ford + ford_half_height; ++y) {
+                    if (y < 0 || y >= dimension) continue;
+                    const int center = dimension / 2 + static_cast<int>(
+                        std::sin(static_cast<double>(y) / 6.0) * 3.0
+                    );
+                    for (int x = center - river_half_width;
+                         x <= center + river_half_width; ++x) {
+                        scenario.map.set_terrain({x, y}, Terrain::shallows);
+                    }
                 }
             }
         }

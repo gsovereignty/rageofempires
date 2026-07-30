@@ -11505,26 +11505,34 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
             "ENTER: GENERATE / START   ESC: MAIN MENU"
         );
         if (active_random_preview != nullptr) {
+            // Every generated map is square, so the preview is square too.
+            // A 128x96 rect stretched one by 4:3, and one filled rect per
+            // tile meant 65,025 draws per frame at the maximum preset;
+            // sampling one rect per preview pixel is both square and
+            // independent of the map size.
+            constexpr int preview_pixels = 96;
             const SDL_FRect preview{
                 panel.x + panel.w - 170.0F,
-                panel.y + 350.0F, 128.0F, 96.0F
+                panel.y + 350.0F,
+                static_cast<float>(preview_pixels),
+                static_cast<float>(preview_pixels),
             };
             set_color(renderer, {8, 10, 8, 255});
             SDL_RenderFillRect(renderer, &preview);
             const GameMap& map = active_random_preview->map;
-            const float cell_x = preview.w / map.width();
-            const float cell_y = preview.h / map.height();
-            for (int y = 0; y < map.height(); ++y) {
-                for (int x = 0; x < map.width(); ++x) {
-                    set_color(
-                        renderer,
-                        terrain_color(map.terrain_at({x, y}))
-                    );
+            for (int row = 0; row < preview_pixels; ++row) {
+                for (int column = 0; column < preview_pixels; ++column) {
+                    const TilePosition tile{
+                        column * map.width() / preview_pixels,
+                        row * map.height() / preview_pixels,
+                    };
+                    if (!map.contains(tile)) continue;
+                    set_color(renderer, terrain_color(map.terrain_at(tile)));
                     const SDL_FRect cell{
-                        preview.x + x * cell_x,
-                        preview.y + y * cell_y,
-                        std::max(1.0F, cell_x + 0.5F),
-                        std::max(1.0F, cell_y + 0.5F),
+                        preview.x + static_cast<float>(column),
+                        preview.y + static_cast<float>(row),
+                        1.0F,
+                        1.0F,
                     };
                     SDL_RenderFillRect(renderer, &cell);
                 }

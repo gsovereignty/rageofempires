@@ -75,6 +75,62 @@ void size_presets_match_original_tile_counts() {
     );
 }
 
+void feature_density_survives_the_largest_presets() {
+    // Blob counts grew with the dimension but the radii were fixed, so the
+    // large presets came out nearly featureless: arabia dropped from 6.8%
+    // non-grass at 120 tiles to 2.8% at 255, and raised ground from 8.8%
+    // to 1.7%. Radii now scale, so density has to hold across the ladder.
+    constexpr aoe::RandomMapKind kinds[]{
+        aoe::RandomMapKind::arabia,
+        aoe::RandomMapKind::black_forest,
+        aoe::RandomMapKind::islands,
+        aoe::RandomMapKind::rivers,
+    };
+    struct Density {
+        double features{};
+        double raised{};
+    };
+    const auto measure = [](aoe::RandomMapKind kind, aoe::RandomMapSize size) {
+        Density total;
+        constexpr int samples = 3;
+        for (int sample = 0; sample < samples; ++sample) {
+            aoe::RandomMapSettings settings;
+            settings.kind = kind;
+            settings.size = size;
+            settings.seed = 11 + static_cast<std::uint64_t>(sample) * 97;
+            const aoe::Scenario scenario = aoe::generate_random_map(settings);
+            long long features{};
+            long long raised{};
+            for (int y = 0; y < scenario.map.height(); ++y) {
+                for (int x = 0; x < scenario.map.width(); ++x) {
+                    if (scenario.map.terrain_at({x, y}) !=
+                        aoe::Terrain::grass) {
+                        ++features;
+                    }
+                    if (scenario.map.elevation_at({x, y}) > 0) ++raised;
+                }
+            }
+            const double area = static_cast<double>(scenario.map.width()) *
+                scenario.map.height();
+            total.features += static_cast<double>(features) / area / samples;
+            total.raised += static_cast<double>(raised) / area / samples;
+        }
+        return total;
+    };
+    for (aoe::RandomMapKind kind : kinds) {
+        const Density smallest = measure(kind, aoe::RandomMapSize::tiny);
+        const Density largest = measure(kind, aoe::RandomMapSize::maximum);
+        require(
+            largest.features >= smallest.features * 0.6,
+            "maximum preset lost terrain feature density"
+        );
+        require(
+            largest.raised >= smallest.raised * 0.6,
+            "maximum preset lost elevation density"
+        );
+    }
+}
+
 void generated_maps_are_deterministic_and_balanced() {
     constexpr aoe::RandomMapKind kinds[]{
         aoe::RandomMapKind::arabia,
@@ -420,6 +476,7 @@ void computer_players_make_deterministic_random_map_progress() {
 int main() {
     try {
         size_presets_match_original_tile_counts();
+        feature_density_survives_the_largest_presets();
         generated_maps_are_deterministic_and_balanced();
         generated_map_writes_current_scenario();
         generated_civilization_starts_are_exact_and_durable();

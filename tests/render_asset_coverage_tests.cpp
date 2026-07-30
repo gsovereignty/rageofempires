@@ -207,10 +207,10 @@ void canonical_resolver_selects_exact_actions() {
         state, aoe::UnitKind::archer
     );
     require(
-        idle.status ==
-            aoe::AssetCoverageStatus::intentional_procedural &&
-        idle.intentional_procedural,
-        "ambiguous archer idle must remain reviewed procedural"
+        idle.status == aoe::AssetCoverageStatus::renderable &&
+        idle.request.slp_id == 8 &&
+        idle.request.required_frame_count == 10,
+        "archer idle must select nonuniform-layout SLP 8"
     );
 
     state.category = aoe::RenderObjectCategory::unit_death;
@@ -405,10 +405,11 @@ void projectile_resolver_covers_body_shadow_and_impact() {
         state, aoe::ProjectileAssetKind::arrow
     );
     require(
-        arrow.status ==
-            aoe::AssetCoverageStatus::intentional_procedural &&
-        arrow.intentional_procedural,
-        "unproved arrow transform must remain explicit procedural"
+        arrow.status == aoe::AssetCoverageStatus::renderable &&
+        arrow.request.graphic_id == 638 &&
+        arrow.request.slp_id == 50 &&
+        arrow.request.required_direction_count == 72,
+        "static 72-direction arrow must resolve exactly"
     );
 }
 
@@ -501,8 +502,7 @@ void building_resolver_selects_age_family_and_reviewed_farm() {
             state, aoe::BuildingKind::barracks
         );
     require(
-        foundation.status ==
-            aoe::AssetCoverageStatus::intentional_procedural &&
+        foundation.status == aoe::AssetCoverageStatus::renderable &&
         foundation.request.graphic_id == 120,
         "foundation must share canonical construction selection"
     );
@@ -524,9 +524,9 @@ void building_resolver_selects_age_family_and_reviewed_farm() {
         state, aoe::BuildingKind::farm
     );
     require(
-        farm.status == aoe::AssetCoverageStatus::intentional_procedural &&
-            farm.intentional_procedural,
-        "farm procedural path must remain explicit and reviewed"
+        farm.status == aoe::AssetCoverageStatus::renderable &&
+            !farm.intentional_procedural,
+        "farm must use HD terrain textures"
     );
 
     state.object_kind = "house";

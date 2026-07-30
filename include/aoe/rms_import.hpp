@@ -52,6 +52,11 @@ struct RmsImportLimits {
     std::size_t maximum_nesting{64};
 };
 
+struct RmsMapResult {
+    std::optional<Scenario> scenario;
+    std::string error;
+};
+
 [[nodiscard]] RmsDocument parse_rms(
     std::string_view source,
     const RmsImportLimits& limits = {}
@@ -62,6 +67,14 @@ struct RmsImportLimits {
     std::uint64_t seed,
     Civilization blue = Civilization::generic,
     Civilization red = Civilization::generic
+);
+
+// Frontend bridge: when source is empty, evaluates reconstruction-owned
+// classic RMS definitions for the selected lobby map kind. Supplying source
+// evaluates that script instead. Native hard-coded map recipes are never used.
+[[nodiscard]] RmsMapResult generate_rms_map(
+    const RandomMapSettings& settings,
+    std::optional<std::string_view> source = std::nullopt
 );
 
 }  // namespace aoe

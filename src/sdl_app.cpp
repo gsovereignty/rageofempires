@@ -19,6 +19,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <tuple>
+#include <vector>
 
 #include "aoe/audio_system.hpp"
 #include "aoe/asset_root.hpp"
@@ -40,6 +41,7 @@
 #include "aoe/projectile_catalog.hpp"
 #include "aoe/random_map.hpp"
 #include "aoe/render_asset_coverage.hpp"
+#include "aoe/rms_import.hpp"
 #include "aoe/save_game.hpp"
 #include "aoe/save_browser.hpp"
 #include "aoe/scenario.hpp"
@@ -195,6 +197,7 @@ RandomMapSettings active_random_settings{
     RandomMapKind::arabia, RandomMapSize::maximum, 1
 };
 const Scenario* active_random_preview{};
+std::string active_random_map_source{"CLASSIC RMS"};
 
 // Modern choice: the reconstruction presents only the recovered maximum.
 // Smaller presets remain available to import/generation APIs for fidelity
@@ -286,6 +289,8 @@ struct TerrainTextures {
     SDL_Texture* water{};
     SDL_Texture* beach{};
     SDL_Texture* shallows{};
+    SDL_Texture* farm_growing{};
+    SDL_Texture* farm_harvested{};
     std::vector<SDL_Texture*> grass_archive_frames;
     std::vector<SDL_Texture*> water_archive_frames;
     std::vector<SDL_Texture*> beach_archive_frames;
@@ -302,6 +307,8 @@ struct TerrainTextures {
         SDL_DestroyTexture(water);
         SDL_DestroyTexture(beach);
         SDL_DestroyTexture(shallows);
+        SDL_DestroyTexture(farm_growing);
+        SDL_DestroyTexture(farm_harvested);
         for (SDL_Texture* texture : grass_archive_frames) {
             SDL_DestroyTexture(texture);
         }
@@ -318,6 +325,8 @@ struct TerrainTextures {
         water = nullptr;
         beach = nullptr;
         shallows = nullptr;
+        farm_growing = nullptr;
+        farm_harvested = nullptr;
         grass_archive_frames.clear();
         water_archive_frames.clear();
         beach_archive_frames.clear();
@@ -359,6 +368,8 @@ struct LegacyStaticShadow {
 struct LegacyAnimation {
     std::vector<LegacySprite> frames;
     std::size_t frames_per_angle{1};
+    std::vector<std::size_t> angle_offsets;
+    std::vector<std::size_t> angle_frame_counts;
     std::vector<LegacySprite> shadow_frames;
     std::size_t shadow_frames_per_angle{1};
     int shadow_angle_count{};
@@ -371,6 +382,8 @@ struct LegacyAnimation {
             frame.destroy();
         }
         frames.clear();
+        angle_offsets.clear();
+        angle_frame_counts.clear();
         for (LegacySprite& frame : shadow_frames) {
             frame.destroy();
         }
@@ -524,6 +537,7 @@ struct LegacySprites {
     LegacyAnimation onager_volley_projectile;
     LegacyAnimation trebuchet_projectile;
     LegacyAnimation axe_projectile;
+    LegacyAnimation arrow_projectile;
     LegacyAnimation siege_impact;
     LegacyAnimation trebuchet_impact;
     LegacySprite bombard_tower_standing_blue;
@@ -662,6 +676,7 @@ struct LegacySprites {
         onager_volley_projectile.destroy();
         trebuchet_projectile.destroy();
         axe_projectile.destroy();
+        arrow_projectile.destroy();
         siege_impact.destroy();
         trebuchet_impact.destroy();
         bombard_tower_standing_blue.destroy();
@@ -1931,6 +1946,21 @@ SDL_FPoint tile_screen_top(TilePosition position) {
     return {world.x * active_camera.zoom, world.y * active_camera.zoom};
 }
 
+[[nodiscard]] bool tile_near_world_view(
+    TilePosition position,
+    float margin = 256.0F
+) {
+    const SDL_FPoint top = tile_top(position);
+    const float view_width =
+        static_cast<float>(view_pixel_width) / active_camera.zoom;
+    const float view_height =
+        static_cast<float>(view_pixel_height) / active_camera.zoom;
+    return top.x >= -margin &&
+           top.x <= view_width + margin &&
+           top.y >= -margin &&
+           top.y <= view_height + margin;
+}
+
 void fill_diamond(
     SDL_Renderer* renderer,
     SDL_FPoint top,
@@ -2159,6 +2189,14 @@ TerrainTextures load_local_terrain_textures(SDL_Renderer* renderer) {
     textures.shallows = load_local_terrain_texture(
         renderer,
         texture_root / "g_sha_00_COLOR.png"
+    );
+    textures.farm_growing = load_local_terrain_texture(
+        renderer,
+        texture_root / "g_fm1_00_COLOR.png"
+    );
+    textures.farm_harvested = load_local_terrain_texture(
+        renderer,
+        texture_root / "g_fm2_00_COLOR.png"
     );
     if (textures.grass == nullptr || textures.water == nullptr ||
         textures.beach == nullptr || textures.shallows == nullptr) {
@@ -3078,9 +3116,12 @@ LegacySprites load_local_legacy_sprites(
             std::pair{BuildingKind::wonder, std::int16_t{123}},
             std::pair{BuildingKind::dock, std::int16_t{4248}},
         };
-        // Construction roots above resolve only layer-10 shadow art. They are
-        // cataloged but deliberately not loaded as body compositions.
-        static_cast<void>(construction_roots);
+        for (const auto& [kind, root] : construction_roots) {
+            attempt_animated_composite(
+                sprites.building_construction_composites[kind],
+                root
+            );
+        }
         constexpr std::array death_roots{
             std::pair{BuildingKind::palisade_wall, std::int16_t{37}},
             std::pair{BuildingKind::stone_wall, std::int16_t{37}},
@@ -3327,6 +3368,10 @@ LegacySprites load_local_legacy_sprites(
         attempt_projectile(
             sprites.axe_projectile,
             ProjectileAssetKind::throwing_axe
+        );
+        attempt_projectile(
+            sprites.arrow_projectile,
+            ProjectileAssetKind::arrow
         );
         // Bombard Tower has no snow SLP in shipped data. Always use normal
         // player-colored graphics, including on snow terrain.
@@ -4222,6 +4267,14 @@ LegacySprites load_local_legacy_sprites(
                 static_cast<std::size_t>(canonical.idle_frames)
             );
         }
+        attempt_animation(sprites.military[UnitKind::archer], 8, 10);
+        for (std::size_t index = 0; index < 8; ++index) {
+            if (!required_owner_slots[index]) continue;
+            LegacyAnimation& archer_idle =
+                sprites.military[UnitKind::archer].slot(index);
+            archer_idle.angle_offsets = {0, 10, 20, 30, 41};
+            archer_idle.angle_frame_counts = {10, 10, 10, 11, 11};
+        }
         struct ActionMapping {
             UnitKind kind;
             std::int32_t move_slp;
@@ -4743,6 +4796,35 @@ bool render_legacy_animated_composite(
     );
 }
 
+bool render_legacy_footprint_construction(
+    SDL_Renderer* renderer,
+    const LegacyAnimatedComposite& composite,
+    SDL_FPoint ground,
+    int footprint_size
+) {
+    if (composite.parts.empty()) return false;
+    for (const LegacyAnimatedCompositePart& part : composite.parts) {
+        const LegacyAnimation& animation = part.animation;
+        if (animation.frames.empty()) return false;
+        const std::size_t frame = std::min(
+            static_cast<std::size_t>(std::max(footprint_size - 1, 0)),
+            animation.frames.size() - 1
+        );
+        if (!render_legacy_sprite(
+                renderer,
+                animation.frames[frame],
+                {
+                    ground.x + static_cast<float>(part.offset_x),
+                    ground.y + static_cast<float>(part.offset_y),
+                },
+                true
+            )) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool render_legacy_animation(
     SDL_Renderer* renderer,
     const LegacyAnimation& animation,
@@ -4778,18 +4860,29 @@ bool render_legacy_animation(
         ? static_cast<std::size_t>(8 - direction)
         : static_cast<std::size_t>(direction);
     const std::size_t available_angles =
-        animation.frames.size() / animation.frames_per_angle;
+        animation.angle_offsets.empty()
+        ? animation.frames.size() / animation.frames_per_angle
+        : animation.angle_offsets.size();
     if (available_angles == 0) {
         return false;
     }
     const std::size_t angle =
         std::min(stored_angle, available_angles - 1);
+    const std::size_t angle_frames =
+        animation.angle_frame_counts.empty()
+        ? animation.frames_per_angle
+        : animation.angle_frame_counts[angle];
+    if (angle_frames == 0) {
+        return false;
+    }
     const std::size_t action_frame = active
-        ? static_cast<std::size_t>(animation_tick) %
-            animation.frames_per_angle
+        ? static_cast<std::size_t>(animation_tick) % angle_frames
         : 0;
     const std::size_t index =
-        angle * animation.frames_per_angle + action_frame;
+        (animation.angle_offsets.empty()
+            ? angle * animation.frames_per_angle
+            : animation.angle_offsets[angle]) +
+        action_frame;
     if (index >= animation.frames.size()) {
         return false;
     }
@@ -5595,6 +5688,44 @@ void render_building(
             }
         }
     }
+    if (!building.completed()) {
+        const auto found =
+            active_legacy_sprites.building_construction_composites.find(
+                building.kind
+            );
+        if (found !=
+                active_legacy_sprites
+                    .building_construction_composites.end()) {
+            const LegacyAnimatedComposite* composite =
+                found->second.owner(building.owner);
+            if (composite != nullptr &&
+                render_legacy_footprint_construction(
+                    renderer,
+                    *composite,
+                    {top.x, top.y + half_tile_height},
+                    std::max(
+                        rules.footprint_width,
+                        rules.footprint_height
+                    )
+                )) {
+                if (simulation.selected_building() == building.id) {
+                    for (int y = 0; y < rules.footprint_height; ++y) {
+                        for (int x = 0; x < rules.footprint_width; ++x) {
+                            outline_diamond(
+                                renderer,
+                                tile_top({
+                                    building.position.x + x,
+                                    building.position.y + y,
+                                }),
+                                {250, 220, 65, 255}
+                            );
+                        }
+                    }
+                }
+                return;
+            }
+        }
+    }
     if (building.kind == BuildingKind::wonder) {
         if (building.completed()) {
             const auto found =
@@ -6211,9 +6342,15 @@ void render_building(
             return;
         }
     }
-    record_building_procedural_fallback(
-        simulation, building, maximum_hit_points
-    );
+    const bool textured_farm =
+        building.kind == BuildingKind::farm &&
+        active_terrain_textures.farm_growing != nullptr &&
+        active_terrain_textures.farm_harvested != nullptr;
+    if (!textured_farm) {
+        record_building_procedural_fallback(
+            simulation, building, maximum_hit_points
+        );
+    }
     const float full_height =
         building.kind == BuildingKind::town_center
             ? 62.0F
@@ -6307,23 +6444,38 @@ void render_building(
                 255,
             }
             : SDL_Color{104, 84, 58, 255};
-        fill_diamond(renderer, top, soil);
+        SDL_Texture* farm_texture = nullptr;
+        if (textured_farm) {
+            farm_texture =
+                !building.completed() || remaining >= 0.35F
+                ? active_terrain_textures.farm_growing
+                : active_terrain_textures.farm_harvested;
+        }
+        fill_diamond(
+            renderer,
+            top,
+            textured_farm ? SDL_Color{255, 255, 255, 255} : soil,
+            farm_texture,
+            building.position
+        );
         outline_diamond(renderer, top, {63, 46, 27, 255});
 
-        set_color(renderer, {70, 48, 26, 255});
-        for (int row = 0; row < 5; ++row) {
-            const float start_x = top.x - 26.0F + row * 7.0F;
-            const float start_y = top.y + 13.0F - row * 3.5F;
-            SDL_RenderLine(
-                renderer,
-                start_x,
-                start_y,
-                start_x + 36.0F,
-                start_y + 18.0F
-            );
+        if (!textured_farm) {
+            set_color(renderer, {70, 48, 26, 255});
+            for (int row = 0; row < 5; ++row) {
+                const float start_x = top.x - 26.0F + row * 7.0F;
+                const float start_y = top.y + 13.0F - row * 3.5F;
+                SDL_RenderLine(
+                    renderer,
+                    start_x,
+                    start_y,
+                    start_x + 36.0F,
+                    start_y + 18.0F
+                );
+            }
         }
 
-        if (building.completed()) {
+        if (building.completed() && !textured_farm) {
             const int active_rows = static_cast<int>(
                 std::ceil(remaining * 5.0F)
             );
@@ -6359,7 +6511,7 @@ void render_building(
                     );
                 }
             }
-        } else {
+        } else if (!textured_farm) {
             set_color(renderer, {132, 104, 62, 255});
             for (float offset : {-18.0F, 0.0F, 18.0F}) {
                 SDL_RenderLine(
@@ -11471,7 +11623,7 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
         );
         const std::string map_line =
             std::string{"M MAP: "} + map_kind +
-            "   Z SIZE: " + map_size;
+            " [RMS]   Z SIZE: " + map_size;
         SDL_RenderDebugText(
             renderer, panel.x + 70.0F, panel.y + 166.0F,
             map_line.c_str()
@@ -12183,7 +12335,7 @@ void render_diplomacy_panel(
     );
 }
 
-void render(
+std::size_t render(
     SDL_Renderer* renderer,
     const Simulation& simulation,
     const ComputerPlayer& computer,
@@ -12205,6 +12357,7 @@ void render(
     float movement_alpha,
     const CameraView& camera
 ) {
+    std::size_t rendered_tiles{};
     active_camera = camera;
     active_render_map = &simulation.map();
     const Uint64 signal_now = SDL_GetTicks();
@@ -12228,6 +12381,10 @@ void render(
     for (int y = 0; y < simulation.map().height(); ++y) {
         for (int x = 0; x < simulation.map().width(); ++x) {
             const TilePosition position{x, y};
+            if (!tile_near_world_view(position, 96.0F)) {
+                continue;
+            }
+            ++rendered_tiles;
             const bool visible =
                 !active_settings.fog ||
                 simulation.is_visible_to_controller(active_view_player, position);
@@ -12347,6 +12504,7 @@ void render(
             const int x = depth - y;
             const TilePosition position{x, y};
             if (x >= 0 && x < simulation.map().width() &&
+                tile_near_world_view(position) &&
                 (!active_settings.fog ||
                  simulation.is_explored_to_controller(active_view_player, position)) &&
                 is_resource_terrain(
@@ -12379,6 +12537,7 @@ void render(
         for (const BuildingRubbleEffect& effect :
              simulation.rubble_effects()) {
             if (effect.position.x + effect.position.y != depth ||
+                !tile_near_world_view(effect.position) ||
                 (active_settings.fog &&
                  !simulation.is_visible_to_controller(active_view_player, effect.position))) {
                 continue;
@@ -12526,6 +12685,7 @@ void render(
 
         for (const UnitDeathEffect& effect : simulation.death_effects()) {
             if (effect.position.x + effect.position.y != depth ||
+                !tile_near_world_view(effect.position) ||
                 !simulation.is_visible_to_controller(active_view_player, effect.position)) {
                 continue;
             }
@@ -12633,6 +12793,7 @@ void render(
 
         for (const Building& building : simulation.buildings()) {
             if (building.position.x + building.position.y != depth ||
+                !tile_near_world_view(building.position) ||
                 (!simulation.observer_perspective(active_view_player) &&
                  active_settings.fog &&
                  building.owner != active_view_player &&
@@ -12655,6 +12816,7 @@ void render(
         for (const Unit& unit : simulation.units()) {
             if (unit.garrisoned_in != 0 ||
                 unit.position.x + unit.position.y != depth ||
+                !tile_near_world_view(unit.position) ||
                 (active_settings.fog &&
                  unit.owner != active_view_player &&
                  !simulation.is_visible_to_controller(active_view_player, unit.position))) {
@@ -12718,6 +12880,8 @@ void render(
             projectile_asset == ProjectileAssetKind::throwing_axe;
         const bool scorpion_bolt =
             projectile_asset == ProjectileAssetKind::scorpion_bolt;
+        const bool arrow =
+            projectile_asset == ProjectileAssetKind::arrow;
         const bool onager_stone =
             projectile_asset == ProjectileAssetKind::onager_primary ||
             projectile_asset == ProjectileAssetKind::onager_volley;
@@ -12787,6 +12951,20 @@ void render(
                 true
             )) {
             // Exact spinning axe rendered.
+        } else if (arrow &&
+            render_exact_projectile_animation(
+                renderer,
+                active_legacy_sprites.arrow_projectile,
+                {
+                    position.x + lane * 3.0F,
+                    position.y + lane * 1.5F,
+                },
+                projectile.origin,
+                projectile.destination,
+                projectile_frame,
+                72
+            )) {
+            // Exact static 72-direction archive arrow rendered.
         } else if (cannonball) {
             if (!render_legacy_animation(
                     renderer,
@@ -12858,7 +13036,6 @@ void render(
             set_color(renderer, {105, 105, 100, 255});
             SDL_RenderFillRect(renderer, &stone);
         } else {
-            // Arrow short-SLP direction transform remains unproved.
             record_projectile_procedural_fallback(
                 simulation, projectile, projectile_asset
             );
@@ -12908,7 +13085,7 @@ void render(
                   ),
                   true
               )
-            : siege_source &&
+            : (siege_source || !impact_asset) &&
                 render_legacy_animation(
                     renderer,
                     active_legacy_sprites.siege_impact,
@@ -13175,6 +13352,7 @@ void render(
     report_map_dimensions(simulation);
     capture_requested_frame(renderer, simulation, movement_alpha);
     SDL_RenderPresent(renderer);
+    return rendered_tiles;
 }
 
 TilePosition mouse_tile(
@@ -13338,11 +13516,24 @@ bool contextual_group_target(
            enemy_building != simulation.buildings().end();
 }
 
+// Modern choice: the renderer audit fixtures under resources/ are
+// deliberately tiny, single-purpose sprite stages whose telemetry is
+// position independent, and regenerating all of them at 255x255 would
+// churn the pixel-audit suite for no gameplay gain. This diagnostic lets
+// tools/run_renderer_runtime_coverage.py keep loading them while every
+// ordinary launch path stays 255x255. Unset, no smaller map is accepted.
+[[nodiscard]] bool audit_map_sizes_allowed() {
+    const char* requested = SDL_getenv("AOE_AUDIT_ANY_MAP_SIZE");
+    return requested != nullptr && requested[0] != '\0' &&
+           requested[0] != '0';
+}
+
 Scenario load_presentable_scenario(
     const std::filesystem::path& path
 ) {
     Scenario scenario = load_scenario(path);
-    if (scenario.map.width() != 255 || scenario.map.height() != 255) {
+    if (!audit_map_sizes_allowed() &&
+        (scenario.map.width() != 255 || scenario.map.height() != 255)) {
         throw std::runtime_error(
             "playable scenarios must use a 255x255 map"
         );
@@ -13354,8 +13545,9 @@ Simulation load_presentable_game(
     const std::filesystem::path& path
 ) {
     Simulation simulation = load_game(path);
-    if (simulation.map().width() != 255 ||
-        simulation.map().height() != 255) {
+    if (!audit_map_sizes_allowed() &&
+        (simulation.map().width() != 255 ||
+         simulation.map().height() != 255)) {
         throw std::runtime_error(
             "playable saves must use a 255x255 map"
         );
@@ -13567,7 +13759,83 @@ int SdlApp::run() {
     const auto new_game = [&demo_scenario] {
         return create_simulation(demo_scenario);
     };
+    double gameplay_benchmark_command_ms{};
+    std::size_t gameplay_benchmark_commanded_units{};
     Simulation simulation = new_game();
+    if (const char* benchmark =
+            SDL_getenv("AOE_GAMEPLAY_BENCHMARK_PATH");
+        benchmark != nullptr && benchmark[0] != '\0') {
+        RandomMapSettings benchmark_settings = active_random_settings;
+        benchmark_settings.size = RandomMapSize::maximum;
+        benchmark_settings.seed = 424242;
+        const RmsMapResult benchmark_map =
+            generate_rms_map(benchmark_settings);
+        if (!benchmark_map.scenario) {
+            throw std::runtime_error(
+                "could not generate gameplay benchmark map: " +
+                benchmark_map.error
+            );
+        }
+        simulation = create_simulation(*benchmark_map.scenario);
+        std::vector<EntityId> moving_units;
+        TilePosition origin{};
+        for (const Unit& unit : simulation.units()) {
+            if (unit.owner == active_view_player &&
+                unit.garrisoned_in == 0 && !is_ship(unit.kind)) {
+                if (moving_units.empty()) {
+                    origin = unit.position;
+                }
+                moving_units.push_back(unit.id);
+            }
+        }
+        TilePosition destination{
+            std::clamp(
+                origin.x + 40, 0, simulation.map().width() - 1
+            ),
+            std::clamp(
+                origin.y + 20, 0, simulation.map().height() - 1
+            ),
+        };
+        for (int radius = 0; radius <= 20; ++radius) {
+            bool found{};
+            for (int y = destination.y - radius;
+                 y <= destination.y + radius && !found;
+                 ++y) {
+                for (int x = destination.x - radius;
+                     x <= destination.x + radius;
+                     ++x) {
+                    const TilePosition candidate{x, y};
+                    if (simulation.map().contains(candidate) &&
+                        simulation.map().walkable(candidate) &&
+                        !is_resource_terrain(
+                            simulation.map().terrain_at(candidate)
+                        )) {
+                        destination = candidate;
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if (found) {
+                break;
+            }
+        }
+        simulation.select_units(moving_units, active_view_player);
+        const auto command_started =
+            std::chrono::steady_clock::now();
+        if (simulation.command_formation(
+                moving_units,
+                destination,
+                FormationKind::compact
+            )) {
+            gameplay_benchmark_commanded_units =
+                moving_units.size();
+        }
+        gameplay_benchmark_command_ms =
+            std::chrono::duration<double, std::milli>(
+                std::chrono::steady_clock::now() - command_started
+            ).count();
+    }
     std::optional<ScenarioEditor> scenario_editor;
     std::optional<Scenario> random_map_preview;
     std::filesystem::path scenario_editor_path =
@@ -13841,18 +14109,40 @@ int SdlApp::run() {
     }
     const auto refresh_random_map_preview = [&] {
         try {
-            random_map_preview =
-                generate_random_map(active_random_settings);
-            active_random_preview = &*random_map_preview;
-            const RandomMapValidation validation =
-                validate_random_map(
-                    *random_map_preview,
-                    active_random_settings.kind
+            RandomMapSettings settings = active_random_settings;
+            settings.blue_civilization = active_setup_civilization;
+            std::optional<std::string> custom_source;
+            if (const char* path = SDL_getenv("AOE_RMS_PATH");
+                path != nullptr && path[0] != '\0') {
+                std::ifstream input(path, std::ios::binary);
+                if (!input) {
+                    throw std::runtime_error(
+                        std::string{"could not open RMS: "} + path
+                    );
+                }
+                custom_source.emplace(
+                    std::istreambuf_iterator<char>{input},
+                    std::istreambuf_iterator<char>{}
                 );
-            active_frontend_status = validation.valid
-                ? "VALID MAP  HASH " +
-                      random_map_hash(*random_map_preview).substr(0, 22)
-                : "INVALID MAP: " + validation.reason;
+                active_random_map_source =
+                    "RMS " + std::filesystem::path(path).filename().string();
+            } else {
+                active_random_map_source = "CLASSIC RMS";
+            }
+            const RmsMapResult generated = generate_rms_map(
+                settings,
+                custom_source
+                    ? std::optional<std::string_view>{*custom_source}
+                    : std::nullopt
+            );
+            if (!generated.scenario) {
+                throw std::runtime_error(generated.error);
+            }
+            random_map_preview = *generated.scenario;
+            active_random_preview = &*random_map_preview;
+            active_frontend_status =
+                active_random_map_source + "  HASH " +
+                random_map_hash(*random_map_preview).substr(0, 22);
         } catch (const std::exception& error) {
             random_map_preview.reset();
             active_random_preview = nullptr;
@@ -14237,6 +14527,19 @@ int SdlApp::run() {
             SDL_Log("Ignoring malformed AOE_CAMERA_TILE: %s", requested);
         }
     }
+    const char* benchmark_path =
+        SDL_getenv("AOE_GAMEPLAY_BENCHMARK_PATH");
+    const bool gameplay_benchmark =
+        benchmark_path != nullptr && benchmark_path[0] != '\0';
+    constexpr std::size_t benchmark_warmup_frames = 10;
+    constexpr std::size_t benchmark_sample_frames = 120;
+    std::size_t benchmark_frame{};
+    std::size_t benchmark_max_rendered_tiles{};
+    std::size_t benchmark_max_moving_units{};
+    std::vector<double> benchmark_frame_times_ms;
+    std::vector<double> benchmark_render_times_ms;
+    benchmark_frame_times_ms.reserve(benchmark_sample_frames);
+    benchmark_render_times_ms.reserve(benchmark_sample_frames);
     SDL_FPoint mouse_position{
         static_cast<float>(view_pixel_width) * 0.5F,
         static_cast<float>(view_pixel_height) * 0.5F,
@@ -14406,6 +14709,7 @@ int SdlApp::run() {
     };
 
     while (running) {
+        const auto frame_started = std::chrono::steady_clock::now();
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             if (!SDL_ConvertEventToRenderCoordinates(renderer, &event)) {
@@ -16107,6 +16411,7 @@ int SdlApp::run() {
                                         Civilization::franks
                                     ? Civilization::mongols
                                     : Civilization::britons;
+                            refresh_random_map_preview();
                         } else if (event.key.key == SDLK_D) {
                             active_setup_difficulty =
                                 active_setup_difficulty ==
@@ -18721,6 +19026,16 @@ int SdlApp::run() {
             }
         }
 
+        if (gameplay_benchmark) {
+            const int pan_span =
+                std::max(1, simulation.map().width() - 40);
+            const int pan_x =
+                20 + static_cast<int>(benchmark_frame % pan_span);
+            center_camera_on(
+                camera,
+                {pan_x, simulation.map().height() / 2}
+            );
+        }
         const auto now = std::chrono::steady_clock::now();
         const float camera_step =
             8.0F * static_cast<float>(active_settings.scroll_speed) /
@@ -19120,7 +19435,8 @@ int SdlApp::run() {
             active_statistics_postgame = true;
             active_statistics_tab = StatisticsTab::economy;
         }
-        render(
+        const auto render_started = std::chrono::steady_clock::now();
+        const std::size_t rendered_tiles = render(
             renderer,
             simulation,
             computer,
@@ -19152,7 +19468,73 @@ int SdlApp::run() {
             ),
             camera
         );
-        SDL_Delay(8);
+        const auto render_finished = std::chrono::steady_clock::now();
+        if (gameplay_benchmark) {
+            if (benchmark_frame >= benchmark_warmup_frames) {
+                benchmark_frame_times_ms.push_back(
+                    std::chrono::duration<double, std::milli>(
+                        render_finished - frame_started
+                    ).count()
+                );
+                benchmark_render_times_ms.push_back(
+                    std::chrono::duration<double, std::milli>(
+                        render_finished - render_started
+                    ).count()
+                );
+                benchmark_max_rendered_tiles = std::max(
+                    benchmark_max_rendered_tiles,
+                    rendered_tiles
+                );
+                benchmark_max_moving_units = std::max(
+                    benchmark_max_moving_units,
+                    static_cast<std::size_t>(std::ranges::count_if(
+                        simulation.units(),
+                        [](const Unit& unit) {
+                            return unit.moving;
+                        }
+                    ))
+                );
+            }
+            ++benchmark_frame;
+            if (benchmark_frame_times_ms.size() ==
+                benchmark_sample_frames) {
+                std::ranges::sort(benchmark_frame_times_ms);
+                std::ranges::sort(benchmark_render_times_ms);
+                const std::size_t p95_index =
+                    (benchmark_frame_times_ms.size() * 95 + 99) /
+                        100 - 1;
+                std::ofstream report(benchmark_path);
+                report << std::fixed << std::setprecision(3)
+                       << "{\"frames\":"
+                       << benchmark_frame_times_ms.size()
+                       << ",\"frame_median_ms\":"
+                       << benchmark_frame_times_ms[
+                              benchmark_frame_times_ms.size() / 2]
+                       << ",\"frame_p95_ms\":"
+                       << benchmark_frame_times_ms[p95_index]
+                       << ",\"frame_max_ms\":"
+                       << benchmark_frame_times_ms.back()
+                       << ",\"render_p95_ms\":"
+                       << benchmark_render_times_ms[p95_index]
+                       << ",\"command_ms\":"
+                       << gameplay_benchmark_command_ms
+                       << ",\"commanded_units\":"
+                       << gameplay_benchmark_commanded_units
+                       << ",\"max_moving_units\":"
+                       << benchmark_max_moving_units
+                       << ",\"max_tiles\":"
+                       << benchmark_max_rendered_tiles
+                       << "}\n";
+                if (!report) {
+                    throw std::runtime_error(
+                        "could not write gameplay benchmark report"
+                    );
+                }
+                running = false;
+            }
+        } else {
+            SDL_Delay(8);
+        }
     }
 
     if (multiplayer_runtime) {

@@ -54,6 +54,9 @@ def run_case(
             "SDL_VIDEO_DRIVER": "dummy",
             "AOE_WINDOW_SIZE": "800x600",
             "AOE_SCENARIO_PATH": str(scenario),
+            # These fixtures are deliberately small sprite stages, while
+            # every playable path is fixed at 255x255.
+            "AOE_AUDIT_ANY_MAP_SIZE": "1",
             "AOE_SCREENSHOT_PATH": str(capture),
             "AOE_SCREENSHOT_TICK": str(tick),
             "AOE_EXIT_AFTER_SCREENSHOT": "1",

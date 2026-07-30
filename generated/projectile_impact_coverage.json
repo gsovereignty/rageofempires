@@ -51,10 +51,10 @@
     },
     {
       "kind": "arrow",
-      "root_graphic": 3378,
-      "slp_id": 3799,
+      "root_graphic": 638,
+      "slp_id": 50,
       "before": "wrong_frame_zero",
-      "after": "procedural_fail_closed"
+      "after": "exact_directional"
     },
     {
       "kind": "scorpion_bolt",
@@ -84,16 +84,11 @@
   ],
   "summary": {
     "projectile_exact_before": 1,
-    "projectile_exact_after": 8,
+    "projectile_exact_after": 9,
     "projectile_total": 9,
     "impact_exact_before": 0,
     "impact_exact_after": 2,
     "impact_total": 2,
-    "fail_closed": [
-      {
-        "kind": "arrow",
-        "reason": "32-direction display transform unproved"
-      }
-    ]
+    "fail_closed": []
   }
 }

@@ -13,8 +13,7 @@ import subprocess
 
 PINNED_OPENAGE = "9a5a7ccbfc20c2de658fc746462cd4a69aa758ef"
 RESOURCES = {
-    "arrow_body": (3799, 11, 32),
-    "arrow_shadow": (3800, 1, 72),
+    "arrow_body": (50, 1, 72),
     "scorpion_body": (3812, 1, 18),
     "scorpion_shadow": (3813, 1, 18),
 }
@@ -131,10 +130,9 @@ def main() -> None:
                 resources["scorpion_shadow"]["layout_matches"]
                 else "fail_closed"
             ),
-            "arrow": "fail_closed",
-            "arrow_reason": (
-                "body physical frame count does not match "
-                "half-plus-center DAT layout"
+            "arrow": (
+                "proved" if resources["arrow_body"]["layout_matches"]
+                else "fail_closed"
             ),
         },
     }

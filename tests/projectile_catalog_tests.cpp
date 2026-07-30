@@ -61,16 +61,20 @@ int main() {
         "impact cadence drift rejected"
     );
 
-    graphics.resize(4301);
-    graphics[3378] = graphic(3378, 3799, 30, 11, 32, 24);
-    graphics[3379] = graphic(3379, 3800, 10, 1, 72, 54);
-    graphics[3378].deltas.push_back({3379, 0, 0, -1});
+    graphics[638] = graphic(638, 50, 30, 1, 72, 54);
     const auto arrow = aoe::find_projectile_asset_binding(
         graphics, aoe::ProjectileAssetKind::arrow
     );
     expect(
-        arrow && !arrow->direction_mapping_proved,
-        "unproved 32-direction mapping remains fail closed"
+        arrow && arrow->direction_mapping_proved &&
+            arrow->root_graphic == 638 && arrow->slp_id == 50,
+        "static 72-direction arrow binding remains exact"
+    );
+    expect(
+        aoe::select_projectile_frame(
+            {0, 0}, {1, 0}, 1, 72, 37, 0
+        ).has_value(),
+        "static Arrow SLP half-plus-center layout accepted"
     );
     expect(
         !aoe::select_projectile_frame(

@@ -23,8 +23,8 @@ constexpr std::array projectile_bindings{
         10, 1, 0, 3395, 3816, 4203, 4370, 20, true},
     ProjectileAssetBinding{ProjectileAssetKind::throwing_axe, 3380, 3801,
         10, 8, 6, 3381, 3802, {}, {}, {}, true},
-    ProjectileAssetBinding{ProjectileAssetKind::arrow, 3378, 3799,
-        11, 32, 24, 3379, 3800, {}, {}, {}, false},
+    ProjectileAssetBinding{ProjectileAssetKind::arrow, 638, 50,
+        1, 72, 54, {}, {}, {}, {}, {}, true},
     ProjectileAssetBinding{ProjectileAssetKind::scorpion_bolt, 3391, 3812,
         1, 18, 13, 3392, 3813, 1744, 416, 10, true},
 };

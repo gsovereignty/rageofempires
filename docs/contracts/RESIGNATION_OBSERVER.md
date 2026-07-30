@@ -1,5 +1,7 @@
 # Resignation and observer contract
 
+UI controls: [resignation and observer UI](../ui/RESIGNATION_OBSERVER_UI.md).
+
 `PlayerControllerState` separates authoritative participation from local
 viewing:
 

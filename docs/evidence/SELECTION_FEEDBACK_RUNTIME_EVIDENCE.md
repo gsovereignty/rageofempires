@@ -151,5 +151,5 @@ group-membership input.
 
 DAT `selected_sound` values are exact and included in unit fixtures. Selection
 sound archive identity and trigger evidence remain documented in
-`AUDIO_ARCHIVE_FIDELITY.md`; this visual catalog does not infer a click,
+`../fidelity/AUDIO_ARCHIVE_FIDELITY.md`; this visual catalog does not infer a click,
 hover, or selection-change trigger from the field name alone.

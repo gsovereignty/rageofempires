@@ -49,6 +49,6 @@ the still-documented deterministic resistance/timing policy.
 
 - Native matches do not consume the commercial CRT random stream.
 - Native resistance timing and participant selection remain reconstruction
-  contracts documented in `RELIGIOUS_ASSET_MAP.md`.
+  contracts documented in `../assets/RELIGIOUS_ASSET_MAP.md`.
 - No original-runtime save, replay, or multiplayer equivalence is claimed.
 - Unknown resource/object-class offsets remain untranslated.

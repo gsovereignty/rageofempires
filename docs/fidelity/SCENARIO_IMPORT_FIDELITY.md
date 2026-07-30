@@ -149,12 +149,12 @@ live-DAT metadata and renderer/DAT evidence maps.
 | Object catalog | All 96 represented `UnitKind` values |
 | Building catalog | 23 of 27 represented `BuildingKind` values |
 
-`TERRAIN_FIDELITY.md`, `STANDARD_UNITS_ASSET_MAP.md`,
-`LAND_UNIQUE_ASSET_MAP.md`, `NAVAL_ASSET_MAP.md`, `BUILDING_SPRITE_MAP.md`,
+`TERRAIN_FIDELITY.md`, `../assets/STANDARD_UNITS_ASSET_MAP.md`,
+`../assets/LAND_UNIQUE_ASSET_MAP.md`, `../assets/NAVAL_ASSET_MAP.md`, `../assets/BUILDING_SPRITE_MAP.md`,
 the generated metadata JSON, and focused subsystem asset maps record these IDs
 and represented roles. The converter also verifies that a terrain ID is within
 the supplied DAT terrain count before mapping it. Palisade and stone gate
-orientations are excluded: `BUILDING_SPRITE_MAP.md` explicitly leaves their
+orientations are excluded: `../assets/BUILDING_SPRITE_MAP.md` explicitly leaves their
 post-terrain commercial object links unresolved.
 
 Player slots 1 and 2 become blue and red. Their four represented resources and

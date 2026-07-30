@@ -120,8 +120,8 @@ Matrix completeness means complete coverage of current enums, not complete
 commercial-game coverage. Missionary, monastery technologies, and nine
 economy technologies have graduated into represented enums. Expanded resource
 ecology runtime behavior, trade/naval runtime behavior, defensive and victory
-runtime behavior, formation, AI, campaign, and multiplayer work remains in
-[`NEXT_IMPLEMENTATION_TARGETS.md`](NEXT_IMPLEMENTATION_TARGETS.md).
+runtime behavior, formation, AI, campaign, and multiplayer work remains
+outside this matrix and must be assessed against current code before planning.
 
 Six common standard technologies now also come directly from live VER 5.7
 records: Tracking 90, Squires 215, Parthian Tactics 436, Thumb Ring 437,

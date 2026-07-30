@@ -18671,6 +18671,132 @@ void formation_semantic_legs_and_boundary_are_durable() {
     require(stopped_queue.units()[1].position.x > 40);
 }
 
+void formation_movement_credit_stays_in_its_denominator_domain() {
+    const auto require_clean_cavalry_cadence = [](
+        aoe::Simulation& simulation,
+        aoe::EntityId unit_id,
+        aoe::TilePosition destination
+    ) {
+        const aoe::TilePosition origin =
+            simulation.units().front().position;
+        require(simulation.command_unit(unit_id, destination));
+        require(
+            simulation.units().front().movement_speed_remainder == 0
+        );
+        simulation.update();
+        require(simulation.units().front().position == origin);
+        simulation.update();
+        require(
+            simulation.units().front().position ==
+            aoe::TilePosition(origin.x + 1, origin.y)
+        );
+    };
+
+    aoe::Simulation completed(aoe::GameMap(40, 6));
+    const aoe::EntityId completed_scout = completed.add_unit(
+        aoe::UnitKind::scout_cavalry, aoe::Player::blue, {2, 2}
+    );
+    completed.add_unit(
+        aoe::UnitKind::villager, aoe::Player::red, {39, 5}
+    );
+    require(completed.command_formation(
+        {completed_scout}, {12, 2}, aoe::FormationKind::line
+    ));
+    bool held_formation_credit = false;
+    for (int tick = 0; tick < 200; ++tick) {
+        completed.update();
+        held_formation_credit =
+            held_formation_credit ||
+            (completed.units().front().formation_group_id != 0 &&
+             completed.units().front().movement_speed_remainder > 0);
+        if (completed.units().front().formation_group_id == 0) break;
+    }
+    require(held_formation_credit);
+    require(completed.units().front().formation_group_id == 0);
+    require(completed.units().front().movement_speed_remainder == 0);
+    require_clean_cavalry_cadence(
+        completed, completed_scout, {34, 2}
+    );
+
+    aoe::Simulation redirected(aoe::GameMap(40, 6));
+    const aoe::EntityId redirected_scout = redirected.add_unit(
+        aoe::UnitKind::scout_cavalry, aoe::Player::blue, {2, 2}
+    );
+    redirected.add_unit(
+        aoe::UnitKind::villager, aoe::Player::red, {39, 5}
+    );
+    require(redirected.command_formation(
+        {redirected_scout}, {30, 2}, aoe::FormationKind::line
+    ));
+    redirected.update();
+    require(
+        redirected.units().front().movement_speed_remainder > 320
+    );
+    require_clean_cavalry_cadence(
+        redirected, redirected_scout, {34, 2}
+    );
+
+    aoe::Simulation stopped(aoe::GameMap(40, 6));
+    const aoe::EntityId stopped_scout = stopped.add_unit(
+        aoe::UnitKind::scout_cavalry, aoe::Player::blue, {2, 2}
+    );
+    stopped.add_unit(
+        aoe::UnitKind::villager, aoe::Player::red, {39, 5}
+    );
+    require(stopped.command_formation(
+        {stopped_scout}, {30, 2}, aoe::FormationKind::line
+    ));
+    stopped.update();
+    require(stopped.units().front().movement_speed_remainder > 320);
+    require(stopped.stop_unit(stopped_scout));
+    require(stopped.units().front().movement_speed_remainder == 0);
+
+    aoe::Simulation individual(aoe::GameMap(40, 6));
+    const aoe::EntityId individual_scout = individual.add_unit(
+        aoe::UnitKind::scout_cavalry, aoe::Player::blue, {2, 2}
+    );
+    individual.add_unit(
+        aoe::UnitKind::villager, aoe::Player::red, {39, 5}
+    );
+    require(individual.command_unit(individual_scout, {20, 2}));
+    individual.update();
+    individual.update();
+    const int valid_individual_remainder =
+        individual.units().front().movement_speed_remainder;
+    require(valid_individual_remainder > 0);
+    require(individual.command_unit(individual_scout, {34, 2}));
+    require(
+        individual.units().front().movement_speed_remainder ==
+        valid_individual_remainder
+    );
+
+    aoe::Simulation unique(aoe::GameMap(40, 6));
+    unique.replace_technologies(
+        aoe::Player::blue,
+        {aoe::Technology::wheelbarrow}
+    );
+    const aoe::EntityId wheelbarrow_villager = unique.add_unit(
+        aoe::UnitKind::villager, aoe::Player::blue, {2, 2}
+    );
+    unique.add_unit(
+        aoe::UnitKind::villager, aoe::Player::red, {39, 5}
+    );
+    require(unique.command_formation(
+        {wheelbarrow_villager}, {24, 2}, aoe::FormationKind::line
+    ));
+    unique.update();
+    require(unique.units().front().movement_speed_remainder > 100);
+    require(unique.command_unit(wheelbarrow_villager, {34, 2}));
+    require(unique.units().front().movement_speed_remainder == 0);
+    const int unique_origin_x = unique.units().front().position.x;
+    unique.update();
+    require(unique.units().front().position.x == unique_origin_x + 1);
+    require(
+        unique.units().front().movement_speed_remainder > 0 &&
+        unique.units().front().movement_speed_remainder < 100
+    );
+}
+
 void computer_strategy_is_configurable_visible_and_persistent() {
     bool invalid_difficulty_rejected = false;
     try {
@@ -23072,6 +23198,10 @@ int main() {
     run(
         "durable formation semantic legs",
         formation_semantic_legs_and_boundary_are_durable
+    );
+    run(
+        "formation movement remainder domain",
+        formation_movement_credit_stays_in_its_denominator_domain
     );
     run(
         "configurable persistent computer strategy",

@@ -331,13 +331,18 @@ Scenario generate_once(
 }  // namespace
 
 int random_map_dimension(RandomMapSize size) {
+    // Original tile counts, from the map-size switch in FUN_00622010
+    // (AoK-HD-patched.c:356938-356960).
     switch (size) {
-        case RandomMapSize::tiny: return 48;
-        case RandomMapSize::small: return 64;
-        case RandomMapSize::medium: return 80;
-        case RandomMapSize::large: return 96;
+        case RandomMapSize::tiny: return 120;
+        case RandomMapSize::small: return 144;
+        case RandomMapSize::medium: return 168;
+        case RandomMapSize::normal: return 200;
+        case RandomMapSize::large: return 220;
+        case RandomMapSize::giant: return 240;
+        case RandomMapSize::maximum: return 255;
     }
-    return 64;
+    return 144;
 }
 
 RandomMapValidation validate_random_map(

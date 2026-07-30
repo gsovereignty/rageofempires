@@ -25,7 +25,10 @@ open `aoe2-rms-lib` reference:
 ## Accepted reconstruction subset
 
 - Sections: player, land, elevation, cliff, terrain, connection, objects.
-- Player placement and map-size override.
+- Player placement and map-size override. `override_map_size` is a tile
+  count, so it snaps up to the nearest `RandomMapSize` preset
+  (120/144/168/200/220/240/255) and clamps above 255. A script with no
+  `override_map_size` inherits the `RandomMapSettings` default.
 - Common land/terrain/elevation/cliff/connection creation commands and their
   distance, count, scale, border, clumping, and placement attributes.
 - Common object creation/count/group/player/resource attributes.

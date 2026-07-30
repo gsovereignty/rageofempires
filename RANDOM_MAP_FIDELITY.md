@@ -17,10 +17,62 @@ generation rules:
   families:
   <https://www.ageofempires.com/news/aoe2de-update-34699/>
 
+## Observed map-size ladder
+
+Observed executable evidence:
+
+- `AoK-HD-patched.strings.txt:29297-29302` lists exactly six map-size keys,
+  in descending order: `GIANT-MAP`, `LARGE-MAP`, `NORMAL-MAP`, `MEDIUM-MAP`,
+  `SMALL-MAP`, `TINY-MAP`. The lowercase selector tokens `giant`, `large`,
+  `normal`, `medium`, `small`, `tiny` appear at
+  `AoK-HD-patched.strings.txt:29627-29632`.
+- `FUN_00622010` converts the selected size index to a tile dimension with a
+  dense switch at `AoK-HD-patched.c:356938-356960`:
+
+  | Index | Constant | Tiles |
+  |---:|---|---:|
+  | 0 | `0x78` | 120 |
+  | 1 | `0x90` | 144 |
+  | 2 | `0xa8` | 168 |
+  | 3 | `200` | 200 |
+  | 4 | `0xdc` | 220 |
+  | 5 | `0xf0` | 240 |
+  | 6 | `0xff` | 255 |
+
+Interpretation: indices 0-5 are the six named presets in ladder order; index 6
+has no name string and is treated as an engine-internal maximum. Confidence:
+high for indices 0-5, since the count and order match the string table
+exactly.
+
+Not ported: the same function bumps the index by one for a specific set of map
+type IDs (`iVar9` equal to 10, 0x10, 0x13, 0x15, or 0x17) before the switch, so
+those original map types generate one step larger than requested. The
+reconstruction's `RandomMapKind` set does not correspond to those IDs, so no
+bump is applied.
+
+Modern choice: `RandomMapSize` exposes all seven switch indices and
+`random_map_dimension` returns the observed tile counts. Index 6 is named
+`maximum` and labelled `MAXIMUM` in the frontend; that name is invented,
+because no original name string or menu entry was recovered for it.
+
+Not recovered: the original default selection. The map-size combo is populated
+and then reset with `FUN_005bfaf0(0)` (`AoK-HD-patched.c:364097`), i.e. list
+item 0, but the populate order for that list was not established, so index 0
+cannot be tied to a named preset with confidence. The original also rewrites
+the selection from player count (`AoK-HD-patched.c:366567-366582`), which the
+reconstruction does not model.
+
+Modern choice: `RandomMapSettings::size` defaults to `giant` (240 tiles), the
+largest named preset, and the frontend starts on the same preset. RMS scripts
+with no `override_map_size` directive inherit that default, matching the
+original behaviour where a script without the directive uses the
+lobby-selected size. An `override_map_size` above 240 snaps to `maximum`.
+
 ## Reconstruction contract
 
 - `RandomMapKind`: Arabia, Black Forest, Islands, Rivers.
-- `RandomMapSize`: 48, 64, 80, or 96 square tiles.
+- `RandomMapSize`: the original six-step named ladder plus the unnamed
+  index-6 maximum, square tiles.
 - Optional blue/red civilization selections flow into generated scenarios;
   defaults remain generic.
 - Fixed SplitMix64-derived PRNG; no platform RNG or floating random source.
@@ -31,12 +83,15 @@ generation rules:
   by a narrow route; Islands has separate shore-ringed land masses and fish;
   Rivers has winding water, beaches, and shallow crossings.
 - Elevation patches are deterministic and starting footprints are flattened.
+  Blob count and radius are fixed rather than scaled by dimension, so larger
+  presets are flatter; no original scaling rule was recovered.
 - Validation checks start buildings/units, legal land, and expected land
   connectivity. Generation retries at most 16 derived seeds, then fails.
 - `random_map_hash` covers dimensions, every terrain/elevation/resource tile,
   and all starting placements.
 - `save_scenario` writes current Scenario66 output.
 
-Property tests cover all four kinds and sizes over 24 seeds each, assert
-same-seed hash identity, paired starting resources, validation, simulation
-construction, and Scenario66 serialization.
+Property tests cover all four kinds and all seven size presets over 24 seeds
+each, assert the exact observed tile counts, same-seed hash identity, paired
+starting resources, validation, simulation construction, and Scenario66
+serialization.

@@ -101,7 +101,7 @@ void common_subset_parses_and_evaluates() {
         "same RMS seed changed output"
     );
     require(
-        first->map.width() == 48 &&
+        first->map.width() == 120 &&
         first->blue_civilization == aoe::Civilization::chinese &&
         first->red_civilization == aoe::Civilization::mayans,
         "RMS setup did not reach generated scenario"

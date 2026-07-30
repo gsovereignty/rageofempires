@@ -54,7 +54,7 @@ harness, wait/suspend/drop handling, and observer behavior after resignation.
 Missing product layers are discovery, authentication, lobby/roster UI,
 checkpoint transfer UI, moderation, multi-peer SDL/UI plumbing, reconnect,
 host migration, and AI takeover. No commercial wire equivalence is claimed.
-Evidence: `MULTIPLAYER_FIDELITY.md`, `RESIGNATION_OBSERVER.md`,
+Evidence: `MULTIPLAYER_FIDELITY.md`, `../contracts/RESIGNATION_OBSERVER.md`,
 `tests/multiplayer_signal_tests.cpp`, and SDL localhost/signal smoke scripts.
 
 ### Scenarios, triggers, editor, and random maps
@@ -77,7 +77,7 @@ triggers. Bounded conversion maps proved terrain/object IDs and common
 multi-condition/effect semantics, preserving every unsupported raw record and
 suppressing partial playable output when semantics are not lossless.
 
-Evidence: `TRIGGER_FIDELITY.md`, `SCENARIO_IMPORT_FIDELITY.md`,
+Evidence: `../contracts/TRIGGER_FIDELITY.md`, `SCENARIO_IMPORT_FIDELITY.md`,
 `RMS_IMPORT_FIDELITY.md`, `src/scenario_editor.cpp`, and focused scenario,
 editor, random-map, RMS, and legacy-scenario tests.
 
@@ -143,7 +143,7 @@ complete event coverage. Evidence: `AUDIO_ARCHIVE_FIDELITY.md`,
    layout validation, shipped language packs, and localized audio.
 6. Complete reactive audio/mixing policy.
 7. Known physically absent visual resources documented in
-   `PROCEDURAL_BUILDING_ASSET_MAP.md` and
+   `../assets/PROCEDURAL_BUILDING_ASSET_MAP.md` and
    `generated/renderer_asset_coverage.json`.
 
 Commercial scenario/campaign/save/replay import coverage and proprietary

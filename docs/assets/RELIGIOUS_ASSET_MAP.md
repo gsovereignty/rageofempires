@@ -5,7 +5,7 @@
 This map records Missionary DAT unit 775, hidden Spanish availability
 technology 84, and monastery technologies 231, 252, 316, 319, 233, 230, 45,
 438, and 439 from validated VER 5.7 `empires2_x1_p1.dat`.
-[`generated/religious_dat_metadata.json`](generated/religious_dat_metadata.json)
+[`generated/religious_dat_metadata.json`](../../generated/religious_dat_metadata.json)
 is regenerated from legal live DAT; no original game data is bundled.
 
 DAT proves records, costs, prerequisites, producer/button/icon placement, raw
@@ -94,7 +94,7 @@ These are bounded deterministic reconstruction contracts, not claims of exact
 commercial-runtime semantics.
 
 The isolated commercial conversion-roll arithmetic is now recorded separately
-in `CONVERSION_RUNTIME_EVIDENCE.md`. That static evidence proves the
+in `../evidence/CONVERSION_RUNTIME_EVIDENCE.md`. That static evidence proves the
 `rand()*100/0x7fff`, resistance conversion, threshold, and comparison seam;
 it does not prove this document's native timing or target policy.
 

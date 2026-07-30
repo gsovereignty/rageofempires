@@ -1,5 +1,7 @@
 # Match statistics and debrief
 
+Counter semantics: [match statistics contract](../contracts/MATCH_STATISTICS.md).
+
 `F12` opens a read-only statistics snapshot during play. Completed matches
 open the same screen automatically with Continue, Rematch, and Back to Menu
 actions. Number keys select Economy, Military, Society, Technology, and

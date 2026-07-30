@@ -1,7 +1,7 @@
 # Allied map signals
 
 The original Microsoft manual says map signals can be sent to allies (manual,
-pp. 54–55; evidence inventory in `MULTIPLAYER_FIDELITY.md`). The reconstruction
+pp. 54–55; evidence inventory in `../fidelity/MULTIPLAYER_FIDELITY.md`). The reconstruction
 uses `Alt+F`, then a left click on an explored world tile. This binding is a
 documented reconstruction choice; the available evidence proves the feature
 and audience, not that exact chord.

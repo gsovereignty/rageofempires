@@ -202,7 +202,7 @@ python3 tools/dat_metadata/generate_garrison_metadata.py \
 The base extractor now preserves raw `garrison_capacity`, `garrison_type`,
 `garrison_heal_rate`, and `garrison_repair_rate` fields. `garrison_type` stays
 numeric because the pinned library does not decode its accepted-unit mask.
-See `GARRISON_ASSET_MAP.md`.
+See `../../docs/assets/GARRISON_ASSET_MAP.md`.
 
 Generate bounded radial-combat and attack-dispersion evidence:
 
@@ -216,7 +216,7 @@ range, area/blast level, miss/volley spread, weapon offset, projectile link,
 and missile fields for represented artillery, explosive units, Scorpions, and
 Bombard Tower. Shape, distance falloff, target filtering, friendly fire,
 collision, and projectile placement remain original-runtime validation. See
-`COMBAT_GEOMETRY_FIDELITY.md`.
+`../../docs/fidelity/COMBAT_GEOMETRY_FIDELITY.md`.
 
 Generate bounded Wonder and victory evidence:
 

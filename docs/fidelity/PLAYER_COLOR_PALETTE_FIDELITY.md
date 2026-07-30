@@ -33,3 +33,29 @@ preservation, invalid inputs, and exact blue/red compatibility.
 all eight slots. It checks expected palette bytes and proves remapping changes
 neither alpha footprint nor any non-player pixel. This prevents palette decode
 from creating opaque rectangles outside original SLP coverage.
+
+## Source evidence and boundary
+
+Pinned evidence uses `interfac.drs` resource `bina:50500`, the VER 5.7 DAT
+player-color table, and classic SLP player-color commands from the supplied
+2013 HD payload. Palette 50500 is a 256-entry JASC-PAL 0100 resource. DAT
+color IDs `0..7` select base indices:
+
+| Color ID | Conventional name | Base |
+|---:|---|---:|
+| 0 | blue | 16 |
+| 1 | red | 32 |
+| 2 | green | 48 |
+| 3 | yellow | 64 |
+| 4 | cyan | 96 |
+| 5 | purple | 112 |
+| 6 | gray | 128 |
+| 7 | orange | 80 |
+
+Classic list command `0x06` and fill command `0x0a` carry source indices.
+The scanner decoded all 1,768 classic SLP resources in the pinned
+`graphics.drs`; player commands use source indices `0..9`.
+
+This proves classic paletted remapping carried by the HD assets. It does not
+prove any later HD texture, shader, brightness, gamma, or display transform.
+No such post-palette transform is inferred.

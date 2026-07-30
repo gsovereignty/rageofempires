@@ -2,9 +2,9 @@
 
 ## Evidence and guarded catalog
 
-Live VER 5.7 DAT/DRS audits in `STANDARD_UNITS_ASSET_MAP.md`,
-`LAND_UNIQUE_ASSET_MAP.md`, `NAVAL_ASSET_MAP.md`, and
-`BUILDING_SPRITE_MAP.md` prove represented projectile roots, neutral player
+Live VER 5.7 DAT/DRS audits in `../assets/STANDARD_UNITS_ASSET_MAP.md`,
+`../assets/LAND_UNIQUE_ASSET_MAP.md`, `../assets/NAVAL_ASSET_MAP.md`, and
+`../assets/BUILDING_SPRITE_MAP.md` prove represented projectile roots, neutral player
 color, animation metadata, direct layer-10 shadow children, and impact links.
 
 `projectile_catalog` accepts those records only when exact graphic ID, SLP,

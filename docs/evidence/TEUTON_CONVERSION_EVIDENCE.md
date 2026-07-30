@@ -121,4 +121,4 @@ global CRT RNG sequencing and complete DAT class/ID/resource transport, so its
 existing conversion scheduler is not relabeled exact.
 
 Generated evidence lives in
-[`generated/teuton_conversion_evidence.json`](generated/teuton_conversion_evidence.json).
+[`generated/teuton_conversion_evidence.json`](../../generated/teuton_conversion_evidence.json).

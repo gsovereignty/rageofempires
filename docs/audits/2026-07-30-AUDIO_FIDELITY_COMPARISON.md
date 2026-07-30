@@ -258,7 +258,7 @@ behavioral fidelity for when, where, how often, or which variant plays.
 
 ## Stale existing audit
 
-`AUDIO_ARCHIVE_FIDELITY.md` says supplied live root contains exactly
+`../fidelity/AUDIO_ARCHIVE_FIDELITY.md` says supplied live root contains exactly
 `Sound/stream/town.mp3` and `Sound/terrain/Wave1.wav`. Current supplied
 `../original-assets/app` instead has 29 stream MP3s, 2 music MP3s, 20 terrain
 WAVs, 115 campaign MP3s, 709 scenario MP3s, and 42 taunts. Its inventory-based

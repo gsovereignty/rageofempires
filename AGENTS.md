@@ -17,7 +17,7 @@ reconstruction/
 ├── src/               C++ implementations and executable entry points
 ├── tests/             C++ unit/integration tests and SDL smoke-test scripts
 ├── resources/         Tracked native scenarios and campaign fixtures
-├── docs/              Focused UI and behavior design notes
+├── docs/              Indexed guides, contracts, fidelity, evidence, and audits
 ├── tools/             Audit, report, fixture, and evidence-generation tools
 │   └── dat_metadata/  DAT metadata extractor plus generator tests
 ├── scripts/           Build/bundle verification and visual smoke automation
@@ -28,9 +28,8 @@ reconstruction/
 ├── .codebase-memory/  Tracked codebase knowledge-graph artifact
 ├── CMakeLists.txt     Primary CMake build and test definition
 ├── Makefile           Convenience build/test targets
-├── README.md          Project scope, setup, controls, and implementation status
-├── ARCHAEOLOGY.md     Evidence log linking reconstruction choices to research
-└── *.md               Fidelity contracts, evidence reports, maps, and audits
+├── README.md          Project scope, quickstart, and documentation entry point
+└── AGENTS.md          Repository-specific instructions and structure map
 ```
 
 ### Source layout
@@ -51,8 +50,14 @@ reconstruction/
   with or exercise the reconstruction.
 - `generated/` contains reproducible outputs from `tools/`; update generator
   and generated output together when contracts change.
-- `docs/` contains focused product/UI contracts. Root Markdown files contain
-  broader fidelity findings, runtime evidence, asset maps, and project status.
+- `docs/README.md` indexes all prose by genre and lifetime.
+- `docs/guide/` contains reader-facing build, controls, architecture, content,
+  and status material.
+- `docs/contracts/` contains durable reconstruction-native behavior.
+- `docs/fidelity/`, `docs/assets/`, and `docs/evidence/` contain bounded
+  original-behavior findings, mappings, and pinned evidence.
+- `docs/ui/` contains focused interaction and presentation contracts.
+- `docs/audits/` contains dated snapshots, never durable contracts.
 - `artifacts/` contains disposable screenshots, bitmap captures, and logs from
   local audit runs. Keep these out of commits unless explicitly requested.
 

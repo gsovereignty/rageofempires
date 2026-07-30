@@ -2,7 +2,7 @@
 
 ## Scope and boundary
 
-[`generated/economy_dat_metadata.json`](generated/economy_dat_metadata.json)
+[`generated/economy_dat_metadata.json`](../../generated/economy_dat_metadata.json)
 records ten live VER 5.7 economy technologies, raw effects, civilization
 boundaries, worker/resource records, terrain restrictions, and terrain
 summaries. DAT proves numeric records. Gather cadence, floating-point rounding,

@@ -1,5 +1,7 @@
 # Match statistics contract
 
+UI presentation: [match statistics UI](../ui/MATCH_STATISTICS_UI.md).
+
 `Simulation::match_statistics()` returns a value snapshot suitable for score,
 statistics, and timeline UI. It exposes one `PlayerStatistics` record for blue
 and red, current live scores, and deterministic 100-tick timeline samples.

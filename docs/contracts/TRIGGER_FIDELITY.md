@@ -1,5 +1,23 @@
 # Native Trigger Fidelity
 
+## Evidence boundary
+
+Supplied content contains no original `.scn`, `.scx`, or campaign trigger
+payload. DAT and DRS archives do not prove scenario-trigger runtime behavior.
+Original documentation proves editor-visible victory conditions, hints,
+play-testing, and ordered campaign scenarios, but not polling, execution
+order, looping reset, or same-tick activation.
+
+Pinned classic SCX decoder structures prove persisted trigger arrays, separate
+display-order arrays, enabled and looping flags, start times, objectives,
+condition/effect lists, and typed operands. They do not prove closed-source
+runtime semantics. In particular, display order must not be treated as
+execution order.
+
+Reconstruction priority ordering, snapshot evaluation, transactional effects,
+activation timing, and loop behavior below are explicit native contracts.
+They are not claimed as exact commercial behavior.
+
 ## Contract
 
 Scenario64 replaces Scenario63's single quoted condition/effect pair with

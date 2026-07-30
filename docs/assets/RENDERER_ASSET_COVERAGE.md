@@ -61,12 +61,14 @@ render-state key and serialize in sorted order.
 
 ## Audit and project gates
 
-Configure the live classic Data directory once:
+The checked-in packaged Data directory is the default audit input:
 
 ```sh
-cmake -S . -B build \
-  -DAOE_ASSET_AUDIT_DATA_ROOT=/path/to/app/Data
+cmake -S . -B build
 ```
+
+`AOE_ASSET_AUDIT_DATA_ROOT` remains available only for explicit research
+comparison against another extracted installation.
 
 Commands:
 

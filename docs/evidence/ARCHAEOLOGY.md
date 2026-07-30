@@ -53,7 +53,7 @@ base-only roots still work. Live `sounds.drs` has 1021 WAV IDs and
 `sounds_x1.drs` has 365, including 307 x1-only and 58 repeated IDs. Repeated
 payloads are byte-identical in the validated root, while deterministic
 synthetic tests prove override order with deliberately different bytes. See
-`AUDIO_ARCHIVE_FIDELITY.md` for hashes, exact IDs, and reactive sound links.
+`../fidelity/AUDIO_ARCHIVE_FIDELITY.md` for hashes, exact IDs, and reactive sound links.
 Reactive playback now supplies blue listener civilization. Exact
 civilization records precede generic `-1` records; highest probability and
 then DAT order provide a bounded deterministic choice. This is not a claim

@@ -799,6 +799,65 @@ void vision_reveals_and_remembers_explored_tiles() {
     require(simulation.is_visible(aoe::Player::blue, {10, 2}));
 }
 
+void exploration_sweep_matches_per_tile_visibility() {
+    // update_exploration marks tiles from each vision source instead of
+    // testing every tile, so it must stay identical to is_visible over
+    // the whole map, including the cartography and spy branches.
+    aoe::Simulation simulation(aoe::GameMap(64, 48));
+    simulation.add_building(
+        aoe::BuildingKind::town_center, aoe::Player::blue, {6, 6}
+    );
+    simulation.add_building(
+        aoe::BuildingKind::outpost, aoe::Player::blue, {20, 30}
+    );
+    simulation.add_unit(
+        aoe::UnitKind::villager, aoe::Player::blue, {9, 20}
+    );
+    simulation.add_unit(
+        aoe::UnitKind::scout_cavalry, aoe::Player::blue, {33, 11}
+    );
+    simulation.add_building(
+        aoe::BuildingKind::castle, aoe::Player::red, {50, 36}
+    );
+    simulation.add_unit(
+        aoe::UnitKind::villager, aoe::Player::red, {44, 40}
+    );
+    simulation.add_unit(
+        aoe::UnitKind::archer, aoe::Player::red, {57, 8}
+    );
+    for (aoe::Technology technology : {
+             aoe::Technology::cartography,
+             aoe::Technology::spy_technology,
+             aoe::Technology::town_watch,
+         }) {
+        simulation.replace_technologies(aoe::Player::blue, {technology});
+        for (aoe::Player player : {aoe::Player::blue, aoe::Player::red}) {
+            std::vector<bool> before;
+            before.reserve(64 * 48);
+            for (int y = 0; y < 48; ++y) {
+                for (int x = 0; x < 64; ++x) {
+                    before.push_back(
+                        simulation.is_explored(player, {x, y})
+                    );
+                }
+            }
+            simulation.update();
+            std::size_t index{};
+            for (int y = 0; y < 48; ++y) {
+                for (int x = 0; x < 64; ++x) {
+                    const aoe::TilePosition tile{x, y};
+                    const bool expected =
+                        before[index++] ||
+                        simulation.is_visible(player, tile);
+                    require(
+                        simulation.is_explored(player, tile) == expected
+                    );
+                }
+            }
+        }
+    }
+}
+
 void save_round_trip_preserves_exploration_memory() {
     aoe::Simulation simulation(aoe::GameMap(20, 20));
     const aoe::EntityId scout = simulation.add_unit(
@@ -22211,6 +22270,10 @@ int main() {
         idle_military_excludes_persistent_combat_orders
     );
     run("vision and exploration", vision_reveals_and_remembers_explored_tiles);
+    run(
+        "exploration sweep equivalence",
+        exploration_sweep_matches_per_tile_visibility
+    );
     run(
         "exploration save",
         save_round_trip_preserves_exploration_memory

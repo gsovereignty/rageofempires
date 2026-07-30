@@ -3,7 +3,9 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdlib>
 #include <stdexcept>
+#include <vector>
 
 #include "aoe/game_rules.hpp"
 #include "aoe/pathfinding.hpp"
@@ -9766,16 +9768,89 @@ std::size_t Simulation::map_index(TilePosition position) const {
 }
 
 void Simulation::update_exploration() {
+    // Same visibility contract as is_visible, but driven from each
+    // vision source instead of from every tile. Scanning the whole map
+    // per player per tick made tick cost scale with map area, which is
+    // ruinous at the original 120-240 tile presets.
     for (std::size_t index = 0; index < player_states_.size(); ++index) {
         const PlayerSlotId slot = *PlayerSlotId::from_index(index);
         if (!roster_.slot(slot).occupied) continue;
-        for (int y = 0; y < map_.height(); ++y) {
-            for (int x = 0; x < map_.width(); ++x) {
-                const TilePosition position{x, y};
-                if (is_visible(slot, position)) {
-                    player_states_[index].explored.at(
-                        map_index(position)
-                    ) = true;
+        const EntityOwner player = entity_owner_from_slot(slot);
+        std::vector<bool>& explored = player_states_[index].explored;
+        const auto mark = [this, &explored](TilePosition tile) {
+            if (map_.contains(tile)) {
+                explored.at(map_index(tile)) = true;
+            }
+        };
+        if (has_technology(player, Technology::spy_technology)) {
+            for (const Unit& unit : units_) {
+                if (unit.hit_points > 0 && unit.garrisoned_in == 0 &&
+                    is_enemy(player, unit.owner)) {
+                    mark(unit.position);
+                }
+            }
+            for (const Building& building : buildings_) {
+                if (building.hit_points <= 0 ||
+                    !is_enemy(player, building.owner)) {
+                    continue;
+                }
+                const BuildingRules& rules = rules_for(building.kind);
+                for (int y = 0; y < rules.footprint_height; ++y) {
+                    for (int x = 0; x < rules.footprint_width; ++x) {
+                        mark({
+                            building.position.x + x,
+                            building.position.y + y,
+                        });
+                    }
+                }
+            }
+        }
+        const bool shares_allied_vision =
+            has_technology(player, Technology::cartography);
+        for (const Unit& unit : units_) {
+            if (unit.garrisoned_in != 0) continue;
+            if (unit.owner != player &&
+                !(shares_allied_vision &&
+                  is_ally(unit.owner, player))) {
+                continue;
+            }
+            const int range = effective_unit_vision_range(unit);
+            // A negative range still describes a disc of |range| under
+            // the squared comparison, so bound the sweep by that reach.
+            const int reach = std::abs(range);
+            for (int y = unit.position.y - reach;
+                 y <= unit.position.y + reach; ++y) {
+                for (int x = unit.position.x - reach;
+                     x <= unit.position.x + reach; ++x) {
+                    const int dx = unit.position.x - x;
+                    const int dy = unit.position.y - y;
+                    if (dx * dx + dy * dy <= range * range) {
+                        mark({x, y});
+                    }
+                }
+            }
+        }
+        for (const Building& building : buildings_) {
+            if (building.owner != player &&
+                !(shares_allied_vision &&
+                  is_ally(building.owner, player))) {
+                continue;
+            }
+            const int range = effective_building_vision_range(building);
+            const int reach = std::abs(range);
+            const BuildingRules& rules = rules_for(building.kind);
+            for (int y = building.position.y - reach;
+                 y < building.position.y + rules.footprint_height + reach;
+                 ++y) {
+                for (int x = building.position.x - reach;
+                     x < building.position.x + rules.footprint_width +
+                         reach;
+                     ++x) {
+                    const TilePosition tile{x, y};
+                    if (combat_distance_squared(tile, building) <=
+                        range * range) {
+                        mark(tile);
+                    }
                 }
             }
         }

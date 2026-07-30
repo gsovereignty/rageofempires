@@ -777,7 +777,9 @@ std::optional<Scenario> evaluate_rms(
         }
     }
     RandomMapKind kind = RandomMapKind::arabia;
-    RandomMapSize size = RandomMapSize::small;
+    // No override_map_size directive means the script inherits the
+    // lobby-selected size, so track the shared default.
+    RandomMapSize size = RandomMapSettings{}.size;
     bool water{};
     bool forest_base{};
     bool connection{};
@@ -792,10 +794,16 @@ std::optional<Scenario> evaluate_rms(
         if (directive.name == "override_map_size" &&
             !directive.arguments.empty()) {
             if (const auto value = integer(directive.arguments.front())) {
-                size = *value <= 48 ? RandomMapSize::tiny :
-                       *value <= 64 ? RandomMapSize::small :
-                       *value <= 80 ? RandomMapSize::medium :
-                                      RandomMapSize::large;
+                // Snap the requested tile count up to the nearest
+                // original preset; oversized requests clamp to the
+                // engine maximum.
+                size = *value <= 120 ? RandomMapSize::tiny :
+                       *value <= 144 ? RandomMapSize::small :
+                       *value <= 168 ? RandomMapSize::medium :
+                       *value <= 200 ? RandomMapSize::normal :
+                       *value <= 220 ? RandomMapSize::large :
+                       *value <= 240 ? RandomMapSize::giant :
+                                       RandomMapSize::maximum;
             }
         }
         if ((directive.name == "base_terrain" ||

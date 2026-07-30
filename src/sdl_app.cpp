@@ -10,6 +10,7 @@
 #include <fstream>
 #include <functional>
 #include <iomanip>
+#include <iterator>
 #include <limits>
 #include <map>
 #include <optional>
@@ -160,9 +161,46 @@ enum class FrontendScreen { hidden, main_menu, single_player_setup };
 FrontendScreen active_frontend_screen{FrontendScreen::hidden};
 std::string active_frontend_status{"SELECT A MODE"};
 RandomMapSettings active_random_settings{
-    RandomMapKind::arabia, RandomMapSize::small, 1
+    RandomMapKind::arabia, RandomMapSize::giant, 1
 };
 const Scenario* active_random_preview{};
+
+// Original size ladder order: TINY, SMALL, MEDIUM, NORMAL, LARGE, GIANT,
+// then the unnamed index-6 maximum exposed as MAXIMUM.
+constexpr std::array<RandomMapSize, 7> random_map_size_order{{
+    RandomMapSize::tiny,
+    RandomMapSize::small,
+    RandomMapSize::medium,
+    RandomMapSize::normal,
+    RandomMapSize::large,
+    RandomMapSize::giant,
+    RandomMapSize::maximum,
+}};
+
+const char* random_map_size_label(RandomMapSize size) {
+    switch (size) {
+        case RandomMapSize::tiny: return "TINY";
+        case RandomMapSize::small: return "SMALL";
+        case RandomMapSize::medium: return "MEDIUM";
+        case RandomMapSize::normal: return "NORMAL";
+        case RandomMapSize::large: return "LARGE";
+        case RandomMapSize::giant: return "GIANT";
+        case RandomMapSize::maximum: return "MAXIMUM";
+    }
+    return "SMALL";
+}
+
+RandomMapSize next_random_map_size(RandomMapSize size) {
+    const auto current = std::ranges::find(random_map_size_order, size);
+    if (current == random_map_size_order.end()) {
+        return random_map_size_order.front();
+    }
+    const auto next = std::next(current);
+    return next == random_map_size_order.end()
+        ? random_map_size_order.front()
+        : *next;
+}
+
 Civilization active_setup_civilization{Civilization::britons};
 ComputerDifficulty active_setup_difficulty{ComputerDifficulty::moderate};
 int active_setup_victory{};  // 0 conquest, 1 wonder, 2 relic.
@@ -11324,10 +11362,7 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
             active_random_settings.kind == RandomMapKind::islands
                 ? "ISLANDS" : "RIVERS";
         const char* map_size =
-            active_random_settings.size == RandomMapSize::tiny ? "TINY" :
-            active_random_settings.size == RandomMapSize::small ? "SMALL" :
-            active_random_settings.size == RandomMapSize::medium
-                ? "MEDIUM" : "LARGE";
+            random_map_size_label(active_random_settings.size);
         const char* difficulty =
             active_setup_difficulty == ComputerDifficulty::easiest
                 ? "EASIEST" :
@@ -15880,16 +15915,9 @@ int SdlApp::run() {
                             refresh_random_map_preview();
                         } else if (event.key.key == SDLK_Z) {
                             active_random_settings.size =
-                                active_random_settings.size ==
-                                        RandomMapSize::tiny
-                                    ? RandomMapSize::small
-                                : active_random_settings.size ==
-                                        RandomMapSize::small
-                                    ? RandomMapSize::medium
-                                : active_random_settings.size ==
-                                        RandomMapSize::medium
-                                    ? RandomMapSize::large
-                                    : RandomMapSize::tiny;
+                                next_random_map_size(
+                                    active_random_settings.size
+                                );
                             refresh_random_map_preview();
                         } else if (
                             event.key.key == SDLK_PLUS ||

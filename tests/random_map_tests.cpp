@@ -1,8 +1,10 @@
+#include <array>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 #include "aoe/format_versions.hpp"
 #include "aoe/computer_player.hpp"
@@ -46,6 +48,24 @@ int nearby_resource(
     return total;
 }
 
+void size_presets_match_original_tile_counts() {
+    constexpr std::pair<aoe::RandomMapSize, int> expected[]{
+        {aoe::RandomMapSize::tiny, 120},
+        {aoe::RandomMapSize::small, 144},
+        {aoe::RandomMapSize::medium, 168},
+        {aoe::RandomMapSize::normal, 200},
+        {aoe::RandomMapSize::large, 220},
+        {aoe::RandomMapSize::giant, 240},
+        {aoe::RandomMapSize::maximum, 255},
+    };
+    for (const auto& [size, dimension] : expected) {
+        require(
+            aoe::random_map_dimension(size) == dimension,
+            "map size preset drifted from the original tile count"
+        );
+    }
+}
+
 void generated_maps_are_deterministic_and_balanced() {
     constexpr aoe::RandomMapKind kinds[]{
         aoe::RandomMapKind::arabia,
@@ -57,7 +77,10 @@ void generated_maps_are_deterministic_and_balanced() {
         aoe::RandomMapSize::tiny,
         aoe::RandomMapSize::small,
         aoe::RandomMapSize::medium,
+        aoe::RandomMapSize::normal,
         aoe::RandomMapSize::large,
+        aoe::RandomMapSize::giant,
+        aoe::RandomMapSize::maximum,
     };
     for (aoe::RandomMapKind kind : kinds) {
         for (aoe::RandomMapSize size : sizes) {
@@ -266,7 +289,10 @@ void computer_players_make_deterministic_random_map_progress() {
         aoe::RandomMapSize::tiny,
         aoe::RandomMapSize::small,
         aoe::RandomMapSize::medium,
+        aoe::RandomMapSize::normal,
         aoe::RandomMapSize::large,
+        aoe::RandomMapSize::giant,
+        aoe::RandomMapSize::maximum,
     };
     constexpr std::array civilizations{
         aoe::Civilization::britons,
@@ -384,6 +410,7 @@ void computer_players_make_deterministic_random_map_progress() {
 
 int main() {
     try {
+        size_presets_match_original_tile_counts();
         generated_maps_are_deterministic_and_balanced();
         generated_map_writes_current_scenario();
         generated_civilization_starts_are_exact_and_durable();

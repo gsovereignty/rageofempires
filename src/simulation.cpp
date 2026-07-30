@@ -2800,11 +2800,16 @@ bool Simulation::command_unit(
     if (unit->garrisoned_in != 0) {
         return false;
     }
+    const bool leaving_formation_movement =
+        unit->formation_move_interval > 0;
     unit->formation_move_interval = 0;
     unit->formation_speed_numerator = 0;
     unit->formation_group_id = 0;
     unit->formation_anchor = {-1, -1};
     unit->formation_slot = {-1, -1};
+    if (leaving_formation_movement) {
+        unit->movement_speed_remainder = 0;
+    }
     const auto clear_attack_move = [unit] {
         unit->attack_moving = false;
         unit->attack_move_destination = {-1, -1};
@@ -4331,6 +4336,8 @@ bool Simulation::stop_unit(EntityId unit_id) {
     if (unit == nullptr || unit->garrisoned_in != 0) {
         return false;
     }
+    const bool leaving_formation_movement =
+        unit->formation_move_interval > 0;
     unit->previous_position = unit->position;
     unit->destination = unit->position;
     unit->moving = false;
@@ -4367,6 +4374,9 @@ bool Simulation::stop_unit(EntityId unit_id) {
     unit->formation_group_id = 0;
     unit->formation_anchor = {-1, -1};
     unit->formation_slot = {-1, -1};
+    if (leaving_formation_movement) {
+        unit->movement_speed_remainder = 0;
+    }
     detach_builder(unit_id);
     return true;
 }
@@ -6828,6 +6838,7 @@ void Simulation::update() {
             unit.formation_group_id = 0;
             unit.formation_anchor = {-1, -1};
             unit.formation_slot = {-1, -1};
+            unit.movement_speed_remainder = 0;
         }
     }
 

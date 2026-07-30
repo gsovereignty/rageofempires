@@ -34,8 +34,11 @@ and its decompilation supply three exact loader bindings:
 
 The 50729 and 50730 calls are explicit
 `FUN_0050c6b0(filename, resource_id, 0)` loads. A second executable setup path
-loads all three by the same filename/resource pairs. This upgrades sheet roles
-from tentative descriptions to `exact_executable_load`.
+loads all three by the same filename/resource pairs. Building subtype dispatch
+selects civilization-indexed `ico_bld%d.shp`; installed DRS resources
+50705–50708 are byte-identical 52-frame sheets, with 50706 used as canonical
+runtime copy. This upgrades sheet roles from tentative descriptions to
+`exact_executable_load`.
 
 Exact dispatch:
 
@@ -44,7 +47,7 @@ Exact dispatch:
   unchanged as the frame.
 - `FUN_005c7560` selects 50730 for ordinary units and passes record `+0x54`
   unchanged as the frame. Subtypes 2 and 10 instead select a
-  civilization-indexed building sheet.
+  civilization-indexed building sheet and preserve the same frame.
 - `FUN_005c5e40` keeps the actual icon sheet/frame unchanged when pressed.
   Runtime artwork inspection proves frames 36 and 37 are action pictures,
   so they cannot serve as reusable button chrome.
@@ -54,6 +57,11 @@ Raw 50721 constants are also exact: action `0x7c` uses frame 12, `0x7d` uses
 frame 13, and `0x65` uses frame 30 for subtype 2 or 31 otherwise. These raw
 action codes are not assigned reconstruction `PanelCommand` names without a
 proved semantic bridge.
+
+An external classic runtime capture separately proves idle Scout Cavalry
+visual sequence `6,1,8,59,2 / 9,10,51,50`; see
+`SCOUT_COMMAND_PANEL_EVIDENCE.md`. This is screenshot-observed panel evidence,
+not executable action-code dispatch evidence.
 
 `generated/ui_icon_catalog.json` preserves these facts in
 `executable_dispatch_contract`.
@@ -70,10 +78,10 @@ The remaining sources do not prove item bindings:
 - The independently reviewed DRS format specification proves resource
   ID/extension inventory structure only, not icon meanings.
 
-The pure `aoe::ui_icons` contract exposes bounded technology and ordinary-unit
-identity dispatch. It pins the validated VER 5.7 icon fields for the 15 unit
-types currently trainable from the reconstruction command grid. Unsupported
-units, buildings, actions, disabled variants, and page states fail closed.
+The pure `aoe::ui_icons` contract exposes bounded technology, ordinary-unit,
+and building identity dispatch. It pins validated VER 5.7 icon fields for
+trainable units and all represented buildings. Unsupported units, actions,
+disabled variants, and page states fail closed.
 
 Generate the report from external, user-owned files:
 
@@ -91,7 +99,16 @@ The runtime handoff API is in `aoe/ui_assets.hpp`:
 - `decode_ui_icon` refuses anything except an explicitly `exact` SLP/frame
   binding and checks frame bounds before decoding.
 
-SDL loads proved 50730 frames needed by train buttons. It also loads bounded
+SDL loads proved 50730 unit frames, 50729 technology frames, and 50706
+building frames needed by command buttons and selected-building portraits.
+
+Town Center command positions decoded from the same DAT are recorded in
+`TOWN_CENTER_COMMAND_PANEL_EVIDENCE.md`. Those position fields are independent
+of icon-frame dispatch.
+
+Original Villager command positions and six exact `btncmd` frame matches are
+recorded in `VILLAGER_COMMAND_PANEL_EVIDENCE.md`.
+It also loads bounded
 50721 candidate frames for represented commands, but keeps their semantic
 evidence `unknown`; only sheet role and frame bounds are exact. Procedural
 bevels provide normal, pressed, selected, and disabled chrome. Missing or

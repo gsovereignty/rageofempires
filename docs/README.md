@@ -23,6 +23,8 @@ Durable reconstruction-native behavior:
 Bounded findings about commercial formats and behavior:
 [fidelity/](fidelity/).
 
+- [Movement presentation timing](fidelity/MOVEMENT_PRESENTATION_FIDELITY.md)
+
 ## Assets
 
 Sprite, technology, civilization, renderer, and asset-coverage mappings:

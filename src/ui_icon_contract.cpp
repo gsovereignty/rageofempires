@@ -51,4 +51,48 @@ std::optional<Binding> training_unit(UnitKind kind) {
     }
 }
 
+std::optional<Binding> building(BuildingKind kind) {
+    // Exact VER 5.7 record +0x54 values. FUN_005c7560 dispatches building
+    // subtypes to civilization-selected ico_bld%d sheets without changing
+    // this frame. Installed DRS resources 50705..50708 are byte-identical.
+    const auto icon = [](std::int32_t frame) {
+        return Binding{
+            building_sheet,
+            frame,
+            Evidence::exact_executable_dispatch,
+        };
+    };
+    switch (kind) {
+    case BuildingKind::town_center: return icon(28);
+    case BuildingKind::barracks: return icon(2);
+    case BuildingKind::archery_range: return icon(0);
+    case BuildingKind::house: return icon(34);
+    case BuildingKind::mill: return icon(19);
+    case BuildingKind::lumber_camp: return icon(40);
+    case BuildingKind::mining_camp: return icon(39);
+    case BuildingKind::farm: return icon(35);
+    case BuildingKind::stable: return icon(23);
+    case BuildingKind::blacksmith: return icon(4);
+    case BuildingKind::castle: return icon(7);
+    case BuildingKind::university: return icon(32);
+    case BuildingKind::siege_workshop: return icon(22);
+    case BuildingKind::palisade_wall: return icon(30);
+    case BuildingKind::watch_tower: return icon(25);
+    case BuildingKind::stone_wall: return icon(31);
+    case BuildingKind::palisade_gate_x:
+    case BuildingKind::palisade_gate_y:
+    case BuildingKind::stone_gate_x:
+    case BuildingKind::stone_gate_y:
+        return icon(36);
+    case BuildingKind::monastery: return icon(10);
+    case BuildingKind::market: return icon(16);
+    case BuildingKind::dock: return icon(13);
+    case BuildingKind::bombard_tower: return icon(42);
+    case BuildingKind::fish_trap: return icon(41);
+    case BuildingKind::outpost: return icon(38);
+    case BuildingKind::wonder: return icon(37);
+    }
+    return std::nullopt;
+}
+
 }  // namespace aoe::ui_icons

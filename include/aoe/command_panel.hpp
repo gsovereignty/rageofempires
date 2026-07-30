@@ -10,10 +10,12 @@
 namespace aoe {
 
 enum class PanelCommand {
-    stop, attack_move, attack_ground, patrol, guard, garrison,
+    stop, delete_entity, attack_move, attack_ground, patrol, guard, follow,
+    garrison, advance_age,
     stance_aggressive, stance_defensive, stance_stand_ground,
     stance_no_attack, formation_line, formation_box,
-    formation_staggered, formation_flank, rally, ungarrison, cancel_production,
+    formation_staggered, formation_flank, rally, ungarrison, town_bell,
+    cancel_production,
     train_unit, research, convert, trade_route, pack_trebuchet,
     unpack_trebuchet, open_economic_buildings, open_military_buildings,
     open_defensive_buildings, construct_building, back,
@@ -43,6 +45,7 @@ struct CommandButtonModel {
     std::optional<BuildingKind> building;
     std::optional<ui_icons::Binding> icon;
     bool procedural_icon_fallback{true};
+    std::size_t grid_slot{};
 };
 
 struct SelectionPanelModel {

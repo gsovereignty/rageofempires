@@ -24,10 +24,12 @@ struct Binding {
 inline constexpr std::int32_t command_sheet = 50721;
 inline constexpr std::int32_t technology_sheet = 50729;
 inline constexpr std::int32_t unit_sheet = 50730;
+inline constexpr std::int32_t building_sheet = 50706;
 
 [[nodiscard]] std::optional<Binding> technology(std::int32_t dat_icon_id);
 [[nodiscard]] std::optional<Binding> technology_icon(Technology technology);
 [[nodiscard]] std::optional<Binding> ordinary_unit(std::int32_t dat_icon_id);
 [[nodiscard]] std::optional<Binding> training_unit(UnitKind kind);
+[[nodiscard]] std::optional<Binding> building(BuildingKind kind);
 
 }  // namespace aoe::ui_icons

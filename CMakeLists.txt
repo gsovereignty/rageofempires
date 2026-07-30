@@ -126,6 +126,7 @@ add_library(aoe_core
     src/scenario_editor.cpp
     src/technology_tree.cpp
     src/settings.cpp
+    src/frame_timing.cpp
     src/statistics_view.cpp
     src/save_browser.cpp
     src/command_panel.cpp
@@ -158,6 +159,11 @@ add_executable(settings_tests tests/settings_tests.cpp)
 target_link_libraries(settings_tests PRIVATE aoe_core)
 target_compile_options(settings_tests PRIVATE -Wall -Wextra -Wpedantic)
 add_test(NAME settings_tests COMMAND settings_tests)
+
+add_executable(frame_timing_tests tests/frame_timing_tests.cpp)
+target_link_libraries(frame_timing_tests PRIVATE aoe_core)
+target_compile_options(frame_timing_tests PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME frame_timing_tests COMMAND frame_timing_tests)
 
 add_executable(audio_mix_tests tests/audio_mix_tests.cpp)
 target_link_libraries(audio_mix_tests PRIVATE aoe_core)

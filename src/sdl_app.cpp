@@ -5050,7 +5050,16 @@ const LegacyAnimation* legacy_action_for(
     const auto for_player = [&unit](
         const PlayerLegacySprites& sprites
     ) -> const LegacyAnimation* {
-        return sprites.owner(unit.owner);
+        if (const LegacyAnimation* owned = sprites.owner(unit.owner)) {
+            return owned;
+        }
+        if (unit.owner == EntityOwner{Player::neutral} &&
+            (unit.kind == UnitKind::sheep ||
+             unit.kind == UnitKind::deer ||
+             unit.kind == UnitKind::boar)) {
+            return &sprites.blue;
+        }
+        return nullptr;
     };
     if (unit.kind == UnitKind::monk &&
         unit.conversion_target_id != 0) {

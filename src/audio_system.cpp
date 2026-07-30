@@ -8,12 +8,18 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cmath>
+#include <cstring>
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <memory>
 #include <map>
+#include <limits>
+#include <random>
 #include <string>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 #if AOE_HAVE_MPG123
@@ -91,12 +97,73 @@ std::filesystem::path installation_root(
     return requested;
 }
 
+std::string civilization_stream_name(Civilization civilization) {
+    switch (civilization) {
+        case Civilization::britons: return "British.mp3";
+        case Civilization::franks: return "French.mp3";
+        case Civilization::teutons: return "Teuton.mp3";
+        case Civilization::goths: return "Goth.mp3";
+        case Civilization::celts: return "Celt.mp3";
+        case Civilization::vikings: return "Viking.mp3";
+        case Civilization::byzantines: return "Byzantin.mp3";
+        case Civilization::japanese: return "Japanese.mp3";
+        case Civilization::chinese: return "Chinese.mp3";
+        case Civilization::persians: return "Persian.mp3";
+        case Civilization::saracens: return "Saracen.mp3";
+        case Civilization::turks: return "Turk.mp3";
+        case Civilization::mongols: return "Mongol.mp3";
+        case Civilization::spanish: return "Spanish.mp3";
+        case Civilization::huns: return "Huns.mp3";
+        case Civilization::koreans: return "Koreans.mp3";
+        case Civilization::aztecs: return "Aztecs.mp3";
+        case Civilization::mayans: return "Mayans.mp3";
+        case Civilization::generic: return "Random.mp3";
+    }
+    return "Random.mp3";
+}
+
+std::filesystem::path music_path_for(
+    const std::filesystem::path& root,
+    AudioMusicContext context,
+    Civilization civilization,
+    bool expansion
+) {
+    const auto stream = root / "Sound" / "stream";
+    switch (context) {
+        case AudioMusicContext::opening:
+            return stream / (expansion ? "xopen.mp3" : "open.mp3");
+        case AudioMusicContext::menu:
+            return stream / (expansion ? "xtown.mp3" : "town.mp3");
+        case AudioMusicContext::gameplay:
+            return root / "Sound" / "music" /
+                (expansion ? "xmusic1.mp3" : "music1.mp3");
+        case AudioMusicContext::civilization:
+            return stream / civilization_stream_name(civilization);
+        case AudioMusicContext::countdown:
+            return stream / "Countdwn.mp3";
+        case AudioMusicContext::victory:
+            return stream / (expansion ? "won2.mp3" : "won1.mp3");
+        case AudioMusicContext::defeat:
+            return stream / "lost.mp3";
+        case AudioMusicContext::credits:
+            return stream /
+                (expansion ? "xcredits.mp3" : "credits.mp3");
+    }
+    return {};
+}
+
+bool music_context_loops(AudioMusicContext context) {
+    return context == AudioMusicContext::menu ||
+        context == AudioMusicContext::gameplay;
+}
+
 struct AudioTrack {
     SDL_AudioStream* stream{};
     std::vector<Uint8> samples;
     std::size_t cursor{};
     bool looping{true};
     AudioCategory category{AudioCategory::combat};
+    float spatial_gain{1.0F};
 
     AudioTrack() = default;
     AudioTrack(const AudioTrack&) = delete;
@@ -105,7 +172,8 @@ struct AudioTrack {
     AudioTrack(AudioTrack&& other) noexcept
         : stream{other.stream}, samples{std::move(other.samples)},
           cursor{other.cursor}, looping{other.looping},
-          category{other.category} {
+          category{other.category},
+          spatial_gain{other.spatial_gain} {
         other.stream = nullptr;
     }
 
@@ -119,6 +187,7 @@ struct AudioTrack {
             cursor = other.cursor;
             looping = other.looping;
             category = other.category;
+            spatial_gain = other.spatial_gain;
             other.stream = nullptr;
         }
         return *this;
@@ -130,6 +199,63 @@ struct AudioTrack {
         }
     }
 };
+
+template <typename Sample>
+void pan_samples(
+    std::vector<Uint8>& samples,
+    SDL_AudioSpec& spec,
+    float pan
+) {
+    if (spec.channels != 1 && spec.channels != 2) return;
+    const float left_gain = std::min(1.0F, 1.0F - pan);
+    const float right_gain = std::min(1.0F, 1.0F + pan);
+    const std::size_t sample_count = samples.size() / sizeof(Sample);
+    std::vector<Sample> input(sample_count);
+    std::memcpy(input.data(), samples.data(), samples.size());
+    std::vector<Sample> output(
+        spec.channels == 1 ? sample_count * 2 : sample_count
+    );
+    const auto scale = [](Sample value, float gain) {
+        if constexpr (std::is_floating_point_v<Sample>) {
+            return static_cast<Sample>(value * gain);
+        } else {
+            const float scaled = static_cast<float>(value) * gain;
+            return static_cast<Sample>(std::clamp(
+                scaled,
+                static_cast<float>(std::numeric_limits<Sample>::min()),
+                static_cast<float>(std::numeric_limits<Sample>::max())
+            ));
+        }
+    };
+    if (spec.channels == 1) {
+        for (std::size_t index = 0; index < sample_count; ++index) {
+            output[index * 2] = scale(input[index], left_gain);
+            output[index * 2 + 1] = scale(input[index], right_gain);
+        }
+        spec.channels = 2;
+    } else {
+        for (std::size_t index = 0; index + 1 < sample_count; index += 2) {
+            output[index] = scale(input[index], left_gain);
+            output[index + 1] = scale(input[index + 1], right_gain);
+        }
+    }
+    samples.resize(output.size() * sizeof(Sample));
+    std::memcpy(samples.data(), output.data(), samples.size());
+}
+
+void apply_stereo_pan(
+    std::vector<Uint8>& samples,
+    SDL_AudioSpec& spec,
+    float pan
+) {
+    pan = std::clamp(pan, -1.0F, 1.0F);
+    if (std::abs(pan) < 0.001F) return;
+    if (spec.format == SDL_AUDIO_S16) {
+        pan_samples<std::int16_t>(samples, spec, pan);
+    } else if (spec.format == SDL_AUDIO_F32) {
+        pan_samples<float>(samples, spec, pan);
+    }
+}
 
 void SDLCALL refill_track(
     void* userdata,
@@ -210,7 +336,8 @@ bool load_wav_track(
 bool load_wav_bytes(
     AudioTrack& track,
     std::span<const std::byte> bytes,
-    float gain
+    float gain,
+    float pan
 ) {
     SDL_IOStream* source = SDL_IOFromConstMem(bytes.data(), bytes.size());
     if (source == nullptr) {
@@ -224,6 +351,7 @@ bool load_wav_bytes(
     }
     track.samples.assign(buffer, buffer + length);
     SDL_free(buffer);
+    apply_stereo_pan(track.samples, spec, pan);
     track.looping = false;
     return begin_playback(track, spec, gain);
 }
@@ -317,7 +445,8 @@ bool load_mp3_track(
     AudioTrack& track,
     const std::filesystem::path& path,
     float gain,
-    Mpg123Api& api
+    Mpg123Api& api,
+    bool looping
 ) {
     int error{};
     std::unique_ptr<mpg123_handle, decltype(api.destroy)> decoder{
@@ -375,7 +504,7 @@ bool load_mp3_track(
         channels,
         static_cast<int>(rate)
     };
-    track.looping = true;
+    track.looping = looping;
     return begin_playback(track, spec, gain);
 }
 #endif
@@ -385,22 +514,34 @@ bool load_mp3_track(
 struct AudioSystem::Impl {
     AudioTrack music;
     AudioTrack water_ambience;
-    std::vector<std::filesystem::path> music_paths;
-    std::size_t next_music_index{};
+    std::filesystem::path music_path;
+    std::filesystem::path ambience_path;
     std::filesystem::path root;
     std::unique_ptr<LegacyDatFile> dat;
     std::unique_ptr<LegacyWavResources> sounds;
     std::vector<std::unique_ptr<AudioTrack>> effects;
     std::int16_t listener_civilization{-1};
+    Civilization civilization{Civilization::generic};
+    AudioMusicContext music_context{AudioMusicContext::opening};
+    bool expansion_content{true};
+    std::optional<std::pair<AudioMusicContext, bool>> queued_music;
     AudioMix mix;
     float environment_gain{0.35F};
     bool trace{};
     bool reported_music_failure{};
+    std::mt19937 sound_random{std::random_device{}()};
 #if AOE_HAVE_MPG123
     std::unique_ptr<Mpg123Api> mpg123;
 #endif
 
-    bool start_next_music();
+    bool start_music(
+        const std::filesystem::path& path,
+        bool looping
+    );
+    bool start_loose_effect(
+        const std::filesystem::path& path,
+        AudioCategory category
+    );
     void apply_stream_gains();
 
     ~Impl() {
@@ -437,61 +578,58 @@ void AudioSystem::Impl::apply_stream_gains() {
         if (effect->stream != nullptr) {
             SDL_SetAudioStreamGain(
                 effect->stream,
-                environment_gain * mix.category_gain(effect->category)
+                environment_gain * mix.category_gain(effect->category) *
+                    effect->spatial_gain
             );
         }
     }
 }
 
-bool AudioSystem::Impl::start_next_music() {
-    if (music_paths.empty()) {
-        return false;
-    }
+bool AudioSystem::Impl::start_music(
+    const std::filesystem::path& path,
+    bool looping
+) {
+    if (!std::filesystem::is_regular_file(path)) return false;
     music = {};
-    const std::size_t attempts = music_paths.size();
-    for (std::size_t attempt = 0; attempt < attempts; ++attempt) {
-        const std::filesystem::path& path =
-            music_paths[next_music_index];
-        next_music_index =
-            (next_music_index + 1) % music_paths.size();
-        std::string extension = path.extension().string();
-        std::ranges::transform(
-            extension, extension.begin(),
-            [](unsigned char character) {
-                return static_cast<char>(std::tolower(character));
-            }
+    std::string extension = path.extension().string();
+    std::ranges::transform(
+        extension, extension.begin(),
+        [](unsigned char character) {
+            return static_cast<char>(std::tolower(character));
+        }
+    );
+    bool loaded = false;
+    if (extension == ".wav") {
+        loaded = load_wav_track(
+            music, path, environment_gain * mix.music_gain(), looping
         );
-        bool loaded = false;
-        if (extension == ".wav") {
-            loaded = load_wav_track(
-                music, path, environment_gain * mix.music_gain(), true
-            );
-        }
+    }
 #if AOE_HAVE_MPG123
-        else if (extension == ".mp3" && mpg123 != nullptr) {
-            loaded = load_mp3_track(
-                music,
-                path,
-                environment_gain * mix.music_gain(),
-                *mpg123
-            );
-        }
+    else if (extension == ".mp3" && mpg123 != nullptr) {
+        loaded = load_mp3_track(
+            music,
+            path,
+            environment_gain * mix.music_gain(),
+            *mpg123,
+            looping
+        );
+    }
 #endif
-        if (loaded) {
-            if (trace) {
-                std::cerr << "Audio music " << path.filename().string()
-                          << '\n';
-            }
-            return true;
+    if (loaded) {
+        music_path = path;
+        reported_music_failure = false;
+        if (trace) {
+            std::cerr << "Audio music " << path.filename().string()
+                      << '\n';
         }
-        music = {};
+        return true;
     }
     if (!reported_music_failure) {
 #if AOE_HAVE_MPG123
         std::cerr
             << "Music unavailable: discovered tracks could not be decoded "
                "or opened; verify files and audio device ("
-            << music_paths.front().parent_path().string() << ")\n";
+            << path.parent_path().string() << ")\n";
 #else
         std::cerr
             << "Music unavailable: discovered MP3 tracks but this build has "
@@ -501,6 +639,49 @@ bool AudioSystem::Impl::start_next_music() {
         reported_music_failure = true;
     }
     return false;
+}
+
+bool AudioSystem::Impl::start_loose_effect(
+    const std::filesystem::path& path,
+    AudioCategory category
+) {
+    if (!std::filesystem::is_regular_file(path)) return false;
+    auto effect = std::make_unique<AudioTrack>();
+    effect->category = category;
+    std::string extension = path.extension().string();
+    std::ranges::transform(
+        extension, extension.begin(),
+        [](unsigned char character) {
+            return static_cast<char>(std::tolower(character));
+        }
+    );
+    bool loaded = false;
+    if (extension == ".wav") {
+        loaded = load_wav_track(
+            *effect,
+            path,
+            environment_gain * mix.category_gain(category),
+            false
+        );
+    }
+#if AOE_HAVE_MPG123
+    else if (extension == ".mp3" && mpg123 != nullptr) {
+        loaded = load_mp3_track(
+            *effect,
+            path,
+            environment_gain * mix.category_gain(category),
+            *mpg123,
+            false
+        );
+    }
+#endif
+    if (!loaded) return false;
+    if (trace) {
+        std::cerr << "Audio loose effect " << path.filename().string()
+                  << '\n';
+    }
+    effects.push_back(std::move(effect));
+    return true;
 }
 
 std::unique_ptr<AudioSystem> AudioSystem::start_from_environment() {
@@ -516,8 +697,13 @@ std::unique_ptr<AudioSystem> AudioSystem::start_from_environment() {
         installation_root(*configured_root);
     const std::filesystem::path ambience_path =
         root / "Sound" / "terrain" / "Wave1.wav";
-    const std::vector<std::filesystem::path> music_paths =
-        discover_legacy_music_tracks(root);
+    const std::filesystem::path initial_music =
+        music_path_for(
+            root,
+            AudioMusicContext::opening,
+            Civilization::generic,
+            true
+        );
     const std::filesystem::path dat_path =
         root / "Data" / "empires2_x1_p1.dat";
     const std::array sound_archives{
@@ -532,11 +718,11 @@ std::unique_ptr<AudioSystem> AudioSystem::start_from_environment() {
         }
     );
     if (!std::filesystem::is_regular_file(ambience_path) &&
-        music_paths.empty() &&
+        !std::filesystem::is_regular_file(initial_music) &&
         !(std::filesystem::is_regular_file(dat_path) &&
           has_sound_archive)) {
         std::cerr
-            << "Audio disabled: AOE_ASSET_ROOT has no supported original "
+            << "Audio disabled: packaged resource root has no supported "
                "audio files\n";
         return nullptr;
     }
@@ -548,7 +734,6 @@ std::unique_ptr<AudioSystem> AudioSystem::start_from_environment() {
 
     auto impl = std::make_unique<Impl>();
     impl->root = root;
-    impl->music_paths = music_paths;
     const float gain = requested_gain();
     impl->environment_gain = gain;
     impl->trace = enabled_value(SDL_getenv("AOE_AUDIO_TRACE"));
@@ -567,30 +752,19 @@ std::unique_ptr<AudioSystem> AudioSystem::start_from_environment() {
         impl->sounds.reset();
     }
     bool playing = false;
-    if (std::filesystem::is_regular_file(ambience_path)) {
-        playing = load_wav_track(
-            impl->water_ambience,
-            ambience_path,
-            gain * 0.45F * impl->mix.ambience_gain()
-        );
-    }
 
 #if AOE_HAVE_MPG123
     if (std::ranges::any_of(
-            music_paths,
+            std::array{
+                initial_music,
+                music_path_for(
+                    root, AudioMusicContext::gameplay,
+                    Civilization::generic, true
+                )
+            },
             [](const std::filesystem::path& path) {
-                std::string extension = path.extension().string();
-                std::ranges::transform(
-                    extension, extension.begin(),
-                    [](unsigned char character) {
-                        return static_cast<char>(
-                            std::tolower(character)
-                        );
-                    }
-                );
-                return extension == ".mp3";
-            }
-        )) {
+                return std::filesystem::is_regular_file(path);
+            })) {
         impl->mpg123 = load_mpg123_api();
         if (impl->mpg123 == nullptr) {
             std::cerr
@@ -599,7 +773,7 @@ std::unique_ptr<AudioSystem> AudioSystem::start_from_environment() {
         }
     }
 #endif
-    playing = impl->start_next_music() || playing;
+    playing = impl->start_music(initial_music, false) || playing;
 
     if (!playing && impl->sounds == nullptr) {
         std::cerr << "Audio disabled: original files could not be played\n";
@@ -619,8 +793,187 @@ AudioSystem& AudioSystem::operator=(AudioSystem&&) noexcept = default;
 
 void AudioSystem::set_listener_civilization(Civilization civilization) {
     if (impl_ != nullptr) {
+        impl_->civilization = civilization;
         impl_->listener_civilization =
             legacy_civilization_id(civilization);
+        if (impl_->music_context == AudioMusicContext::civilization) {
+            set_music_context(
+                AudioMusicContext::civilization,
+                impl_->expansion_content
+            );
+        }
+    }
+}
+
+void AudioSystem::set_music_context(
+    AudioMusicContext context,
+    bool expansion_content
+) {
+    if (impl_ == nullptr) return;
+    const auto path = music_path_for(
+        impl_->root,
+        context,
+        impl_->civilization,
+        expansion_content
+    );
+    const bool current_finished =
+        impl_->music.stream == nullptr ||
+        (impl_->music.cursor >= impl_->music.samples.size() &&
+         SDL_GetAudioStreamQueued(impl_->music.stream) <= 0);
+    if (impl_->music_context == AudioMusicContext::civilization &&
+        context == AudioMusicContext::gameplay &&
+        !current_finished) {
+        impl_->queued_music = std::pair{context, expansion_content};
+        return;
+    }
+    if (context == impl_->music_context &&
+        expansion_content == impl_->expansion_content &&
+        path == impl_->music_path &&
+        impl_->music.stream != nullptr) {
+        return;
+    }
+    impl_->music_context = context;
+    impl_->expansion_content = expansion_content;
+    impl_->queued_music.reset();
+    static_cast<void>(
+        impl_->start_music(path, music_context_loops(context))
+    );
+}
+
+void AudioSystem::play_taunt(unsigned number, std::string_view locale) {
+    if (impl_ == nullptr || number == 0 || number > 999) return;
+    update();
+    const auto directory =
+        impl_->root / "Taunt" / std::filesystem::path{locale};
+    const std::string prefix =
+        (number < 10 ? "0" : "") + std::to_string(number) + " ";
+    std::error_code error;
+    for (std::filesystem::directory_iterator it{directory, error}, end;
+         !error && it != end;
+         it.increment(error)) {
+        if (it->is_regular_file(error) &&
+            it->path().filename().string().starts_with(prefix)) {
+            static_cast<void>(impl_->start_loose_effect(
+                it->path(), AudioCategory::interface
+            ));
+            return;
+        }
+    }
+}
+
+void AudioSystem::play_narration(
+    const std::filesystem::path& filename
+) {
+    if (impl_ == nullptr || filename.empty()) return;
+    update();
+    if (filename.is_absolute()) {
+        static_cast<void>(impl_->start_loose_effect(
+            filename, AudioCategory::interface
+        ));
+        return;
+    }
+    for (const auto& directory : {
+             impl_->root / "Sound" / "scenario" / "en",
+             impl_->root / "Sound" / "campaign" / "en"
+         }) {
+        const auto path = directory / filename.filename();
+        if (impl_->start_loose_effect(
+                path, AudioCategory::interface
+            )) {
+            return;
+        }
+    }
+}
+
+bool AudioSystem::play_graphic_frame_sounds(
+    int slp_id,
+    int frame,
+    int angle,
+    float spatial_gain,
+    float pan,
+    std::optional<Civilization> source_civilization
+) {
+    if (impl_ == nullptr || impl_->dat == nullptr || slp_id < 0) {
+        return false;
+    }
+    const LegacyGraphic* graphic = nullptr;
+    for (const LegacyGraphic& candidate : impl_->dat->graphics()) {
+        if (candidate.graphic_id >= 0 && candidate.slp_id == slp_id) {
+            graphic = &candidate;
+            break;
+        }
+    }
+    if (graphic == nullptr || graphic->angle_sounds.empty()) {
+        return false;
+    }
+    const std::size_t selected_angle =
+        static_cast<std::size_t>(
+            std::max(angle, 0)
+        ) % graphic->angle_sounds.size();
+    std::array<int, 3> played{-1, -1, -1};
+    std::size_t played_count{};
+    for (const LegacyGraphicSound& sound :
+         graphic->angle_sounds[selected_angle]) {
+        if (sound.sound_id < 0 || sound.frame != frame ||
+            std::ranges::find(
+                played.begin(), played.begin() + played_count,
+                sound.sound_id
+            ) != played.begin() + played_count) {
+            continue;
+        }
+        played[played_count++] = sound.sound_id;
+        play_effect(
+            sound.sound_id,
+            AudioCategory::combat,
+            spatial_gain,
+            pan,
+            source_civilization
+        );
+    }
+    return true;
+}
+
+void AudioSystem::set_terrain_ambience(
+    Terrain terrain,
+    std::uint64_t variation
+) {
+    if (impl_ == nullptr) return;
+    std::string filename;
+    if (terrain == Terrain::water ||
+        terrain == Terrain::beach ||
+        terrain == Terrain::shallows ||
+        terrain == Terrain::fish) {
+        filename = "Wave" + std::to_string(variation % 5 + 1) + ".wav";
+    } else if (terrain == Terrain::forest) {
+        filename = "jungle" + std::to_string(variation % 4 + 1) + ".wav";
+    } else if (terrain == Terrain::grass) {
+        constexpr std::array names{
+            "Cricket.wav", "Wind1.wav", "Wind2.wav", "Wind3.wav"
+        };
+        filename = names[variation % names.size()];
+    } else {
+        constexpr std::array names{
+            "tf1.wav", "tf2.wav", "tf3.wav", "tf4.wav",
+            "tf6.wav", "tf7.wav", "tf8.wav"
+        };
+        filename = names[variation % names.size()];
+    }
+    const auto path = impl_->root / "Sound" / "terrain" / filename;
+    if (path == impl_->ambience_path) return;
+    impl_->water_ambience = {};
+    impl_->ambience_path.clear();
+    if (std::filesystem::is_regular_file(path) &&
+        load_wav_track(
+            impl_->water_ambience,
+            path,
+            impl_->environment_gain * 0.45F *
+                impl_->mix.ambience_gain(),
+            true
+        )) {
+        impl_->ambience_path = path;
+        if (impl_->trace) {
+            std::cerr << "Audio ambience " << filename << '\n';
+        }
     }
 }
 
@@ -651,17 +1004,23 @@ void AudioSystem::set_muted(bool muted) {
     impl_->apply_stream_gains();
 }
 
-void AudioSystem::play_effect(int sound_id, AudioCategory category) {
+void AudioSystem::play_effect(
+    int sound_id,
+    AudioCategory category,
+    float spatial_gain,
+    float pan,
+    std::optional<Civilization> source_civilization
+) {
     if (impl_ == nullptr || sound_id < 0) {
         return;
     }
     update();
-    if (impl_->effects.size() >= 16) {
-        return;
-    }
 
     std::vector<std::byte> bytes;
     int resource_id = sound_id;
+    const std::int16_t sound_civilization = source_civilization
+        ? legacy_civilization_id(*source_civilization)
+        : impl_->listener_civilization;
     if (impl_->dat != nullptr) {
         const LegacySound* sound =
             impl_->dat->sound(static_cast<std::size_t>(sound_id));
@@ -670,7 +1029,8 @@ void AudioSystem::play_effect(int sound_id, AudioCategory category) {
         }
         const LegacySoundItem* item = select_legacy_sound_item(
             *sound,
-            impl_->listener_civilization
+            sound_civilization,
+            impl_->sound_random()
         );
         if (item == nullptr) {
             return;
@@ -685,8 +1045,10 @@ void AudioSystem::play_effect(int sound_id, AudioCategory category) {
                    );
         };
         if (!resource_exists(resource_id) &&
-            impl_->listener_civilization >= 0) {
-            item = select_legacy_sound_item(*sound, -1);
+            sound_civilization >= 0) {
+            item = select_legacy_sound_item(
+                *sound, -1, impl_->sound_random()
+            );
             if (item == nullptr) {
                 return;
             }
@@ -714,14 +1076,18 @@ void AudioSystem::play_effect(int sound_id, AudioCategory category) {
             }
             auto effect = std::make_unique<AudioTrack>();
             effect->category = category;
+            effect->spatial_gain =
+                std::clamp(spatial_gain, 0.0F, 1.0F);
             effect->samples.assign(buffer, buffer + length);
             SDL_free(buffer);
+            apply_stereo_pan(effect->samples, spec, pan);
             effect->looping = false;
             if (begin_playback(
                     *effect,
                     spec,
                     impl_->environment_gain *
-                        impl_->mix.category_gain(category)
+                        impl_->mix.category_gain(category) *
+                        effect->spatial_gain
                 )) {
                 if (impl_->trace) {
                     std::cerr << "Audio effect " << sound_id
@@ -737,10 +1103,14 @@ void AudioSystem::play_effect(int sound_id, AudioCategory category) {
 
     auto effect = std::make_unique<AudioTrack>();
     effect->category = category;
+    effect->spatial_gain = std::clamp(spatial_gain, 0.0F, 1.0F);
     if (load_wav_bytes(
             *effect,
             bytes,
-            impl_->environment_gain * impl_->mix.category_gain(category)
+            impl_->environment_gain *
+                impl_->mix.category_gain(category) *
+                effect->spatial_gain,
+            pan
         )) {
         if (impl_->trace) {
             std::cerr << "Audio effect " << sound_id
@@ -761,11 +1131,23 @@ void AudioSystem::update() {
                 SDL_GetAudioStreamQueued(effect->stream) <= 0;
         }
     );
-    if (!impl_->music_paths.empty() &&
-        impl_->music.stream != nullptr &&
-        impl_->music.cursor >= impl_->music.samples.size() &&
-        SDL_GetAudioStreamQueued(impl_->music.stream) <= 0) {
-        static_cast<void>(impl_->start_next_music());
+    if (impl_->queued_music &&
+        (impl_->music.stream == nullptr ||
+         (impl_->music.cursor >= impl_->music.samples.size() &&
+          SDL_GetAudioStreamQueued(impl_->music.stream) <= 0))) {
+        const auto [context, expansion] = *impl_->queued_music;
+        impl_->queued_music.reset();
+        impl_->music_context = context;
+        impl_->expansion_content = expansion;
+        static_cast<void>(impl_->start_music(
+            music_path_for(
+                impl_->root,
+                context,
+                impl_->civilization,
+                expansion
+            ),
+            music_context_loops(context)
+        ));
     }
 }
 

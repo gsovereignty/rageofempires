@@ -785,7 +785,8 @@ std::optional<TriggerEffect> parse_trigger_effect(
         std::getline(input >> std::ws, remainder);
         if (!input || !player_field.starts_with("player=") ||
             !ticks_field.starts_with("ticks=") ||
-            !remainder.starts_with("text=")) {
+            (!remainder.starts_with("text=") &&
+             !remainder.starts_with("audio="))) {
             throw line_error(line, "invalid message trigger effect");
         }
         effect.player = parse_player(player_field.substr(7), line);
@@ -801,13 +802,23 @@ std::optional<TriggerEffect> parse_trigger_effect(
         } catch (const std::exception&) {
             throw line_error(line, "invalid message duration");
         }
+        if (remainder.starts_with("audio=")) {
+            std::istringstream audio_input(remainder.substr(6));
+            audio_input >> std::quoted(effect.audio_file);
+            std::getline(audio_input >> std::ws, remainder);
+            if (!audio_input || !remainder.starts_with("text=")) {
+                throw line_error(line, "invalid message audio field");
+            }
+        }
         std::istringstream text_input(remainder.substr(5));
         text_input >> std::quoted(effect.text);
         if (!text_input || !at_end(text_input)) {
             throw line_error(line, "invalid quoted message text");
         }
         effect.kind = TriggerEffectKind::message;
-        if (!valid_scenario_text(effect.text)) {
+        if (!valid_scenario_text(effect.text) ||
+            (!effect.audio_file.empty() &&
+             !valid_scenario_text(effect.audio_file))) {
             throw line_error(line, "invalid message trigger effect");
         }
     } else if (keyword == "message" || keyword == "show_message") {

@@ -26,6 +26,7 @@ inline constexpr std::int32_t technology_sheet = 50729;
 inline constexpr std::int32_t unit_sheet = 50730;
 
 [[nodiscard]] std::optional<Binding> technology(std::int32_t dat_icon_id);
+[[nodiscard]] std::optional<Binding> technology_icon(Technology technology);
 [[nodiscard]] std::optional<Binding> ordinary_unit(std::int32_t dat_icon_id);
 [[nodiscard]] std::optional<Binding> training_unit(UnitKind kind);
 

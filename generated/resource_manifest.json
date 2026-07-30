@@ -1,0 +1,336 @@
+{
+  "schema": "aoe-runtime-resource-manifest-v1",
+  "root": "resources",
+  "files": [
+    {
+      "path": "ai-building-attack-audit.scenario",
+      "size": 292,
+      "sha256": "b1866453c8446fb849c36f6c44c1c88a2ddc08666cd0ba5f0448c63fcd36778c"
+    },
+    {
+      "path": "allied-trade-audit.scenario",
+      "size": 351,
+      "sha256": "c8d6c78beecb2d7e56ac18602be62c4f402bbc99d794f927e78f5d49bb21bd68"
+    },
+    {
+      "path": "arbalester-render-audit.scenario",
+      "size": 633,
+      "sha256": "e375c52fc8e27492c7edaf691c150e787c8f084a68606fae73b8c3435ea210aa"
+    },
+    {
+      "path": "asian-saracen-civilizations-audit.scenario",
+      "size": 377,
+      "sha256": "8935ed0a4dc2c87718dec3d0f45dc86915374ae7a13c89afb92226441413656a"
+    },
+    {
+      "path": "blast-furnace-render-audit.scenario",
+      "size": 573,
+      "sha256": "e876e65eacd3154f9d700f0087ce5ad0cae16f4a9c843333ba9478301aea19aa"
+    },
+    {
+      "path": "bloodlines-render-audit.scenario",
+      "size": 461,
+      "sha256": "2f807be653298ce4978f515d772b93fecebb0dc7e5eb67702401875dfb6a4803"
+    },
+    {
+      "path": "bodkin-arrow-render-audit.scenario",
+      "size": 500,
+      "sha256": "605dd700aa1bcaf5a740e7bd2fe97b941ef93d03f8315fa24db2ec374fdb55f8"
+    },
+    {
+      "path": "bracer-render-audit.scenario",
+      "size": 567,
+      "sha256": "21c82a78df6460f1752146506fc85fa367d47e6ddf342af21c7167dd9f0a6078"
+    },
+    {
+      "path": "briefing-demo.campaign",
+      "size": 336,
+      "sha256": "78a7294c27fe0f049e5b6ba9a022de608d99ff95220e7d91b05eb0a4317356b4"
+    },
+    {
+      "path": "cannon-dock-technologies-audit.scenario",
+      "size": 1093,
+      "sha256": "6190377b6631566dcb73d7c27c40f2460e8be1a56439849aa17f0e0734d28898"
+    },
+    {
+      "path": "castle-unique-units-audit.scenario",
+      "size": 594,
+      "sha256": "0549a10774795292af76bde25b7f4ffeb6c007f10974d6d9283f962259c90ab7"
+    },
+    {
+      "path": "cavalier-render-audit.scenario",
+      "size": 644,
+      "sha256": "96384dc3dad767fbd3367c45277e8cee7af4084112426652e1204d08315d95ee"
+    },
+    {
+      "path": "chain-barding-armor-render-audit.scenario",
+      "size": 508,
+      "sha256": "3243f5ed685ff93cb222da644ec58689054fcc45bbdfe2e3a77d7f5ef8cd5e1c"
+    },
+    {
+      "path": "chain-mail-armor-render-audit.scenario",
+      "size": 504,
+      "sha256": "27e56cd5e0ecdb446608c693160fbb42aeec161fdd69d211da722483733a67bd"
+    },
+    {
+      "path": "champion-render-audit.scenario",
+      "size": 690,
+      "sha256": "758e93262494214ffb7d6a4790fb46377bb81153e137aacf06f0501bd02568a6"
+    },
+    {
+      "path": "civilization-bonuses-audit.scenario",
+      "size": 438,
+      "sha256": "428d5a73703fc84984dc636cc9c64ceec2d3bda60e90d05a6615f0151e663e12"
+    },
+    {
+      "path": "combat-pose-audit.scenario",
+      "size": 382,
+      "sha256": "850f694f2028090e9282e00fee6f5d9c14d4214e1cb28f84a6e0e7c493f8a511"
+    },
+    {
+      "path": "conquerors-civilizations-audit.scenario",
+      "size": 401,
+      "sha256": "de28ad030153401aad0a952ec84757c41352d1bd27c3cc9866f216cfe2c28ccf"
+    },
+    {
+      "path": "damage-audit.scenario",
+      "size": 347,
+      "sha256": "89b6152e4d0bdc68588b02933b2f00a7a4d8679f57c3a98b81e7bb545d602a48"
+    },
+    {
+      "path": "demo.scenario",
+      "size": 828,
+      "sha256": "1012a3550264cd4e4c8fc7f6fa3a230da50332af48a2e86faedf0c2082fab853"
+    },
+    {
+      "path": "double-bit-axe-audit.scenario",
+      "size": 339,
+      "sha256": "7116d96bcaf1510e4a4d7204094da376243f8ebdbeee20a1ad89f84eea0954d0"
+    },
+    {
+      "path": "eastern-castle-unique-units-audit.scenario",
+      "size": 579,
+      "sha256": "4ad8eb4b67267f9f6ee5622d80f44676a1c55ac85ef40466b467d4f6f580ba83"
+    },
+    {
+      "path": "editor-roundtrip.scenario",
+      "size": 561,
+      "sha256": "7d3d26a7ff5af8310959393b39f6141c14f72442926d13db55dc492ad3e44121"
+    },
+    {
+      "path": "elevation-demo.scenario",
+      "size": 79880,
+      "sha256": "921dbe2dd0af57912047f216910cb115736094eb621e1fc728eb0b4f5891f118"
+    },
+    {
+      "path": "elevation-transition-matrix.scenario",
+      "size": 930,
+      "sha256": "a9fd48b401a0ea3ee306ee8ddfc4f325ac27e7d8830dfba7e973df97f6d91be6"
+    },
+    {
+      "path": "elite-skirmisher-render-audit.scenario",
+      "size": 524,
+      "sha256": "fdff547d35786df9dba7ff042f4f916d7c71a5d59afde101ee90eee1abfab5f7"
+    },
+    {
+      "path": "expanded-civilizations-audit.scenario",
+      "size": 454,
+      "sha256": "c5c36eb8bc1f37ad095dd1d5f9ea1f3108921f46dab5b9d7e84cd702619bbede"
+    },
+    {
+      "path": "farm-render-audit.scenario",
+      "size": 468,
+      "sha256": "95e16893f40e26449e1374e73597fd656ead68402f5223434d6e6e0d1aa89ef3"
+    },
+    {
+      "path": "final-civilizations-audit.scenario",
+      "size": 426,
+      "sha256": "4ec38d58e6011efbfb73128734846425108b5004ad74418b7e3e0478fee42e62"
+    },
+    {
+      "path": "fire-demolition-ship-audit.scenario",
+      "size": 865,
+      "sha256": "7baaff590df97db7ba492cad186e63342fd5c6b233b5f58cf35da316d19440b7"
+    },
+    {
+      "path": "footprint-visibility-audit.scenario",
+      "size": 272,
+      "sha256": "75809bb23acf0a1a77e411af244d899ee79b18056d81554bd779d58fa22bff71"
+    },
+    {
+      "path": "fortified-wall-render-audit.scenario",
+      "size": 479,
+      "sha256": "166369202e14369b84bb82afaf1960b069d32408d30ea8f6ff7dfb89e899daed"
+    },
+    {
+      "path": "guard-tower-render-audit.scenario",
+      "size": 413,
+      "sha256": "abe9796b2f673f02b2d28e434434d65e41bf4faec8e3986d690cfffca7361fae"
+    },
+    {
+      "path": "horse-collar-render-audit.scenario",
+      "size": 434,
+      "sha256": "76647cfef7b1d7b923b88bb9c7821aa51bb8d0b97170c6917b82627c48e36101"
+    },
+    {
+      "path": "huntable-animal-audit.scenario",
+      "size": 429,
+      "sha256": "118f28dc38c99686420445700b6e0997843c34b740caabb8ec1dcbb6e70b8671"
+    },
+    {
+      "path": "husbandry-render-audit.scenario",
+      "size": 451,
+      "sha256": "b00bf436d1b60790e9afe00f22c47852eac8d5215a2dcc1b19be0a0e04f0f143"
+    },
+    {
+      "path": "hussar-render-audit.scenario",
+      "size": 676,
+      "sha256": "08d3f483b9359f2cedab66deaf765e3c268ddfefcf2aa4430b88ef2784914769"
+    },
+    {
+      "path": "iron-casting-render-audit.scenario",
+      "size": 529,
+      "sha256": "24fab35f6b38b7f7275d2514a67f9825cd4d8719daca3fda0431c9d090298468"
+    },
+    {
+      "path": "keep-render-audit.scenario",
+      "size": 461,
+      "sha256": "cc82c6a132571df45da677591a9e90d4730da7ccded529a8ed90c988081c560d"
+    },
+    {
+      "path": "leather-archer-armor-render-audit.scenario",
+      "size": 515,
+      "sha256": "a651f240f6d9fe8d46ff20734415bbafa048d25ef4eb8fff022660a9ebf3f14a"
+    },
+    {
+      "path": "light-cavalry-render-audit.scenario",
+      "size": 568,
+      "sha256": "d754f4f2d055ca1f51ed56fbde76bdd2c793b5fe93f658d146132b46b5b3ef7d"
+    },
+    {
+      "path": "loom-render-audit.scenario",
+      "size": 340,
+      "sha256": "cac151557e84f82d7fbc527af128115c3dd5c12a2a3a3c69dab917c8afef4cb0"
+    },
+    {
+      "path": "market-exchange-audit.scenario",
+      "size": 330,
+      "sha256": "6c7418cdbf10118416144cb567819d18eb5af6119a3cbd06c493820ac8551df3"
+    },
+    {
+      "path": "monk-conversion-audit.scenario",
+      "size": 339,
+      "sha256": "abd06b6e87fbcd1f14ea4af40012ce40ea1dc38ea594033b55bc42a27c98226e"
+    },
+    {
+      "path": "monk-relic-healing-audit.scenario",
+      "size": 380,
+      "sha256": "2ff1edfe553567271a772354b51abef9ce5ab82b05aebfaadfab7726a08f48a9"
+    },
+    {
+      "path": "movement-gait-audit.scenario",
+      "size": 394,
+      "sha256": "b56d25c607643d573268160117f3dba53b2c4b844e8cdef5e69014265a5fbda4"
+    },
+    {
+      "path": "naval-combat-transport-audit.scenario",
+      "size": 802,
+      "sha256": "7e09f5d4e1f00b39e3d928a858bd14bf2d6eae4d0c2bf04474ef77e55e1bb3af"
+    },
+    {
+      "path": "naval-fishing-audit.scenario",
+      "size": 691,
+      "sha256": "9fd38591e0ddb6f27a6ca5bb030405d4b8b481efcaeac2d68da643a9c6bafa3c"
+    },
+    {
+      "path": "padded-archer-armor-render-audit.scenario",
+      "size": 470,
+      "sha256": "4180ae010e2c85f76cd4cac73dad0a9297912f07ec013a67a3931f63f7738aba"
+    },
+    {
+      "path": "paladin-render-audit.scenario",
+      "size": 670,
+      "sha256": "28c8ef6639594a3464ea6517b52254c6063e21fd0932012c98829ccd2685c4bf"
+    },
+    {
+      "path": "palisade-gate-render-audit.scenario",
+      "size": 453,
+      "sha256": "3bd8b887d85c3564b84fb06d4890e545eaf6dd84c69f067403c1382cb51f6824"
+    },
+    {
+      "path": "plate-barding-armor-render-audit.scenario",
+      "size": 547,
+      "sha256": "8306ba5bcb02c0ba4cd3820f0a229b8a20b5b56cc2eaf94f1026b7ea4c2f5b54"
+    },
+    {
+      "path": "plate-mail-armor-render-audit.scenario",
+      "size": 540,
+      "sha256": "29486fb7b724323b8ed58178f76e01c4d77696f8a95ea80a9e6b70b08dcdb59e"
+    },
+    {
+      "path": "ring-archer-armor-render-audit.scenario",
+      "size": 550,
+      "sha256": "67dc8e827e3f59c392bc3f4a3202331d1981fc75b48f558dca4d891bd35ea7b0"
+    },
+    {
+      "path": "rubble-audit.scenario",
+      "size": 304,
+      "sha256": "1efda7d8b1d1ee0416e849724d4aac90311ea0c4d3fac6460aba59cf40e79741"
+    },
+    {
+      "path": "scale-barding-armor-render-audit.scenario",
+      "size": 469,
+      "sha256": "aba0354d18fb1d85a6882501ba6f7a1b4a7a2b4fb370de81cba08aca705f9383"
+    },
+    {
+      "path": "scale-mail-armor-render-audit.scenario",
+      "size": 463,
+      "sha256": "ee104152ee7e05721fe271b9e1f9fc3eaef8dca6a0c2d280680a798d8d066c7b"
+    },
+    {
+      "path": "sheep-gather-audit.scenario",
+      "size": 310,
+      "sha256": "e9ae3bde779f1ca46919bae4c672378936b883e2b119603ee93a9f9ffb1b4d39"
+    },
+    {
+      "path": "stone-gate-render-audit.scenario",
+      "size": 443,
+      "sha256": "3e5f8f34e571fe1c9b3d0236131182a132ce9dfac679ad6c09dfb0de3378c773"
+    },
+    {
+      "path": "two-handed-swordsman-render-audit.scenario",
+      "size": 663,
+      "sha256": "a3de564f6897ef7626f73c7b93de3ec84f70b1b5e45a24e0f45337f87c0f09e9"
+    },
+    {
+      "path": "unique-naval-units-audit.scenario",
+      "size": 944,
+      "sha256": "6957a0bb13ca9f4775335f4f372bba293d20a92b18cf9ceca511e2a0a818ed18"
+    },
+    {
+      "path": "villager-repair-audit.scenario",
+      "size": 306,
+      "sha256": "9af4bd79c2198aabf94f6af30eb107dfbb64415df6b626c439a4d584fd4bfed6"
+    },
+    {
+      "path": "villager-work-audit.scenario",
+      "size": 286,
+      "sha256": "9ebebe84fb3c47454327514d507cb31f77da1b4f95da9e4d79e9a0ea907a1c9d"
+    },
+    {
+      "path": "visual-audit.scenario",
+      "size": 1972,
+      "sha256": "7a04f35a97495c19b7e7acff3e610f5b6939bfc01081cf3a4d80c7d0a9061ea2"
+    },
+    {
+      "path": "water-render-audit.scenario",
+      "size": 348,
+      "sha256": "25304ef0edbfda4417b0d391552fb6fc305a8c3f9017fd6441fae23027c6cac8"
+    },
+    {
+      "path": "wheelbarrow-movement-audit.scenario",
+      "size": 365,
+      "sha256": "0a1baac41c970f56aad13c9480d10a5c063faae56760544cd7dbe26cc5d8e804"
+    }
+  ]
+}

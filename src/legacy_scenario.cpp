@@ -1443,8 +1443,11 @@ std::optional<std::string> translate_trigger_effect(
             return std::nullopt;
         }
         const int ticks = property[12] > 0 ? property[12] * 5 : 150;
-        output << "message player=" << *player << " ticks=" << ticks
-               << " text=" << std::quoted(effect.chat_text);
+        output << "message player=" << *player << " ticks=" << ticks;
+        if (!effect.audio_file.empty()) {
+            output << " audio=" << std::quoted(effect.audio_file);
+        }
+        output << " text=" << std::quoted(effect.chat_text);
     } else if (effect.type == 11) {
         const auto player = trigger_player(property[7]);
         const auto object = common_object_name(property[6]);

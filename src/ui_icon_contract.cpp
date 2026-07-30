@@ -10,6 +10,13 @@ std::optional<Binding> technology(std::int32_t dat_icon_id) {
     };
 }
 
+std::optional<Binding> technology_icon(Technology technology_value) {
+    switch (technology_value) {
+#include "aoe/generated/technology_icon_bindings.inc"
+    }
+    return std::nullopt;
+}
+
 std::optional<Binding> ordinary_unit(std::int32_t dat_icon_id) {
     if (dat_icon_id < 0 || dat_icon_id >= 134) return std::nullopt;
     return Binding{

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cctype>
 #include <cstdint>
 #include <fstream>
 #include <iomanip>
@@ -93,9 +94,29 @@ std::string canonical_manifest(const Campaign& campaign) {
     for (const auto& entry : campaign.scenarios) {
         output << "scenario " << entry.id << ' '
                << std::quoted(entry.path.generic_string()) << ' '
-               << std::quoted(entry.name) << '\n';
+               << std::quoted(entry.name);
+        if (!entry.briefing_audio.empty() ||
+            !entry.debrief_audio.empty()) {
+            output << ' ' << std::quoted(entry.briefing_audio)
+                   << ' ' << std::quoted(entry.debrief_audio);
+        }
+        output << '\n';
     }
     return output.str();
+}
+
+bool valid_audio_filename(const std::string& filename) {
+    if (filename.empty()) return true;
+    const std::filesystem::path path{filename};
+    std::string extension = path.extension().string();
+    std::ranges::transform(
+        extension, extension.begin(),
+        [](unsigned char character) {
+            return static_cast<char>(std::tolower(character));
+        }
+    );
+    return path == path.filename() &&
+        (extension == ".mp3" || extension == ".wav");
 }
 
 std::string digest_campaign(
@@ -237,6 +258,16 @@ Campaign load_campaign(const std::filesystem::path& path) {
             std::string relative;
             record >> entry.id >> std::quoted(relative) >>
                 std::quoted(entry.name);
+            const bool base_fields_valid = static_cast<bool>(record);
+            if (base_fields_valid) {
+                record >> std::ws;
+                if (!record.eof()) {
+                    record >> std::quoted(entry.briefing_audio) >>
+                        std::quoted(entry.debrief_audio);
+                } else {
+                    record.clear();
+                }
+            }
             require_end(record, line_number);
             const std::filesystem::path relative_path(relative);
             bool bad_segment = relative_path.empty() ||
@@ -247,9 +278,12 @@ Campaign load_campaign(const std::filesystem::path& path) {
                     bad_segment = true;
                 }
             }
-            if (!record || entry.id <= prior_id || bad_segment ||
+            if (!base_fields_valid || !record ||
+                entry.id <= prior_id || bad_segment ||
                 !valid_text(entry.name) || !ids.insert(entry.id).second ||
-                !names.insert(entry.name).second) {
+                !names.insert(entry.name).second ||
+                !valid_audio_filename(entry.briefing_audio) ||
+                !valid_audio_filename(entry.debrief_audio)) {
                 throw std::runtime_error("invalid campaign scenario entry");
             }
             const auto resolved =
@@ -311,6 +345,8 @@ void save_campaign(
         const auto relative_path = resolved.lexically_relative(base);
         if (entry.id <= prior_id || !ids.insert(entry.id).second ||
             !valid_text(entry.name) || !names.insert(entry.name).second ||
+            !valid_audio_filename(entry.briefing_audio) ||
+            !valid_audio_filename(entry.debrief_audio) ||
             relative_path.empty() || *relative_path.begin() == ".." ||
             relative_path.extension() != ".scenario" ||
             !paths.insert(resolved).second ||

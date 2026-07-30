@@ -13,6 +13,8 @@ struct CampaignScenarioEntry {
     int id{};
     std::filesystem::path path;
     std::string name;
+    std::string briefing_audio;
+    std::string debrief_audio;
 };
 
 struct Campaign {

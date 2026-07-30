@@ -99,8 +99,8 @@ private:
     std::map<std::int32_t, std::size_t> resources_;
 };
 
-// Finds directly stored original music without reading or copying payloads.
-// Supported .mp3/.wav names are returned in stable case-insensitive order.
+// Finds background music under Sound/music without mixing state-specific
+// Sound/stream themes and stingers into a gameplay playlist.
 [[nodiscard]] std::vector<std::filesystem::path>
 discover_legacy_music_tracks(
     const std::filesystem::path& installation_root

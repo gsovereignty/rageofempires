@@ -10,6 +10,8 @@ fi
 executable="$app/Contents/MacOS/AoE Archaeology"
 framework="$app/Contents/Frameworks/libSDL3.0.dylib"
 scenario="$app/Contents/Resources/demo.scenario"
+resource_manifest="$app/Contents/Resources/resource-manifest.json"
+resource_tree="$app/Contents/Resources/resources"
 
 require_universal_2() {
     binary=$1
@@ -45,6 +47,8 @@ require_macos_11_per_slice() {
 test -x "$executable"
 test -f "$framework"
 test -f "$scenario"
+test -f "$resource_manifest"
+test -d "$resource_tree"
 plutil -lint "$app/Contents/Info.plist"
 test "$(plutil -extract LSMinimumSystemVersion raw \
     "$app/Contents/Info.plist")" = "11.0"
@@ -99,7 +103,7 @@ test -s "$smoke_frame"
 sips -g pixelWidth -g pixelHeight "$smoke_frame" |
     grep -q 'pixelWidth: 800'
 sips -g pixelWidth -g pixelHeight "$smoke_frame" |
-    grep -q 'pixelHeight: 450'
+    grep -q 'pixelHeight: 600'
 cleanup_smoke
 trap - EXIT HUP INT TERM
 

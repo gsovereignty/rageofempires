@@ -473,6 +473,7 @@ aoe::LegacyScenarioMetadata trigger_conversion_source() {
     message.properties[7] = 1;
     message.properties[12] = 6;
     message.chat_text = "Hold position";
+    message.audio_file = "scenariovoice.mp3";
     later.effects.push_back(message);
     later.effect_order = {0};
 
@@ -533,7 +534,8 @@ void converts_lossless_trigger_subset_and_preserves_order_flags() {
     });
     require(
         later.effects == std::vector<std::string>{
-            "message player=blue ticks=30 text=\"Hold position\""
+            "message player=blue ticks=30 "
+            "audio=\"scenariovoice.mp3\" text=\"Hold position\""
         }
     );
 

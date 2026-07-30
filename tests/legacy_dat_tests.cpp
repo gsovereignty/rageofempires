@@ -64,7 +64,7 @@ void put_fixed(
 }
 
 std::vector<std::byte> fixture() {
-    std::vector<std::byte> bytes(156);
+    std::vector<std::byte> bytes(168);
     const char version[] = "VER 5.7";
     for (std::size_t index = 0; index < 7; ++index) {
         bytes[index] = static_cast<std::byte>(version[index]);
@@ -97,6 +97,13 @@ std::vector<std::byte> fixture() {
     put_u16(bytes, record + 57, 1);
     put_u16(bytes, record + 59, 1);
     put_u16(bytes, record + 74, 0);
+    bytes[record + 56] = std::byte{1};
+    put_i16(bytes, record + 78, 0);
+    put_i16(bytes, record + 80, 291);
+    put_i16(bytes, record + 82, 4);
+    put_i16(bytes, record + 84, 420);
+    put_i16(bytes, record + 86, -1);
+    put_i16(bytes, record + 88, -1);
     return bytes;
 }
 
@@ -142,17 +149,19 @@ int main() {
         }
     };
     check(
-        aoe::select_legacy_sound_item(civilization_sound, 14)->
+        aoe::select_legacy_sound_item(civilization_sound, 14, 0)->
+            resource_id == 6691 &&
+        aoe::select_legacy_sound_item(civilization_sound, 14, 33)->
             resource_id == 6692,
-        "civilization sound selects highest exact probability"
+        "civilization sound uses exact probability ranges"
     );
     check(
-        aoe::select_legacy_sound_item(civilization_sound, 17)->
-            resource_id == 6511,
-        "civilization sound breaks equal probability by DAT order"
+        aoe::select_legacy_sound_item(civilization_sound, 17, 33)->
+            resource_id == 6512,
+        "civilization sound selects later weighted range"
     );
     check(
-        aoe::select_legacy_sound_item(civilization_sound, 7)->
+        aoe::select_legacy_sound_item(civilization_sound, 7, 999)->
             resource_id == 5299,
         "civilization sound falls back to generic record"
     );
@@ -163,6 +172,14 @@ int main() {
     check(graphic && graphic->layer == 20, "layer");
     check(graphic && graphic->frame_count == 1, "frame count");
     check(graphic && graphic->angle_count == 1, "angle count");
+    check(
+        graphic && graphic->angle_sounds.size() == 1 &&
+            graphic->angle_sounds[0][0].frame == 0 &&
+            graphic->angle_sounds[0][0].sound_id == 291 &&
+            graphic->angle_sounds[0][1].frame == 4 &&
+            graphic->angle_sounds[0][1].sound_id == 420,
+        "graphic frame sound triggers"
+    );
     check(dat.terrain_block_offset() == fixture().size(), "prefix end offset");
 
     if (const char* path = std::getenv("AOE_TEST_DAT")) {
@@ -192,11 +209,11 @@ int main() {
         const auto* selection_sound = live.sound(420);
         check(
             selection_sound &&
-                aoe::select_legacy_sound_item(*selection_sound, 14)->
+                aoe::select_legacy_sound_item(*selection_sound, 14, 0)->
                     resource_id == 6692 &&
-                aoe::select_legacy_sound_item(*selection_sound, 17)->
+                aoe::select_legacy_sound_item(*selection_sound, 17, 0)->
                     resource_id == 6513 &&
-                aoe::select_legacy_sound_item(*selection_sound, 99)->
+                aoe::select_legacy_sound_item(*selection_sound, 99, 0)->
                     resource_id == 5299,
             "live civilization-aware selection sound"
         );

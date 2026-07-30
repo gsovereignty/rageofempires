@@ -1,0 +1,13 @@
+# Focused renderer audit for melee swing and ranged draw/release poses.
+AOE-ARCHAEOLOGY-SCENARIO 27
+map 12 7
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue castle
+age red castle
+
+unit knight blue 1 2 attack_move 3 2
+unit villager red 3 2 stance passive
+unit archer blue 1 4 attack_move 5 4
+unit knight red 5 4 stance passive
+unit villager red 10 5 stance passive

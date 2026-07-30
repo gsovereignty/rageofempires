@@ -1,0 +1,11 @@
+# Focused renderer audit: ram destroys house on tick 11; capture tick 15.
+AOE-ARCHAEOLOGY-SCENARIO 27
+map 10 6
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue castle
+age red castle
+
+unit battering_ram blue 1 2 attack_move 6 2
+unit villager red 8 5 stance passive
+building house red 3 2

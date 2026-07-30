@@ -1,0 +1,18 @@
+# Ring Archer Armor audit: fully armored archers beside melee units.
+AOE-ARCHAEOLOGY-SCENARIO 28
+map 18 10
+economy blue 0 0 0 0
+economy red 0 0 0 0
+age blue imperial
+age red imperial
+technology blue padded_archer_armor
+technology blue leather_archer_armor
+technology blue ring_archer_armor
+
+building blacksmith blue 1 1
+unit crossbowman blue 5 3 stance passive
+unit archer blue 6 4 stance passive
+unit long_swordsman blue 4 5 stance passive
+unit crossbowman red 11 4 stance passive
+unit long_swordsman red 10 5 stance passive
+building house red 15 7

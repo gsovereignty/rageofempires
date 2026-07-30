@@ -1,0 +1,11 @@
+# Blue militia sees only red Town Center's far footprint edge, not its origin.
+AOE-ARCHAEOLOGY-SCENARIO 28
+map 20 12
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue dark
+age red castle
+
+unit militia blue 12 4 stance passive
+
+building town_center red 6 1

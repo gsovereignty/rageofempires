@@ -1,0 +1,7 @@
+/build/
+/build-*/
+/archaeology-save.txt
+.DS_Store
+__pycache__/
+*.py[cod]
+target/

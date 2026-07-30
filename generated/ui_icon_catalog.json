@@ -1,0 +1,5754 @@
+{
+  "schema": "aoe-ui-icon-catalog-v1",
+  "source": "/tmp/aoe-assets.TNMZJ0/app/Data/empires2_x1_p1.dat",
+  "archive": "/tmp/aoe-assets.grSVdf/app/Data/interfac.drs",
+  "scope": {
+    "units": 94,
+    "buildings": 27,
+    "technologies": 156,
+    "resources": 4,
+    "commands": 16
+  },
+  "classification_counts": {
+    "exact": 254,
+    "missing": 43,
+    "unknown": 297
+  },
+  "provenance": {
+    "hd_executable_sha256": "e23272e21014fb281f71a21ef96a6437ab8b322f4978fd4998be835be219edcc",
+    "openage_commit": "9a5a7ccbfc20c2de658fc746462cd4a69aa758ef",
+    "openage_commit_date": "2026-07-04T12:38:52+02:00",
+    "dat_semantics": "openage datfile readers name unit/research icon_id but skip the field during conversion"
+  },
+  "sheet_role_evidence": [
+    {
+      "resource_id": 50721,
+      "role": "command_sheet",
+      "classification": "exact",
+      "source": "AoK-HD-patched.c executable load: btncmd.shp, 0xc621",
+      "note": "sheet role exact; DAT/action index to frame semantics unknown"
+    },
+    {
+      "resource_id": 50729,
+      "role": "technology_icons",
+      "classification": "exact",
+      "source": "AoK-HD-patched.c FUN_0050c6b0(\"btntech.shp\",0xc629,0)",
+      "note": "FUN_005c6750 passes technology +0x2c unchanged as frame"
+    },
+    {
+      "resource_id": 50730,
+      "role": "unit_icons",
+      "classification": "exact",
+      "source": "AoK-HD-patched.c FUN_0050c6b0(\"ico_unit.shp\",0xc62a,0)",
+      "note": "FUN_005c7560 passes ordinary-unit +0x54 unchanged as frame"
+    },
+    {
+      "resource_id": 50731,
+      "role": "resource_and_stat_symbols",
+      "classification": "unknown",
+      "source": "openage doc/media/aoc-slp-list.md",
+      "note": "descriptive list is explicitly tentative"
+    },
+    {
+      "resource_id": 50732,
+      "role": "resource_icons",
+      "classification": "unknown",
+      "source": "openage doc/media/aoc-slp-list.md",
+      "note": "source labels this relationship with a question mark"
+    },
+    {
+      "resource_id": 50760,
+      "role": "top_bar_resource_icons",
+      "classification": "unknown",
+      "source": "openage doc/media/aoc-slp-list.md",
+      "note": "role description does not prove DAT index/frame semantics"
+    }
+  ],
+  "executable_dispatch_contract": {
+    "technology": {
+      "sheet": 50729,
+      "record_field": "+0x2c signed short",
+      "frame_transform": "identity",
+      "evidence": "FUN_005c6750 -> FUN_00517560 -> FUN_005c5e40"
+    },
+    "ordinary_unit": {
+      "sheet": 50730,
+      "record_field": "+0x54 signed short",
+      "frame_transform": "identity",
+      "excluded_subtypes": [
+        2,
+        10
+      ],
+      "evidence": "FUN_005c7560 -> FUN_005c5e40"
+    },
+    "pressed": {
+      "icon_frame_transform": "identity",
+      "normal_chrome_frame": 36,
+      "pressed_chrome_frame": 37,
+      "pressed_icon_offset": [
+        1,
+        1
+      ],
+      "evidence": "FUN_005c5e40"
+    },
+    "disabled": {
+      "classification": "unknown"
+    },
+    "page_ordering": {
+      "classification": "unknown"
+    }
+  },
+  "interfac_inventory": [
+    {
+      "extension": "bina",
+      "resource_id": 50001,
+      "size": 631,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50002,
+      "size": 639,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50003,
+      "size": 668,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50004,
+      "size": 633,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50005,
+      "size": 635,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50007,
+      "size": 668,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50010,
+      "size": 616,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50011,
+      "size": 632,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50012,
+      "size": 633,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50013,
+      "size": 668,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50014,
+      "size": 662,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50015,
+      "size": 662,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50016,
+      "size": 662,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50017,
+      "size": 663,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50018,
+      "size": 662,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50019,
+      "size": 663,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50020,
+      "size": 668,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50021,
+      "size": 663,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50051,
+      "size": 633,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50052,
+      "size": 633,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50053,
+      "size": 635,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50054,
+      "size": 633,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50055,
+      "size": 638,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50056,
+      "size": 650,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50057,
+      "size": 664,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50058,
+      "size": 664,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50059,
+      "size": 589,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50060,
+      "size": 643,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50061,
+      "size": 666,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50062,
+      "size": 646,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50063,
+      "size": 630,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50080,
+      "size": 627,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50081,
+      "size": 631,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50083,
+      "size": 637,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50084,
+      "size": 638,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50085,
+      "size": 631,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50086,
+      "size": 639,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50087,
+      "size": 638,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50088,
+      "size": 589,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50089,
+      "size": 637,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50090,
+      "size": 643,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50243,
+      "size": 2957,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50244,
+      "size": 2956,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50245,
+      "size": 2807,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50246,
+      "size": 2848,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50250,
+      "size": 2974,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50251,
+      "size": 638,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50252,
+      "size": 639,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50253,
+      "size": 637,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50254,
+      "size": 639,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50258,
+      "size": 632,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50267,
+      "size": 630,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50268,
+      "size": 2863,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50344,
+      "size": 355,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50345,
+      "size": 287,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50346,
+      "size": 286,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50347,
+      "size": 297,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50348,
+      "size": 294,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50349,
+      "size": 304,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50350,
+      "size": 304,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50351,
+      "size": 304,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50352,
+      "size": 359,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50401,
+      "size": 31582,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50402,
+      "size": 38892,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50408,
+      "size": 54870,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50409,
+      "size": 79486,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50411,
+      "size": 36990,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50500,
+      "size": 2888,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50501,
+      "size": 2477,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50502,
+      "size": 2523,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50503,
+      "size": 3008,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50504,
+      "size": 2452,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50505,
+      "size": 2878,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50506,
+      "size": 2878,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50507,
+      "size": 2753,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50508,
+      "size": 2878,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50509,
+      "size": 2777,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50519,
+      "size": 2966,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50520,
+      "size": 2477,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50521,
+      "size": 2888,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50530,
+      "size": 3119,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50531,
+      "size": 2917,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50532,
+      "size": 3019,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50533,
+      "size": 3019,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50534,
+      "size": 3177,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50563,
+      "size": 3177,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50588,
+      "size": 2935,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50589,
+      "size": 2780,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50900,
+      "size": 1171,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50901,
+      "size": 1170,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50902,
+      "size": 1170,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50903,
+      "size": 1170,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50904,
+      "size": 1170,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50905,
+      "size": 1170,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50906,
+      "size": 1161,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50907,
+      "size": 1166,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50908,
+      "size": 1160,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50909,
+      "size": 1165,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50910,
+      "size": 1170,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 50911,
+      "size": 1170,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 53015,
+      "size": 633,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 53016,
+      "size": 2881,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 53020,
+      "size": 361,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 53021,
+      "size": 447,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 53022,
+      "size": 447,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 53023,
+      "size": 449,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 53024,
+      "size": 440,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 53111,
+      "size": 2853,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 53112,
+      "size": 2962,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 53113,
+      "size": 2753,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 53114,
+      "size": 2883,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 53121,
+      "size": 644,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 53122,
+      "size": 645,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 53123,
+      "size": 643,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 53124,
+      "size": 645,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 53141,
+      "size": 653,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 53142,
+      "size": 654,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 53143,
+      "size": 652,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 53144,
+      "size": 654,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 53151,
+      "size": 647,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 53152,
+      "size": 648,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 53153,
+      "size": 646,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 53154,
+      "size": 648,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 53205,
+      "size": 82082,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 53212,
+      "size": 29278,
+      "frame_count": null
+    },
+    {
+      "extension": "bina",
+      "resource_id": 53213,
+      "size": 104174,
+      "frame_count": null
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50100,
+      "size": 471366,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50101,
+      "size": 792366,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50102,
+      "size": 1315919,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50103,
+      "size": 477853,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50104,
+      "size": 486197,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50127,
+      "size": 47767,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50131,
+      "size": 485183,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50137,
+      "size": 485183,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50145,
+      "size": 475551,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50149,
+      "size": 476670,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50150,
+      "size": 80749,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50155,
+      "size": 486425,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50156,
+      "size": 486629,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50157,
+      "size": 486650,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50161,
+      "size": 484967,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50162,
+      "size": 3523620,
+      "frame_count": 102
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50163,
+      "size": 485321,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50188,
+      "size": 7296190,
+      "frame_count": 15
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50189,
+      "size": 1086752,
+      "frame_count": 53
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50190,
+      "size": 37324,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50202,
+      "size": 477540,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50204,
+      "size": 452646,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50212,
+      "size": 35699,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50213,
+      "size": 36364,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50221,
+      "size": 390582,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50222,
+      "size": 98807,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50223,
+      "size": 244452,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50224,
+      "size": 315566,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50225,
+      "size": 330241,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50226,
+      "size": 364784,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50230,
+      "size": 12664,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50231,
+      "size": 875870,
+      "frame_count": 49
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50232,
+      "size": 651979,
+      "frame_count": 33
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50233,
+      "size": 102918,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50235,
+      "size": 644563,
+      "frame_count": 25
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50236,
+      "size": 590584,
+      "frame_count": 25
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50237,
+      "size": 709024,
+      "frame_count": 25
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50238,
+      "size": 587981,
+      "frame_count": 25
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50242,
+      "size": 637274,
+      "frame_count": 29
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50259,
+      "size": 23535,
+      "frame_count": 17
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50260,
+      "size": 24024,
+      "frame_count": 17
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50261,
+      "size": 23570,
+      "frame_count": 17
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50262,
+      "size": 23570,
+      "frame_count": 17
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50266,
+      "size": 24672,
+      "frame_count": 17
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50269,
+      "size": 27202,
+      "frame_count": 16
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50270,
+      "size": 99372,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50339,
+      "size": 11051,
+      "frame_count": 7
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50340,
+      "size": 19690,
+      "frame_count": 20
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50341,
+      "size": 381471,
+      "frame_count": 3
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50342,
+      "size": 2821535,
+      "frame_count": 18
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50343,
+      "size": 92735,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50400,
+      "size": 278,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50403,
+      "size": 1220,
+      "frame_count": 9
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50404,
+      "size": 278,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50406,
+      "size": 276,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50601,
+      "size": 29540,
+      "frame_count": 16
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50602,
+      "size": 29540,
+      "frame_count": 16
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50603,
+      "size": 27202,
+      "frame_count": 16
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50604,
+      "size": 26127,
+      "frame_count": 21
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50606,
+      "size": 20654,
+      "frame_count": 17
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50609,
+      "size": 12914,
+      "frame_count": 16
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50610,
+      "size": 27202,
+      "frame_count": 16
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50611,
+      "size": 27202,
+      "frame_count": 16
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50612,
+      "size": 217916,
+      "frame_count": 16
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50613,
+      "size": 11125,
+      "frame_count": 7
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50688,
+      "size": 29935,
+      "frame_count": 16
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50705,
+      "size": 87810,
+      "frame_count": 52
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50706,
+      "size": 87810,
+      "frame_count": 52
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50707,
+      "size": 87810,
+      "frame_count": 52
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50708,
+      "size": 87810,
+      "frame_count": 52
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50713,
+      "size": 14204,
+      "frame_count": 4
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50714,
+      "size": 13256,
+      "frame_count": 4
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50715,
+      "size": 13176,
+      "frame_count": 4
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50716,
+      "size": 14908,
+      "frame_count": 4
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50717,
+      "size": 2530,
+      "frame_count": 2
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50718,
+      "size": 862,
+      "frame_count": 2
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50719,
+      "size": 2572,
+      "frame_count": 2
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50720,
+      "size": 8376,
+      "frame_count": 2
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50721,
+      "size": 88809,
+      "frame_count": 69
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50725,
+      "size": 6470,
+      "frame_count": 8
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50726,
+      "size": 9324,
+      "frame_count": 13
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50727,
+      "size": 6483,
+      "frame_count": 8
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50728,
+      "size": 6483,
+      "frame_count": 8
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50729,
+      "size": 158285,
+      "frame_count": 118
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50730,
+      "size": 196178,
+      "frame_count": 134
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50731,
+      "size": 11677,
+      "frame_count": 11
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50732,
+      "size": 3393,
+      "frame_count": 4
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50745,
+      "size": 4194,
+      "frame_count": 26
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50746,
+      "size": 1730,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50747,
+      "size": 3595,
+      "frame_count": 2
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50748,
+      "size": 906,
+      "frame_count": 2
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50749,
+      "size": 3568,
+      "frame_count": 2
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50750,
+      "size": 4864,
+      "frame_count": 2
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50751,
+      "size": 47188,
+      "frame_count": 48
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50752,
+      "size": 13873,
+      "frame_count": 18
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50753,
+      "size": 9324,
+      "frame_count": 13
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50754,
+      "size": 12750,
+      "frame_count": 13
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50760,
+      "size": 2822,
+      "frame_count": 7
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50761,
+      "size": 3487,
+      "frame_count": 10
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50762,
+      "size": 42483,
+      "frame_count": 8
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50763,
+      "size": 73798,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50764,
+      "size": 71628,
+      "frame_count": 100
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50765,
+      "size": 109483,
+      "frame_count": 12
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50766,
+      "size": 2928,
+      "frame_count": 9
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50767,
+      "size": 575,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50768,
+      "size": 10433,
+      "frame_count": 2
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50769,
+      "size": 8091,
+      "frame_count": 5
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50788,
+      "size": 13400,
+      "frame_count": 16
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50789,
+      "size": 13400,
+      "frame_count": 16
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50790,
+      "size": 20440,
+      "frame_count": 16
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50791,
+      "size": 3424,
+      "frame_count": 4
+    },
+    {
+      "extension": "slp",
+      "resource_id": 50792,
+      "size": 214562,
+      "frame_count": 16
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51000,
+      "size": 16359,
+      "frame_count": 19
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51001,
+      "size": 354,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51002,
+      "size": 343,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51003,
+      "size": 354,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51004,
+      "size": 343,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51005,
+      "size": 344,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51007,
+      "size": 354,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51008,
+      "size": 354,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51009,
+      "size": 354,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51010,
+      "size": 354,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51101,
+      "size": 119456,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51102,
+      "size": 119481,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51103,
+      "size": 119022,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51104,
+      "size": 118714,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51105,
+      "size": 118930,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51106,
+      "size": 117533,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51107,
+      "size": 110758,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51108,
+      "size": 108632,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51109,
+      "size": 119458,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51110,
+      "size": 120737,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51111,
+      "size": 117835,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51112,
+      "size": 119519,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51113,
+      "size": 117482,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51114,
+      "size": 113990,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51115,
+      "size": 117367,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51116,
+      "size": 116790,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51117,
+      "size": 117261,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51118,
+      "size": 116600,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51121,
+      "size": 180775,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51122,
+      "size": 179837,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51123,
+      "size": 180341,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51124,
+      "size": 180122,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51125,
+      "size": 178964,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51126,
+      "size": 178941,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51127,
+      "size": 170888,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51128,
+      "size": 168571,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51129,
+      "size": 180366,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51130,
+      "size": 179376,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51131,
+      "size": 177076,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51132,
+      "size": 180807,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51133,
+      "size": 179027,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51134,
+      "size": 175800,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51135,
+      "size": 178633,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51136,
+      "size": 175279,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51137,
+      "size": 178021,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51138,
+      "size": 177085,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51141,
+      "size": 285831,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51142,
+      "size": 283358,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51143,
+      "size": 273031,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51144,
+      "size": 284801,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51145,
+      "size": 283425,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51146,
+      "size": 281721,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51147,
+      "size": 267333,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51148,
+      "size": 280945,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51149,
+      "size": 285422,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51150,
+      "size": 282875,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51151,
+      "size": 276676,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51152,
+      "size": 285427,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51153,
+      "size": 282156,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51154,
+      "size": 273431,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51155,
+      "size": 608,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51156,
+      "size": 608,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51157,
+      "size": 278554,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51158,
+      "size": 273857,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51159,
+      "size": 279004,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 51160,
+      "size": 276916,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 52064,
+      "size": 24672,
+      "frame_count": 17
+    },
+    {
+      "extension": "slp",
+      "resource_id": 52065,
+      "size": 24672,
+      "frame_count": 17
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53001,
+      "size": 514,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53002,
+      "size": 1911,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53003,
+      "size": 838,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53004,
+      "size": 568,
+      "frame_count": 2
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53005,
+      "size": 49658,
+      "frame_count": 6
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53006,
+      "size": 26963,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53007,
+      "size": 45720,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53008,
+      "size": 14536,
+      "frame_count": 12
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53009,
+      "size": 20654,
+      "frame_count": 17
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53010,
+      "size": 467,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53011,
+      "size": 26127,
+      "frame_count": 21
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53012,
+      "size": 8365,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53014,
+      "size": 666572,
+      "frame_count": 17
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53017,
+      "size": 27202,
+      "frame_count": 16
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53101,
+      "size": 714632,
+      "frame_count": 25
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53102,
+      "size": 728679,
+      "frame_count": 25
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53103,
+      "size": 706125,
+      "frame_count": 25
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53104,
+      "size": 783351,
+      "frame_count": 33
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53131,
+      "size": 23535,
+      "frame_count": 17
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53132,
+      "size": 24024,
+      "frame_count": 17
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53133,
+      "size": 23570,
+      "frame_count": 17
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53134,
+      "size": 23570,
+      "frame_count": 17
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53161,
+      "size": 204929,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53162,
+      "size": 204582,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53163,
+      "size": 205486,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53164,
+      "size": 204812,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53171,
+      "size": 205005,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53172,
+      "size": 204903,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53173,
+      "size": 205670,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53174,
+      "size": 202703,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53200,
+      "size": 8868,
+      "frame_count": 2
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53201,
+      "size": 8882,
+      "frame_count": 2
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53202,
+      "size": 13060,
+      "frame_count": 2
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53203,
+      "size": 13060,
+      "frame_count": 2
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53204,
+      "size": 1658,
+      "frame_count": 2
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53206,
+      "size": 7729,
+      "frame_count": 7
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53207,
+      "size": 6811,
+      "frame_count": 3
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53208,
+      "size": 306948,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53209,
+      "size": 549545,
+      "frame_count": 10
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53210,
+      "size": 238,
+      "frame_count": 1
+    },
+    {
+      "extension": "slp",
+      "resource_id": 53211,
+      "size": 1458,
+      "frame_count": 1
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50300,
+      "size": 116106,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50301,
+      "size": 10784,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50302,
+      "size": 9688,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50303,
+      "size": 14606,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50304,
+      "size": 70106,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50305,
+      "size": 109688,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50306,
+      "size": 75416,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50307,
+      "size": 43842,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50308,
+      "size": 220282,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50309,
+      "size": 168054,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50310,
+      "size": 197750,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50311,
+      "size": 113968,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50312,
+      "size": 94666,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50313,
+      "size": 104312,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50314,
+      "size": 126072,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50315,
+      "size": 99096,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50316,
+      "size": 147316,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50317,
+      "size": 54520,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50318,
+      "size": 14606,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50320,
+      "size": 159352,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50321,
+      "size": 330976,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50322,
+      "size": 43000,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50324,
+      "size": 27360,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50325,
+      "size": 59514,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50327,
+      "size": 54520,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50328,
+      "size": 57334,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50329,
+      "size": 37960,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50330,
+      "size": 23788,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50331,
+      "size": 17784,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50332,
+      "size": 17784,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50333,
+      "size": 17784,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50334,
+      "size": 17784,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50335,
+      "size": 17784,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50336,
+      "size": 17784,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50337,
+      "size": 17784,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50338,
+      "size": 7254,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50354,
+      "size": 22200,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50355,
+      "size": 7928,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50356,
+      "size": 13368,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50357,
+      "size": 66552,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50358,
+      "size": 46582,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50359,
+      "size": 25528,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50360,
+      "size": 5822,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50361,
+      "size": 10660,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50362,
+      "size": 16758,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50363,
+      "size": 12858,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50364,
+      "size": 158342,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50365,
+      "size": 48632,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50366,
+      "size": 112248,
+      "frame_count": null
+    },
+    {
+      "extension": "wav",
+      "resource_id": 50367,
+      "size": 102516,
+      "frame_count": null
+    }
+  ],
+  "items": [
+    {
+      "category": "unit",
+      "name": "villager",
+      "dat_id": 83,
+      "dat_icon_id": 15,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "knight",
+      "dat_id": 38,
+      "dat_icon_id": 1,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "archer",
+      "dat_id": 4,
+      "dat_icon_id": 17,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "scout_cavalry",
+      "dat_id": 448,
+      "dat_icon_id": 64,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "militia",
+      "dat_id": 74,
+      "dat_icon_id": 8,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "spearman",
+      "dat_id": 93,
+      "dat_icon_id": 31,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "battering_ram",
+      "dat_id": 35,
+      "dat_icon_id": 74,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "skirmisher",
+      "dat_id": 7,
+      "dat_icon_id": 20,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "mangonel",
+      "dat_id": 280,
+      "dat_icon_id": 27,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "man_at_arms",
+      "dat_id": 75,
+      "dat_icon_id": 10,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "crossbowman",
+      "dat_id": 24,
+      "dat_icon_id": 18,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "pikeman",
+      "dat_id": 358,
+      "dat_icon_id": 11,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "long_swordsman",
+      "dat_id": 77,
+      "dat_icon_id": 13,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "cavalier",
+      "dat_id": 283,
+      "dat_icon_id": 49,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "paladin",
+      "dat_id": 569,
+      "dat_icon_id": 2,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "light_cavalry",
+      "dat_id": 546,
+      "dat_icon_id": 91,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "hussar",
+      "dat_id": 441,
+      "dat_icon_id": 103,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "two_handed_swordsman",
+      "dat_id": 473,
+      "dat_icon_id": 12,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "champion",
+      "dat_id": 567,
+      "dat_icon_id": 72,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "arbalester",
+      "dat_id": 492,
+      "dat_icon_id": 90,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "elite_skirmisher",
+      "dat_id": 6,
+      "dat_icon_id": 21,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "sheep",
+      "dat_id": 594,
+      "dat_icon_id": 96,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "deer",
+      "dat_id": 65,
+      "dat_icon_id": 3,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "boar",
+      "dat_id": 48,
+      "dat_icon_id": 98,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "monk",
+      "dat_id": 125,
+      "dat_icon_id": 33,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "relic",
+      "dat_id": 285,
+      "dat_icon_id": 26,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "trade_cart",
+      "dat_id": 128,
+      "dat_icon_id": 34,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "fishing_ship",
+      "dat_id": 13,
+      "dat_icon_id": 24,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "galley",
+      "dat_id": 539,
+      "dat_icon_id": 87,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "war_galley",
+      "dat_id": 21,
+      "dat_icon_id": 25,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "galleon",
+      "dat_id": 442,
+      "dat_icon_id": 60,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "transport_ship",
+      "dat_id": 545,
+      "dat_icon_id": 95,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "fire_ship",
+      "dat_id": 529,
+      "dat_icon_id": 86,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "fast_fire_ship",
+      "dat_id": 532,
+      "dat_icon_id": 85,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "demolition_ship",
+      "dat_id": 527,
+      "dat_icon_id": 84,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "heavy_demolition_ship",
+      "dat_id": 528,
+      "dat_icon_id": 83,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "cannon_galleon",
+      "dat_id": 420,
+      "dat_icon_id": 55,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "elite_cannon_galleon",
+      "dat_id": 691,
+      "dat_icon_id": 55,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "longboat",
+      "dat_id": 250,
+      "dat_icon_id": 40,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "elite_longboat",
+      "dat_id": 533,
+      "dat_icon_id": 40,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "turtle_ship",
+      "dat_id": 831,
+      "dat_icon_id": 116,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "elite_turtle_ship",
+      "dat_id": 832,
+      "dat_icon_id": 116,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "longbowman",
+      "dat_id": 8,
+      "dat_icon_id": 41,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "elite_longbowman",
+      "dat_id": 530,
+      "dat_icon_id": 41,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "throwing_axeman",
+      "dat_id": 281,
+      "dat_icon_id": 46,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "elite_throwing_axeman",
+      "dat_id": 531,
+      "dat_icon_id": 46,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "huskarl",
+      "dat_id": 41,
+      "dat_icon_id": 50,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "elite_huskarl",
+      "dat_id": 555,
+      "dat_icon_id": 50,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "teutonic_knight",
+      "dat_id": 25,
+      "dat_icon_id": 45,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "elite_teutonic_knight",
+      "dat_id": 554,
+      "dat_icon_id": 45,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "samurai",
+      "dat_id": 291,
+      "dat_icon_id": 44,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "elite_samurai",
+      "dat_id": 560,
+      "dat_icon_id": 44,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "chu_ko_nu",
+      "dat_id": 73,
+      "dat_icon_id": 36,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "elite_chu_ko_nu",
+      "dat_id": 559,
+      "dat_icon_id": 36,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "cataphract",
+      "dat_id": 40,
+      "dat_icon_id": 35,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "elite_cataphract",
+      "dat_id": 553,
+      "dat_icon_id": 35,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "war_elephant",
+      "dat_id": 239,
+      "dat_icon_id": 43,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "elite_war_elephant",
+      "dat_id": 558,
+      "dat_icon_id": 43,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "mameluke",
+      "dat_id": 282,
+      "dat_icon_id": 37,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "elite_mameluke",
+      "dat_id": 556,
+      "dat_icon_id": 37,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "janissary",
+      "dat_id": 46,
+      "dat_icon_id": 39,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "elite_janissary",
+      "dat_id": 557,
+      "dat_icon_id": 39,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "berserk",
+      "dat_id": 692,
+      "dat_icon_id": 38,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "elite_berserk",
+      "dat_id": 694,
+      "dat_icon_id": 38,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "mangudai",
+      "dat_id": 11,
+      "dat_icon_id": 42,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "elite_mangudai",
+      "dat_id": 561,
+      "dat_icon_id": 42,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "jaguar_warrior",
+      "dat_id": 725,
+      "dat_icon_id": 110,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "elite_jaguar_warrior",
+      "dat_id": 726,
+      "dat_icon_id": 110,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "plumed_archer",
+      "dat_id": 763,
+      "dat_icon_id": 108,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "elite_plumed_archer",
+      "dat_id": 765,
+      "dat_icon_id": 108,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "conquistador",
+      "dat_id": 771,
+      "dat_icon_id": 106,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "elite_conquistador",
+      "dat_id": 773,
+      "dat_icon_id": 106,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "tarkan",
+      "dat_id": 755,
+      "dat_icon_id": 105,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "elite_tarkan",
+      "dat_id": 757,
+      "dat_icon_id": 105,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "eagle_warrior",
+      "dat_id": 751,
+      "dat_icon_id": 109,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "elite_eagle_warrior",
+      "dat_id": 752,
+      "dat_icon_id": 109,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "scorpion",
+      "dat_id": 279,
+      "dat_icon_id": 80,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "heavy_scorpion",
+      "dat_id": 542,
+      "dat_icon_id": 89,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "onager",
+      "dat_id": 550,
+      "dat_icon_id": 101,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "siege_onager",
+      "dat_id": 588,
+      "dat_icon_id": 102,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "packed_trebuchet",
+      "dat_id": 331,
+      "dat_icon_id": 29,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "trebuchet",
+      "dat_id": 42,
+      "dat_icon_id": 28,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "cavalry_archer",
+      "dat_id": 39,
+      "dat_icon_id": 19,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "heavy_cavalry_archer",
+      "dat_id": 474,
+      "dat_icon_id": 71,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "camel_rider",
+      "dat_id": 329,
+      "dat_icon_id": 78,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "heavy_camel",
+      "dat_id": 330,
+      "dat_icon_id": 79,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "capped_ram",
+      "dat_id": 422,
+      "dat_icon_id": 63,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "siege_ram",
+      "dat_id": 548,
+      "dat_icon_id": 73,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "halberdier",
+      "dat_id": 359,
+      "dat_icon_id": 104,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "hand_cannoneer",
+      "dat_id": 5,
+      "dat_icon_id": 22,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "bombard_cannon",
+      "dat_id": 36,
+      "dat_icon_id": 30,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "petard",
+      "dat_id": 440,
+      "dat_icon_id": 113,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "missionary",
+      "dat_id": 775,
+      "dat_icon_id": 107,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "unit",
+      "name": "trade_cog",
+      "dat_id": 17,
+      "dat_icon_id": 23,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "building",
+      "name": "town_center",
+      "dat_id": 109,
+      "dat_icon_id": 28,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "building",
+      "name": "barracks",
+      "dat_id": 12,
+      "dat_icon_id": 2,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "building",
+      "name": "archery_range",
+      "dat_id": 87,
+      "dat_icon_id": 0,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "building",
+      "name": "house",
+      "dat_id": 70,
+      "dat_icon_id": 34,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "building",
+      "name": "mill",
+      "dat_id": 68,
+      "dat_icon_id": 19,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "building",
+      "name": "lumber_camp",
+      "dat_id": 562,
+      "dat_icon_id": 40,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "building",
+      "name": "mining_camp",
+      "dat_id": 584,
+      "dat_icon_id": 39,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "building",
+      "name": "farm",
+      "dat_id": 50,
+      "dat_icon_id": 35,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "building",
+      "name": "stable",
+      "dat_id": 101,
+      "dat_icon_id": 23,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "building",
+      "name": "blacksmith",
+      "dat_id": 103,
+      "dat_icon_id": 4,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "building",
+      "name": "castle",
+      "dat_id": 82,
+      "dat_icon_id": 7,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "building",
+      "name": "university",
+      "dat_id": 209,
+      "dat_icon_id": 32,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "building",
+      "name": "siege_workshop",
+      "dat_id": 49,
+      "dat_icon_id": 22,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "building",
+      "name": "palisade_wall",
+      "dat_id": 72,
+      "dat_icon_id": 30,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "building",
+      "name": "watch_tower",
+      "dat_id": 79,
+      "dat_icon_id": 25,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "building",
+      "name": "stone_wall",
+      "dat_id": 117,
+      "dat_icon_id": 31,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "building",
+      "name": "palisade_gate_x",
+      "dat_id": 792,
+      "dat_icon_id": 36,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "building",
+      "name": "palisade_gate_y",
+      "dat_id": 796,
+      "dat_icon_id": 36,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "building",
+      "name": "stone_gate_x",
+      "dat_id": 789,
+      "dat_icon_id": 36,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "building",
+      "name": "stone_gate_y",
+      "dat_id": 793,
+      "dat_icon_id": 36,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "building",
+      "name": "monastery",
+      "dat_id": 104,
+      "dat_icon_id": 10,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "building",
+      "name": "market",
+      "dat_id": 84,
+      "dat_icon_id": 16,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "building",
+      "name": "dock",
+      "dat_id": 45,
+      "dat_icon_id": 13,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "building",
+      "name": "bombard_tower",
+      "dat_id": 236,
+      "dat_icon_id": 42,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "building",
+      "name": "fish_trap",
+      "dat_id": 199,
+      "dat_icon_id": 41,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "building",
+      "name": "outpost",
+      "dat_id": 598,
+      "dat_icon_id": 38,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "building",
+      "name": "wonder",
+      "dat_id": 276,
+      "dat_icon_id": 37,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "wheelbarrow",
+      "dat_id": 213,
+      "dat_icon_id": 79,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "fletching",
+      "dat_id": 199,
+      "dat_icon_id": 34,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "forging",
+      "dat_id": 67,
+      "dat_icon_id": 17,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "murder_holes",
+      "dat_id": 322,
+      "dat_icon_id": 61,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "man_at_arms",
+      "dat_id": 222,
+      "dat_icon_id": 85,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "crossbowman",
+      "dat_id": 100,
+      "dat_icon_id": 29,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "pikeman",
+      "dat_id": 197,
+      "dat_icon_id": 36,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "long_swordsman",
+      "dat_id": 207,
+      "dat_icon_id": 48,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "loom",
+      "dat_id": 22,
+      "dat_icon_id": 6,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "double_bit_axe",
+      "dat_id": 202,
+      "dat_icon_id": 70,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "horse_collar",
+      "dat_id": 14,
+      "dat_icon_id": 2,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "fortified_wall",
+      "dat_id": 194,
+      "dat_icon_id": 46,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "guard_tower",
+      "dat_id": 140,
+      "dat_icon_id": 76,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "keep",
+      "dat_id": 63,
+      "dat_icon_id": 16,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "bodkin_arrow",
+      "dat_id": 200,
+      "dat_icon_id": 35,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "bracer",
+      "dat_id": 201,
+      "dat_icon_id": 37,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "iron_casting",
+      "dat_id": 68,
+      "dat_icon_id": 18,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "blast_furnace",
+      "dat_id": 75,
+      "dat_icon_id": 21,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "scale_mail_armor",
+      "dat_id": 74,
+      "dat_icon_id": 63,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "chain_mail_armor",
+      "dat_id": 76,
+      "dat_icon_id": 22,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "plate_mail_armor",
+      "dat_id": 77,
+      "dat_icon_id": 64,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "scale_barding_armor",
+      "dat_id": 81,
+      "dat_icon_id": 66,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "chain_barding_armor",
+      "dat_id": 82,
+      "dat_icon_id": 23,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "plate_barding_armor",
+      "dat_id": 80,
+      "dat_icon_id": 65,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "padded_archer_armor",
+      "dat_id": 211,
+      "dat_icon_id": 49,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "leather_archer_armor",
+      "dat_id": 212,
+      "dat_icon_id": 50,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "ring_archer_armor",
+      "dat_id": 219,
+      "dat_icon_id": 51,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "bloodlines",
+      "dat_id": 435,
+      "dat_icon_id": 110,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "husbandry",
+      "dat_id": 39,
+      "dat_icon_id": 10,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "cavalier",
+      "dat_id": 209,
+      "dat_icon_id": 78,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "paladin",
+      "dat_id": 265,
+      "dat_icon_id": 45,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "light_cavalry",
+      "dat_id": 254,
+      "dat_icon_id": 43,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "hussar",
+      "dat_id": 428,
+      "dat_icon_id": 43,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "two_handed_swordsman",
+      "dat_id": 217,
+      "dat_icon_id": 53,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "champion",
+      "dat_id": 264,
+      "dat_icon_id": 44,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "arbalester",
+      "dat_id": 237,
+      "dat_icon_id": 54,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "elite_skirmisher",
+      "dat_id": 98,
+      "dat_icon_id": 28,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "war_galley",
+      "dat_id": 34,
+      "dat_icon_id": 8,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "galleon",
+      "dat_id": 35,
+      "dat_icon_id": 59,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "fast_fire_ship",
+      "dat_id": 246,
+      "dat_icon_id": 40,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "heavy_demolition_ship",
+      "dat_id": 244,
+      "dat_icon_id": 39,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "cannon_galleon",
+      "dat_id": 37,
+      "dat_icon_id": 9,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "elite_cannon_galleon",
+      "dat_id": 376,
+      "dat_icon_id": 100,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "careening",
+      "dat_id": 374,
+      "dat_icon_id": 98,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "dry_dock",
+      "dat_id": 375,
+      "dat_icon_id": 99,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "shipwright",
+      "dat_id": 373,
+      "dat_icon_id": 97,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "longboat",
+      "dat_id": 272,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "technology",
+      "name": "elite_longboat",
+      "dat_id": 372,
+      "dat_icon_id": 105,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "turtle_ship",
+      "dat_id": 447,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "technology",
+      "name": "elite_turtle_ship",
+      "dat_id": 448,
+      "dat_icon_id": 105,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "longbowman",
+      "dat_id": 263,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "technology",
+      "name": "elite_longbowman",
+      "dat_id": 360,
+      "dat_icon_id": 105,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "throwing_axeman",
+      "dat_id": 275,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "technology",
+      "name": "elite_throwing_axeman",
+      "dat_id": 363,
+      "dat_icon_id": 105,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "huskarl",
+      "dat_id": 446,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "technology",
+      "name": "elite_huskarl",
+      "dat_id": 365,
+      "dat_icon_id": 105,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "teutonic_knight",
+      "dat_id": 276,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "technology",
+      "name": "elite_teutonic_knight",
+      "dat_id": 364,
+      "dat_icon_id": 105,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "samurai",
+      "dat_id": 262,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "technology",
+      "name": "elite_samurai",
+      "dat_id": 366,
+      "dat_icon_id": 105,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "chu_ko_nu",
+      "dat_id": 268,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "technology",
+      "name": "elite_chu_ko_nu",
+      "dat_id": 362,
+      "dat_icon_id": 105,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "cataphract",
+      "dat_id": 267,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "technology",
+      "name": "elite_cataphract",
+      "dat_id": 361,
+      "dat_icon_id": 105,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "war_elephant",
+      "dat_id": 274,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "technology",
+      "name": "elite_war_elephant",
+      "dat_id": 367,
+      "dat_icon_id": 105,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "mameluke",
+      "dat_id": 269,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "technology",
+      "name": "elite_mameluke",
+      "dat_id": 368,
+      "dat_icon_id": 105,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "janissary",
+      "dat_id": 271,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "technology",
+      "name": "elite_janissary",
+      "dat_id": 369,
+      "dat_icon_id": 105,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "berserk",
+      "dat_id": 399,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "technology",
+      "name": "elite_berserk",
+      "dat_id": 398,
+      "dat_icon_id": 105,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "mangudai",
+      "dat_id": 273,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "technology",
+      "name": "elite_mangudai",
+      "dat_id": 371,
+      "dat_icon_id": 105,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "berserkergang",
+      "dat_id": 49,
+      "dat_icon_id": 107,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "jaguar_warrior",
+      "dat_id": 431,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "technology",
+      "name": "elite_jaguar_warrior",
+      "dat_id": 432,
+      "dat_icon_id": 105,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "plumed_archer",
+      "dat_id": 26,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "technology",
+      "name": "elite_plumed_archer",
+      "dat_id": 27,
+      "dat_icon_id": 105,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "conquistador",
+      "dat_id": 58,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "technology",
+      "name": "elite_conquistador",
+      "dat_id": 60,
+      "dat_icon_id": 105,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "tarkan",
+      "dat_id": 1,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "technology",
+      "name": "elite_tarkan",
+      "dat_id": 2,
+      "dat_icon_id": 105,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "yeomen",
+      "dat_id": 3,
+      "dat_icon_id": 107,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "bearded_axe",
+      "dat_id": 83,
+      "dat_icon_id": 107,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "anarchy",
+      "dat_id": 16,
+      "dat_icon_id": 107,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "crenellations",
+      "dat_id": 11,
+      "dat_icon_id": 107,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "kataparuto",
+      "dat_id": 59,
+      "dat_icon_id": 107,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "rocketry",
+      "dat_id": 52,
+      "dat_icon_id": 107,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "logistica",
+      "dat_id": 61,
+      "dat_icon_id": 107,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "mahouts",
+      "dat_id": 7,
+      "dat_icon_id": 107,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "zealotry",
+      "dat_id": 9,
+      "dat_icon_id": 107,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "artillery",
+      "dat_id": 10,
+      "dat_icon_id": 107,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "drill",
+      "dat_id": 6,
+      "dat_icon_id": 107,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "supremacy",
+      "dat_id": 440,
+      "dat_icon_id": 107,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "atheism",
+      "dat_id": 21,
+      "dat_icon_id": 107,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "shinkichon",
+      "dat_id": 445,
+      "dat_icon_id": 107,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "el_dorado",
+      "dat_id": 4,
+      "dat_icon_id": 107,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "elite_eagle_warrior",
+      "dat_id": 434,
+      "dat_icon_id": 115,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "heavy_scorpion",
+      "dat_id": 239,
+      "dat_icon_id": 38,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "onager",
+      "dat_id": 257,
+      "dat_icon_id": 57,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "siege_onager",
+      "dat_id": 320,
+      "dat_icon_id": 96,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "heavy_cavalry_archer",
+      "dat_id": 218,
+      "dat_icon_id": 52,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "heavy_camel",
+      "dat_id": 236,
+      "dat_icon_id": 55,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "capped_ram",
+      "dat_id": 96,
+      "dat_icon_id": 27,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "siege_ram",
+      "dat_id": 255,
+      "dat_icon_id": 86,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "halberdier",
+      "dat_id": 429,
+      "dat_icon_id": 106,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "chemistry",
+      "dat_id": 47,
+      "dat_icon_id": 12,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "hand_cannoneer_gate",
+      "dat_id": 85,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "technology",
+      "name": "bombard_cannon_gate",
+      "dat_id": 188,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "technology",
+      "name": "siege_engineers",
+      "dat_id": 377,
+      "dat_icon_id": 101,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "conscription",
+      "dat_id": 315,
+      "dat_icon_id": 91,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "petard_gate",
+      "dat_id": 426,
+      "dat_icon_id": 65,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "bombard_tower",
+      "dat_id": 64,
+      "dat_icon_id": 47,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "sanctity",
+      "dat_id": 231,
+      "dat_icon_id": 83,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "fervor",
+      "dat_id": 252,
+      "dat_icon_id": 73,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "redemption",
+      "dat_id": 316,
+      "dat_icon_id": 92,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "atonement",
+      "dat_id": 319,
+      "dat_icon_id": 93,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "illumination",
+      "dat_id": 233,
+      "dat_icon_id": 84,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "block_printing",
+      "dat_id": 230,
+      "dat_icon_id": 82,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "faith",
+      "dat_id": 45,
+      "dat_icon_id": 11,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "theocracy",
+      "dat_id": 438,
+      "dat_icon_id": 109,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "heresy",
+      "dat_id": 439,
+      "dat_icon_id": 108,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "heavy_plow",
+      "dat_id": 13,
+      "dat_icon_id": 1,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "crop_rotation",
+      "dat_id": 12,
+      "dat_icon_id": 0,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "bow_saw",
+      "dat_id": 203,
+      "dat_icon_id": 71,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "two_man_saw",
+      "dat_id": 221,
+      "dat_icon_id": 81,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "gold_mining",
+      "dat_id": 55,
+      "dat_icon_id": 15,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "gold_shaft_mining",
+      "dat_id": 182,
+      "dat_icon_id": 62,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "stone_mining",
+      "dat_id": 278,
+      "dat_icon_id": 87,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "stone_shaft_mining",
+      "dat_id": 279,
+      "dat_icon_id": 88,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "hand_cart",
+      "dat_id": 249,
+      "dat_icon_id": 42,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "fish_trap_gate",
+      "dat_id": 357,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "technology",
+      "name": "coinage",
+      "dat_id": 23,
+      "dat_icon_id": 7,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "banking",
+      "dat_id": 17,
+      "dat_icon_id": 3,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "cartography",
+      "dat_id": 19,
+      "dat_icon_id": 4,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "caravan",
+      "dat_id": 48,
+      "dat_icon_id": 113,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "guilds",
+      "dat_id": 15,
+      "dat_icon_id": 58,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "trade_cog_gate",
+      "dat_id": 180,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "technology",
+      "name": "outpost_gate",
+      "dat_id": 332,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "technology",
+      "name": "town_watch",
+      "dat_id": 8,
+      "dat_icon_id": 69,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "town_patrol",
+      "dat_id": 280,
+      "dat_icon_id": 89,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "masonry",
+      "dat_id": 50,
+      "dat_icon_id": 13,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "architecture",
+      "dat_id": 51,
+      "dat_icon_id": 14,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "ballistics",
+      "dat_id": 93,
+      "dat_icon_id": 25,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "heated_shot",
+      "dat_id": 380,
+      "dat_icon_id": 104,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "hoardings",
+      "dat_id": 379,
+      "dat_icon_id": 103,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "sappers",
+      "dat_id": 321,
+      "dat_icon_id": 5,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "wonder_plans",
+      "dat_id": 144,
+      "dat_icon_id": 77,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "thumb_ring",
+      "dat_id": 437,
+      "dat_icon_id": 112,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "parthian_tactics",
+      "dat_id": 436,
+      "dat_icon_id": 111,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "squires",
+      "dat_id": 215,
+      "dat_icon_id": 80,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "tracking",
+      "dat_id": 90,
+      "dat_icon_id": 67,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "herbal_medicine",
+      "dat_id": 441,
+      "dat_icon_id": 114,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "stone_cutting",
+      "dat_id": 54,
+      "dat_icon_id": 60,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "technology",
+      "name": "spy_technology",
+      "dat_id": 408,
+      "dat_icon_id": 19,
+      "dat_icon_classification": "exact",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "DAT icon index is exact; DAT does not identify an SLP resource or frame relationship"
+    },
+    {
+      "category": "resource",
+      "name": "food",
+      "dat_id": null,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "resource",
+      "name": "wood",
+      "dat_id": null,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "resource",
+      "name": "gold",
+      "dat_id": null,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "resource",
+      "name": "stone",
+      "dat_id": null,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "command",
+      "name": "move",
+      "dat_id": null,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "command",
+      "name": "stop",
+      "dat_id": null,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "command",
+      "name": "attack",
+      "dat_id": null,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "command",
+      "name": "attack_ground",
+      "dat_id": null,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "command",
+      "name": "attack_move",
+      "dat_id": null,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "command",
+      "name": "patrol",
+      "dat_id": null,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "command",
+      "name": "guard",
+      "dat_id": null,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "command",
+      "name": "garrison",
+      "dat_id": null,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "command",
+      "name": "ungarrison",
+      "dat_id": null,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "command",
+      "name": "heal",
+      "dat_id": null,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "command",
+      "name": "convert",
+      "dat_id": null,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "command",
+      "name": "build",
+      "dat_id": null,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "command",
+      "name": "repair",
+      "dat_id": null,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "command",
+      "name": "gather",
+      "dat_id": null,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "command",
+      "name": "trade",
+      "dat_id": null,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    },
+    {
+      "category": "command",
+      "name": "delete",
+      "dat_id": null,
+      "dat_icon_id": null,
+      "dat_icon_classification": "missing",
+      "slp_resource_id": null,
+      "frame_index": null,
+      "asset_relationship_classification": "unknown",
+      "note": "represented record exposes no icon index"
+    }
+  ]
+}

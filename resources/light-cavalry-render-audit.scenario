@@ -1,0 +1,21 @@
+# Castle-Age Light Cavalry audit.
+AOE-ARCHAEOLOGY-SCENARIO 28
+map 18 10
+economy blue 0 0 0 0
+economy red 0 0 0 0
+age blue castle
+age red castle
+technology blue light_cavalry
+technology blue bloodlines
+technology blue husbandry
+technology blue forging
+technology blue iron_casting
+technology blue scale_barding_armor
+technology blue chain_barding_armor
+
+building stable blue 1 1
+unit light_cavalry blue 5 3 stance passive
+unit scout_cavalry blue 6 4 stance passive
+unit pikeman red 11 4 stance passive
+unit light_cavalry red 10 5 stance passive
+building house red 15 7

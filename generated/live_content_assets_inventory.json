@@ -1,0 +1,53 @@
+{
+  "categories": {
+    "audio": {
+      "bytes": 1026533,
+      "count": 2,
+      "files": [
+        {
+          "bytes": 842605,
+          "path": "Sound/stream/town.mp3",
+          "sha256": "905d55aa237cc7416e2b099ba0d95c5f5255821e79968c1d92691ae5164d8b2e"
+        },
+        {
+          "bytes": 183928,
+          "path": "Sound/terrain/Wave1.wav",
+          "sha256": "a07980e10e0792eece3a2fecaf14a9ef1a8b9c4ca2f84fa4c88f01f6de399e4f"
+        }
+      ]
+    },
+    "audio_archive": {
+      "bytes": 41681772,
+      "count": 2,
+      "files": [
+        {
+          "bytes": 29678340,
+          "path": "Data/sounds.drs",
+          "sha256": "292eeff24657b70c9fa277a55daa0e6a47bc245141c0c533bab54eecda244fa6"
+        },
+        {
+          "bytes": 12003432,
+          "path": "Data/sounds_x1.drs",
+          "sha256": "48efbb286fb73d4aa88ed7c05ab38cb0d045323ae04aed13f21792034b30f6c5"
+        }
+      ]
+    },
+    "campaign": {
+      "bytes": 0,
+      "count": 0,
+      "files": []
+    },
+    "localization": {
+      "bytes": 0,
+      "count": 0,
+      "files": []
+    },
+    "scenario": {
+      "bytes": 0,
+      "count": 0,
+      "files": []
+    }
+  },
+  "root": "/private/tmp/aoe-assets.grSVdf/app",
+  "schema": "aoe-content-assets-v1"
+}

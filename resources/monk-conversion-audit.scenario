@@ -1,0 +1,12 @@
+# Conversion audit: blue Monk can convert nearby red military after 8 ticks.
+AOE-ARCHAEOLOGY-SCENARIO 27
+map 14 8
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue castle
+age red castle
+
+unit monk blue 4 4 stance passive
+unit knight red 10 4 stance passive
+unit villager red 13 7 stance passive
+building monastery blue 0 0

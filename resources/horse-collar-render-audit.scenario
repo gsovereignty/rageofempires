@@ -1,0 +1,15 @@
+# Horse Collar full, half-used, and exhausted 250-food farm density.
+AOE-ARCHAEOLOGY-SCENARIO 28
+map 14 9
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue feudal
+age red dark
+technology blue horse_collar
+
+unit villager blue 6 7 stance passive
+building mill blue 1 1
+building farm blue 4 4 resource_amount 250
+building farm blue 6 4 resource_amount 125
+building farm blue 8 4 resource_amount 0
+building house red 11 5

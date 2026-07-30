@@ -1,0 +1,13 @@
+# Double-Bit Axe Villager reaches six carried wood after five work ticks.
+AOE-ARCHAEOLOGY-SCENARIO 28
+map 12 8
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue feudal
+age red dark
+technology blue double_bit_axe
+
+terrain forest 5 2
+unit villager blue 4 2 stance passive
+building lumber_camp blue 1 4
+building house red 9 4

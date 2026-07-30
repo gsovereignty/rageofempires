@@ -1,0 +1,1386 @@
+{
+  "source_format": "AOE_VER_5_7_METADATA_V1",
+  "scope": "Missionary 775 and nine monastery technologies",
+  "missionary": {
+    "action": {
+      "command_sound": 424,
+      "default_task": null,
+      "move_sound": 424,
+      "search_radius": 9.0,
+      "task_list_source": "global_copy_id",
+      "work_rate": 1.25,
+      "tasks_structured": [
+        {
+          "id": 0,
+          "is_default": false,
+          "action_type": 105,
+          "object_class": -1,
+          "object_id": "None",
+          "terrain_id": -1,
+          "attribute_types": "(-1, -1, -1, -1)",
+          "work_values": "(1.0, 0.0)",
+          "work_range": 0.0,
+          "auto_search_targets": false,
+          "search_wait_time": 0.0,
+          "enable_targeting": false,
+          "combat_level": 0,
+          "work_flags": "(0, 0)",
+          "owner_type": 0,
+          "holding_attribute": 0,
+          "state_building": 0,
+          "move_sprite": "None",
+          "work_sprite": "Some(SpriteID(6633))",
+          "work_sprite2": "None",
+          "carry_sprite": "None",
+          "work_sound": "None",
+          "work_sound2": "None"
+        },
+        {
+          "id": 1,
+          "is_default": false,
+          "action_type": 104,
+          "object_class": -1,
+          "object_id": "None",
+          "terrain_id": -1,
+          "attribute_types": "(-1, -1, -1, -1)",
+          "work_values": "(4.0, 10.0)",
+          "work_range": 0.0,
+          "auto_search_targets": false,
+          "search_wait_time": 0.0,
+          "enable_targeting": true,
+          "combat_level": 1,
+          "work_flags": "(0, 0)",
+          "owner_type": 2,
+          "holding_attribute": 0,
+          "state_building": 0,
+          "move_sprite": "None",
+          "work_sprite": "Some(SpriteID(6616))",
+          "work_sprite2": "None",
+          "carry_sprite": "None",
+          "work_sound": "None",
+          "work_sound2": "None"
+        },
+        {
+          "id": 2,
+          "is_default": false,
+          "action_type": 3,
+          "object_class": 20,
+          "object_id": "None",
+          "terrain_id": -1,
+          "attribute_types": "(-1, -1, -1, -1)",
+          "work_values": "(0.0, 0.0)",
+          "work_range": 1.0,
+          "auto_search_targets": false,
+          "search_wait_time": 0.0,
+          "enable_targeting": false,
+          "combat_level": 0,
+          "work_flags": "(0, 0)",
+          "owner_type": 4,
+          "holding_attribute": 0,
+          "state_building": 0,
+          "move_sprite": "None",
+          "work_sprite": "None",
+          "work_sprite2": "None",
+          "carry_sprite": "None",
+          "work_sound": "None",
+          "work_sound2": "None"
+        },
+        {
+          "id": 3,
+          "is_default": false,
+          "action_type": 109,
+          "object_class": -1,
+          "object_id": "None",
+          "terrain_id": -1,
+          "attribute_types": "(-1, -1, -1, -1)",
+          "work_values": "(0.0, 0.0)",
+          "work_range": 0.0,
+          "auto_search_targets": true,
+          "search_wait_time": 3.0,
+          "enable_targeting": false,
+          "combat_level": 0,
+          "work_flags": "(0, 0)",
+          "owner_type": 0,
+          "holding_attribute": 0,
+          "state_building": 0,
+          "move_sprite": "None",
+          "work_sprite": "None",
+          "work_sprite2": "None",
+          "carry_sprite": "None",
+          "work_sound": "None",
+          "work_sound2": "None"
+        },
+        {
+          "id": 4,
+          "is_default": false,
+          "action_type": 3,
+          "object_class": 3,
+          "object_id": "None",
+          "terrain_id": -1,
+          "attribute_types": "(-1, -1, -1, -1)",
+          "work_values": "(0.0, 0.0)",
+          "work_range": 1.0,
+          "auto_search_targets": false,
+          "search_wait_time": 0.0,
+          "enable_targeting": false,
+          "combat_level": 0,
+          "work_flags": "(0, 0)",
+          "owner_type": 4,
+          "holding_attribute": 0,
+          "state_building": 0,
+          "move_sprite": "None",
+          "work_sprite": "None",
+          "work_sprite2": "None",
+          "carry_sprite": "None",
+          "work_sound": "None",
+          "work_sound2": "None"
+        }
+      ]
+    },
+    "area_effect_level": 3,
+    "attack_graphic": 6616,
+    "attribute_max_amount": 25,
+    "attribute_rot": 25.0,
+    "attributes": [
+      {
+        "amount": -1.0,
+        "flag": 2,
+        "type": 4
+      },
+      {
+        "amount": 1.0,
+        "flag": 2,
+        "type": 11
+      },
+      {
+        "amount": 1.0,
+        "flag": 1,
+        "type": 19
+      }
+    ],
+    "base_class": "Combat",
+    "building": null,
+    "button_icon": 107,
+    "combat": {
+      "accuracy": 25,
+      "area_effect_range": 0.0,
+      "armor": 1000,
+      "armors": [
+        {
+          "amount": 0,
+          "class": 25
+        },
+        {
+          "amount": 0,
+          "class": 4
+        },
+        {
+          "amount": 0,
+          "class": 8
+        },
+        {
+          "amount": 0,
+          "class": 3
+        },
+        {
+          "amount": 0,
+          "class": 19
+        }
+      ],
+      "blast_level_offense": 0,
+      "break_off_combat": 0,
+      "displayed_armor": 0,
+      "displayed_attack": 0,
+      "displayed_range": 7.0,
+      "displayed_reload_time": 1.0,
+      "frame_delay": 0,
+      "missed_missile_spread": 0.0,
+      "missile_unit": null,
+      "range_max": 7.0,
+      "range_min": 0.0,
+      "reload_time": 1.0,
+      "weapon_offset": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "weapons": []
+    },
+    "construction_graphic": null,
+    "copy_id": 775,
+    "creation": {
+      "costs": [
+        {
+          "amount": 100,
+          "flag": 1,
+          "resource": 3
+        },
+        {
+          "amount": 1,
+          "flag": 0,
+          "resource": 4
+        }
+      ],
+      "create_at_unit": 104,
+      "create_button": 14,
+      "create_time": 51,
+      "flank_attack_modifier": 0.0,
+      "max_attacks_in_volley": 1,
+      "rear_attack_modifier": 0.0,
+      "special_attack_flag": 0,
+      "special_attack_graphic": null,
+      "volley_fire_amount": 1.0,
+      "volley_missile_unit": null,
+      "volley_spread": [
+        1.0,
+        1.0
+      ],
+      "volley_start_spread_adjustment": 1.0
+    },
+    "damage_sound": null,
+    "damage_sprites": [],
+    "death_sound": null,
+    "disabled": false,
+    "dying_graphic": 6617,
+    "enabled": false,
+    "garrison_capacity": 0,
+    "hit_points": 30,
+    "id": 775,
+    "line_of_sight": 9.0,
+    "missile": null,
+    "moving": {
+      "maximum_yaw_per_second_moving": 3.4028234663852886e+38,
+      "maximum_yaw_per_second_stationary": 3.4028234663852886e+38,
+      "move_algorithm": 0,
+      "size_class": 0,
+      "stationary_yaw_revolution_time": 0.0,
+      "trailing_options": 0,
+      "trailing_spacing": 0.0,
+      "trailing_unit": null,
+      "turn_radius": 0.0,
+      "turn_radius_speed": 3.4028234663852886e+38,
+      "turn_speed": 0.0
+    },
+    "obstruction_type": 5,
+    "outline_radius": [
+      0.20000000298023224,
+      0.20000000298023224,
+      2.0
+    ],
+    "portrait_icon": null,
+    "radius": [
+      0.20000000298023224,
+      0.20000000298023224,
+      2.0
+    ],
+    "resource_group": 0,
+    "running_graphic": null,
+    "selected_sound": 423,
+    "selection_shape": 2,
+    "speed": 1.100000023841858,
+    "standing_graphic": 6618,
+    "standing_graphic_2": null,
+    "terrain_restriction_id": 7,
+    "track_as_resource": false,
+    "train_sound": 469,
+    "unit_class": 18,
+    "unit_group": 775,
+    "walking_graphic": 6620
+  },
+  "missionary_gate": {
+    "id": 84,
+    "name": "Missionary (avail)",
+    "required_techs": [
+      102,
+      266
+    ],
+    "costs": [],
+    "location": null,
+    "research_time": 0,
+    "effect_id_raw": 496,
+    "effect_commands": [
+      {
+        "a": 775,
+        "attribute_name": null,
+        "b": 1,
+        "c": -1,
+        "d": 0.0,
+        "packed_amount": null,
+        "packed_attack_amount": null,
+        "packed_attack_class": null,
+        "packed_class": null,
+        "type": 2
+      }
+    ],
+    "icon": null,
+    "button": 0,
+    "civilization_id": 14
+  },
+  "technologies": {
+    "sanctity": {
+      "id": 231,
+      "name": "Sanctity",
+      "required_techs": [
+        102
+      ],
+      "costs": [
+        {
+          "resource": 3,
+          "amount": 120
+        }
+      ],
+      "location": 104,
+      "research_time": 60,
+      "effect_id_raw": 221,
+      "effect_commands": [
+        {
+          "a": -1,
+          "attribute_name": "hit_points",
+          "b": 18,
+          "c": 0,
+          "d": 15.0,
+          "packed_amount": null,
+          "packed_attack_amount": null,
+          "packed_attack_class": null,
+          "packed_class": null,
+          "type": 4
+        },
+        {
+          "a": -1,
+          "attribute_name": "hit_points",
+          "b": 43,
+          "c": 0,
+          "d": 15.0,
+          "packed_amount": null,
+          "packed_attack_amount": null,
+          "packed_attack_class": null,
+          "packed_class": null,
+          "type": 4
+        }
+      ],
+      "icon": 83,
+      "button": 6,
+      "civilization_id": null
+    },
+    "fervor": {
+      "id": 252,
+      "name": "Fervor",
+      "required_techs": [
+        102
+      ],
+      "costs": [
+        {
+          "resource": 3,
+          "amount": 140
+        }
+      ],
+      "location": 104,
+      "research_time": 50,
+      "effect_id_raw": 241,
+      "effect_commands": [
+        {
+          "a": -1,
+          "attribute_name": "movement_speed",
+          "b": -1,
+          "c": 5,
+          "d": 1.149999976158142,
+          "packed_amount": null,
+          "packed_attack_amount": null,
+          "packed_attack_class": null,
+          "packed_class": null,
+          "type": 5
+        },
+        {
+          "a": -1,
+          "attribute_name": "movement_speed",
+          "b": 43,
+          "c": 5,
+          "d": 1.149999976158142,
+          "packed_amount": null,
+          "packed_attack_amount": null,
+          "packed_attack_class": null,
+          "packed_class": null,
+          "type": 5
+        },
+        {
+          "a": -1,
+          "attribute_name": "movement_speed",
+          "b": -1,
+          "c": 5,
+          "d": 1.100000023841858,
+          "packed_amount": null,
+          "packed_attack_amount": null,
+          "packed_attack_class": null,
+          "packed_class": null,
+          "type": 5
+        }
+      ],
+      "icon": 73,
+      "button": 4,
+      "civilization_id": null
+    },
+    "redemption": {
+      "id": 316,
+      "name": "Redemption",
+      "required_techs": [
+        102
+      ],
+      "costs": [
+        {
+          "resource": 3,
+          "amount": 475
+        }
+      ],
+      "location": 104,
+      "research_time": 50,
+      "effect_id_raw": 316,
+      "effect_commands": [
+        {
+          "a": 28,
+          "attribute_name": null,
+          "b": 0,
+          "c": -1,
+          "d": 1.0,
+          "packed_amount": null,
+          "packed_attack_amount": null,
+          "packed_attack_class": null,
+          "packed_class": null,
+          "type": 1
+        }
+      ],
+      "icon": 92,
+      "button": 2,
+      "civilization_id": null
+    },
+    "atonement": {
+      "id": 319,
+      "name": "Atonement",
+      "required_techs": [
+        102
+      ],
+      "costs": [
+        {
+          "resource": 3,
+          "amount": 325
+        }
+      ],
+      "location": 104,
+      "research_time": 40,
+      "effect_id_raw": 319,
+      "effect_commands": [
+        {
+          "a": 27,
+          "attribute_name": null,
+          "b": 0,
+          "c": -1,
+          "d": 1.0,
+          "packed_amount": null,
+          "packed_attack_amount": null,
+          "packed_attack_class": null,
+          "packed_class": null,
+          "type": 1
+        }
+      ],
+      "icon": 93,
+      "button": 3,
+      "civilization_id": null
+    },
+    "illumination": {
+      "id": 233,
+      "name": "Illumination",
+      "required_techs": [
+        103
+      ],
+      "costs": [
+        {
+          "resource": 3,
+          "amount": 120
+        }
+      ],
+      "location": 104,
+      "research_time": 65,
+      "effect_id_raw": 219,
+      "effect_commands": [
+        {
+          "a": 35,
+          "attribute_name": null,
+          "b": 0,
+          "c": -1,
+          "d": 3.0,
+          "packed_amount": null,
+          "packed_attack_amount": null,
+          "packed_attack_class": null,
+          "packed_class": null,
+          "type": 1
+        }
+      ],
+      "icon": 84,
+      "button": 8,
+      "civilization_id": null
+    },
+    "block_printing": {
+      "id": 230,
+      "name": "Block Printing",
+      "required_techs": [
+        103
+      ],
+      "costs": [
+        {
+          "resource": 3,
+          "amount": 200
+        }
+      ],
+      "location": 104,
+      "research_time": 55,
+      "effect_id_raw": 220,
+      "effect_commands": [
+        {
+          "a": -1,
+          "attribute_name": "maximum_range",
+          "b": 18,
+          "c": 12,
+          "d": 3.0,
+          "packed_amount": null,
+          "packed_attack_amount": null,
+          "packed_attack_class": null,
+          "packed_class": null,
+          "type": 4
+        },
+        {
+          "a": -1,
+          "attribute_name": "line_of_sight",
+          "b": 18,
+          "c": 1,
+          "d": 3.0,
+          "packed_amount": null,
+          "packed_attack_amount": null,
+          "packed_attack_class": null,
+          "packed_class": null,
+          "type": 4
+        },
+        {
+          "a": -1,
+          "attribute_name": "maximum_range",
+          "b": 43,
+          "c": 12,
+          "d": 3.0,
+          "packed_amount": null,
+          "packed_attack_amount": null,
+          "packed_attack_class": null,
+          "packed_class": null,
+          "type": 4
+        },
+        {
+          "a": -1,
+          "attribute_name": "line_of_sight",
+          "b": 43,
+          "c": 1,
+          "d": 3.0,
+          "packed_amount": null,
+          "packed_attack_amount": null,
+          "packed_attack_class": null,
+          "packed_class": null,
+          "type": 4
+        },
+        {
+          "a": -1,
+          "attribute_name": "search_radius",
+          "b": 18,
+          "c": 23,
+          "d": 3.0,
+          "packed_amount": null,
+          "packed_attack_amount": null,
+          "packed_attack_class": null,
+          "packed_class": null,
+          "type": 4
+        },
+        {
+          "a": -1,
+          "attribute_name": "search_radius",
+          "b": 43,
+          "c": 23,
+          "d": 3.0,
+          "packed_amount": null,
+          "packed_attack_amount": null,
+          "packed_attack_class": null,
+          "packed_class": null,
+          "type": 4
+        }
+      ],
+      "icon": 82,
+      "button": 9,
+      "civilization_id": null
+    },
+    "faith": {
+      "id": 45,
+      "name": "Faith",
+      "required_techs": [
+        103
+      ],
+      "costs": [
+        {
+          "resource": 0,
+          "amount": 750
+        },
+        {
+          "resource": 3,
+          "amount": 1000
+        }
+      ],
+      "location": 104,
+      "research_time": 60,
+      "effect_id_raw": 45,
+      "effect_commands": [
+        {
+          "a": 77,
+          "attribute_name": null,
+          "b": 1,
+          "c": -1,
+          "d": 3.0,
+          "packed_amount": null,
+          "packed_attack_amount": null,
+          "packed_attack_class": null,
+          "packed_class": null,
+          "type": 1
+        },
+        {
+          "a": 178,
+          "attribute_name": null,
+          "b": 1,
+          "c": -1,
+          "d": 2.0,
+          "packed_amount": null,
+          "packed_attack_amount": null,
+          "packed_attack_class": null,
+          "packed_class": null,
+          "type": 1
+        },
+        {
+          "a": 179,
+          "attribute_name": null,
+          "b": 1,
+          "c": -1,
+          "d": 4.0,
+          "packed_amount": null,
+          "packed_attack_amount": null,
+          "packed_attack_class": null,
+          "packed_class": null,
+          "type": 1
+        }
+      ],
+      "icon": 11,
+      "button": 7,
+      "civilization_id": null
+    },
+    "theocracy": {
+      "id": 438,
+      "name": "Theocracy",
+      "required_techs": [
+        103
+      ],
+      "costs": [
+        {
+          "resource": 3,
+          "amount": 200
+        }
+      ],
+      "location": 104,
+      "research_time": 75,
+      "effect_id_raw": 494,
+      "effect_commands": [
+        {
+          "a": 193,
+          "attribute_name": null,
+          "b": 0,
+          "c": -1,
+          "d": 1.0,
+          "packed_amount": null,
+          "packed_attack_amount": null,
+          "packed_attack_class": null,
+          "packed_class": null,
+          "type": 1
+        }
+      ],
+      "icon": 109,
+      "button": 12,
+      "civilization_id": null
+    },
+    "heresy": {
+      "id": 439,
+      "name": "Heresy",
+      "required_techs": [
+        102
+      ],
+      "costs": [
+        {
+          "resource": 3,
+          "amount": 1000
+        }
+      ],
+      "location": 104,
+      "research_time": 60,
+      "effect_id_raw": 188,
+      "effect_commands": [
+        {
+          "a": 192,
+          "attribute_name": null,
+          "b": 0,
+          "c": -1,
+          "d": 1.0,
+          "packed_amount": null,
+          "packed_attack_amount": null,
+          "packed_attack_class": null,
+          "packed_class": null,
+          "type": 1
+        }
+      ],
+      "icon": 108,
+      "button": 11,
+      "civilization_id": null
+    }
+  },
+  "availability": [
+    {
+      "id": 1,
+      "name": "British",
+      "missionary": "unavailable",
+      "technologies": {
+        "sanctity": "available",
+        "fervor": "available",
+        "redemption": "unavailable",
+        "atonement": "unavailable",
+        "illumination": "available",
+        "block_printing": "available",
+        "faith": "available",
+        "theocracy": "available",
+        "heresy": "unavailable"
+      }
+    },
+    {
+      "id": 2,
+      "name": "French",
+      "missionary": "unavailable",
+      "technologies": {
+        "sanctity": "available",
+        "fervor": "available",
+        "redemption": "unavailable",
+        "atonement": "unavailable",
+        "illumination": "available",
+        "block_printing": "available",
+        "faith": "available",
+        "theocracy": "available",
+        "heresy": "available"
+      }
+    },
+    {
+      "id": 3,
+      "name": "Goths",
+      "missionary": "unavailable",
+      "technologies": {
+        "sanctity": "available",
+        "fervor": "available",
+        "redemption": "unavailable",
+        "atonement": "unavailable",
+        "illumination": "available",
+        "block_printing": "unavailable",
+        "faith": "available",
+        "theocracy": "available",
+        "heresy": "unavailable"
+      }
+    },
+    {
+      "id": 4,
+      "name": "Germans",
+      "missionary": "unavailable",
+      "technologies": {
+        "sanctity": "available",
+        "fervor": "available",
+        "redemption": "available",
+        "atonement": "available",
+        "illumination": "available",
+        "block_printing": "available",
+        "faith": "available",
+        "theocracy": "available",
+        "heresy": "available"
+      }
+    },
+    {
+      "id": 5,
+      "name": "Japanese",
+      "missionary": "unavailable",
+      "technologies": {
+        "sanctity": "available",
+        "fervor": "available",
+        "redemption": "available",
+        "atonement": "available",
+        "illumination": "available",
+        "block_printing": "available",
+        "faith": "available",
+        "theocracy": "available",
+        "heresy": "unavailable"
+      }
+    },
+    {
+      "id": 6,
+      "name": "Chinese",
+      "missionary": "unavailable",
+      "technologies": {
+        "sanctity": "available",
+        "fervor": "available",
+        "redemption": "available",
+        "atonement": "available",
+        "illumination": "available",
+        "block_printing": "unavailable",
+        "faith": "available",
+        "theocracy": "available",
+        "heresy": "unavailable"
+      }
+    },
+    {
+      "id": 7,
+      "name": "Byzantine",
+      "missionary": "unavailable",
+      "technologies": {
+        "sanctity": "available",
+        "fervor": "available",
+        "redemption": "available",
+        "atonement": "available",
+        "illumination": "available",
+        "block_printing": "available",
+        "faith": "available",
+        "theocracy": "available",
+        "heresy": "available"
+      }
+    },
+    {
+      "id": 8,
+      "name": "Persians",
+      "missionary": "unavailable",
+      "technologies": {
+        "sanctity": "unavailable",
+        "fervor": "available",
+        "redemption": "unavailable",
+        "atonement": "unavailable",
+        "illumination": "unavailable",
+        "block_printing": "available",
+        "faith": "available",
+        "theocracy": "available",
+        "heresy": "unavailable"
+      }
+    },
+    {
+      "id": 9,
+      "name": "Saracens",
+      "missionary": "unavailable",
+      "technologies": {
+        "sanctity": "available",
+        "fervor": "available",
+        "redemption": "available",
+        "atonement": "available",
+        "illumination": "available",
+        "block_printing": "available",
+        "faith": "available",
+        "theocracy": "available",
+        "heresy": "available"
+      }
+    },
+    {
+      "id": 10,
+      "name": "Turks",
+      "missionary": "unavailable",
+      "technologies": {
+        "sanctity": "available",
+        "fervor": "available",
+        "redemption": "available",
+        "atonement": "available",
+        "illumination": "unavailable",
+        "block_printing": "unavailable",
+        "faith": "available",
+        "theocracy": "available",
+        "heresy": "available"
+      }
+    },
+    {
+      "id": 11,
+      "name": "Vikings",
+      "missionary": "unavailable",
+      "technologies": {
+        "sanctity": "unavailable",
+        "fervor": "available",
+        "redemption": "unavailable",
+        "atonement": "available",
+        "illumination": "unavailable",
+        "block_printing": "available",
+        "faith": "available",
+        "theocracy": "unavailable",
+        "heresy": "available"
+      }
+    },
+    {
+      "id": 12,
+      "name": "Mongols",
+      "missionary": "unavailable",
+      "technologies": {
+        "sanctity": "unavailable",
+        "fervor": "available",
+        "redemption": "unavailable",
+        "atonement": "available",
+        "illumination": "unavailable",
+        "block_printing": "unavailable",
+        "faith": "available",
+        "theocracy": "unavailable",
+        "heresy": "available"
+      }
+    },
+    {
+      "id": 13,
+      "name": "Celts",
+      "missionary": "unavailable",
+      "technologies": {
+        "sanctity": "available",
+        "fervor": "available",
+        "redemption": "unavailable",
+        "atonement": "unavailable",
+        "illumination": "unavailable",
+        "block_printing": "unavailable",
+        "faith": "available",
+        "theocracy": "unavailable",
+        "heresy": "available"
+      }
+    },
+    {
+      "id": 14,
+      "name": "Spanish",
+      "missionary": "available",
+      "technologies": {
+        "sanctity": "available",
+        "fervor": "available",
+        "redemption": "available",
+        "atonement": "available",
+        "illumination": "available",
+        "block_printing": "available",
+        "faith": "available",
+        "theocracy": "available",
+        "heresy": "available"
+      }
+    },
+    {
+      "id": 15,
+      "name": "Aztecs",
+      "missionary": "unavailable",
+      "technologies": {
+        "sanctity": "available",
+        "fervor": "available",
+        "redemption": "available",
+        "atonement": "available",
+        "illumination": "available",
+        "block_printing": "available",
+        "faith": "available",
+        "theocracy": "available",
+        "heresy": "available"
+      }
+    },
+    {
+      "id": 16,
+      "name": "Mayan",
+      "missionary": "unavailable",
+      "technologies": {
+        "sanctity": "available",
+        "fervor": "available",
+        "redemption": "unavailable",
+        "atonement": "available",
+        "illumination": "unavailable",
+        "block_printing": "available",
+        "faith": "available",
+        "theocracy": "available",
+        "heresy": "available"
+      }
+    },
+    {
+      "id": 17,
+      "name": "Huns",
+      "missionary": "unavailable",
+      "technologies": {
+        "sanctity": "available",
+        "fervor": "available",
+        "redemption": "unavailable",
+        "atonement": "available",
+        "illumination": "available",
+        "block_printing": "unavailable",
+        "faith": "available",
+        "theocracy": "unavailable",
+        "heresy": "available"
+      }
+    },
+    {
+      "id": 18,
+      "name": "Koreans",
+      "missionary": "unavailable",
+      "technologies": {
+        "sanctity": "available",
+        "fervor": "available",
+        "redemption": "unavailable",
+        "atonement": "unavailable",
+        "illumination": "unavailable",
+        "block_printing": "available",
+        "faith": "available",
+        "theocracy": "available",
+        "heresy": "unavailable"
+      }
+    }
+  ],
+  "graphics": [
+    {
+      "angle_count": 8,
+      "deltas": [],
+      "filename": "MSNRY_AN",
+      "frame_count": 13,
+      "frame_rate": 0.15000000596046448,
+      "id": 6616,
+      "layer": 20,
+      "mirror_flag": 6,
+      "name": "MSNRY_AN",
+      "palette": 65535,
+      "replay_delay": 0.0,
+      "sequence_type": 3,
+      "slp_id": 4865,
+      "sound_triggers": {
+        "attack_sounds": [
+          [
+            {
+              "delay": 2,
+              "sound_id": 417
+            }
+          ],
+          [
+            {
+              "delay": 2,
+              "sound_id": 417
+            }
+          ],
+          [
+            {
+              "delay": 2,
+              "sound_id": 417
+            }
+          ],
+          [
+            {
+              "delay": 2,
+              "sound_id": 417
+            }
+          ],
+          [
+            {
+              "delay": 2,
+              "sound_id": 417
+            }
+          ],
+          [
+            {
+              "delay": 2,
+              "sound_id": 417
+            }
+          ],
+          [
+            {
+              "delay": 2,
+              "sound_id": 417
+            }
+          ],
+          [
+            {
+              "delay": 2,
+              "sound_id": 417
+            }
+          ]
+        ],
+        "graphic_id": 6616,
+        "sound_id": null
+      }
+    },
+    {
+      "angle_count": 8,
+      "deltas": [],
+      "filename": "MSNRY_DN",
+      "frame_count": 12,
+      "frame_rate": 0.10000000149011612,
+      "id": 6617,
+      "layer": 20,
+      "mirror_flag": 6,
+      "name": "MSNRY_DN",
+      "palette": 65535,
+      "replay_delay": 0.0,
+      "sequence_type": 11,
+      "slp_id": 4866,
+      "sound_triggers": {
+        "attack_sounds": [],
+        "graphic_id": 6617,
+        "sound_id": 294
+      }
+    },
+    {
+      "angle_count": 8,
+      "deltas": [],
+      "filename": "MSNRY_FN",
+      "frame_count": 12,
+      "frame_rate": 0.20000000298023224,
+      "id": 6618,
+      "layer": 20,
+      "mirror_flag": 6,
+      "name": "MSNRY_FN",
+      "palette": 65535,
+      "replay_delay": 1.0,
+      "sequence_type": 7,
+      "slp_id": 4867,
+      "sound_triggers": null
+    },
+    {
+      "angle_count": 8,
+      "deltas": [],
+      "filename": "MSNRY_WN",
+      "frame_count": 12,
+      "frame_rate": 0.06975000351667404,
+      "id": 6620,
+      "layer": 20,
+      "mirror_flag": 6,
+      "name": "MSNRY_WN",
+      "palette": 65535,
+      "replay_delay": 0.0,
+      "sequence_type": 3,
+      "slp_id": 4870,
+      "sound_triggers": null
+    },
+    {
+      "angle_count": 8,
+      "deltas": [],
+      "filename": "MSNRY_TN",
+      "frame_count": 14,
+      "frame_rate": 0.15000000596046448,
+      "id": 6633,
+      "layer": 20,
+      "mirror_flag": 6,
+      "name": "MSNRY_TN",
+      "palette": 65535,
+      "replay_delay": 0.0,
+      "sequence_type": 3,
+      "slp_id": 4869,
+      "sound_triggers": {
+        "attack_sounds": [],
+        "graphic_id": 6633,
+        "sound_id": 418
+      }
+    }
+  ],
+  "sounds": [
+    {
+      "id": 294,
+      "items": [
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 15,
+          "resource_id": 5309
+        },
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 20,
+          "resource_id": 5310
+        },
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 20,
+          "resource_id": 5311
+        },
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 15,
+          "resource_id": 5312
+        },
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 15,
+          "resource_id": 5313
+        },
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 15,
+          "resource_id": 5314
+        }
+      ],
+      "play_delay": 0
+    },
+    {
+      "id": 417,
+      "items": [
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 50,
+          "resource_id": 5494
+        },
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 50,
+          "resource_id": 5495
+        }
+      ],
+      "play_delay": 0
+    },
+    {
+      "id": 418,
+      "items": [
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 100,
+          "resource_id": 5497
+        }
+      ],
+      "play_delay": 0
+    },
+    {
+      "id": 423,
+      "items": [
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 100,
+          "resource_id": 5299
+        },
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 25,
+          "resource_id": 6535
+        },
+        {
+          "civilization": 14,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 25,
+          "resource_id": 6651
+        },
+        {
+          "civilization": 14,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 25,
+          "resource_id": 6652
+        },
+        {
+          "civilization": 14,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 25,
+          "resource_id": 6653
+        },
+        {
+          "civilization": 14,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 25,
+          "resource_id": 6654
+        }
+      ],
+      "play_delay": 0
+    },
+    {
+      "id": 424,
+      "items": [
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 34,
+          "resource_id": 5571
+        },
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 33,
+          "resource_id": 5572
+        },
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 33,
+          "resource_id": 5573
+        },
+        {
+          "civilization": 14,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 25,
+          "resource_id": 6647
+        },
+        {
+          "civilization": 14,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 25,
+          "resource_id": 6648
+        },
+        {
+          "civilization": 14,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 25,
+          "resource_id": 6649
+        },
+        {
+          "civilization": 14,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 25,
+          "resource_id": 6650
+        }
+      ],
+      "play_delay": 0
+    },
+    {
+      "id": 469,
+      "items": [
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 100,
+          "resource_id": 6178
+        }
+      ],
+      "play_delay": 0
+    }
+  ],
+  "validation_boundary": {
+    "dat_proves": [
+      "records, costs, prerequisites, producer, panel slots and icons",
+      "raw effect commands and civilization disable boundaries",
+      "task restrictions, graphic-to-SLP links and sound resources"
+    ],
+    "original_runtime_required": [
+      "conversion timing randomness and resistance",
+      "Theocracy group charge semantics",
+      "Heresy ownership and death edge cases"
+    ]
+  }
+}

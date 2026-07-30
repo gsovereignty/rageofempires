@@ -1,0 +1,568 @@
+{
+  "schema": "aoe-ui-executable-evidence-v1",
+  "source": {
+    "executable": "AoK HD.exe",
+    "executable_sha256": "e23272e21014fb281f71a21ef96a6437ab8b322f4978fd4998be835be219edcc",
+    "decompile_function_font_setup": "FUN_004f3b30 at 0x004f3b30",
+    "decompile_function_font_parser": "FUN_004f3010 at 0x004f3010"
+  },
+  "fonts": {
+    "slot_count": 37,
+    "empty_slots": [
+      5
+    ],
+    "external_files": [
+      "data/fonts/centbd_.ttf",
+      "data/fonts/centit_.ttf",
+      "data/fonts/centrg_.ttf",
+      "data/fonts/comic.ttf",
+      "data/fonts/comicbd.ttf",
+      "data/fonts/georgia.ttf",
+      "data/fonts/georgiab.ttf",
+      "data/fonts/georgiai.ttf",
+      "data/fonts/georgiaz.ttf",
+      "data/fonts/lblack.ttf",
+      "data/fonts/lbrite.ttf",
+      "data/fonts/lbrited.ttf",
+      "data/fonts/lbritedi.ttf",
+      "data/fonts/lbritei.ttf",
+      "data/fonts/lcallig.ttf",
+      "data/fonts/papyrus.ttf",
+      "data/fonts/poorich.ttf",
+      "data/fonts/vineritc.ttf"
+    ],
+    "slots": [
+      {
+        "slot": 0,
+        "role": "RGE_FONT_BUTTON1",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 110,
+          "height": 111,
+          "style": 112
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 1,
+        "role": "RGE_FONT_TITLE1",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 113,
+          "height": 114,
+          "style": 115
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 2,
+        "role": "RGE_FONT_TITLE2",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 134,
+          "height": 135,
+          "style": 136
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 3,
+        "role": "RGE_FONT_LABEL",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 137,
+          "height": 138,
+          "style": 139
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 4,
+        "role": "RGE_FONT_LIST",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 116,
+          "height": 117,
+          "style": 118
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 6,
+        "role": "RGE_FONT_TEXT",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 131,
+          "height": 132,
+          "style": 133
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 7,
+        "role": "RGE_FONT_GAME",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 119,
+          "height": 120,
+          "style": 121
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 8,
+        "role": "RGE_FONT_STRIKEOUT",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 128,
+          "height": 129,
+          "style": 130
+        },
+        "strikeout": true,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 9,
+        "role": "RGE_FONT_ARIAL1",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 122,
+          "height": 123,
+          "style": 124
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 10,
+        "role": "RGE_FONT_ARIAL2",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 125,
+          "height": 126,
+          "style": 127
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 11,
+        "role": "RGE_FONT_ARIAL3",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 128,
+          "height": 129,
+          "style": 130
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 12,
+        "role": "RGE_FONT_ONE_BUTTON_TECH_TREE",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 140,
+          "height": 141,
+          "style": 142
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 13,
+        "role": "RGE_FONT_ARIAL4",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 143,
+          "height": 144,
+          "style": 145
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 14,
+        "role": "RGE_FONT_CONFIG1",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 146,
+          "height": 147,
+          "style": 148
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 15,
+        "role": "RGE_FONT_CONFIG2",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 149,
+          "height": 150,
+          "style": 151
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 16,
+        "role": "RGE_FONT_CONFIG3",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 152,
+          "height": 153,
+          "style": 154
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 17,
+        "role": "RGE_FONT_ARIAL2_BOLD",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 155,
+          "height": 156,
+          "style": 157
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 18,
+        "role": "RGE_FONT_ARIAL2_ITALIC",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 158,
+          "height": 159,
+          "style": 160
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 19,
+        "role": "RGE_FONT_ARIAL2_BOLDITALIC",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 161,
+          "height": 162,
+          "style": 163
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 20,
+        "role": "RGE_FONT_CONFIG4",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 164,
+          "height": 165,
+          "style": 166
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 21,
+        "role": "RGE_FONT_CONFIG5",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 167,
+          "height": 168,
+          "style": 169
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 22,
+        "role": "RGE_FONT_ARIAL5",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 170,
+          "height": 171,
+          "style": 172
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 23,
+        "role": "RGE_FONT_CONFIG6",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 173,
+          "height": 174,
+          "style": 175
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 24,
+        "role": "RGE_FONT_TITLE3",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 176,
+          "height": 177,
+          "style": 178
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 25,
+        "role": "RGE_FONT_BUTTON2",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 179,
+          "height": 180,
+          "style": 181
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 26,
+        "role": "RGE_FONT_HIST",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 182,
+          "height": 183,
+          "style": 184
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 27,
+        "role": "RGE_FONT_LIST2",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 185,
+          "height": 186,
+          "style": 187
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 28,
+        "role": "RGE_FONT_ARIAL5_STRIKEOUT",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 188,
+          "height": 189,
+          "style": 190
+        },
+        "strikeout": true,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 29,
+        "role": "RGE_FONT_ACHIEVMENT",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 191,
+          "height": 192,
+          "style": 193
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 30,
+        "role": "RGE_FONT_BUTTON_ACHIEVMENT",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 194,
+          "height": 195,
+          "style": 196
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 31,
+        "role": "RGE_FONT_CREDITS",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 197,
+          "height": 198,
+          "style": 199
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 32,
+        "role": "RGE_FONT_TECH_TREE_NODE",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 200,
+          "height": 201,
+          "style": 202
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 33,
+        "role": "RGE_FONT_HIST_BOLD",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 203,
+          "height": 204,
+          "style": 205
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 34,
+        "role": "RGE_FONT_HIST_ITALIC",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 206,
+          "height": 207,
+          "style": 208
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 35,
+        "role": "RGE_FONT_HIST_BOLD_ITALIC",
+        "constructor": "localized_string_triplet",
+        "string_ids": {
+          "family": 209,
+          "height": 210,
+          "style": 211
+        },
+        "strikeout": false,
+        "resolved_values": null,
+        "classification": "exact_loader_contract"
+      },
+      {
+        "slot": 36,
+        "role": null,
+        "constructor": "direct",
+        "family": "Georgia",
+        "height": 14,
+        "weight": 700,
+        "italic": false,
+        "strikeout": false,
+        "classification": "exact_hd"
+      }
+    ],
+    "metrics": {
+      "width": "GetTextMetricsA.tmAveCharWidth",
+      "line_height": "GetTextMetricsA.tmHeight + max(1, tmExternalLeading)",
+      "classification": "exact_hd"
+    },
+    "localized_style_grammar": {
+      "weight_700_tokens": [
+        "B",
+        "b"
+      ],
+      "italic_tokens": [
+        "I",
+        "i"
+      ],
+      "default_weight": 400,
+      "classification": "exact_hd"
+    },
+    "renderer_api": {
+      "creation": [
+        "AddFontResourceA",
+        "CreateFontIndirectA"
+      ],
+      "measurement": [
+        "GetTextMetricsA",
+        "GetTextExtentPoint32A"
+      ],
+      "drawing": [
+        "TextOutA",
+        "DrawTextA"
+      ],
+      "colors": [
+        "SetTextColor",
+        "SetBkColor"
+      ],
+      "classification": "exact_hd_imports_and_calls"
+    }
+  },
+  "icon_sheets": [
+    {
+      "filename": "btncmd.shp",
+      "resource_id": 50721,
+      "role": "command_actions",
+      "classification": "exact_executable_load",
+      "present_in_interfac_drs": true,
+      "frame_count": 69,
+      "dat_index_to_frame_contract": "partial_raw_action_constants"
+    },
+    {
+      "filename": "btntech.shp",
+      "resource_id": 50729,
+      "role": "technologies",
+      "classification": "exact_executable_load",
+      "present_in_interfac_drs": true,
+      "frame_count": 118,
+      "dat_index_to_frame_contract": "identity_technology_record_plus_0x2c"
+    },
+    {
+      "filename": "ico_unit.shp",
+      "resource_id": 50730,
+      "role": "units",
+      "classification": "exact_executable_load",
+      "present_in_interfac_drs": true,
+      "frame_count": 134,
+      "dat_index_to_frame_contract": "identity_ordinary_unit_record_plus_0x54"
+    }
+  ]
+}

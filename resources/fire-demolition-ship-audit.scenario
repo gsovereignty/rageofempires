@@ -1,0 +1,35 @@
+# Classic fire/demo lines: upgraded blue fleet opposite base red fleet.
+AOE-ARCHAEOLOGY-SCENARIO 34
+map 16 10
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue imperial
+age red castle
+diplomacy enemy
+civilization blue generic
+civilization red generic
+technology blue fast_fire_ship
+technology blue heavy_demolition_ship
+
+terrain water 0 5
+terrain water 1 5
+terrain water 2 5
+terrain water 3 5
+terrain water 4 5
+terrain water 5 5
+terrain water 6 5
+terrain water 7 5
+terrain water 8 5
+terrain water 9 5
+terrain water 10 5
+terrain water 11 5
+terrain water 12 5
+terrain water 13 5
+terrain water 14 5
+terrain water 15 5
+unit fast_fire_ship blue 3 5 stance stand_ground
+unit heavy_demolition_ship blue 6 5 stance passive
+unit fire_ship red 11 5 stance stand_ground
+unit demolition_ship red 9 5 stance passive
+building dock blue 0 1
+building dock red 12 1

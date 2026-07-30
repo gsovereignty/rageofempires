@@ -1,0 +1,17 @@
+# Open NW-SE gate beside a friendly; closed NE-SW gate without one.
+AOE-ARCHAEOLOGY-SCENARIO 28
+map 18 10
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue dark
+age red dark
+
+unit villager blue 4 1 stance passive
+building palisade_wall blue 2 2
+building palisade_gate_x blue 3 2
+building palisade_wall blue 7 2
+
+building palisade_wall blue 12 1
+building palisade_gate_y blue 12 2
+building palisade_wall blue 12 6
+building house red 15 7

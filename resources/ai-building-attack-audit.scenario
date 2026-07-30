@@ -1,0 +1,12 @@
+# Red computer ram explicitly attacks blue player's final visible structure.
+AOE-ARCHAEOLOGY-SCENARIO 28
+map 14 7
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue dark
+age red castle
+
+unit battering_ram red 4 1 stance passive
+
+building house blue 1 1
+building house red 10 4

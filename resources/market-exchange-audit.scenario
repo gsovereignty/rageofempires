@@ -1,0 +1,12 @@
+# Feudal Market audit: both hostile players can use shared commodity prices.
+AOE-ARCHAEOLOGY-SCENARIO 27
+map 16 10
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue feudal
+age red feudal
+
+unit villager blue 4 7 stance passive
+unit villager red 11 2 stance passive
+building market blue 0 6
+building market red 12 1

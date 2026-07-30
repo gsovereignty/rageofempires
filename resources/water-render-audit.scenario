@@ -1,0 +1,14 @@
+# Explored pond for animated wavelet and shoreline-transition render audits.
+AOE-ARCHAEOLOGY-SCENARIO 28
+map 14 9
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue dark
+age red dark
+
+terrain_rect water 4 2 9 5
+terrain grass 6 5
+
+unit scout_cavalry blue 6 5 stance passive
+building town_center blue 0 5
+building town_center red 10 0

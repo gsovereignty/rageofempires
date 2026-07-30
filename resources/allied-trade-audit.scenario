@@ -1,0 +1,13 @@
+# Allied Market route audit: blue Trade Cart trades only with allied red Market.
+AOE-ARCHAEOLOGY-SCENARIO 30
+map 18 10
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue feudal
+age red feudal
+diplomacy ally
+
+unit trade_cart blue 4 5 stance passive
+unit villager red 15 8 stance passive
+building market blue 0 4
+building market red 14 4

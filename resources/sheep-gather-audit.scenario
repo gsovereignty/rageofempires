@@ -1,0 +1,12 @@
+# Focused herdable-food audit. Select 2,3 and command 5,3; capture tick 4.
+AOE-ARCHAEOLOGY-SCENARIO 27
+map 10 7
+economy blue 250 200 100 200
+economy red 250 200 100 200
+age blue dark
+age red dark
+
+unit villager blue 2 3 stance passive
+unit sheep blue 5 3 food 37 stance passive
+unit villager red 9 6 stance passive
+building town_center blue 0 0

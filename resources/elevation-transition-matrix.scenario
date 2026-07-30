@@ -1,0 +1,46 @@
+AOE-ARCHAEOLOGY-SCENARIO 63
+map 24 16
+trigger_syntax strict
+economy blue 250 200 100 200
+economy red 250 200 100 200
+age blue dark
+age red dark
+
+# One-level cardinal and corner transition masks.
+elevation 4 4 1
+elevation 7 4 1
+elevation 7 5 1
+elevation 10 4 1
+elevation 10 5 1
+elevation 11 4 1
+elevation 14 4 1
+elevation 14 5 1
+elevation 15 4 1
+elevation 15 5 1
+
+# A graded hill exercises exact one-level terrain transition frames.
+elevation 4 9 1
+elevation 5 9 1
+elevation 6 9 1
+elevation 4 10 1
+elevation 5 10 2
+elevation 6 10 1
+elevation 4 11 1
+elevation 5 11 1
+elevation 6 11 1
+
+# Two- and three-level discontinuities exercise procedural cliff fallback.
+elevation 10 9 2
+elevation 11 9 2
+elevation 10 10 2
+elevation 11 10 2
+elevation 15 9 3
+elevation 16 9 3
+elevation 15 10 3
+elevation 16 10 3
+
+unit villager blue 5 10
+unit archer blue 10 9
+unit villager red 17 10
+building town_center blue 1 11
+building town_center red 19 1

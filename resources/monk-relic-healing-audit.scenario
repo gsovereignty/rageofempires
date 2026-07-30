@@ -1,0 +1,13 @@
+# Monk support audit: heal the wounded Villager, then collect and bank relic.
+AOE-ARCHAEOLOGY-SCENARIO 27
+map 14 8
+economy blue 500 500 100 500
+economy red 500 500 500 500
+age blue castle
+age red castle
+
+unit monk blue 4 3 stance passive
+unit villager blue 4 4 stance passive
+unit relic neutral 5 3 stance passive
+unit villager red 13 7 stance passive
+building monastery blue 0 1

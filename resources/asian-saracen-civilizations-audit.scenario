@@ -1,0 +1,14 @@
+# Civilization audit: Japanese infantry pressure a Persian Town Center.
+AOE-ARCHAEOLOGY-SCENARIO 31
+map 18 10
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue feudal
+age red feudal
+diplomacy enemy
+civilization blue japanese
+civilization red persians
+
+unit man_at_arms blue 5 5 stance passive
+unit villager red 15 8 stance passive
+building town_center red 12 3

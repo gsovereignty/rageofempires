@@ -1,0 +1,43 @@
+AOE-ARCHAEOLOGY-SCENARIO 63
+map 24 16
+trigger_syntax strict
+economy blue 250 200 100 200
+economy red 250 200 100 200
+age blue dark
+age red dark
+
+terrain_rect forest 12 3 14 5
+terrain_rect gold 8 11 9 12
+
+elevation 4 6 1
+elevation 5 6 1
+elevation 6 6 1
+elevation 7 6 1
+elevation 8 6 1
+elevation 4 7 1
+elevation 5 7 2
+elevation 6 7 2
+elevation 7 7 2
+elevation 8 7 1
+elevation 4 8 1
+elevation 5 8 2
+elevation 6 8 3
+elevation 7 8 2
+elevation 8 8 1
+elevation 4 9 1
+elevation 5 9 2
+elevation 6 9 2
+elevation 7 9 2
+elevation 8 9 1
+elevation 4 10 1
+elevation 5 10 1
+elevation 6 10 1
+elevation 7 10 1
+elevation 8 10 1
+
+unit archer blue 6 8
+unit villager blue 5 9
+unit archer red 9 8
+unit villager red 10 9
+building town_center blue 1 10
+building town_center red 18 1

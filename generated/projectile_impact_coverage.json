@@ -1,0 +1,99 @@
+{
+  "projectiles": [
+    {
+      "kind": "fire_stream",
+      "root_graphic": 3822,
+      "slp_id": 4193,
+      "before": "exact_static",
+      "after": "exact_animated"
+    },
+    {
+      "kind": "cannonball",
+      "root_graphic": 3382,
+      "slp_id": 3803,
+      "before": "body_only",
+      "after": "exact_composite"
+    },
+    {
+      "kind": "gunpowder_shot",
+      "root_graphic": 3396,
+      "slp_id": 4500,
+      "before": "body_only",
+      "after": "exact_composite"
+    },
+    {
+      "kind": "onager_primary",
+      "root_graphic": 3396,
+      "slp_id": 4500,
+      "before": "wrong_variant",
+      "after": "exact_composite"
+    },
+    {
+      "kind": "onager_volley",
+      "root_graphic": 3385,
+      "slp_id": 3986,
+      "before": "frame_zero_only",
+      "after": "exact_composite"
+    },
+    {
+      "kind": "trebuchet_stone",
+      "root_graphic": 3394,
+      "slp_id": 3815,
+      "before": "frame_zero_only",
+      "after": "exact_composite"
+    },
+    {
+      "kind": "throwing_axe",
+      "root_graphic": 3380,
+      "slp_id": 3801,
+      "before": "body_only",
+      "after": "exact_composite"
+    },
+    {
+      "kind": "arrow",
+      "root_graphic": 3378,
+      "slp_id": 3799,
+      "before": "wrong_frame_zero",
+      "after": "procedural_fail_closed"
+    },
+    {
+      "kind": "scorpion_bolt",
+      "root_graphic": 3391,
+      "slp_id": 3812,
+      "before": "wrong_frame_zero",
+      "after": "exact_composite"
+    }
+  ],
+  "impacts": [
+    {
+      "kind": "standard_explosion",
+      "graphic": 1744,
+      "slp_id": 416,
+      "frame_count": 10,
+      "before": "archive_frame_zero_only",
+      "after": "exact_animated"
+    },
+    {
+      "kind": "fire_gunpowder_explosion",
+      "graphic": 5463,
+      "slp_id": 4370,
+      "frame_count": 20,
+      "before": "archive_frame_zero_only",
+      "after": "exact_animated"
+    }
+  ],
+  "summary": {
+    "projectile_exact_before": 1,
+    "projectile_exact_after": 8,
+    "projectile_total": 9,
+    "impact_exact_before": 0,
+    "impact_exact_after": 2,
+    "impact_total": 2,
+    "fail_closed": [
+      {
+        "kind": "arrow",
+        "reason": "32-direction display transform unproved"
+      }
+    ]
+  }
+}

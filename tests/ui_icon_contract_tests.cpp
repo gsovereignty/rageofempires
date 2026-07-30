@@ -1,0 +1,66 @@
+#include "aoe/ui_icon_contract.hpp"
+
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
+#include <array>
+#include <cassert>
+#include <utility>
+
+namespace {
+
+void executable_sheet_dispatch_is_bounded() {
+    assert(!aoe::ui_icons::technology(-1));
+    assert(aoe::ui_icons::technology(0)->sheet == 50729);
+    assert(aoe::ui_icons::technology(117)->frame == 117);
+    assert(!aoe::ui_icons::technology(118));
+
+    assert(!aoe::ui_icons::ordinary_unit(-1));
+    assert(aoe::ui_icons::ordinary_unit(0)->sheet == 50730);
+    assert(aoe::ui_icons::ordinary_unit(133)->frame == 133);
+    assert(!aoe::ui_icons::ordinary_unit(134));
+}
+
+void reconstruction_training_units_use_exact_dat_frames() {
+    using aoe::UnitKind;
+    constexpr std::array expected{
+        std::pair{UnitKind::villager, 15},
+        std::pair{UnitKind::knight, 1},
+        std::pair{UnitKind::archer, 17},
+        std::pair{UnitKind::scout_cavalry, 64},
+        std::pair{UnitKind::militia, 8},
+        std::pair{UnitKind::spearman, 31},
+        std::pair{UnitKind::battering_ram, 74},
+        std::pair{UnitKind::skirmisher, 20},
+        std::pair{UnitKind::mangonel, 27},
+        std::pair{UnitKind::monk, 33},
+        std::pair{UnitKind::fishing_ship, 24},
+        std::pair{UnitKind::galley, 87},
+        std::pair{UnitKind::transport_ship, 95},
+        std::pair{UnitKind::scorpion, 80},
+        std::pair{UnitKind::camel_rider, 78},
+    };
+    for (const auto [kind, frame] : expected) {
+        const auto binding = aoe::ui_icons::training_unit(kind);
+        assert(binding);
+        assert(binding->sheet == aoe::ui_icons::unit_sheet);
+        assert(binding->frame == frame);
+        assert(
+            binding->evidence ==
+            aoe::ui_icons::Evidence::exact_executable_dispatch
+        );
+    }
+}
+
+void pressed_state_changes_chrome_not_icon() {
+    assert(aoe::ui_icons::normal_chrome_frame == 36);
+    assert(aoe::ui_icons::pressed_chrome_frame == 37);
+}
+
+}  // namespace
+
+int main() {
+    executable_sheet_dispatch_is_bounded();
+    reconstruction_training_units_use_exact_dat_frames();
+    pressed_state_changes_chrome_not_icon();
+}

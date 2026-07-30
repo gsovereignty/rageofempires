@@ -1,0 +1,19 @@
+# Blast Furnace audit: fully upgraded blue melee army beside base red units.
+AOE-ARCHAEOLOGY-SCENARIO 28
+map 18 10
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue imperial
+age red imperial
+technology blue forging
+technology blue iron_casting
+technology blue blast_furnace
+
+building blacksmith blue 1 1
+unit knight blue 5 3 stance passive
+unit long_swordsman blue 6 4 stance passive
+unit pikeman blue 7 5 stance passive
+unit villager blue 4 5 stance passive
+unit knight red 12 4 stance passive
+unit villager red 11 5 stance passive
+building house red 15 7

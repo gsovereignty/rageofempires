@@ -68,12 +68,30 @@ int main() {
     );
 
     expect(
-        aoe::unit_animation_tick_from_milliseconds(99, 3) == 7,
-        "animation retains stable per-unit phase before boundary"
+        aoe::unit_animation_tick_from_milliseconds(50, 3) == 7,
+        "composite animation retains 50 ms source tick"
     );
     expect(
         aoe::unit_animation_tick_from_milliseconds(100, 3) == 8,
-        "animation advances from elapsed milliseconds"
+        "composite animation source advances every 50 ms"
+    );
+
+    expect(
+        aoe::unit_animation_frame_from_milliseconds(50, 3) == 3,
+        "direct unit animation retains frame at 50 ms"
+    );
+    expect(
+        aoe::unit_animation_frame_from_milliseconds(99, 3) == 3,
+        "direct unit animation retains frame before 100 ms boundary"
+    );
+    expect(
+        aoe::unit_animation_frame_from_milliseconds(100, 3) == 4,
+        "direct unit animation advances at 100 ms boundary"
+    );
+    expect(
+        aoe::unit_animation_frame_from_milliseconds(99, 9) == 9 &&
+            aoe::unit_animation_frame_from_milliseconds(100, 9) == 10,
+        "direct unit animation preserves stable per-unit phase"
     );
 
     if (failures == 0) {

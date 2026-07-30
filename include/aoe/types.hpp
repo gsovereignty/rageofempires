@@ -621,6 +621,9 @@ struct Unit {
     EntityOwner owner{Player::blue};
     TilePosition position{};
     TilePosition previous_position{};
+    TilePosition render_previous_subtile{};
+    TilePosition render_current_subtile{};
+    bool render_subtile_initialized{};
     TilePosition destination{};
     int hit_points{25};
     int attack{3};

@@ -1919,6 +1919,11 @@ EntityId Simulation::add_unit(
     unit.owner = owner;
     unit.position = position;
     unit.previous_position = position;
+    unit.render_previous_subtile = {
+        position.x * 320, position.y * 320
+    };
+    unit.render_current_subtile = unit.render_previous_subtile;
+    unit.render_subtile_initialized = true;
     unit.destination = position;
     unit.hit_points = maximum_hit_points(unit);
     unit.attack = rules_for(kind).attack;
@@ -5602,6 +5607,15 @@ void Simulation::update() {
         return;
     }
     ++tick_number_;
+    for (Unit& unit : units_) {
+        if (!unit.render_subtile_initialized) {
+            unit.render_current_subtile = {
+                unit.position.x * 320, unit.position.y * 320
+            };
+            unit.render_subtile_initialized = true;
+        }
+        unit.render_previous_subtile = unit.render_current_subtile;
+    }
     if (evaluate_scenario_triggers()) {
         return;
     }
@@ -6783,6 +6797,10 @@ void Simulation::update() {
         }
     }
 
+    for (Unit& unit : units_) {
+        refresh_unit_render_subtile(unit);
+    }
+
     std::vector<std::uint64_t> formation_groups;
     for (const Unit& unit : units_) {
         if (unit.formation_group_id != 0 &&
@@ -7013,6 +7031,53 @@ void Simulation::update() {
     update_match_outcome();
     update_exploration();
     if (tick_number_ % 100 == 0) sample_match_statistics();
+}
+
+void Simulation::refresh_unit_render_subtile(Unit& unit) {
+    constexpr int render_scale = 320;
+    unit.render_current_subtile = {
+        unit.position.x * render_scale,
+        unit.position.y * render_scale,
+    };
+    if (!unit.moving || unit.next_path_step >= unit.path.size()) {
+        return;
+    }
+
+    int denominator = 0;
+    if (unit.formation_move_interval > 0) {
+        denominator = 32000;
+    } else if (
+        unit.kind == UnitKind::scout_cavalry ||
+        unit.kind == UnitKind::knight ||
+        unit.kind == UnitKind::cavalier ||
+        unit.kind == UnitKind::paladin ||
+        unit.kind == UnitKind::light_cavalry ||
+        unit.kind == UnitKind::hussar ||
+        unit.kind == UnitKind::camel_rider ||
+        unit.kind == UnitKind::heavy_camel
+    ) {
+        denominator = 320;
+    } else if (
+        is_ship(unit.kind) && ship_movement_numerator(unit) != 100
+    ) {
+        denominator = 100;
+    } else if (unique_unit_movement_numerator(unit) != 100) {
+        denominator = 100;
+    }
+    if (denominator == 0) {
+        return;
+    }
+
+    const int remainder = std::clamp(
+        unit.movement_speed_remainder, 0, denominator - 1
+    );
+    const TilePosition next = unit.path[unit.next_path_step];
+    unit.render_current_subtile.x +=
+        (next.x - unit.position.x) * remainder * render_scale /
+        denominator;
+    unit.render_current_subtile.y +=
+        (next.y - unit.position.y) * remainder * render_scale /
+        denominator;
 }
 
 void Simulation::replace_state(

@@ -2133,6 +2133,29 @@ SDL_FPoint tile_top(TilePosition position) {
     };
 }
 
+SDL_FPoint subtile_top(
+    TilePosition subtile,
+    TilePosition elevation_position
+) {
+    constexpr float subtile_scale = 320.0F;
+    const float x = static_cast<float>(subtile.x) / subtile_scale;
+    const float y = static_cast<float>(subtile.y) / subtile_scale;
+    const int elevation =
+        active_render_map != nullptr &&
+            active_render_map->contains(elevation_position)
+        ? active_render_map->elevation_at(elevation_position)
+        : 0;
+    return {
+        static_cast<float>(map_origin_x()) +
+            (x - y) * static_cast<float>(half_tile_width) -
+            active_camera.x,
+        static_cast<float>(map_origin_y) +
+            (x + y) * static_cast<float>(half_tile_height) -
+            active_camera.y -
+            static_cast<float>(elevation * elevation_pixel_step),
+    };
+}
+
 SDL_FPoint building_top(const Building& building) {
     const BuildingRules& rules = rules_for(building.kind);
     const float center_x =
@@ -7507,7 +7530,9 @@ void render_unit(
     std::uint64_t presentation_time_ms
 ) {
     const UnitRules& unit_rules = rules_for(unit.kind);
-    const SDL_FPoint current = tile_top(unit.position);
+    const SDL_FPoint current = unit.render_subtile_initialized
+        ? subtile_top(unit.render_current_subtile, unit.position)
+        : tile_top(unit.position);
     SDL_FPoint top = current;
     const bool interpolating =
         render_unit_is_interpolating(simulation, unit);
@@ -7517,7 +7542,10 @@ void render_unit(
             unit.id
         );
     if (interpolating) {
-        const SDL_FPoint previous = tile_top(unit.previous_position);
+        const SDL_FPoint previous = subtile_top(
+            unit.render_previous_subtile,
+            unit.previous_position
+        );
         top = {
             previous.x + (current.x - previous.x) * movement_alpha,
             previous.y + (current.y - previous.y) * movement_alpha,

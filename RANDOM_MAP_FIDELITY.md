@@ -62,11 +62,26 @@ cannot be tied to a named preset with confidence. The original also rewrites
 the selection from player count (`AoK-HD-patched.c:366567-366582`), which the
 reconstruction does not model.
 
-Modern choice: `RandomMapSettings::size` defaults to `giant` (240 tiles), the
-largest named preset, and the frontend starts on the same preset. RMS scripts
-with no `override_map_size` directive inherit that default, matching the
-original behaviour where a script without the directive uses the
-lobby-selected size. An `override_map_size` above 240 snaps to `maximum`.
+Modern choice: `RandomMapSettings::size` defaults to the recovered index-6
+maximum (255 tiles), and the frontend starts on the same preset. No original
+default was recovered; selecting the maximum makes the reconstruction's
+startup paths use one observable map extent. RMS scripts with no
+`override_map_size` directive inherit that default, matching the original
+behaviour where a script without the directive uses the lobby-selected size.
+An `override_map_size` above 240 snaps to `maximum`.
+
+Modern choice: the bundled native scenario is generated from its original
+24x16 demonstration layout at 255x255. Terrain rectangles scale as areas,
+placements scale as points, and generation rejects invalid footprints. No
+original bundled scenario exists. CMake tracks and deploys the generated
+scenario independently of executable relinking so source and app copies do
+not diverge.
+
+Modern choice: renderer world extents, isometric origin, camera clamps, and
+minimap aggregation derive from the loaded map. The fixed 1280x640 world
+viewport remains presentation geometry rather than a map-size limit. A
+headless `AOE_MAP_DIMENSION_PATH` diagnostic records the map presented by a
+real app launch; no original diagnostic was recovered.
 
 ## Reconstruction contract
 

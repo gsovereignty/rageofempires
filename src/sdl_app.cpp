@@ -6,6 +6,7 @@
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -56,15 +57,15 @@
 namespace aoe {
 namespace {
 
-constexpr int map_width = 24;
-constexpr int map_height = 16;
 constexpr int tile_width = 64;
 constexpr int tile_height = 32;
 constexpr int half_tile_width = tile_width / 2;
 constexpr int half_tile_height = tile_height / 2;
-constexpr int map_pixel_width = (map_width + map_height) * half_tile_width;
-constexpr int map_pixel_height = (map_width + map_height) * half_tile_height;
-constexpr int map_origin_x = map_height * half_tile_width;
+// World viewport size in pixels. This is the drawing surface, not the map:
+// it used to be spelled (24 + 16) * half_tile, which silently tied the
+// window and the camera clamp to a 24x16 map.
+constexpr int view_pixel_width = 40 * half_tile_width;
+constexpr int view_pixel_height = 40 * half_tile_height;
 constexpr int map_origin_y = 16;
 constexpr int hud_height = 80;
 constexpr int elevation_pixel_step = half_tile_height;
@@ -148,6 +149,36 @@ Player active_view_player{Player::blue};
 const GameMap* active_render_map{};
 const StringTable* active_string_table{};
 
+// Tile extent of the map currently being presented. The isometric origin
+// and the camera clamp both depend on it, so a map larger than the old
+// hardcoded 24x16 would otherwise be pinned to the top corner of a 24x16
+// diamond with everything else unreachable.
+[[nodiscard]] int active_map_tiles_x() {
+    return active_render_map != nullptr
+        ? std::max(active_render_map->width(), 1)
+        : 1;
+}
+
+[[nodiscard]] int active_map_tiles_y() {
+    return active_render_map != nullptr
+        ? std::max(active_render_map->height(), 1)
+        : 1;
+}
+
+// Left-hand tile (0, height - 1) sits at x = 0, so the whole diamond is
+// inside the positive world quadrant.
+[[nodiscard]] int map_origin_x() {
+    return active_map_tiles_y() * half_tile_width;
+}
+
+[[nodiscard]] int world_pixel_width() {
+    return (active_map_tiles_x() + active_map_tiles_y()) * half_tile_width;
+}
+
+[[nodiscard]] int world_pixel_height() {
+    return (active_map_tiles_x() + active_map_tiles_y()) * half_tile_height;
+}
+
 enum class EditorTool {
     grass, water, forest, elevation, villager, house, erase
 };
@@ -161,7 +192,7 @@ enum class FrontendScreen { hidden, main_menu, single_player_setup };
 FrontendScreen active_frontend_screen{FrontendScreen::hidden};
 std::string active_frontend_status{"SELECT A MODE"};
 RandomMapSettings active_random_settings{
-    RandomMapKind::arabia, RandomMapSize::giant, 1
+    RandomMapKind::arabia, RandomMapSize::maximum, 1
 };
 const Scenario* active_random_preview{};
 
@@ -1833,7 +1864,7 @@ SDL_FPoint tile_top(TilePosition position) {
         : 0;
     return {
         static_cast<float>(
-            map_origin_x + (position.x - position.y) * half_tile_width
+            map_origin_x() + (position.x - position.y) * half_tile_width
         ) - active_camera.x,
         static_cast<float>(
             map_origin_y +
@@ -1852,7 +1883,7 @@ SDL_FPoint building_top(const Building& building) {
         static_cast<float>(building.position.y) +
         static_cast<float>(rules.footprint_height - 1) / 2.0F;
     return {
-        static_cast<float>(map_origin_x) +
+        static_cast<float>(map_origin_x()) +
             (center_x - center_y) * half_tile_width - active_camera.x,
         static_cast<float>(map_origin_y) +
             (center_x + center_y) * half_tile_height - active_camera.y,
@@ -1866,32 +1897,37 @@ void clamp_camera(CameraView& camera) {
         maximum_camera_zoom
     );
     const float view_width =
-        static_cast<float>(map_pixel_width) / camera.zoom;
+        static_cast<float>(view_pixel_width) / camera.zoom;
     const float view_height =
-        static_cast<float>(map_pixel_height) / camera.zoom;
+        static_cast<float>(view_pixel_height) / camera.zoom;
+    // Pan limits come from the loaded map, not the viewport: the two only
+    // coincide for a 24x16 map, which is what the old constants encoded.
+    const float world_width = static_cast<float>(world_pixel_width());
+    const float world_height =
+        static_cast<float>(world_pixel_height() + map_origin_y);
     camera.x = std::clamp(
         camera.x,
         0.0F,
-        std::max(0.0F, static_cast<float>(map_pixel_width) - view_width)
+        std::max(0.0F, world_width - view_width)
     );
     camera.y = std::clamp(
         camera.y,
         0.0F,
-        std::max(0.0F, static_cast<float>(map_pixel_height) - view_height)
+        std::max(0.0F, world_height - view_height)
     );
 }
 
 void center_camera_on(CameraView& camera, TilePosition tile) {
     const float world_x = static_cast<float>(
-        map_origin_x + (tile.x - tile.y) * half_tile_width
+        map_origin_x() + (tile.x - tile.y) * half_tile_width
     );
     const float world_y = static_cast<float>(
         map_origin_y + (tile.x + tile.y) * half_tile_height
     );
     camera.x =
-        world_x - static_cast<float>(map_pixel_width) / camera.zoom * 0.5F;
+        world_x - static_cast<float>(view_pixel_width) / camera.zoom * 0.5F;
     camera.y =
-        world_y - static_cast<float>(map_pixel_height) / camera.zoom * 0.5F;
+        world_y - static_cast<float>(view_pixel_height) / camera.zoom * 0.5F;
     clamp_camera(camera);
 }
 
@@ -8317,6 +8353,29 @@ void render_unit(
     }
 }
 
+// Modern choice: no original diagnostic dump exists. Headless runs need a
+// way to report the dimensions of the map the app actually loaded, because
+// a screenshot cannot distinguish a small map from a large one that happens
+// to be scrolled to a corner.
+void report_map_dimensions(const Simulation& simulation) {
+    const char* path = SDL_getenv("AOE_MAP_DIMENSION_PATH");
+    if (path == nullptr || path[0] == '\0') return;
+    static int reported_width = -1;
+    static int reported_height = -1;
+    const int width = simulation.map().width();
+    const int height = simulation.map().height();
+    if (width == reported_width && height == reported_height) return;
+    reported_width = width;
+    reported_height = height;
+    std::ofstream output(path, std::ios::trunc);
+    if (!output) {
+        SDL_Log("Could not write map dimensions to %s", path);
+        return;
+    }
+    output << "map " << width << ' ' << height << '\n'
+           << "tiles " << static_cast<long long>(width) * height << '\n';
+}
+
 void capture_requested_frame(
     SDL_Renderer* renderer,
     const Simulation& simulation,
@@ -8997,8 +9056,8 @@ void render_minimap(
 ) {
     constexpr float panel_width = 214.0F;
     constexpr float padding = 7.0F;
-    const int screen_width = map_pixel_width;
-    const int screen_height = map_pixel_height + hud_height;
+    const int screen_width = view_pixel_width;
+    const int screen_height = view_pixel_height + hud_height;
     const bool exact_1024_layout = screen_width >= 1024;
     const minimap::InclusiveRect exact_frame =
         minimap::frame_1024_rect(screen_width, screen_height);
@@ -9010,7 +9069,7 @@ void render_minimap(
               static_cast<float>(exact_frame.bottom - exact_frame.top + 1),
           }
         : SDL_FRect{
-              static_cast<float>(map_pixel_width) - panel_width - 5.0F,
+              static_cast<float>(view_pixel_width) - panel_width - 5.0F,
               hud_top + 4.0F,
               panel_width,
               static_cast<float>(hud_height) - 8.0F,
@@ -9075,18 +9134,36 @@ void render_minimap(
         return slot ? &marker_colors[*slot] : nullptr;
     };
 
-    for (int y = 0; y < simulation.map().height(); ++y) {
-        for (int x = 0; x < simulation.map().width(); ++x) {
+    // One diamond per tile disappears once a tile is narrower than a pixel,
+    // which is what happens from roughly 200 tiles up in an 80px HUD strip:
+    // the geometry degenerates and the minimap renders empty. Group tiles
+    // into square blocks just wide enough to stay above a pixel. A block
+    // step of one reproduces the per-tile pass exactly, so smaller maps are
+    // unchanged.
+    const int block_step = std::max(
+        1,
+        static_cast<int>(std::ceil(1.0F / std::max(cell_half_width, 0.001F)))
+    );
+    const float block_half_width =
+        cell_half_width * static_cast<float>(block_step);
+    const float block_half_height =
+        cell_half_height * static_cast<float>(block_step);
+    for (int y = 0; y < simulation.map().height(); y += block_step) {
+        for (int x = 0; x < simulation.map().width(); x += block_step) {
             const TilePosition position{x, y};
             SDL_Color color{5, 7, 6, 255};
             // Original executable proves an explored-tile minimap pass, but
             // not its colors/masks. Keep this procedural contract until
             // generated/fog_rendering_catalog.json's missing links close.
-            if (simulation.is_explored_to_controller(active_view_player, position)) {
+            if (!active_settings.fog ||
+                simulation.is_explored_to_controller(
+                    active_view_player, position
+                )) {
                 color = terrain_color(
                     simulation.map().terrain_at(position)
                 );
-                if (!simulation.is_visible_to_controller(active_view_player, position)) {
+                if (active_settings.fog &&
+                    !simulation.is_visible_to_controller(active_view_player, position)) {
                     color = {
                         static_cast<Uint8>(color.r * 0.35F),
                         static_cast<Uint8>(color.g * 0.35F),
@@ -9104,12 +9181,12 @@ void render_minimap(
             };
             const std::array<SDL_Vertex, 4> vertices{{
                 {{cell_top.x, cell_top.y}, vertex_color, {}},
-                {{cell_top.x + cell_half_width,
-                  cell_top.y + cell_half_height}, vertex_color, {}},
+                {{cell_top.x + block_half_width,
+                  cell_top.y + block_half_height}, vertex_color, {}},
                 {{cell_top.x,
-                  cell_top.y + cell_half_height * 2.0F}, vertex_color, {}},
-                {{cell_top.x - cell_half_width,
-                  cell_top.y + cell_half_height}, vertex_color, {}},
+                  cell_top.y + block_half_height * 2.0F}, vertex_color, {}},
+                {{cell_top.x - block_half_width,
+                  cell_top.y + block_half_height}, vertex_color, {}},
             }};
             constexpr std::array<int, 6> indices{{0, 1, 2, 0, 2, 3}};
             SDL_RenderGeometry(
@@ -9199,7 +9276,7 @@ void render_minimap(
 
     const auto world_to_minimap = [=](float world_x, float world_y) {
         const float projected_x =
-            (world_x - static_cast<float>(map_origin_x)) / half_tile_width;
+            (world_x - static_cast<float>(map_origin_x())) / half_tile_width;
         const float projected_y =
             (world_y - static_cast<float>(map_origin_y)) / half_tile_height;
         const float tile_x = (projected_y + projected_x) * 0.5F;
@@ -9217,9 +9294,9 @@ void render_minimap(
         };
     };
     const float view_width =
-        static_cast<float>(map_pixel_width) / camera.zoom;
+        static_cast<float>(view_pixel_width) / camera.zoom;
     const float view_height =
-        static_cast<float>(map_pixel_height) / camera.zoom;
+        static_cast<float>(view_pixel_height) / camera.zoom;
     const SDL_FPoint transformed_camera =
         world_to_minimap(camera.x, camera.y);
     const minimap::ViewportBounds viewport_bounds =
@@ -9371,11 +9448,11 @@ void render_hud(
     const std::string& control_group_status,
     const CameraView& camera
 ) {
-    const float top = static_cast<float>(map_pixel_height);
+    const float top = static_cast<float>(view_pixel_height);
     SDL_FRect background{
         0.0F,
         top,
-        static_cast<float>(map_pixel_width),
+        static_cast<float>(view_pixel_width),
         static_cast<float>(hud_height),
     };
     // One-frame SLP 51141 is structurally incompatible with original
@@ -9387,7 +9464,7 @@ void render_hud(
         renderer,
         0.0F,
         top,
-        static_cast<float>(map_pixel_width),
+        static_cast<float>(view_pixel_width),
         top
     );
 
@@ -10481,7 +10558,7 @@ void render_scenario_presentation(
         const SDL_FRect message_box{
             presentation.objectives_visible
                 ? 490.0F
-                : (static_cast<float>(map_pixel_width) - box_width) * 0.5F,
+                : (static_cast<float>(view_pixel_width) - box_width) * 0.5F,
             26.0F,
             box_width,
             box_height,
@@ -10618,8 +10695,8 @@ void render_campaign_presentation(
             CampaignPresentation::Screen::debrief;
         const SDL_FRect shade{
             0.0F, 0.0F,
-            static_cast<float>(map_pixel_width),
-            static_cast<float>(map_pixel_height),
+            static_cast<float>(view_pixel_width),
+            static_cast<float>(view_pixel_height),
         };
         set_color(renderer, {8, 7, 5, 238});
         SDL_RenderFillRect(renderer, &shade);
@@ -10783,8 +10860,8 @@ void render_campaign_presentation(
     const float box_height =
         55.0F + static_cast<float>(lines.size()) * 14.0F;
     const SDL_FRect box{
-        static_cast<float>(map_pixel_width) - 438.0F,
-        static_cast<float>(map_pixel_height) - box_height - 18.0F,
+        static_cast<float>(view_pixel_width) - 438.0F,
+        static_cast<float>(view_pixel_height) - box_height - 18.0F,
         420.0F,
         box_height,
     };
@@ -11204,7 +11281,7 @@ void render_multiplayer_presentation(
         45.0F + static_cast<float>(lines.size()) * 14.0F;
     const SDL_FRect box{
         18.0F,
-        static_cast<float>(map_pixel_height) - box_height - 18.0F,
+        static_cast<float>(view_pixel_height) - box_height - 18.0F,
         462.0F,
         box_height,
     };
@@ -11228,7 +11305,7 @@ void render_multiplayer_presentation(
     );
     if (presentation->network_paused) {
         const SDL_FRect paused_box{
-            static_cast<float>(map_pixel_width) * 0.5F - 120.0F,
+            static_cast<float>(view_pixel_width) * 0.5F - 120.0F,
             36.0F, 240.0F, 48.0F,
         };
         render_beveled_panel(renderer, paused_box, {72, 38, 28, 244});
@@ -11306,8 +11383,8 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
     if (active_frontend_screen == FrontendScreen::hidden) return;
     const SDL_FRect shade{
         0.0F, 0.0F,
-        static_cast<float>(map_pixel_width),
-        static_cast<float>(map_pixel_height + hud_height),
+        static_cast<float>(view_pixel_width),
+        static_cast<float>(view_pixel_height + hud_height),
     };
     set_color(renderer, {7, 7, 5, 246});
     SDL_RenderFillRect(renderer, &shade);
@@ -11457,8 +11534,8 @@ const char* on_off(bool value) {
 
 void render_options_overlay(SDL_Renderer* renderer) {
     if (!active_options_visible) return;
-    const SDL_FRect shade{0.0F, 0.0F, static_cast<float>(map_pixel_width),
-                          static_cast<float>(map_pixel_height + hud_height)};
+    const SDL_FRect shade{0.0F, 0.0F, static_cast<float>(view_pixel_width),
+                          static_cast<float>(view_pixel_height + hud_height)};
     set_color(renderer, {6, 6, 4, 238});
     SDL_RenderFillRect(renderer, &shade);
     const SDL_FRect panel{260.0F, 42.0F, 760.0F, 620.0F};
@@ -11536,8 +11613,8 @@ void render_statistics_overlay(
     const Simulation& simulation
 ) {
     if (!active_statistics_visible) return;
-    const SDL_FRect shade{0.0F, 0.0F, static_cast<float>(map_pixel_width),
-                          static_cast<float>(map_pixel_height + hud_height)};
+    const SDL_FRect shade{0.0F, 0.0F, static_cast<float>(view_pixel_width),
+                          static_cast<float>(view_pixel_height + hud_height)};
     set_color(renderer, {5, 5, 4, 244});
     SDL_RenderFillRect(renderer, &shade);
     const SDL_FRect panel{120.0F, 36.0F, 1040.0F, 640.0F};
@@ -11683,8 +11760,8 @@ void render_statistics_overlay(
 
 void render_save_browser_overlay(SDL_Renderer* renderer) {
     if (!active_save_browser_visible) return;
-    const SDL_FRect shade{0.0F, 0.0F, static_cast<float>(map_pixel_width),
-                          static_cast<float>(map_pixel_height + hud_height)};
+    const SDL_FRect shade{0.0F, 0.0F, static_cast<float>(view_pixel_width),
+                          static_cast<float>(view_pixel_height + hud_height)};
     set_color(renderer, {5, 5, 4, 244});
     SDL_RenderFillRect(renderer, &shade);
     const SDL_FRect panel{150.0F, 54.0F, 980.0F, 590.0F};
@@ -11800,8 +11877,8 @@ void render_technology_tree_overlay(SDL_Renderer* renderer) {
     if (!active_technology_tree_visible) return;
     const SDL_FRect background{
         0.0F, 0.0F,
-        static_cast<float>(map_pixel_width),
-        static_cast<float>(map_pixel_height + hud_height),
+        static_cast<float>(view_pixel_width),
+        static_cast<float>(view_pixel_height + hud_height),
     };
     set_color(renderer, {13, 11, 8, 250});
     SDL_RenderFillRect(renderer, &background);
@@ -11857,8 +11934,8 @@ void render_technology_tree_overlay(SDL_Renderer* renderer) {
         };
         if (box.x + box.w < 0.0F ||
             box.y + box.h < 62.0F ||
-            box.x > map_pixel_width ||
-            box.y > map_pixel_height + hud_height) continue;
+            box.x > view_pixel_width ||
+            box.y > view_pixel_height + hud_height) continue;
         const SDL_Color fill =
             node.state == TechnologyTreeNodeState::disabled
                 ? SDL_Color{48, 46, 42, 245}
@@ -11923,7 +12000,7 @@ void render_technology_tree_overlay(SDL_Renderer* renderer) {
     if (!detail.empty()) {
         const SDL_FRect help{
             18.0F,
-            static_cast<float>(map_pixel_height + hud_height) - 48.0F,
+            static_cast<float>(view_pixel_height + hud_height) - 48.0F,
             860.0F, 34.0F,
         };
         render_beveled_panel(renderer, help, {35, 28, 20, 250});
@@ -11936,7 +12013,7 @@ void render_technology_tree_overlay(SDL_Renderer* renderer) {
     set_color(renderer, {135, 126, 102, 255});
     SDL_RenderDebugText(
         renderer, 900.0F,
-        static_cast<float>(map_pixel_height + hud_height) - 24.0F,
+        static_cast<float>(view_pixel_height + hud_height) - 24.0F,
         ui_debug_text("technology_tree.missing_evidence").c_str()
     );
 }
@@ -11949,8 +12026,8 @@ void render_diplomacy_panel(
     if (!active_diplomacy_panel_visible) return;
     const SDL_FRect shade{
         0.0F, 0.0F,
-        static_cast<float>(map_pixel_width),
-        static_cast<float>(map_pixel_height + hud_height),
+        static_cast<float>(view_pixel_width),
+        static_cast<float>(view_pixel_height + hud_height),
     };
     set_color(renderer, {8, 7, 5, 220});
     SDL_RenderFillRect(renderer, &shade);
@@ -12117,8 +12194,8 @@ void render(
     const SDL_Rect world_viewport{
         0,
         0,
-        map_pixel_width,
-        map_pixel_height,
+        view_pixel_width,
+        view_pixel_height,
     };
     SDL_SetRenderViewport(renderer, &world_viewport);
     SDL_SetRenderScale(renderer, camera.zoom, camera.zoom);
@@ -13070,6 +13147,7 @@ void render(
     render_options_overlay(renderer);
     render_statistics_overlay(renderer, simulation);
     render_save_browser_overlay(renderer);
+    report_map_dimensions(simulation);
     capture_requested_frame(renderer, simulation, movement_alpha);
     SDL_RenderPresent(renderer);
 }
@@ -13081,7 +13159,7 @@ TilePosition mouse_tile(
 ) {
     const float projected_x =
         (mouse_x / camera.zoom + camera.x -
-         static_cast<float>(map_origin_x)) / half_tile_width;
+         static_cast<float>(map_origin_x())) / half_tile_width;
     const float projected_y =
         (mouse_y / camera.zoom + camera.y -
          static_cast<float>(map_origin_y)) / half_tile_height;
@@ -13127,8 +13205,8 @@ bool minimap_tile_at(
 ) {
     constexpr float panel_width = 214.0F;
     constexpr float padding = 7.0F;
-    const int screen_width = map_pixel_width;
-    const int screen_height = map_pixel_height + hud_height;
+    const int screen_width = view_pixel_width;
+    const int screen_height = view_pixel_height + hud_height;
     const bool exact_1024_layout = screen_width >= 1024;
     const minimap::InclusiveRect exact_frame =
         minimap::frame_1024_rect(screen_width, screen_height);
@@ -13140,8 +13218,8 @@ bool minimap_tile_at(
               static_cast<float>(exact_frame.bottom - exact_frame.top + 1),
           }
         : SDL_FRect{
-              static_cast<float>(map_pixel_width) - panel_width - 5.0F,
-              static_cast<float>(map_pixel_height) + 4.0F,
+              static_cast<float>(view_pixel_width) - panel_width - 5.0F,
+              static_cast<float>(view_pixel_height) + 4.0F,
               panel_width,
               static_cast<float>(hud_height) - 8.0F,
           };
@@ -13358,8 +13436,8 @@ int SdlApp::run() {
     SDL_Renderer* renderer = nullptr;
     if (!SDL_CreateWindowAndRenderer(
             "AoE II HD Archaeology Reconstruction",
-            map_pixel_width,
-            map_pixel_height + hud_height,
+            view_pixel_width,
+            view_pixel_height + hud_height,
             SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY,
             &window,
             &renderer
@@ -13377,8 +13455,8 @@ int SdlApp::run() {
     }
     if (!SDL_SetRenderLogicalPresentation(
             renderer,
-            map_pixel_width,
-            map_pixel_height + hud_height,
+            view_pixel_width,
+            view_pixel_height + hud_height,
             SDL_LOGICAL_PRESENTATION_LETTERBOX
         )) {
         SDL_DestroyRenderer(renderer);
@@ -13988,6 +14066,13 @@ int SdlApp::run() {
     } else {
         active_settings = {};
     }
+    // Modern choice: no original equivalent. The fog display toggle already
+    // exists in the options panel; this exposes it to headless captures,
+    // which otherwise only ever see the explored disc around a start.
+    if (const char* requested = SDL_getenv("AOE_FOG");
+        requested != nullptr && requested[0] != '\0') {
+        active_settings.fog = requested[0] != '0';
+    }
     draft_settings = active_settings;
     if (audio) {
         audio->apply_mix(AudioMix::from_settings(active_settings));
@@ -14062,7 +14147,14 @@ int SdlApp::run() {
         return true;
     };
     CameraView camera;
-    center_camera_on(camera, {map_width / 2, map_height / 2});
+    // The projection and the camera clamp read their extent from this map,
+    // and the first camera placement happens before the first frame is
+    // rendered, so adopt it now rather than in render_world.
+    active_render_map = &simulation.map();
+    center_camera_on(
+        camera,
+        {active_map_tiles_x() / 2, active_map_tiles_y() / 2}
+    );
     const auto local_start = std::ranges::find_if(
         simulation.units(),
         [](const Unit& candidate) {
@@ -14072,9 +14164,26 @@ int SdlApp::run() {
     if (local_start != simulation.units().end()) {
         center_camera_on(camera, local_start->position);
     }
+    // Modern choice: no original equivalent. Headless captures need to aim
+    // at a named tile, because on a full-size map the start view covers a
+    // small fraction of the world.
+    if (const char* requested = SDL_getenv("AOE_CAMERA_TILE");
+        requested != nullptr && requested[0] != '\0') {
+        int tile_x{};
+        int tile_y{};
+        if (std::sscanf(requested, "%d,%d", &tile_x, &tile_y) == 2) {
+            const TilePosition tile{
+                std::clamp(tile_x, 0, simulation.map().width() - 1),
+                std::clamp(tile_y, 0, simulation.map().height() - 1),
+            };
+            center_camera_on(camera, tile);
+        } else {
+            SDL_Log("Ignoring malformed AOE_CAMERA_TILE: %s", requested);
+        }
+    }
     SDL_FPoint mouse_position{
-        static_cast<float>(map_pixel_width) * 0.5F,
-        static_cast<float>(map_pixel_height) * 0.5F,
+        static_cast<float>(view_pixel_width) * 0.5F,
+        static_cast<float>(view_pixel_height) * 0.5F,
     };
     std::optional<BuildingKind> pending_building;
     bool pending_attack_move = false;
@@ -14314,13 +14423,13 @@ int SdlApp::run() {
                 active_tree_dragging = false;
             } else if (
                 event.type == SDL_EVENT_MOUSE_MOTION &&
-                event.motion.y >= static_cast<float>(map_pixel_height)
+                event.motion.y >= static_cast<float>(view_pixel_height)
             ) {
                 active_command_hover = -1;
                 const float local_x = event.motion.x - 720.0F;
                 const float local_y =
                     event.motion.y -
-                    static_cast<float>(map_pixel_height) - 5.0F;
+                    static_cast<float>(view_pixel_height) - 5.0F;
                 if (local_x >= 0.0F && local_y >= 0.0F &&
                     local_x < 328.0F && local_y < 69.0F) {
                     const int column =
@@ -14672,9 +14781,9 @@ int SdlApp::run() {
                     event.button.x >= 490.0F &&
                     event.button.x <= 1056.0F &&
                     event.button.y >=
-                        static_cast<float>(map_pixel_height) - 220.0F &&
+                        static_cast<float>(view_pixel_height) - 220.0F &&
                     event.button.y <
-                        static_cast<float>(map_pixel_height)) {
+                        static_cast<float>(view_pixel_height)) {
                     center_camera_on(
                         camera,
                         multiplayer_presentation->signal_log.back().tile
@@ -15271,14 +15380,14 @@ int SdlApp::run() {
             } else if (event.type == SDL_EVENT_MOUSE_MOTION) {
                 mouse_position = {event.motion.x, event.motion.y};
                 if (pending_building &&
-                    event.motion.y < map_pixel_height) {
+                    event.motion.y < view_pixel_height) {
                     active_build_preview_tile = mouse_tile(
                         event.motion.x, event.motion.y, camera
                     );
                 }
                 formation_preview_center =
                     simulation.selected_units().size() > 1 &&
-                    event.motion.y < map_pixel_height
+                    event.motion.y < view_pixel_height
                     ? std::optional<TilePosition>{mouse_tile(
                           event.motion.x,
                           event.motion.y,
@@ -15590,7 +15699,7 @@ int SdlApp::run() {
                         simulation = new_game();
                         computer = ComputerPlayer(Player::red);
                         center_camera_on(
-                            camera, {map_width / 2, map_height / 2}
+                            camera, {active_map_tiles_x() / 2, active_map_tiles_y() / 2}
                         );
                         active_statistics_visible = false;
                         active_statistics_postgame = false;
@@ -15863,12 +15972,12 @@ int SdlApp::run() {
                             active_tree_pan_x = std::max(
                                 0.0F,
                                 focused.x * active_tree_zoom -
-                                    map_pixel_width * 0.5F
+                                    view_pixel_width * 0.5F
                             );
                             active_tree_pan_y = std::max(
                                 0.0F,
                                 focused.y * active_tree_zoom -
-                                    map_pixel_height * 0.5F
+                                    view_pixel_height * 0.5F
                             );
                         }
                     } else if (event.key.key == SDLK_A) {
@@ -18452,7 +18561,7 @@ int SdlApp::run() {
                         simulation = new_game();
                         center_camera_on(
                             camera,
-                            {map_width / 2, map_height / 2}
+                            {active_map_tiles_x() / 2, active_map_tiles_y() / 2}
                         );
                         computer = ComputerPlayer(Player::red);
                         replay = Replay{};
@@ -18502,7 +18611,7 @@ int SdlApp::run() {
                         simulation = new_game();
                         center_camera_on(
                             camera,
-                            {map_width / 2, map_height / 2}
+                            {active_map_tiles_x() / 2, active_map_tiles_y() / 2}
                         );
                         computer = ComputerPlayer(Player::red);
                         replay.reset_playback();
@@ -18527,7 +18636,7 @@ int SdlApp::run() {
                         simulation = new_game();
                         center_camera_on(
                             camera,
-                            {map_width / 2, map_height / 2}
+                            {active_map_tiles_x() / 2, active_map_tiles_y() / 2}
                         );
                         computer = ComputerPlayer(Player::red);
                         replay.reset_playback();
@@ -18557,7 +18666,7 @@ int SdlApp::run() {
         const bool* keys = SDL_GetKeyboardState(nullptr);
         const bool pointer_in_world =
             mouse_position.y >= 0.0F &&
-            mouse_position.y < static_cast<float>(map_pixel_height);
+            mouse_position.y < static_cast<float>(view_pixel_height);
         if (keys[SDL_SCANCODE_LEFT] ||
             (active_settings.edge_scroll &&
              pointer_in_world && mouse_position.x <= 5.0F)) {
@@ -18566,7 +18675,7 @@ int SdlApp::run() {
         if (keys[SDL_SCANCODE_RIGHT] ||
             (active_settings.edge_scroll && pointer_in_world &&
              mouse_position.x >=
-                 static_cast<float>(map_pixel_width) - 5.0F)) {
+                 static_cast<float>(view_pixel_width) - 5.0F)) {
             camera.x += camera_step;
         }
         if (keys[SDL_SCANCODE_UP] ||
@@ -18577,7 +18686,7 @@ int SdlApp::run() {
         if (keys[SDL_SCANCODE_DOWN] ||
             (active_settings.edge_scroll && pointer_in_world &&
              mouse_position.y >=
-                 static_cast<float>(map_pixel_height) - 5.0F)) {
+                 static_cast<float>(view_pixel_height) - 5.0F)) {
             camera.y += camera_step;
         }
         clamp_camera(camera);

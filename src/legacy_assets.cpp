@@ -130,6 +130,7 @@ void set_pixel(
 struct FrameInfo {
     std::uint32_t commands{};
     std::uint32_t outline{};
+    std::uint32_t properties{};
     int width{};
     int height{};
     int hotspot_x{};
@@ -146,6 +147,7 @@ FrameInfo frame_info(
     FrameInfo info{
         u32(slp, offset),
         u32(slp, offset + 4),
+        u32(slp, offset + 12),
         i32(slp, offset + 16),
         i32(slp, offset + 20),
         i32(slp, offset + 24),
@@ -536,6 +538,7 @@ RgbaFrame decode_slp_frame(
     const std::size_t count = slp_frame_count(slp);
     require(frame_index < count, "SLP frame index is invalid");
     const FrameInfo info = frame_info(slp, frame_index);
+    const bool direct_rgba = (info.properties & 0x0F) == 7;
     const auto player_color = [&](std::uint8_t source) {
         const auto resolved =
             resolve_player_color_palette_index(player, source);
@@ -595,13 +598,37 @@ RgbaFrame decode_slp_frame(
                 require(column < row_end, "SLP row draws too many pixels");
                 set_pixel(frame, row, column++, color);
             };
+            auto ordinary_color = [&]() {
+                if (!direct_rgba) {
+                    return palette_color(
+                        palette, byte_at(slp, position++)
+                    );
+                }
+                checked_range(
+                    position, 4, slp.size(),
+                    "SLP RGBA color is truncated"
+                );
+                const std::array<std::uint8_t, 4> color{
+                    byte_at(slp, position + 2),
+                    byte_at(slp, position + 1),
+                    byte_at(slp, position),
+                    byte_at(slp, position + 3),
+                };
+                position += 4;
+                return color;
+            };
             if (low == 0x0F) {
                 ended = true;
             } else if (crumb == 0) {
                 const std::size_t amount = command >> 2;
-                checked_range(position, amount, slp.size(), "SLP color list is truncated");
+                checked_range(
+                    position,
+                    amount * (direct_rgba ? 4U : 1U),
+                    slp.size(),
+                    "SLP color list is truncated"
+                );
                 for (std::size_t index = 0; index < amount; ++index) {
-                    draw(palette_color(palette, byte_at(slp, position++)));
+                    draw(ordinary_color());
                 }
             } else if (crumb == 1) {
                 const std::size_t amount = next_count(2);
@@ -613,9 +640,14 @@ RgbaFrame decode_slp_frame(
                     byte_at(slp, position++);
                 require(amount <= row_end - column, "SLP long command exceeds row");
                 if (low == 0x02) {
-                    checked_range(position, amount, slp.size(), "SLP long color list is truncated");
+                    checked_range(
+                        position,
+                        amount * (direct_rgba ? 4U : 1U),
+                        slp.size(),
+                        "SLP long color list is truncated"
+                    );
                     for (std::size_t index = 0; index < amount; ++index) {
-                        draw(palette_color(palette, byte_at(slp, position++)));
+                        draw(ordinary_color());
                     }
                 } else {
                     column += amount;
@@ -628,13 +660,17 @@ RgbaFrame decode_slp_frame(
                 }
             } else if (low == 0x07 || low == 0x0A) {
                 const std::size_t amount = next_count(4);
-                const std::size_t source = byte_at(slp, position++);
-                for (std::size_t index = 0; index < amount; ++index) {
-                    draw(
-                        low == 0x0A
-                        ? player_color(source)
-                        : palette_color(palette, source)
-                    );
+                if (low == 0x0A) {
+                    const auto color =
+                        player_color(byte_at(slp, position++));
+                    for (std::size_t index = 0; index < amount; ++index) {
+                        draw(color);
+                    }
+                } else {
+                    const auto color = ordinary_color();
+                    for (std::size_t index = 0; index < amount; ++index) {
+                        draw(color);
+                    }
                 }
             } else if (low == 0x0B) {
                 const std::size_t amount = next_count(4);
@@ -649,6 +685,28 @@ RgbaFrame decode_slp_frame(
                 } else if (high == 0x50 || high == 0x70) {
                     amount = byte_at(slp, position++);
                 } else if (high <= 0x30) {
+                    continue;
+                } else if (direct_rgba && high == 0x90) {
+                    const std::size_t amount =
+                        byte_at(slp, position++);
+                    checked_range(
+                        position, amount * 4, slp.size(),
+                        "SLP premultiplied-alpha colors are truncated"
+                    );
+                    for (std::size_t index = 0;
+                         index < amount;
+                         ++index) {
+                        const std::array<std::uint8_t, 4> color{
+                            byte_at(slp, position + 2),
+                            byte_at(slp, position + 1),
+                            byte_at(slp, position),
+                            static_cast<std::uint8_t>(
+                                255 - byte_at(slp, position + 3)
+                            ),
+                        };
+                        position += 4;
+                        draw(color);
+                    }
                     continue;
                 } else {
                     throw LegacyAssetError{

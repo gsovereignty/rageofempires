@@ -34,22 +34,83 @@ source:
 - frame 5 is centered in that span;
 - frame 7 anchors horizontally relative to a sibling view.
 
+`FUN_005f37c0` positions that sibling at
+`x=((screen_width-frame6.width-260)/2-frame7.width/2)+frame6.width`,
+`y=6`, width `frame7.width`, height 20. `FUN_005e7cb0` then uses
+`sibling.x-(frame7.width-sibling.width)/2`; with the recovered equal widths,
+the final frame-7 anchor equals the sibling x.
+
+Other compositor operands are literal translations:
+
+- `bottom = screen_height - frame1.height`;
+- bottom tiling begins at `frame1.width - frame2.width`, uses frame 3 when
+  `tile_index % 4 == 3`, and stops at
+  `frame2.width + screen_width - frame4.width`;
+- frame 4 x is `screen_width - frame4.width`;
+- frame 5 x is
+  `((frame4.x-frame1.width)/2-frame5.width/2)+frame1.width`;
+- frame 5 y is `bottom-frame5.height/2`.
+
 SLP 51141 has one frame. It cannot be `game_b%d.slp` consumed by this call
 chain. Prior promotion of SLP 51141 as HUD background is disproved.
 
+The recovered loose files are now present under `Data/Slp`. All 18 use eight
+property-7, direct-BGRA frames. The decoder preserves their BGRA colors,
+per-pixel alpha, premultiplied-alpha runs, outlines, hotspots, and transparent
+pixels. Runtime composition selects the file with the active view player's
+civilization value, exactly matching the byte passed to `game_b%d.slp` at
+`0x005f33f1..0x005f341b`:
+
+| Civilization byte | Civilization | File |
+|---:|---|---|
+| 1 | Britons | `game_b1.slp` |
+| 2 | Franks | `game_b2.slp` |
+| 3 | Teutons | `game_b3.slp` |
+| 4 | Goths | `game_b4.slp` |
+| 5 | Celts | `game_b5.slp` |
+| 6 | Vikings | `game_b6.slp` |
+| 7 | Byzantines | `game_b7.slp` |
+| 8 | Japanese | `game_b8.slp` |
+| 9 | Chinese | `game_b9.slp` |
+| 10 | Persians | `game_b10.slp` |
+| 11 | Saracens | `game_b11.slp` |
+| 12 | Turks | `game_b12.slp` |
+| 13 | Mongols | `game_b13.slp` |
+| 14 | Spanish | `game_b14.slp` |
+| 15 | Huns | `game_b15.slp` |
+| 16 | Koreans | `game_b16.slp` |
+| 17 | Aztecs | `game_b17.slp` |
+| 18 | Mayans | `game_b18.slp` |
+
+Frame metadata common to all files is:
+
+| Frame | Dimensions / hotspot | Use |
+|---:|---|---|
+| 0 | 32×32, (0,0) | repeated top tile |
+| 1 | 322–325×175, (0,0) | bottom-left cap |
+| 2 | 34×175, (0,0) | bottom repeating tile |
+| 3 | 34×175, (0,0) | every fourth bottom tile |
+| 4 | 384–391×175, hotspot x 0 to -7 | bottom-right cap |
+| 5 | 118–239×107–130, civ-specific negative hotspot | centered ornament |
+| 6 | 392×25, (-2,-1), or 396×28, (0,0) | origin overlay |
+| 7 | 165×21, (-2,-5), or 169×32, (0,0) | sibling-relative overlay |
+
+Focused installed-asset tests decode and validate every frame rather than
+assuming this summary.
+
 ## Reconstruction geometry
 
-Current renderer window is 1280×720:
+Current renderer uses the requested logical window dimensions. At 1280×1024:
 
-- world viewport: `(0, 0, 1280, 640)`;
-- HUD band: `(0, 640, 1280, 80)`;
-- legacy approximate SLP source: bottom 218 pixels of frame 0;
-- legacy approximate destination: full 1280×80 HUD band.
+- world viewport: `(0, 0, 1280, 849)`;
+- HUD band begins at y=849 because frame 1 is exactly 175 pixels high;
+- command slots use the recovered 5-column by 3-row geometry;
+- the minimap uses the recovered 326×164 bottom-right frame.
 
-Information panel `(5, 644, 708, 72)`, command panel
-`(718, 644, 337, 72)`, portrait `(12, 671, 40, 40)`, resource icon positions,
-four-column command buttons, minimap rectangle, clips, text baselines, and
-hover/disabled colors are reconstruction policy.
+The same `screen_height - 175` split is evaluated at 1024×768 and 640×480.
+Artwork is neither stretched nor cropped. At 640 pixels wide the original
+left and right cap widths exceed the span and therefore overlap; no executable
+evidence authorizes scaling or cropping them.
 
 ## Exact relative layout contract
 
@@ -70,31 +131,40 @@ not prove producers or semantic names for those fields:
 - centered top control is `(screen_width/2-155, 16, 310, 20)`;
 - five top-right controls use
   `(screen_width-260 + 50*index, 3, 50, 19)`.
+- eight bottom-right controls use:
+  `(w-308,h-154,35,35)`, `(w-309,h-49,35,35)`,
+  `(w-96,h-156,25,25)`, `(w-69,h-162,25,25)`,
+  `(w-60,h-137,25,25)`, `(w-61,h-59,25,25)`,
+  `(w-74,h-35,25,25)`, and `(w-102,h-39,25,25)`.
 
-These are `exact_relative`, not proof of an absolute world/HUD split,
-resolution class, or semantic panel role. Current 1280×720 split and role
-assignments remain `reconstruction_policy`.
+These are exact relative operands. The recovered frame-1 height now also
+proves the absolute bottom split. Semantic roles for several child pointers
+remain unproved.
 
-`FUN_005c5e40` also proves generic button chrome frame 36 normally, frame 37
-when pressed, and a pressed icon offset of 1,1. This does not prove that frames
-36/37 encode every command-slot state. Hover and disabled frames, command
-semantics, archive-backed placement, and page ordering remain unproved.
+Runtime frame inspection proves 50721 frames 36 and 37 contain action artwork,
+not reusable button chrome. Command slots therefore use procedural normal,
+pressed, selected, and disabled chrome around distinct archive action icons.
 
-## Missing absolute layout contract
+## Original button and icon assets
 
-Authoritative local evidence does not yet provide:
+The renderer uses `interfac.drs` command sheet 50721 (`btncmd`) for distinct
+action artwork and sheet 50730 (`ico_unit`) for proven unit icons. Procedural
+button chrome prevents any action frame from repeating behind every command.
+`btntech`, `ico_bld2`, `btngame`, `ico_game`, and
+`icomap_b/c/d` are not present in the recovered installation; `btngame2x.slp`
+is present but no recovered in-game command-grid callsite selects it.
 
-- original loose `game_b1.slp` through civilization-specific variants;
-- numeric frame dimensions needed to evaluate exact bottom-band height;
-- portrait, resource, information, minimap, and command-panel rectangles;
-- hover, disabled, command-semantic, icon-order, and hotkey button states;
-- transparency and final panel draw order.
+## Remaining evidence gaps
 
-Therefore no exact absolute numeric layout is enabled. Exact relative formulas
-may be used only with their observed stored operands. SLP 51141 must not be
-labeled or promoted as `game_b%d.slp`; its bottom crop is structurally
-contradicted by the eight-frame compositor. Missing loose background assets
-retain procedural panels.
+- the semantic identity of the sibling pointer anchoring frame 7;
+- portrait and information-child pointer identities;
+- hover and disabled chrome frames;
+- exact command semantics and page ordering for non-unit icons;
+- authorization to alter the unavoidable cap overlap below their combined
+  native width.
+
+Missing or undecodable loose HUD files select procedural rendering. A valid
+file is always composed natively and never stretched or cropped.
 
 ## Reproduction
 

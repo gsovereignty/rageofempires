@@ -119,7 +119,7 @@
     "background_composition": "pinned FUN_005e7cb0 composes game_b frames 0 through 7: frame 0 tiles across top, frame 6 overlays at origin, frames 2/3 alternate across bottom span, frames 1/4 cap its sides, frame 5 centers, and frame 7 anchors to a sibling view",
     "candidate_rejection": "SLP 51141 has one frame, while executable compositor requires game_b frames 0 through 7; it cannot be promoted as game_b",
     "relative_layout": "pinned FUN_005f37c0 proves field-relative vertical geometry, a 15-slot 5x3 command grid, and several screen-edge-relative rectangles; these formulas do not prove absolute split or semantic panel roles",
-    "button_chrome": "FUN_005c5e40 uses chrome frame 36 normally, frame 37 when pressed, and offsets pressed icon by 1,1"
+    "button_chrome": "runtime artwork inspection rejects action frames 36 and 37 as reusable button chrome"
   },
   "unproved": {
     "resolution_to_resource": "game_b selection is by civilization, not resolution; no authoritative mapping connects its loose files to SLP 51141",

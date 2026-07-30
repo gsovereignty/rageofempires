@@ -78,10 +78,8 @@ class UiIconCatalogTests(unittest.TestCase):
         self.assertEqual(
             dispatch["ordinary_unit"]["excluded_subtypes"], [2, 10]
         )
-        self.assertEqual(
-            (dispatch["pressed"]["normal_chrome_frame"],
-             dispatch["pressed"]["pressed_chrome_frame"]),
-            (36, 37),
+        self.assertTrue(
+            dispatch["pressed"]["action_frames_are_not_generic_chrome"]
         )
 
 

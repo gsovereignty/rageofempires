@@ -96,6 +96,28 @@ aoe::LegacyPalette test_palette() {
     return palette;
 }
 
+std::vector<std::byte> read_file(
+    const std::filesystem::path& path
+) {
+    std::ifstream input(path, std::ios::binary | std::ios::ate);
+    check(static_cast<bool>(input), "installed loose asset opens");
+    if (!input) return {};
+    const auto size = input.tellg();
+    check(size >= 0, "installed loose asset size is readable");
+    if (size < 0) return {};
+    std::vector<std::byte> bytes(static_cast<std::size_t>(size));
+    input.seekg(0);
+    input.read(
+        reinterpret_cast<char*>(bytes.data()),
+        static_cast<std::streamsize>(bytes.size())
+    );
+    check(
+        static_cast<bool>(input),
+        "installed loose asset bytes are readable"
+    );
+    return bytes;
+}
+
 std::filesystem::path write_drs(
     const std::vector<std::byte>& payload,
     std::string extension = "slp",
@@ -628,6 +650,133 @@ void test_installed_assets_if_requested() {
         }
     }
     check(decoded, "installed graphics archive decodes classic SLP frame");
+
+    const auto game_palette = aoe::LegacyPalette::from_jasc(
+        read_file(installation / "Data" / "pal_2.pal")
+    );
+    using Metadata = std::array<int, 4>;
+    constexpr std::array<Metadata, 18> frame1{{
+        {325,175,0,0},{325,175,0,0},{322,175,0,0},
+        {324,175,0,0},{325,175,0,0},{325,175,0,0},
+        {325,175,0,0},{325,175,0,0},{325,175,0,0},
+        {325,175,0,0},{325,175,0,0},{325,175,0,0},
+        {325,175,0,0},{325,175,0,0},{325,175,0,0},
+        {325,175,0,0},{325,175,0,0},{325,175,0,0},
+    }};
+    constexpr std::array<Metadata, 18> frame4{{
+        {391,175,0,0},{384,175,-7,0},{391,175,0,0},
+        {389,175,-2,0},{391,175,0,0},{386,175,-5,0},
+        {390,175,-1,0},{391,175,0,0},{391,175,0,0},
+        {391,175,0,0},{391,175,0,0},{391,175,0,0},
+        {391,175,0,0},{391,175,0,0},{391,175,0,0},
+        {391,175,0,0},{391,175,0,0},{391,175,0,0},
+    }};
+    constexpr std::array<Metadata, 18> frame5{{
+        {239,113,0,-17},{226,107,-5,-7},{181,130,-54,0},
+        {161,116,-56,-7},{239,117,0,-13},{239,130,0,0},
+        {217,126,-4,-2},{239,130,0,0},{239,130,0,0},
+        {239,130,0,0},{238,129,-1,-1},{238,129,-1,-1},
+        {133,128,-46,-2},{239,130,0,0},{153,121,-53,-3},
+        {120,120,-68,-9},{118,126,-53,-4},{239,130,0,0},
+    }};
+    constexpr std::array<Metadata, 18> frame6{{
+        {392,25,-2,-1},{392,25,-2,-1},{392,25,-2,-1},
+        {392,25,-2,-1},{392,25,-2,-1},{392,25,-2,-1},
+        {392,25,-2,-1},{396,28,0,0},{392,25,-2,-1},
+        {392,25,-2,-1},{392,25,-2,-1},{392,25,-2,-1},
+        {392,25,-2,-1},{396,28,0,0},{392,25,-2,-1},
+        {392,25,-2,-1},{392,25,-2,-1},{396,28,0,0},
+    }};
+    constexpr std::array<Metadata, 18> frame7{{
+        {165,21,-2,-5},{165,21,-2,-5},{165,21,-2,-5},
+        {165,21,-2,-5},{165,21,-2,-5},{165,21,-2,-5},
+        {165,21,-2,-5},{169,32,0,0},{165,21,-2,-5},
+        {165,21,-2,-5},{165,21,-2,-5},{165,21,-2,-5},
+        {165,21,-2,-5},{169,32,0,0},{165,21,-2,-5},
+        {165,21,-2,-5},{165,21,-2,-5},{169,32,0,0},
+    }};
+    const std::array expected_by_frame{
+        frame1, frame4, frame5, frame6, frame7
+    };
+    for (int civilization = 1; civilization <= 18; ++civilization) {
+        const auto bytes = read_file(
+            installation / "Data" / "Slp" /
+            ("game_b" + std::to_string(civilization) + ".slp")
+        );
+        check(
+            aoe::slp_frame_count(bytes) == 8,
+            "installed civilization HUD has exactly eight frames"
+        );
+        for (std::size_t frame_index = 0;
+             frame_index < 8;
+             ++frame_index) {
+            aoe::RgbaFrame frame;
+            try {
+                frame = aoe::decode_slp_frame(
+                    bytes, game_palette, frame_index
+                );
+            } catch (const aoe::LegacyAssetError& error) {
+                std::cerr
+                    << "FAIL: game_b" << civilization
+                    << ".slp frame " << frame_index
+                    << ": " << error.what() << '\n';
+                ++failures;
+                continue;
+            }
+            check(
+                frame.width > 0 && frame.height > 0 &&
+                    frame.rgba.size() ==
+                        static_cast<std::size_t>(
+                            frame.width * frame.height * 4
+                        ),
+                "installed civilization HUD frame decodes"
+            );
+            if (frame_index == 0) {
+                check(
+                    frame.width == 32 && frame.height == 32 &&
+                        frame.hotspot_x == 0 &&
+                        frame.hotspot_y == 0,
+                    "civilization HUD frame 0 metadata is exact"
+                );
+            } else if (frame_index == 1) {
+                const Metadata expected = frame1[
+                    static_cast<std::size_t>(civilization - 1)
+                ];
+                check(
+                    frame.width == expected[0] &&
+                        frame.height == expected[1] &&
+                        frame.hotspot_x == expected[2] &&
+                        frame.hotspot_y == expected[3],
+                    "civilization HUD frame 1 proves bottom split"
+                );
+            } else if (frame_index == 2 ||
+                       frame_index == 3) {
+                check(
+                    frame.width == 34 && frame.height == 175 &&
+                        frame.hotspot_x == 0 &&
+                        frame.hotspot_y == 0,
+                    "civilization HUD alternating tile metadata is exact"
+                );
+            } else {
+                const std::size_t metadata_index =
+                    frame_index == 1 ? 0 :
+                    frame_index == 4 ? 1 :
+                    frame_index == 5 ? 2 :
+                    frame_index == 6 ? 3 : 4;
+                const Metadata expected =
+                    expected_by_frame[metadata_index][
+                        static_cast<std::size_t>(civilization - 1)
+                    ];
+                check(
+                    frame.width == expected[0] &&
+                        frame.height == expected[1] &&
+                        frame.hotspot_x == expected[2] &&
+                        frame.hotspot_y == expected[3],
+                    "civilization HUD variable frame metadata is exact"
+                );
+            }
+        }
+    }
     if (sounds.archive_count() != 0) {
         check(
             sounds.contains(5366) && sounds.contains(5423),

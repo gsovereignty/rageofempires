@@ -52,15 +52,9 @@ void reconstruction_training_units_use_exact_dat_frames() {
     }
 }
 
-void pressed_state_changes_chrome_not_icon() {
-    assert(aoe::ui_icons::normal_chrome_frame == 36);
-    assert(aoe::ui_icons::pressed_chrome_frame == 37);
-}
-
 }  // namespace
 
 int main() {
     executable_sheet_dispatch_is_bounded();
     reconstruction_training_units_use_exact_dat_frames();
-    pressed_state_changes_chrome_not_icon();
 }

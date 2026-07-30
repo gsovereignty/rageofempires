@@ -83,12 +83,7 @@
     },
     "pressed": {
       "icon_frame_transform": "identity",
-      "normal_chrome_frame": 36,
-      "pressed_chrome_frame": 37,
-      "pressed_icon_offset": [
-        1,
-        1
-      ],
+      "action_frames_are_not_generic_chrome": true,
       "evidence": "FUN_005c5e40"
     },
     "disabled": {

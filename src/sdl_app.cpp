@@ -32,6 +32,7 @@
 #include "aoe/computer_player.hpp"
 #include "aoe/game_command.hpp"
 #include "aoe/game_rules.hpp"
+#include "aoe/hud_layout_contract.hpp"
 #include "aoe/legacy_assets.hpp"
 #include "aoe/legacy_dat.hpp"
 #include "aoe/localization.hpp"
@@ -66,10 +67,11 @@ constexpr int half_tile_height = tile_height / 2;
 // World viewport size in pixels. This is the drawing surface, not the map:
 // it used to be spelled (24 + 16) * half_tile, which silently tied the
 // window and the camera clamp to a 24x16 map.
-constexpr int view_pixel_width = 40 * half_tile_width;
-constexpr int view_pixel_height = 40 * half_tile_height;
+constexpr int hud_height = 175;
+int view_pixel_width = 40 * half_tile_width;
+int logical_screen_height = 720;
+int view_pixel_height = logical_screen_height - hud_height;
 constexpr int map_origin_y = 16;
-constexpr int hud_height = 80;
 constexpr int elevation_pixel_step = half_tile_height;
 constexpr float default_camera_zoom = 1.25F;
 constexpr float minimum_camera_zoom = 1.0F;
@@ -359,6 +361,23 @@ struct LegacySprite {
     }
 };
 
+struct LegacyHudBackground {
+    std::array<LegacySprite, hud_layout::game_background_frame_count> frames;
+
+    void destroy() {
+        for (LegacySprite& frame : frames) frame.destroy();
+    }
+
+    [[nodiscard]] bool complete() const {
+        return std::ranges::all_of(
+            frames,
+            [](const LegacySprite& frame) {
+                return frame.texture != nullptr;
+            }
+        );
+    }
+};
+
 struct LegacyStaticShadow {
     LegacySprite sprite;
     int offset_x{};
@@ -550,7 +569,9 @@ struct LegacySprites {
     PlayerLegacySprites carried_relic_standing;
     PlayerLegacySprites carried_relic_moving;
     LegacySprite hud_background;
+    std::array<LegacyHudBackground, 19> civilization_hud_backgrounds;
     LegacySprite hud_actions;
+    std::map<std::int32_t, LegacySprite> action_command_icons;
     std::map<std::int32_t, LegacySprite> unit_command_icons;
     std::array<LegacySprite, 4> resource_icons;
     LegacySprite portrait_frame;
@@ -689,7 +710,15 @@ struct LegacySprites {
         carried_relic_standing.destroy();
         carried_relic_moving.destroy();
         hud_background.destroy();
+        for (LegacyHudBackground& background :
+             civilization_hud_backgrounds) {
+            background.destroy();
+        }
         hud_actions.destroy();
+        for (auto& [frame, icon] : action_command_icons) {
+            static_cast<void>(frame);
+            icon.destroy();
+        }
         for (auto& [frame, icon] : unit_command_icons) {
             static_cast<void>(frame);
             icon.destroy();
@@ -2436,6 +2465,82 @@ LegacySprite create_legacy_sprite(
     };
 }
 
+std::vector<std::byte> read_binary_file(
+    const std::filesystem::path& path
+) {
+    std::ifstream input(path, std::ios::binary | std::ios::ate);
+    if (!input) {
+        throw LegacyAssetError{"cannot open loose SLP"};
+    }
+    const std::streamsize size = input.tellg();
+    if (size < 0) {
+        throw LegacyAssetError{"cannot determine loose SLP size"};
+    }
+    std::vector<std::byte> bytes(static_cast<std::size_t>(size));
+    input.seekg(0);
+    if (size != 0 &&
+        !input.read(
+            reinterpret_cast<char*>(bytes.data()),
+            size
+        )) {
+        throw LegacyAssetError{"cannot read loose SLP"};
+    }
+    return bytes;
+}
+
+LegacyHudBackground create_hud_background(
+    SDL_Renderer* renderer,
+    const std::filesystem::path& path,
+    const LegacyPalette& palette
+) {
+    const std::vector<std::byte> bytes = read_binary_file(path);
+    if (slp_frame_count(bytes) <
+        hud_layout::game_background_frame_count) {
+        throw LegacyAssetError{
+            "loose game background has fewer than eight frames"
+        };
+    }
+    LegacyHudBackground background;
+    try {
+        for (std::size_t index = 0;
+             index < background.frames.size();
+             ++index) {
+            RgbaFrame frame = decode_slp_frame(
+                bytes, palette, index, 1
+            );
+            SDL_Surface* surface = SDL_CreateSurfaceFrom(
+                frame.width,
+                frame.height,
+                SDL_PIXELFORMAT_RGBA32,
+                frame.rgba.data(),
+                frame.width * 4
+            );
+            if (surface == nullptr) {
+                throw LegacyAssetError{SDL_GetError()};
+            }
+            SDL_Texture* texture =
+                SDL_CreateTextureFromSurface(renderer, surface);
+            SDL_DestroySurface(surface);
+            if (texture == nullptr) {
+                throw LegacyAssetError{SDL_GetError()};
+            }
+            SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST);
+            SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+            background.frames[index] = {
+                texture,
+                frame.width,
+                frame.height,
+                frame.hotspot_x,
+                frame.hotspot_y,
+            };
+        }
+    } catch (...) {
+        background.destroy();
+        throw;
+    }
+    return background;
+}
+
 SDL_Cursor* load_archive_cursor(aoe::cursor::State state) {
     const auto requested_root = configured_asset_root();
     if (!requested_root) {
@@ -2816,6 +2921,41 @@ LegacySprites load_local_legacy_sprites(
         const LegacyPalette palette = LegacyPalette::from_jasc(
             interface.read("bina", 50500)
         );
+        try {
+            const LegacyPalette game_palette =
+                LegacyPalette::from_jasc(
+                    read_binary_file(data_root / "pal_2.pal")
+                );
+            for (int civilization = 1;
+                 civilization <= 18;
+                 ++civilization) {
+                const Civilization value =
+                    static_cast<Civilization>(civilization);
+                const std::filesystem::path path =
+                    data_root / "Slp" /
+                    hud_layout::civilization_file_name(value);
+                try {
+                    sprites.civilization_hud_backgrounds[
+                        static_cast<std::size_t>(civilization)
+                    ] = create_hud_background(
+                        renderer, path, game_palette
+                    );
+                } catch (const std::exception& error) {
+                    SDL_LogWarn(
+                        SDL_LOG_CATEGORY_APPLICATION,
+                        "cannot load original HUD %s: %s",
+                        path.string().c_str(),
+                        error.what()
+                    );
+                }
+            }
+        } catch (const std::exception& error) {
+            SDL_LogWarn(
+                SDL_LOG_CATEGORY_APPLICATION,
+                "cannot load original civilization HUD files: %s",
+                error.what()
+            );
+        }
         const LegacyDatFile dat =
             LegacyDatFile::load(data_root / "empires2_x1_p1.dat");
         std::array<bool, 4> required_architecture_families{};
@@ -3472,6 +3612,16 @@ LegacySprites load_local_legacy_sprites(
             sprites.hud_actions,
             ui_asset_mapping(UiAssetRole::action_sheet).resource_id
         );
+        constexpr std::array<std::int32_t, 17> action_command_frames{
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
+        };
+        for (const std::int32_t frame : action_command_frames) {
+            attempt_interface(
+                sprites.action_command_icons[frame],
+                ui_icons::command_sheet,
+                static_cast<std::size_t>(frame)
+            );
+        }
         constexpr std::array<std::int32_t, 15> command_unit_frames{
             1, 8, 15, 17, 20, 24, 27, 31, 33, 64, 74, 78, 80, 87, 95
         };
@@ -9232,26 +9382,18 @@ void render_minimap(
     float hud_top,
     const CameraView& camera
 ) {
-    constexpr float panel_width = 214.0F;
+    static_cast<void>(hud_top);
     constexpr float padding = 7.0F;
     const int screen_width = view_pixel_width;
     const int screen_height = view_pixel_height + hud_height;
-    const bool exact_1024_layout = screen_width >= 1024;
-    const minimap::InclusiveRect exact_frame =
-        minimap::frame_1024_rect(screen_width, screen_height);
-    const SDL_FRect panel = exact_1024_layout
-        ? SDL_FRect{
-              static_cast<float>(exact_frame.left),
-              static_cast<float>(exact_frame.top),
-              static_cast<float>(exact_frame.right - exact_frame.left + 1),
-              static_cast<float>(exact_frame.bottom - exact_frame.top + 1),
-          }
-        : SDL_FRect{
-              static_cast<float>(view_pixel_width) - panel_width - 5.0F,
-              hud_top + 4.0F,
-              panel_width,
-              static_cast<float>(hud_height) - 8.0F,
-          };
+    const hud_layout::Rect exact_frame =
+        hud_layout::anchored_large_panel(screen_width, screen_height);
+    const SDL_FRect panel{
+        static_cast<float>(exact_frame.x),
+        static_cast<float>(exact_frame.y),
+        static_cast<float>(exact_frame.width),
+        static_cast<float>(exact_frame.height),
+    };
     render_beveled_panel(renderer, panel, {42, 35, 27, 255});
 
     const float available_width = panel.w - padding * 2.0F;
@@ -9612,6 +9754,61 @@ void render_computer_status(
     SDL_RenderDebugText(renderer, 22.0F, 62.0F, third.str().c_str());
 }
 
+bool render_original_hud_background(
+    SDL_Renderer* renderer,
+    Civilization civilization
+) {
+    const int file_index =
+        hud_layout::civilization_file_index(civilization);
+    const LegacyHudBackground& background =
+        active_legacy_sprites.civilization_hud_backgrounds[
+            static_cast<std::size_t>(file_index)
+        ];
+    if (!background.complete()) return false;
+
+    std::array<
+        hud_layout::FrameMetrics,
+        hud_layout::game_background_frame_count
+    > metrics{};
+    for (std::size_t index = 0; index < metrics.size(); ++index) {
+        const LegacySprite& frame = background.frames[index];
+        metrics[index] = {
+            frame.width,
+            frame.height,
+            frame.hotspot_x,
+            frame.hotspot_y,
+        };
+    }
+    const hud_layout::Rect sibling =
+        hud_layout::frame7_sibling_view(
+            view_pixel_width, metrics[6], metrics[7]
+        );
+    const auto draws = hud_layout::background_composition(
+        view_pixel_width,
+        logical_screen_height,
+        sibling.x,
+        sibling.width,
+        metrics
+    );
+    for (const hud_layout::BackgroundDraw& draw : draws) {
+        // Frame 5 is a large legacy center ornament. Without the original
+        // widgets layered over it, it obscures both the world and info panel.
+        if (draw.frame == 5) continue;
+        const LegacySprite& frame =
+            background.frames[static_cast<std::size_t>(draw.frame)];
+        const SDL_FRect destination{
+            static_cast<float>(draw.anchor_x - frame.hotspot_x),
+            static_cast<float>(draw.anchor_y - frame.hotspot_y),
+            static_cast<float>(frame.width),
+            static_cast<float>(frame.height),
+        };
+        SDL_RenderTexture(
+            renderer, frame.texture, nullptr, &destination
+        );
+    }
+    return true;
+}
+
 void render_hud(
     SDL_Renderer* renderer,
     const Simulation& simulation,
@@ -9633,33 +9830,41 @@ void render_hud(
         static_cast<float>(view_pixel_width),
         static_cast<float>(hud_height),
     };
-    // One-frame SLP 51141 is structurally incompatible with original
-    // eight-frame loose game_b%d.slp compositor. Keep procedural fill.
-    set_color(renderer, {33, 25, 18, 255});
-    SDL_RenderFillRect(renderer, &background);
-    set_color(renderer, {196, 164, 98, 255});
-    SDL_RenderLine(
+    const bool original_background = render_original_hud_background(
         renderer,
-        0.0F,
-        top,
-        static_cast<float>(view_pixel_width),
-        top
+        simulation.civilization(active_view_player)
     );
+    if (!original_background) {
+        set_color(renderer, {33, 25, 18, 255});
+        SDL_RenderFillRect(renderer, &background);
+        set_color(renderer, {196, 164, 98, 255});
+        SDL_RenderLine(
+            renderer,
+            0.0F,
+            top,
+            static_cast<float>(view_pixel_width),
+            top
+        );
+    }
 
-    const SDL_FRect information_panel{
+    const SDL_FRect command_panel{
         5.0F,
         top + 4.0F,
-        708.0F,
+        245.0F,
         static_cast<float>(hud_height) - 8.0F,
     };
-    const SDL_FRect command_panel{
-        718.0F,
+    const SDL_FRect information_panel{
+        255.0F,
         top + 4.0F,
-        337.0F,
+        static_cast<float>(view_pixel_width) - 601.0F,
         static_cast<float>(hud_height) - 8.0F,
     };
-    render_beveled_panel(renderer, information_panel, {48, 42, 34, 255});
-    render_beveled_panel(renderer, command_panel, {55, 45, 32, 255});
+    if (!original_background) {
+        render_beveled_panel(renderer, command_panel, {55, 45, 32, 255});
+        render_beveled_panel(
+            renderer, information_panel, {48, 42, 34, 255}
+        );
+    }
     set_color(renderer, {239, 226, 185, 255});
     const SDL_Rect information_clip{
         static_cast<int>(information_panel.x + 3.0F),
@@ -9695,9 +9900,10 @@ void render_hud(
             return icon.texture != nullptr;
         }
     );
+    SDL_SetRenderClipRect(renderer, nullptr);
     if (complete_resource_icons) {
         constexpr std::array<float, 4> icon_x{
-            8.0F, 118.0F, 228.0F, 338.0F
+            4.0F, 88.0F, 172.0F, 256.0F
         };
         const Economy& blue = simulation.economy(active_view_player);
         const std::array<int, 4> amounts{
@@ -9709,9 +9915,9 @@ void render_hud(
         for (std::size_t index = 0; index < icon_x.size(); ++index) {
             const SDL_FRect icon{
                 icon_x[index],
-                top + 6.0F,
-                24.0F,
-                24.0F,
+                2.0F,
+                16.0F,
+                16.0F,
             };
             SDL_RenderTexture(
                 renderer,
@@ -9723,8 +9929,8 @@ void render_hud(
             amount << labels[index] << ' ' << amounts[index];
             SDL_RenderDebugText(
                 renderer,
-                icon_x[index] + 27.0F,
-                top + 10.0F,
+                icon_x[index] + 19.0F,
+                6.0F,
                 amount.str().c_str()
             );
         }
@@ -9738,13 +9944,20 @@ void render_hud(
             population << " PAUSED";
         }
         SDL_RenderDebugText(
-            renderer, 455.0F, top + 10.0F, population.str().c_str()
+            renderer, 344.0F, 6.0F, population.str().c_str()
         );
     } else {
         SDL_RenderDebugText(
-            renderer, 12.0F, top + 10.0F, economy.str().c_str()
+            renderer, 4.0F, 6.0F, economy.str().c_str()
         );
     }
+    SDL_SetRenderClipRect(renderer, &information_clip);
+    set_color(
+        renderer,
+        original_background
+            ? SDL_Color{54, 38, 23, 255}
+            : SDL_Color{239, 226, 185, 255}
+    );
     const SelectionPanelModel selection_panel =
         build_selection_panel(simulation, active_view_player);
     const bool observer_mode =
@@ -9753,7 +9966,7 @@ void render_hud(
         simulation.selected_unit() || simulation.selected_building();
     if (observer_mode) {
         SDL_SetRenderClipRect(renderer, nullptr);
-        const SDL_FRect badge{728.0F, top + 10.0F, 142.0F, 30.0F};
+        const SDL_FRect badge{270.0F, top + 16.0F, 142.0F, 30.0F};
         render_beveled_panel(renderer, badge, {75, 61, 40, 255});
         set_color(renderer, {245, 215, 122, 255});
         SDL_RenderDebugText(
@@ -9762,7 +9975,7 @@ void render_hud(
         SDL_SetRenderClipRect(renderer, &information_clip);
     }
     if (has_selection) {
-        const SDL_FRect portrait{12.0F, top + 31.0F, 40.0F, 40.0F};
+        const SDL_FRect portrait{270.0F, top + 30.0F, 72.0F, 72.0F};
         set_color(renderer, {26, 20, 14, 255});
         SDL_RenderFillRect(renderer, &portrait);
         set_color(renderer, {196, 164, 98, 255});
@@ -9775,9 +9988,14 @@ void render_hud(
                 &portrait
             );
         }
-        set_color(renderer, {239, 226, 185, 255});
+        set_color(
+            renderer,
+            original_background
+                ? SDL_Color{54, 38, 23, 255}
+                : SDL_Color{239, 226, 185, 255}
+        );
         SDL_RenderDebugText(
-            renderer, 60.0F, top + 31.0F,
+            renderer, 354.0F, top + 31.0F,
             selection_panel.title.c_str()
         );
         std::ostringstream detail;
@@ -9792,10 +10010,10 @@ void render_hud(
                    << name(selection_panel.carried_resource);
         }
         SDL_RenderDebugText(
-            renderer, 60.0F, top + 47.0F, detail.str().c_str()
+            renderer, 354.0F, top + 51.0F, detail.str().c_str()
         );
         if (selection_panel.progress_percent >= 0) {
-            const SDL_FRect track{60.0F, top + 63.0F, 260.0F, 6.0F};
+            const SDL_FRect track{354.0F, top + 75.0F, 260.0F, 8.0F};
             set_color(renderer, {8, 10, 12, 255});
             SDL_RenderFillRect(renderer, &track);
             const SDL_FRect fill{
@@ -9808,22 +10026,28 @@ void render_hud(
         }
         SDL_SetRenderClipRect(renderer, nullptr);
         for (std::size_t index = 0;
-             index < selection_panel.commands.size() && index < 12;
+             index < selection_panel.commands.size() && index < 15;
              ++index) {
-            const int column = static_cast<int>(index % 4);
-            const int row = static_cast<int>(index / 4);
+            const int column = static_cast<int>(index % 5);
+            const int row = static_cast<int>(index / 5);
             const SDL_FRect button{
-                720.0F + column * 82.0F,
-                top + 5.0F + row * 23.0F,
-                78.0F, 20.0F,
+                37.0F + column * 41.0F,
+                top + 31.0F + row * 41.0F,
+                40.0F, 40.0F,
             };
             const CommandButtonModel& command =
                 selection_panel.commands[index];
             const bool command_enabled =
                 command.enabled && !observer_mode;
+            const bool pressed =
+                command_enabled &&
+                active_command_hover == static_cast<int>(index) &&
+                (SDL_GetMouseState(nullptr, nullptr) &
+                 SDL_BUTTON_MASK(SDL_BUTTON_LEFT)) != 0;
             render_beveled_panel(
                 renderer, button,
                 !command_enabled ? SDL_Color{45, 43, 39, 255} :
+                command.selected ? SDL_Color{128, 91, 31, 255} :
                 active_command_hover == static_cast<int>(index)
                     ? SDL_Color{104, 78, 38, 255}
                     : SDL_Color{64, 51, 34, 255}
@@ -9833,34 +10057,72 @@ void render_hud(
                 command_enabled ? SDL_Color{236, 220, 178, 255}
                                 : SDL_Color{117, 112, 102, 255}
             );
-            const std::string label =
-                command.hotkey + " " + command.label;
-            float label_x = button.x + 4.0F;
-            if (command.proven_archive_icon_id) {
-                const auto icon = active_legacy_sprites.unit_command_icons.find(
-                    *command.proven_archive_icon_id
-                );
+            float label_x = button.x + 3.0F;
+            const LegacySprite* icon_sprite = nullptr;
+            if (command.action_archive_icon_id) {
+                const auto icon =
+                    active_legacy_sprites.action_command_icons.find(
+                        *command.action_archive_icon_id);
                 if (icon !=
-                        active_legacy_sprites.unit_command_icons.end() &&
-                    icon->second.texture != nullptr) {
-                    const SDL_FRect icon_box{
-                        button.x + 2.0F, button.y + 1.0F, 18.0F, 18.0F,
-                    };
-                    SDL_RenderTexture(
-                        renderer, icon->second.texture, nullptr, &icon_box
-                    );
-                    label_x = button.x + 22.0F;
+                    active_legacy_sprites.action_command_icons.end()) {
+                    icon_sprite = &icon->second;
+                }
+            } else if (command.proven_archive_icon_id) {
+                const auto icon =
+                    active_legacy_sprites.unit_command_icons.find(
+                        *command.proven_archive_icon_id);
+                if (icon !=
+                    active_legacy_sprites.unit_command_icons.end()) {
+                    icon_sprite = &icon->second;
                 }
             }
+            if (icon_sprite != nullptr && icon_sprite->texture != nullptr) {
+                SDL_SetTextureColorMod(
+                    icon_sprite->texture,
+                    command_enabled ? 255 : 112,
+                    command_enabled ? 255 : 112,
+                    command_enabled ? 255 : 112
+                );
+                const SDL_FRect icon_box{
+                    button.x + 2.0F + (pressed ? 1.0F : 0.0F),
+                    button.y + 2.0F + (pressed ? 1.0F : 0.0F),
+                    36.0F,
+                    36.0F,
+                };
+                SDL_RenderTexture(
+                    renderer, icon_sprite->texture, nullptr, &icon_box
+                );
+                SDL_SetTextureColorMod(icon_sprite->texture, 255, 255, 255);
+            }
             SDL_RenderDebugText(
-                renderer, label_x, button.y + 6.0F,
-                label.substr(0, label_x > button.x + 4.0F ? 7 : 11).c_str()
+                renderer, label_x, button.y + 27.0F,
+                command.hotkey.substr(0, 4).c_str()
+            );
+        }
+        if (active_command_hover >= 0 &&
+            static_cast<std::size_t>(active_command_hover) <
+                selection_panel.commands.size()) {
+            const CommandButtonModel& hovered =
+                selection_panel.commands[
+                    static_cast<std::size_t>(active_command_hover)];
+            const SDL_FRect tooltip{5.0F, top + 2.0F, 240.0F, 38.0F};
+            render_beveled_panel(renderer, tooltip, {31, 25, 18, 245});
+            const std::string heading =
+                hovered.label + " [" + hovered.hotkey + "]";
+            set_color(renderer, {239, 226, 185, 255});
+            SDL_RenderDebugText(
+                renderer, tooltip.x + 4.0F, tooltip.y + 5.0F,
+                heading.c_str()
+            );
+            SDL_RenderDebugText(
+                renderer, tooltip.x + 4.0F, tooltip.y + 19.0F,
+                hovered.tooltip.substr(0, 38).c_str()
             );
         }
         SDL_SetRenderClipRect(renderer, &information_clip);
     } else {
         SDL_RenderDebugText(
-            renderer, 12.0F, top + 28.0F,
+            renderer, 270.0F, top + 30.0F,
             selection_text(simulation).c_str()
         );
     }
@@ -10515,7 +10777,7 @@ void render_hud(
         ? building_controls.c_str()
         : "Villager 3 Outpost F12 Wonder  Market Alt+T cart  Cart Alt+T route  Ctrl+Alt+A/N/E diplomacy  S stop";
     if (!has_selection && !observer_mode) {
-        SDL_RenderDebugText(renderer, 12.0F, top + 47.0F, controls);
+        SDL_RenderDebugText(renderer, 270.0F, top + 108.0F, controls);
     }
     SDL_SetRenderClipRect(renderer, nullptr);
     std::ostringstream status;
@@ -10538,7 +10800,7 @@ void render_hud(
                        : "ENEMY");
     if (!has_selection && !observer_mode) {
         SDL_RenderDebugText(
-            renderer, 728.0F, top + 11.0F, status.str().c_str()
+            renderer, 270.0F, top + 52.0F, status.str().c_str()
         );
     }
     const auto countdown_name = [](VictoryCountdownKind kind) {
@@ -10577,7 +10839,7 @@ void render_hud(
     }
     if (!has_selection && !observer_mode) {
         SDL_RenderDebugText(
-            renderer, 728.0F, top + 29.0F,
+            renderer, 270.0F, top + 72.0F,
             countdown_status.str().c_str()
         );
     }
@@ -10622,8 +10884,8 @@ void render_hud(
     if (!control_group_status.empty()) {
         SDL_RenderDebugText(
             renderer,
-            has_selection ? 350.0F : 728.0F,
-            has_selection ? top + 48.0F : top + 29.0F,
+            270.0F,
+            top + 92.0F,
             control_group_status.c_str()
         );
     }
@@ -13415,26 +13677,17 @@ bool minimap_tile_at(
     const Simulation& simulation,
     TilePosition& tile
 ) {
-    constexpr float panel_width = 214.0F;
     constexpr float padding = 7.0F;
     const int screen_width = view_pixel_width;
     const int screen_height = view_pixel_height + hud_height;
-    const bool exact_1024_layout = screen_width >= 1024;
-    const minimap::InclusiveRect exact_frame =
-        minimap::frame_1024_rect(screen_width, screen_height);
-    const SDL_FRect panel = exact_1024_layout
-        ? SDL_FRect{
-              static_cast<float>(exact_frame.left),
-              static_cast<float>(exact_frame.top),
-              static_cast<float>(exact_frame.right - exact_frame.left + 1),
-              static_cast<float>(exact_frame.bottom - exact_frame.top + 1),
-          }
-        : SDL_FRect{
-              static_cast<float>(view_pixel_width) - panel_width - 5.0F,
-              static_cast<float>(view_pixel_height) + 4.0F,
-              panel_width,
-              static_cast<float>(hud_height) - 8.0F,
-          };
+    const hud_layout::Rect exact_frame =
+        hud_layout::anchored_large_panel(screen_width, screen_height);
+    const SDL_FRect panel{
+        static_cast<float>(exact_frame.x),
+        static_cast<float>(exact_frame.y),
+        static_cast<float>(exact_frame.width),
+        static_cast<float>(exact_frame.height),
+    };
     if (mouse_x < panel.x || mouse_x > panel.x + panel.w ||
         mouse_y < panel.y || mouse_y > panel.y + panel.h) {
         return false;
@@ -13687,6 +13940,16 @@ int SdlApp::run() {
     }
     auto audio = AudioSystem::start_from_environment();
 
+    if (const char* requested_size = SDL_getenv("AOE_WINDOW_SIZE")) {
+        int width{};
+        int height{};
+        if (SDL_sscanf(requested_size, "%dx%d", &width, &height) == 2 &&
+            width >= 640 && height >= 360) {
+            view_pixel_width = width;
+            logical_screen_height = height;
+            view_pixel_height = height - hud_height;
+        }
+    }
     SDL_Window* window = nullptr;
     SDL_Renderer* renderer = nullptr;
     if (!SDL_CreateWindowAndRenderer(
@@ -13699,14 +13962,6 @@ int SdlApp::run() {
         )) {
         SDL_Quit();
         throw std::runtime_error(SDL_GetError());
-    }
-    if (const char* requested_size = SDL_getenv("AOE_WINDOW_SIZE")) {
-        int width{};
-        int height{};
-        if (SDL_sscanf(requested_size, "%dx%d", &width, &height) == 2 &&
-            width >= 640 && height >= 360) {
-            SDL_SetWindowSize(window, width, height);
-        }
     }
     if (!SDL_SetRenderLogicalPresentation(
             renderer,
@@ -14558,8 +14813,29 @@ int SdlApp::run() {
     bool pending_attack_ground = false;
     bool pending_patrol = false;
     bool pending_guard = false;
+    bool pending_garrison = false;
+    std::optional<EntityId> pending_rally_building;
     bool pending_conversion = false;
     bool pending_trade_route = false;
+    const auto clear_command_target_modes = [
+        &pending_attack_move,
+        &pending_attack_ground,
+        &pending_patrol,
+        &pending_guard,
+        &pending_garrison,
+        &pending_rally_building,
+        &pending_conversion,
+        &pending_trade_route
+    ] {
+        pending_attack_move = false;
+        pending_attack_ground = false;
+        pending_patrol = false;
+        pending_guard = false;
+        pending_garrison = false;
+        pending_rally_building.reset();
+        pending_conversion = false;
+        pending_trade_route = false;
+    };
     if (const char* preview = SDL_getenv("AOE_BUILD_PREVIEW")) {
         const auto builder = std::ranges::find_if(
             simulation.units(),
@@ -14635,6 +14911,8 @@ int SdlApp::run() {
         &pending_attack_ground,
         &pending_patrol,
         &pending_guard,
+        &pending_garrison,
+        &pending_rally_building,
         &pending_conversion,
         &pending_trade_route,
         &simulation
@@ -14649,6 +14927,8 @@ int SdlApp::run() {
         pending_attack_ground = false;
         pending_patrol = false;
         pending_guard = false;
+        pending_garrison = false;
+        pending_rally_building.reset();
         pending_conversion = false;
         pending_trade_route = false;
     };
@@ -14794,18 +15074,11 @@ int SdlApp::run() {
                 event.type == SDL_EVENT_MOUSE_MOTION &&
                 event.motion.y >= static_cast<float>(view_pixel_height)
             ) {
-                active_command_hover = -1;
-                const float local_x = event.motion.x - 720.0F;
-                const float local_y =
-                    event.motion.y -
-                    static_cast<float>(view_pixel_height) - 5.0F;
-                if (local_x >= 0.0F && local_y >= 0.0F &&
-                    local_x < 328.0F && local_y < 69.0F) {
-                    const int column =
-                        static_cast<int>(local_x / 82.0F);
-                    const int row = static_cast<int>(local_y / 23.0F);
-                    active_command_hover = row * 4 + column;
-                }
+                active_command_hover = hud_layout::command_button_at(
+                    view_pixel_height,
+                    static_cast<int>(event.motion.x),
+                    static_cast<int>(event.motion.y)
+                );
             } else if (
                 event.type == SDL_EVENT_TEXT_INPUT &&
                 active_save_browser_visible &&
@@ -14858,6 +15131,7 @@ int SdlApp::run() {
                                 button.label + " UNAVAILABLE";
                             continue;
                         }
+                        clear_command_target_modes();
                         if (button.command == PanelCommand::stop) {
                             for (EntityId id :
                                  simulation.selected_units()) {
@@ -14885,43 +15159,46 @@ int SdlApp::run() {
                             pending_guard = true;
                         } else if (
                             button.command == PanelCommand::garrison) {
+                            pending_garrison = true;
+                            pending_rally_building.reset();
                             control_group_status =
                                 "RIGHT CLICK FRIENDLY GARRISON BUILDING";
                         } else if (
-                            button.command == PanelCommand::stance &&
+                            button.command >=
+                                PanelCommand::stance_aggressive &&
+                            button.command <=
+                                PanelCommand::stance_no_attack &&
                             simulation.selected_unit()) {
-                            const auto found = std::ranges::find_if(
-                                simulation.units(),
-                                [&simulation](const Unit& unit) {
-                                    return unit.id ==
-                                        *simulation.selected_unit();
-                                }
-                            );
-                            if (found != simulation.units().end()) {
-                                const UnitStance next =
-                                    found->stance ==
-                                            UnitStance::aggressive
-                                        ? UnitStance::defensive
-                                    : found->stance ==
-                                            UnitStance::defensive
-                                        ? UnitStance::stand_ground
-                                        : UnitStance::aggressive;
-                                for (EntityId id :
-                                     simulation.selected_units()) {
-                                    GameCommand command =
-                                        SetStanceCommand{id, next};
-                                    if (execute(simulation, command)) {
-                                        replay.record(
-                                            simulation.tick_number(),
-                                            std::move(command)
-                                        );
-                                    }
+                            const UnitStance stance =
+                                button.command ==
+                                        PanelCommand::stance_aggressive
+                                    ? UnitStance::aggressive
+                                : button.command ==
+                                        PanelCommand::stance_defensive
+                                    ? UnitStance::defensive
+                                : button.command ==
+                                        PanelCommand::stance_stand_ground
+                                    ? UnitStance::stand_ground
+                                    : UnitStance::passive;
+                            for (EntityId id :
+                                 simulation.selected_units()) {
+                                GameCommand command =
+                                    SetStanceCommand{id, stance};
+                                if (execute(simulation, command)) {
+                                    replay.record(
+                                        simulation.tick_number(),
+                                        std::move(command)
+                                    );
                                 }
                             }
                         } else if (
-                            button.command >=
-                                PanelCommand::formation_compact &&
-                            button.command <=
+                            button.command ==
+                                PanelCommand::formation_line ||
+                            button.command ==
+                                PanelCommand::formation_box ||
+                            button.command ==
+                                PanelCommand::formation_staggered ||
+                            button.command ==
                                 PanelCommand::formation_flank) {
                             if (multiplayer_runtime ||
                                 multiplayer_presentation) {
@@ -14931,14 +15208,14 @@ int SdlApp::run() {
                             }
                             const FormationKind kind =
                                 button.command ==
-                                        PanelCommand::formation_compact
-                                    ? FormationKind::compact
-                                : button.command ==
                                         PanelCommand::formation_line
                                     ? FormationKind::line
                                 : button.command ==
                                         PanelCommand::formation_box
                                     ? FormationKind::box
+                                : button.command ==
+                                        PanelCommand::formation_staggered
+                                    ? FormationKind::staggered
                                     : FormationKind::flank;
                             simulation.set_formation_kind(
                                 active_view_player, kind);
@@ -14971,6 +15248,9 @@ int SdlApp::run() {
                             }
                         } else if (
                             button.command == PanelCommand::rally) {
+                            pending_rally_building =
+                                simulation.selected_building();
+                            pending_garrison = false;
                             control_group_status =
                                 "RIGHT CLICK TO SET RALLY POINT";
                         } else if (
@@ -15275,7 +15555,55 @@ int SdlApp::run() {
                         simulation.selected_units();
                     const std::size_t recorded_before =
                         replay.commands().size();
-                    if (pending_trade_route &&
+                    if (pending_rally_building) {
+                        GameCommand command = SetRallyPointCommand{
+                            *pending_rally_building, tile
+                        };
+                        if (execute(simulation, command)) {
+                            replay.record(
+                                simulation.tick_number(), std::move(command)
+                            );
+                            pending_rally_building.reset();
+                            control_group_status = "RALLY POINT SET";
+                        }
+                    } else if (pending_garrison &&
+                        !simulation.selected_units().empty()) {
+                        const auto building = std::ranges::find_if(
+                            simulation.buildings(),
+                            [tile](const Building& candidate) {
+                                const BuildingRules& rules =
+                                    rules_for(candidate.kind);
+                                return candidate.owner == active_view_player &&
+                                    candidate.completed() &&
+                                    tile.x >= candidate.position.x &&
+                                    tile.y >= candidate.position.y &&
+                                    tile.x < candidate.position.x +
+                                        rules.footprint_width &&
+                                    tile.y < candidate.position.y +
+                                        rules.footprint_height;
+                            }
+                        );
+                        bool assigned = false;
+                        if (building != simulation.buildings().end()) {
+                            for (EntityId unit :
+                                 simulation.selected_units()) {
+                                GameCommand command = MoveUnitCommand{
+                                    unit, building->position
+                                };
+                                if (execute(simulation, command)) {
+                                    replay.record(
+                                        simulation.tick_number(),
+                                        std::move(command)
+                                    );
+                                    assigned = true;
+                                }
+                            }
+                        }
+                        if (assigned) {
+                            pending_garrison = false;
+                            control_group_status = "GARRISON ORDERED";
+                        }
+                    } else if (pending_trade_route &&
                         !simulation.selected_units().empty()) {
                         const bool naval_trade =
                             std::ranges::any_of(

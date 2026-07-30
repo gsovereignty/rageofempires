@@ -10336,8 +10336,11 @@ void scenario_resource_round_trip() {
         std::filesystem::path(__FILE__).parent_path().parent_path() /
         "resources/demo.scenario";
     const aoe::Scenario scenario = aoe::load_scenario(source);
-    require(scenario.map.width() == 24);
-    require(scenario.map.height() == 16);
+    // The bundled startup map is generated at the engine maximum by
+    // tools/generate_demo_scenario.py; landmark tiles below are the scaled
+    // positions of the original 24x16 layout.
+    require(scenario.map.width() == 255);
+    require(scenario.map.height() == 255);
     require(scenario.units.size() == 8);
     require(std::ranges::count_if(
         scenario.units,
@@ -10347,11 +10350,15 @@ void scenario_resource_round_trip() {
         }
     ) == 2);
     require(scenario.buildings.size() == 2);
-    require(scenario.map.terrain_at({11, 6}) == aoe::Terrain::water);
-    require(scenario.map.terrain_at({11, 7}) == aoe::Terrain::grass);
-    require(scenario.map.terrain_at({7, 3}) == aoe::Terrain::berry_bush);
-    require(scenario.map.terrain_at({8, 11}) == aoe::Terrain::gold_mine);
-    require(scenario.map.terrain_at({14, 3}) == aoe::Terrain::stone_mine);
+    require(scenario.map.terrain_at({117, 100}) == aoe::Terrain::water);
+    require(scenario.map.terrain_at({127, 254}) == aoe::Terrain::water);
+    require(scenario.map.terrain_at({117, 112}) == aoe::Terrain::grass);
+    require(scenario.map.terrain_at({127, 142}) == aoe::Terrain::grass);
+    require(scenario.map.terrain_at({74, 48}) == aoe::Terrain::berry_bush);
+    require(scenario.map.terrain_at({85, 175}) == aoe::Terrain::gold_mine);
+    require(scenario.map.terrain_at({149, 48}) == aoe::Terrain::stone_mine);
+    require(scenario.map.terrain_at({32, 32}) == aoe::Terrain::forest);
+    require(scenario.map.terrain_at({222, 222}) == aoe::Terrain::forest);
     require(scenario.blue_economy.gold == 100);
     require(scenario.blue_economy.stone == 200);
 
@@ -10511,6 +10518,47 @@ void scenario_resource_round_trip() {
     }
     std::filesystem::remove(corrupt);
     require(corrupt_rejected);
+}
+
+void bundled_startup_map_is_engine_maximum_and_ticks() {
+    // The startup map the app loads must be the maximum dimension the
+    // original size switch produces (255 tiles square, index 6 of the
+    // switch at AoK-HD-patched.c:356938-356960) and must still simulate.
+    const auto source =
+        std::filesystem::path(__FILE__).parent_path().parent_path() /
+        "resources/demo.scenario";
+    const aoe::Scenario scenario = aoe::load_scenario(source);
+    require(scenario.map.width() == 255);
+    require(scenario.map.height() == 255);
+    require(
+        static_cast<long long>(scenario.map.width()) *
+            scenario.map.height() ==
+        65025
+    );
+    for (const aoe::UnitPlacement& unit : scenario.units) {
+        require(scenario.map.contains(unit.position));
+    }
+    for (const aoe::BuildingPlacement& building : scenario.buildings) {
+        const aoe::BuildingRules& rules = aoe::rules_for(building.kind);
+        require(scenario.map.contains({
+            building.position.x + rules.footprint_width - 1,
+            building.position.y + rules.footprint_height - 1,
+        }));
+    }
+    aoe::Simulation simulation = aoe::create_simulation(scenario);
+    require(simulation.map().width() == 255);
+    require(simulation.map().height() == 255);
+    const std::uint64_t before = simulation.tick_number();
+    for (int tick = 0; tick < 8; ++tick) {
+        simulation.update();
+    }
+    require(simulation.tick_number() == before + 8);
+    require(simulation.units().size() == scenario.units.size());
+    require(simulation.buildings().size() == scenario.buildings.size());
+    // Both starts must be revealed on a map this large, which only holds
+    // if exploration still runs over the whole map.
+    require(simulation.is_explored(aoe::Player::blue, {1, 160}));
+    require(simulation.is_explored(aoe::Player::red, {214, 1}));
 }
 
 void town_center_garrison_shelters_fires_and_persists() {
@@ -22663,6 +22711,10 @@ int main() {
         missing_standard_technologies_follow_live_dat
     );
     run("scenario round trip", scenario_resource_round_trip);
+    run(
+        "bundled startup map maximum",
+        bundled_startup_map_is_engine_maximum_and_ticks
+    );
     run(
         "town center garrison",
         town_center_garrison_shelters_fires_and_persists

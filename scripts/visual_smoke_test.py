@@ -108,13 +108,35 @@ def validate_capture(path: Path) -> None:
     require(len(set(hud)) >= 10, "HUD region appears blank or incomplete")
     require(bright_hud >= 150, "HUD text/details are missing")
     require(warm_border >= 500, "HUD stone/gold frame is missing")
-    require(len(set(minimap)) >= 8, "minimap region appears blank")
+    # A 255x255 map is compressed into a 214x80 HUD panel, so the minimap
+    # holds far fewer distinct colours than a 24x16 map did. Assert the
+    # terrain actually reaches it instead of counting colours.
+    minimap_green = sum(
+        green >= red + 18 and green >= blue + 18 and green >= 55
+        for red, green, blue in minimap
+    )
+    minimap_water = sum(
+        blue >= red + 25 and blue >= green + 5 and blue >= 75
+        for red, green, blue in minimap
+    )
+    require(len(set(minimap)) >= 6, "minimap region appears blank")
+    require(minimap_green >= 400, "minimap lacks land coverage")
+    require(minimap_water >= 20, "minimap lacks water coverage")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("executable", type=Path)
     parser.add_argument("scenario", type=Path)
+    parser.add_argument(
+        "--camera-tile",
+        default="122,127",
+        help=(
+            "tile to centre the capture on. The startup map is 255x255, so "
+            "the default start view holds no water; this frames the river "
+            "ford, which has both grass and water."
+        ),
+    )
     args = parser.parse_args()
 
     executable = args.executable.resolve()
@@ -132,6 +154,10 @@ def main() -> int:
                 "SDL_VIDEO_DRIVER": "dummy",
                 "AOE_WINDOW_SIZE": "800x600",
                 "AOE_SCENARIO_PATH": str(scenario),
+                "AOE_CAMERA_TILE": args.camera_tile,
+                # The map is larger than one start's explored area, so the
+                # capture would otherwise be mostly fog.
+                "AOE_FOG": "0",
                 "AOE_SCREENSHOT_PATH": str(capture),
                 "AOE_SCREENSHOT_TICK": "0",
                 "AOE_EXIT_AFTER_SCREENSHOT": "1",

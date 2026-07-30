@@ -478,13 +478,26 @@ else()
     target_compile_definitions(aoe_reconstruction PRIVATE AOE_HAVE_MPG123=0)
 endif()
 target_compile_options(aoe_reconstruction PRIVATE -Wall -Wextra -Wpedantic)
-add_custom_command(TARGET aoe_reconstruction POST_BUILD
+# Track the scenario itself, not just the executable: a POST_BUILD command
+# is skipped when the target does not relink, which used to leave a stale
+# demo.scenario beside the binary.
+add_custom_command(
+    OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/deployed-demo-scenario.stamp"
     COMMAND ${CMAKE_COMMAND} -E make_directory
         "$<TARGET_FILE_DIR:aoe_reconstruction>/resources"
-    COMMAND ${CMAKE_COMMAND} -E copy
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_CURRENT_SOURCE_DIR}/resources/demo.scenario"
         "$<TARGET_FILE_DIR:aoe_reconstruction>/resources/demo.scenario"
+    COMMAND ${CMAKE_COMMAND} -E touch
+        "${CMAKE_CURRENT_BINARY_DIR}/deployed-demo-scenario.stamp"
+    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/resources/demo.scenario"
+    COMMENT "Deploying demo.scenario beside aoe_reconstruction"
+    VERBATIM
 )
+add_custom_target(aoe_deploy_demo_scenario ALL
+    DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/deployed-demo-scenario.stamp"
+)
+add_dependencies(aoe_deploy_demo_scenario aoe_reconstruction)
 
 if(APPLE)
     set(DEMO_SCENARIO resources/demo.scenario)

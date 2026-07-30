@@ -64,6 +64,15 @@ void size_presets_match_original_tile_counts() {
             "map size preset drifted from the original tile count"
         );
     }
+    const aoe::RandomMapSettings defaults;
+    require(
+        defaults.size == aoe::RandomMapSize::maximum,
+        "random-map default is not the recovered maximum"
+    );
+    require(
+        aoe::random_map_dimension(defaults.size) == 255,
+        "random-map default does not resolve to 255"
+    );
 }
 
 void generated_maps_are_deterministic_and_balanced() {

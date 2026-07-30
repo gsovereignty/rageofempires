@@ -115,6 +115,59 @@ void unit_moves_deterministically() {
     require(simulation.units().front().position == aoe::TilePosition(5, 7));
 }
 
+void presentation_elevation_state_initializes_and_replaces_safely() {
+    aoe::Simulation simulation(aoe::GameMap(8, 4));
+    const aoe::EntityId scout = simulation.add_unit(
+        aoe::UnitKind::scout_cavalry, aoe::Player::blue, {1, 1}
+    );
+    const aoe::Unit& added = simulation.units().front();
+    require(
+        simulation.render_previous_elevation_position(added) ==
+            aoe::TilePosition(1, 1)
+    );
+    require(
+        simulation.render_current_elevation_position(added) ==
+            aoe::TilePosition(1, 1)
+    );
+
+    std::vector<aoe::Unit> restored = simulation.units();
+    restored.front().position = {4, 2};
+    restored.front().previous_position = {3, 2};
+    restored.front().render_subtile_initialized = false;
+    simulation.replace_state(
+        std::move(restored), {}, {}, {}, 12
+    );
+    const aoe::Unit& replaced = simulation.units().front();
+    require(replaced.id == scout);
+    require(
+        simulation.render_previous_elevation_position(replaced) ==
+            aoe::TilePosition(4, 2)
+    );
+    require(
+        simulation.render_current_elevation_position(replaced) ==
+            aoe::TilePosition(4, 2)
+    );
+
+    aoe::Simulation deletion(aoe::GameMap(8, 4));
+    const aoe::EntityId deleted_id = deletion.add_unit(
+        aoe::UnitKind::villager, aoe::Player::blue, {2, 2}
+    );
+    deletion.add_building(
+        aoe::BuildingKind::house, aoe::Player::red, {6, 2}
+    );
+    aoe::Unit deleted = deletion.units().front();
+    require(deletion.delete_unit(deleted_id));
+    deleted.position = {6, 3};
+    require(
+        deletion.render_previous_elevation_position(deleted) ==
+            aoe::TilePosition(6, 3)
+    );
+    require(
+        deletion.render_current_elevation_position(deleted) ==
+            aoe::TilePosition(6, 3)
+    );
+}
+
 void replay_loader_rejects_malformed_and_invalid_enums() {
     const auto path = std::filesystem::temp_directory_path() /
         "aoe-corrupt-v61.replay";
@@ -22530,6 +22583,10 @@ int main() {
         executable_conversion_arithmetic_is_exact
     );
     run("unit movement", unit_moves_deterministically);
+    run(
+        "presentation elevation state lifecycle",
+        presentation_elevation_state_initializes_and_replaces_safely
+    );
     run(
         "replay loader validation",
         replay_loader_rejects_malformed_and_invalid_enums

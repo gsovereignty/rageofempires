@@ -319,6 +319,15 @@ struct RuntimeFallbackEvent {
     const Simulation& simulation,
     const Unit& unit
 );
+struct RenderUnitElevationEndpoints {
+    TilePosition previous{};
+    TilePosition current{};
+};
+[[nodiscard]] RenderUnitElevationEndpoints
+render_unit_elevation_endpoints(
+    const Simulation& simulation,
+    const Unit& unit
+);
 [[nodiscard]] RenderAction render_action_for(
     const Simulation& simulation,
     const Unit& unit

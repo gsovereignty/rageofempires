@@ -131,7 +131,10 @@ void simulation_command_reaches_sheep_attack_mapping() {
 }
 
 void cavalry_accumulator_wait_does_not_animate_in_place() {
-    aoe::Simulation simulation{aoe::GameMap{8, 4}};
+    aoe::GameMap map{8, 4};
+    map.set_elevation({1, 1}, 0);
+    map.set_elevation({2, 1}, 3);
+    aoe::Simulation simulation{std::move(map)};
     const aoe::EntityId scout = simulation.add_unit(
         aoe::UnitKind::scout_cavalry,
         aoe::Player::blue,
@@ -149,14 +152,30 @@ void cavalry_accumulator_wait_does_not_animate_in_place() {
 
     simulation.update();
     const aoe::Unit& first_step = simulation.units().front();
+    const auto first_endpoints =
+        aoe::render_unit_elevation_endpoints(simulation, first_step);
     require(
         first_step.position == aoe::TilePosition(2, 1) &&
-        aoe::render_unit_is_interpolating(simulation, first_step),
+        aoe::render_unit_is_interpolating(simulation, first_step) &&
+        first_endpoints.previous == aoe::TilePosition(1, 1) &&
+        first_endpoints.current == aoe::TilePosition(2, 1),
         "scout must begin with a physical movement step"
     );
 
     simulation.update();
     const aoe::Unit& waiting = simulation.units().front();
+    const auto waiting_endpoints =
+        aoe::render_unit_elevation_endpoints(simulation, waiting);
+    const auto projected_y = [&simulation](
+        aoe::TilePosition subtile,
+        aoe::TilePosition elevation_position
+    ) {
+        return static_cast<float>(subtile.x + subtile.y) *
+                16.0F / 320.0F -
+            static_cast<float>(
+                simulation.map().elevation_at(elevation_position) * 8
+            );
+    };
     require(
         waiting.moving &&
         waiting.position == aoe::TilePosition(2, 1) &&
@@ -172,6 +191,21 @@ void cavalry_accumulator_wait_does_not_animate_in_place() {
         waiting.render_current_subtile.x > 640 &&
         waiting.render_current_subtile.x < 960,
         "accumulator interval must advance cavalry through sub-tile space"
+    );
+    require(
+        waiting.previous_position == aoe::TilePosition(1, 1) &&
+        waiting_endpoints.previous == aoe::TilePosition(2, 1) &&
+        waiting_endpoints.current == aoe::TilePosition(2, 1) &&
+        projected_y(
+            waiting.render_previous_subtile,
+            waiting_endpoints.previous
+        ) == 24.0F &&
+        projected_y(
+            waiting.render_current_subtile,
+            waiting_endpoints.current
+        ) > 24.0F,
+        "fractional endpoints must retain presentation elevation without "
+        "mutating authoritative previous position"
     );
 
     simulation.update();

@@ -1948,6 +1948,7 @@ EntityId Simulation::add_unit(
         );
     }
     units_.push_back(unit);
+    initialize_unit_render_elevation(units_.back());
     if (const auto legacy = owner.legacy_player();
         legacy && *legacy != Player::neutral &&
         !is_animal(kind) && !is_relic(kind)) {
@@ -3244,6 +3245,7 @@ bool Simulation::command_collect_relic(
     std::erase_if(units_, [relic_id](const Unit& unit) {
         return unit.id == relic_id;
     });
+    prune_unit_render_elevations();
     return true;
 }
 
@@ -4256,6 +4258,7 @@ bool Simulation::delete_unit(EntityId unit_id) {
     }
     detach_builder(unit_id);
     units_.erase(unit);
+    prune_unit_render_elevations();
     std::erase(selected_units_, unit_id);
     if (selected_unit_ == unit_id) {
         selected_unit_.reset();
@@ -5624,7 +5627,12 @@ void Simulation::update() {
             };
             unit.render_subtile_initialized = true;
         }
+        if (!unit_render_elevations_.contains(unit.id)) {
+            initialize_unit_render_elevation(unit);
+        }
         unit.render_previous_subtile = unit.render_current_subtile;
+        unit_render_elevations_.at(unit.id).previous =
+            unit_render_elevations_.at(unit.id).current;
     }
     if (evaluate_scenario_triggers()) {
         return;
@@ -7002,6 +7010,7 @@ void Simulation::update() {
         }
     }
 
+    const std::size_t unit_count_before_cleanup = units_.size();
     units_.erase(
         std::remove_if(
             units_.begin(),
@@ -7014,6 +7023,9 @@ void Simulation::update() {
         ),
         units_.end()
     );
+    if (units_.size() != unit_count_before_cleanup) {
+        prune_unit_render_elevations();
+    }
     buildings_.erase(
         std::remove_if(
             buildings_.begin(),
@@ -7050,6 +7062,7 @@ void Simulation::refresh_unit_render_subtile(Unit& unit) {
         unit.position.x * render_scale,
         unit.position.y * render_scale,
     };
+    unit_render_elevations_.at(unit.id).current = unit.position;
     if (!unit.moving || unit.next_path_step >= unit.path.size()) {
         return;
     }
@@ -7091,6 +7104,43 @@ void Simulation::refresh_unit_render_subtile(Unit& unit) {
         denominator;
 }
 
+TilePosition Simulation::render_previous_elevation_position(
+    const Unit& unit
+) const {
+    const auto found = unit_render_elevations_.find(unit.id);
+    return found == unit_render_elevations_.end()
+        ? unit.position : found->second.previous;
+}
+
+TilePosition Simulation::render_current_elevation_position(
+    const Unit& unit
+) const {
+    const auto found = unit_render_elevations_.find(unit.id);
+    return found == unit_render_elevations_.end()
+        ? unit.position : found->second.current;
+}
+
+void Simulation::initialize_unit_render_elevation(const Unit& unit) {
+    unit_render_elevations_.insert_or_assign(
+        unit.id,
+        RenderElevationPositions{unit.position, unit.position}
+    );
+}
+
+void Simulation::prune_unit_render_elevations() {
+    std::erase_if(
+        unit_render_elevations_,
+        [this](const auto& entry) {
+            return std::ranges::none_of(
+                units_,
+                [&entry](const Unit& unit) {
+                    return unit.id == entry.first;
+                }
+            );
+        }
+    );
+}
+
 void Simulation::replace_state(
     std::vector<Unit> units,
     std::vector<Building> buildings,
@@ -7099,6 +7149,10 @@ void Simulation::replace_state(
     std::uint64_t tick_number
 ) {
     units_ = std::move(units);
+    unit_render_elevations_.clear();
+    for (const Unit& unit : units_) {
+        initialize_unit_render_elevation(unit);
+    }
     buildings_ = std::move(buildings);
     player_states_[0].economy = blue;
     player_states_[1].economy = red;

@@ -45,7 +45,7 @@ def main() -> int:
         errors.append("missing commands: " + ", ".join(sorted(missing)))
     if extra:
         errors.append("unknown commands: " + ", ".join(sorted(extra)))
-    sheet_bounds = {50721: 69, 50729: 118, 50730: 134}
+    sheet_bounds = {50706: 52, 50721: 69, 50729: 118, 50730: 134}
     for record in records:
         name = record["panel_command"]
         evidence = record["evidence"]

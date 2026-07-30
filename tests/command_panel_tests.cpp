@@ -2,6 +2,7 @@
 #include "aoe/game_rules.hpp"
 
 #include <iostream>
+#include <span>
 
 namespace {
 int failures{};
@@ -84,6 +85,37 @@ int main() {
         "scout must not expose attack ground"
     );
     expect(
+        std::ranges::none_of(panel.commands, [](const auto& button) {
+            return button.command == aoe::PanelCommand::stop;
+        }),
+        "idle scout must not expose a stop tile"
+    );
+    constexpr std::array scout_order{
+        aoe::PanelCommand::stance_aggressive,
+        aoe::PanelCommand::attack_move,
+        aoe::PanelCommand::stance_stand_ground,
+        aoe::PanelCommand::stance_no_attack,
+        aoe::PanelCommand::garrison,
+        aoe::PanelCommand::stance_defensive,
+        aoe::PanelCommand::guard,
+        aoe::PanelCommand::follow,
+        aoe::PanelCommand::patrol,
+    };
+    expect(
+        panel.commands.size() >= scout_order.size() &&
+            std::ranges::equal(
+                scout_order,
+                std::span{
+                    panel.commands.data(),
+                    scout_order.size()
+                },
+                {},
+                std::identity{},
+                &aoe::CommandButtonModel::command
+            ),
+        "idle scout command order must match original HUD capture"
+    );
+    expect(
         std::ranges::count_if(panel.commands, [](const auto& button) {
             return button.command >=
                     aoe::PanelCommand::stance_aggressive &&
@@ -100,21 +132,12 @@ int main() {
         }),
         "single scout must not expose formations"
     );
-    const auto second_military = std::ranges::find_if(
-        simulation.units(),
-        [&scout](const aoe::Unit& unit) {
-            return unit.owner == aoe::Player::blue &&
-                unit.id != scout->id &&
-                aoe::rules_for(unit.kind).attack > 0;
-        }
-    );
-    expect(
-        second_military != simulation.units().end(),
-        "second demo military unit absent"
-    );
-    if (second_military != simulation.units().end()) {
+    const aoe::EntityId scout_id = scout->id;
+    const aoe::EntityId second_military_id = add_at_empty_tile(
+        simulation, aoe::UnitKind::militia);
+    {
         simulation.select_units(
-            {scout->id, second_military->id}, aoe::Player::blue);
+            {scout_id, second_military_id}, aoe::Player::blue);
         panel = aoe::build_selection_panel(
             simulation, aoe::Player::blue);
         const auto forward_commands = panel.commands;
@@ -148,7 +171,7 @@ int main() {
             "group needs line, box, staggered, and flank"
         );
         simulation.select_units(
-            {second_military->id, scout->id}, aoe::Player::blue);
+            {second_military_id, scout_id}, aoe::Player::blue);
         const auto reversed = aoe::build_selection_panel(
             simulation, aoe::Player::blue);
         expect(
@@ -172,9 +195,11 @@ int main() {
     expect(panel.title != "NO SELECTION", "selected building title");
     expect(
         std::ranges::any_of(panel.commands, [](const auto& button) {
-            return button.command == aoe::PanelCommand::open_production;
+            return button.command == aoe::PanelCommand::train_unit &&
+                button.unit == aoe::UnitKind::villager &&
+                button.grid_slot == 0;
         }),
-        "town center production page entry absent"
+        "town center villager must occupy DAT button 1"
     );
     panel = aoe::build_selection_panel(
         simulation,
@@ -195,17 +220,110 @@ int main() {
     panel = aoe::build_selection_panel(simulation, aoe::Player::blue);
     expect(
         std::ranges::any_of(panel.commands, [](const auto& button) {
-            return button.command == aoe::PanelCommand::cancel_production &&
-                !button.enabled;
+            return button.command == aoe::PanelCommand::ungarrison &&
+                button.grid_slot == 4 &&
+                button.icon && button.icon->frame == 45;
         }),
-        "empty queue cancel should be disabled"
+        "town center ungarrison must occupy original top-right slot"
     );
     expect(
         std::ranges::any_of(panel.commands, [](const auto& button) {
-            return button.command == aoe::PanelCommand::open_research;
+            return button.command == aoe::PanelCommand::town_bell &&
+                button.enabled && button.grid_slot == 14 &&
+                button.icon && button.icon->frame == 49;
         }),
-        "town center research page entry absent"
+        "town center bell must occupy original bottom-right slot"
     );
+    expect(
+        std::ranges::none_of(panel.commands, [](const auto& button) {
+            return button.command == aoe::PanelCommand::rally ||
+                button.command == aoe::PanelCommand::delete_entity;
+        }),
+        "town center must not expose non-original root substitutes"
+    );
+    expect(
+        std::ranges::any_of(panel.commands, [](const auto& button) {
+            return button.command == aoe::PanelCommand::research &&
+                button.technology.has_value() &&
+                (button.grid_slot == 5 ||
+                 button.grid_slot == 6 ||
+                 button.grid_slot == 7);
+        }),
+        "town center direct DAT research slots absent"
+    );
+    expect(
+        std::ranges::none_of(panel.commands, [](const auto& button) {
+            return button.command == aoe::PanelCommand::open_production ||
+                button.command == aoe::PanelCommand::open_research;
+        }),
+        "town center must not hide original commands behind submenus"
+    );
+    if (simulation.age(aoe::Player::blue) != aoe::Age::imperial) {
+        expect(
+            std::ranges::any_of(panel.commands, [](const auto& button) {
+                return button.command == aoe::PanelCommand::advance_age &&
+                    button.grid_slot == 10 &&
+                    button.icon &&
+                    button.icon->sheet ==
+                        aoe::ui_icons::technology_sheet;
+            }),
+            "town center age-up must occupy DAT button 11"
+        );
+    }
+
+    const auto villager = std::ranges::find_if(
+        simulation.units(), [](const aoe::Unit& unit) {
+            return unit.owner == aoe::Player::blue &&
+                unit.kind == aoe::UnitKind::villager;
+        });
+    expect(villager != simulation.units().end(), "demo villager absent");
+    if (villager != simulation.units().end()) {
+        simulation.select_units({villager->id}, aoe::Player::blue);
+        const auto villager_panel = aoe::build_selection_panel(
+            simulation, aoe::Player::blue);
+        expect(
+            std::ranges::none_of(
+                villager_panel.commands, [](const auto& button) {
+                    return button.command == aoe::PanelCommand::attack_move ||
+                        button.command == aoe::PanelCommand::patrol ||
+                        button.command == aoe::PanelCommand::guard ||
+                        (button.command >=
+                            aoe::PanelCommand::stance_aggressive &&
+                         button.command <=
+                            aoe::PanelCommand::stance_no_attack);
+                }),
+            "villager must not expose military-only command tiles"
+        );
+        const auto stop = std::ranges::find_if(
+            villager_panel.commands, [](const auto& button) {
+                return button.command == aoe::PanelCommand::stop;
+            });
+        expect(
+            stop != villager_panel.commands.end() && stop->icon &&
+                stop->icon->frame == 3 && stop->grid_slot == 9,
+            "villager stop must use installed stop artwork"
+        );
+        constexpr std::array villager_layout{
+            std::pair{aoe::PanelCommand::open_economic_buildings, 0U},
+            std::pair{aoe::PanelCommand::open_military_buildings, 1U},
+            std::pair{aoe::PanelCommand::repair, 2U},
+            std::pair{aoe::PanelCommand::delete_entity, 3U},
+            std::pair{aoe::PanelCommand::garrison, 4U},
+            std::pair{aoe::PanelCommand::stop, 9U},
+        };
+        for (const auto& [command, slot] : villager_layout) {
+            const auto button = std::ranges::find(
+                villager_panel.commands, command,
+                &aoe::CommandButtonModel::command);
+            expect(
+                button != villager_panel.commands.end() &&
+                    button->grid_slot == slot,
+                "villager original sparse grid slot"
+            );
+        }
+        simulation.select_building_at(
+            building.position, aoe::Player::blue);
+    }
     const auto research_panel = aoe::build_selection_panel(
         simulation,
         aoe::Player::blue,
@@ -268,6 +386,18 @@ int main() {
             }
         );
     };
+    const auto has_valid_grid_slots =
+        [](const aoe::SelectionPanelModel& model) {
+            std::array<bool, 15> occupied{};
+            for (const auto& button : model.commands) {
+                if (button.grid_slot >= occupied.size() ||
+                    occupied[button.grid_slot]) {
+                    return false;
+                }
+                occupied[button.grid_slot] = true;
+            }
+            return true;
+        };
     const auto monk_id = simulation.add_unit(
         aoe::UnitKind::monk, aoe::Player::blue, {2, 2});
     simulation.select_units({monk_id}, aoe::Player::blue);
@@ -400,12 +530,10 @@ int main() {
     );
 
     std::vector<aoe::EntityId> broad_selection{
-        scout->id, monk_id, cart_id, trebuchet_id, packed_id, villager_id,
+        scout_id, monk_id, cart_id, trebuchet_id, packed_id, villager_id,
         fishing_id, transport_id,
     };
-    if (second_military != simulation.units().end()) {
-        broad_selection.push_back(second_military->id);
-    }
+    broad_selection.push_back(second_military_id);
     simulation.select_units(broad_selection, aoe::Player::blue);
     const auto first_page = aoe::build_selection_panel(
         simulation, aoe::Player::blue, aoe::PanelPage::root, 0);
@@ -439,7 +567,8 @@ int main() {
         const auto model = aoe::build_selection_panel(
             unit_matrix, aoe::Player::blue);
         expect(
-            model.title != "NO SELECTION" && model.commands.size() <= 15,
+            model.title != "NO SELECTION" && model.commands.size() <= 15 &&
+                has_valid_grid_slots(model),
             "unit-kind matrix panel contract"
         );
     }
@@ -460,7 +589,8 @@ int main() {
         const auto model = aoe::build_selection_panel(
             building_matrix, aoe::Player::blue);
         expect(
-            model.title != "NO SELECTION" && model.commands.size() <= 15,
+            model.title != "NO SELECTION" && model.commands.size() <= 15 &&
+                has_valid_grid_slots(model),
             "building-kind matrix panel contract"
         );
     }

@@ -52,9 +52,32 @@ void reconstruction_training_units_use_exact_dat_frames() {
     }
 }
 
+void reconstruction_buildings_use_exact_dat_frames() {
+    for (std::size_t value = 0;
+         value < aoe::building_kind_count;
+         ++value) {
+        const auto binding = aoe::ui_icons::building(
+            static_cast<aoe::BuildingKind>(value));
+        assert(binding);
+        assert(binding->sheet == aoe::ui_icons::building_sheet);
+        assert(binding->frame >= 0 && binding->frame < 52);
+        assert(
+            binding->evidence ==
+            aoe::ui_icons::Evidence::exact_executable_dispatch
+        );
+    }
+    assert(
+        aoe::ui_icons::building(aoe::BuildingKind::town_center)->frame == 28
+    );
+    assert(
+        aoe::ui_icons::building(aoe::BuildingKind::farm)->frame == 35
+    );
+}
+
 }  // namespace
 
 int main() {
     executable_sheet_dispatch_is_bounded();
     reconstruction_training_units_use_exact_dat_frames();
+    reconstruction_buildings_use_exact_dat_frames();
 }

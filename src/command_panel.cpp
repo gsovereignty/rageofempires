@@ -19,7 +19,8 @@ void add(
     bool enabled = true,
     std::optional<UnitKind> unit = std::nullopt,
     bool selected = false,
-    std::optional<std::int32_t> action_icon = std::nullopt
+    std::optional<std::int32_t> action_icon = std::nullopt,
+    std::optional<std::size_t> grid_slot = std::nullopt
 ) {
     std::optional<ui_icons::Binding> exact_icon;
     if (unit) {
@@ -36,6 +37,7 @@ void add(
         enabled, selected,
         unit, std::nullopt, std::nullopt, exact_icon,
         !exact_icon.has_value(),
+        grid_slot.value_or(panel.commands.size()),
     });
 }
 
@@ -44,6 +46,7 @@ void add_building(
     BuildingKind building,
     std::string hotkey
 ) {
+    const auto icon = ui_icons::building(building);
     panel.commands.push_back({
         PanelCommand::construct_building,
         std::string{name(building)},
@@ -54,15 +57,17 @@ void add_building(
         std::nullopt,
         std::nullopt,
         building,
-        std::nullopt,
-        true,
+        icon,
+        !icon.has_value(),
+        panel.commands.size(),
     });
 }
 
 void add_technology(
     SelectionPanelModel& panel,
     Technology technology,
-    bool enabled
+    bool enabled,
+    std::optional<std::size_t> grid_slot = std::nullopt
 ) {
     const auto icon = ui_icons::technology_icon(technology);
     panel.commands.push_back({
@@ -77,6 +82,7 @@ void add_technology(
         std::nullopt,
         icon,
         !icon.has_value(),
+        grid_slot.value_or(panel.commands.size()),
     });
 }
 
@@ -96,6 +102,9 @@ void paginate_root_commands(
     const std::size_t last =
         std::min(first + page_capacity, commands.size());
     panel.commands.assign(commands.begin() + first, commands.begin() + last);
+    for (std::size_t slot = 0; slot < panel.commands.size(); ++slot) {
+        panel.commands[slot].grid_slot = slot;
+    }
     if (panel.page_index > 0) {
         add(panel, PanelCommand::previous_page,
             "PREVIOUS", "<", "Previous command page.");
@@ -233,6 +242,7 @@ bool ram(UnitKind kind) {
 
 bool supports_military_orders(UnitKind kind) {
     return rules_for(kind).attack > 0 &&
+        kind != UnitKind::villager &&
         kind != UnitKind::trebuchet &&
         kind != UnitKind::packed_trebuchet;
 }
@@ -394,6 +404,12 @@ SelectionPanelModel build_selection_panel(
         const bool any_villager = any([](UnitKind kind) {
             return kind == UnitKind::villager;
         });
+        const bool all_villager = std::ranges::all_of(
+            selected_units,
+            [&active](const Unit* unit) {
+                return !active(unit) || unit->kind == UnitKind::villager;
+            }
+        );
         const bool any_fishing_ship = any([](UnitKind kind) {
             return kind == UnitKind::fishing_ship;
         });
@@ -447,30 +463,42 @@ SelectionPanelModel build_selection_panel(
                 "Return to unit commands.");
             return panel;
         }
-        // btncmd (50721) is an action-icon sheet. Candidate semantic frame
-        // mappings remain explicitly unknown; missing or undecodable frames
-        // retain the procedural/text fallback.
-        add(panel, PanelCommand::stop, "STOP", "S",
-            "Stop all current orders.", true, std::nullopt, false, 4);
+        // btncmd (50721) action artwork. Idle Scout order and frames are
+        // screenshot-observed; see SCOUT_COMMAND_PANEL_EVIDENCE.md.
+        const bool has_interruptible_order = any_state([](const Unit& unit) {
+            return unit.moving || unit.attack_moving || unit.patrolling ||
+                unit.guard_target_id != 0 || unit.attack_target_id != 0 ||
+                unit.attacking_ground || unit.garrison_target_id != 0 ||
+                unit.has_resource_target || unit.returning_resource;
+        });
+        if (!any(supports_military_orders) || has_interruptible_order) {
+            add(panel, PanelCommand::stop, "STOP", "S",
+                "Stop all current orders.", true, std::nullopt, false, 3,
+                all_villager
+                    ? std::optional<std::size_t>{9}
+                    : std::nullopt);
+        }
         if (any(supports_military_orders)) {
             add(panel, PanelCommand::attack_move, "ATTACK MOVE", "A",
                 "Move to a location and attack enemies along the way.",
                 true, std::nullopt,
                 any_state([](const Unit& unit) {
                     return unit.attack_moving;
-                }), 0);
+                }), 1);
             add(panel, PanelCommand::patrol, "PATROL", "P",
                 "Patrol between the current position and a destination.",
                 true, std::nullopt,
                 any_state([](const Unit& unit) {
                     return unit.patrolling;
-                }), 1);
+                }), 50);
             add(panel, PanelCommand::guard, "GUARD", "G",
                 "Follow and protect a friendly unit or building.",
                 true, std::nullopt,
                 any_state([](const Unit& unit) {
                     return unit.guard_target_id != 0;
-                }), 2);
+                }), 10);
+            add(panel, PanelCommand::follow, "FOLLOW", "F",
+                "Follow a friendly unit.", true, std::nullopt, false, 51);
         }
         if (any(supports_attack_ground)) {
             add(panel, PanelCommand::attack_ground, "ATTACK GROUND", "X",
@@ -485,7 +513,10 @@ SelectionPanelModel build_selection_panel(
             })) {
             add(panel, PanelCommand::garrison, "GARRISON", "H",
                 "Enter a compatible friendly building.", true,
-                std::nullopt, false, 3);
+                std::nullopt, false, 2,
+                all_villager
+                    ? std::optional<std::size_t>{4}
+                    : std::nullopt);
         }
         if (any([](UnitKind kind) {
                 return kind == UnitKind::monk ||
@@ -494,7 +525,8 @@ SelectionPanelModel build_selection_panel(
             add(panel, PanelCommand::convert, "CONVERT", "C",
                 "Convert a target enemy unit.", true);
             add(panel, PanelCommand::heal, "HEAL", "E",
-                "Heal a wounded friendly unit.", true);
+                "Heal a wounded friendly unit.", true,
+                std::nullopt, false, 3);
             if (any_state([](const Unit& unit) {
                     return (unit.kind == UnitKind::monk ||
                             unit.kind == UnitKind::missionary) &&
@@ -516,14 +548,19 @@ SelectionPanelModel build_selection_panel(
                 return kind == UnitKind::villager;
             })) {
             add(panel, PanelCommand::repair, "REPAIR", "R",
-                "Repair a damaged friendly building.", true);
+                "Repair a damaged friendly building.", true,
+                std::nullopt, false, 13,
+                all_villager
+                    ? std::optional<std::size_t>{2}
+                    : std::nullopt);
         }
         if (any([](UnitKind kind) {
                 return kind == UnitKind::trade_cart ||
                     kind == UnitKind::trade_cog;
             })) {
             add(panel, PanelCommand::trade_route, "TRADE", "T",
-                "Set a compatible allied trade endpoint.", true);
+                "Set a compatible allied trade endpoint.", true,
+                std::nullopt, false, 12);
         }
         if (any([](UnitKind kind) {
                 return kind == UnitKind::trebuchet;
@@ -539,19 +576,26 @@ SelectionPanelModel build_selection_panel(
         }
         if (any_villager) {
             add(panel, PanelCommand::open_economic_buildings,
-                "ECONOMIC", "E", "Open economic building commands.");
+                "ECONOMIC", "E", "Open economic building commands.",
+                true, std::nullopt, false, 30,
+                all_villager
+                    ? std::optional<std::size_t>{0}
+                    : std::nullopt);
             add(panel, PanelCommand::open_military_buildings,
-                "MILITARY", "V", "Open military building commands.");
+                "MILITARY", "V", "Open military building commands.",
+                true, std::nullopt, false, 31,
+                all_villager
+                    ? std::optional<std::size_t>{1}
+                    : std::nullopt);
+            if (all_villager) {
+                add(panel, PanelCommand::delete_entity, "DELETE", "DELETE",
+                    "Delete selected villagers.", true, std::nullopt, false,
+                    59, 3);
+            }
         }
         if (any_fishing_ship &&
             building_available(BuildingKind::fish_trap)) {
             add_building(panel, BuildingKind::fish_trap, "F");
-        }
-        if (any([](UnitKind kind) {
-                return !is_ship(kind);
-            })) {
-            add(panel, PanelCommand::embark, "ENTER TRANSPORT", "I",
-                "Enter a nearby compatible friendly transport ship.", true);
         }
         if (any([](UnitKind kind) {
                 return kind == UnitKind::transport_ship;
@@ -579,25 +623,25 @@ SelectionPanelModel build_selection_panel(
                 any_state([](const Unit& unit) {
                     return supports_stance(unit.kind) &&
                         unit.stance == UnitStance::aggressive;
-                }), 5);
+                }), 6);
             add(panel, PanelCommand::stance_defensive, "DEFENSIVE", "D",
                 "Pursue nearby enemies, then return.", true, std::nullopt,
                 any_state([](const Unit& unit) {
                     return supports_stance(unit.kind) &&
                         unit.stance == UnitStance::defensive;
-                }), 6);
+                }), 7);
             add(panel, PanelCommand::stance_stand_ground, "STAND GROUND", "N",
                 "Attack in range without moving.", true, std::nullopt,
                 any_state([](const Unit& unit) {
                     return supports_stance(unit.kind) &&
                         unit.stance == UnitStance::stand_ground;
-                }), 7);
+                }), 8);
             add(panel, PanelCommand::stance_no_attack, "NO ATTACK", "T",
                 "Do not acquire or attack enemies.", true, std::nullopt,
                 any_state([](const Unit& unit) {
                     return supports_stance(unit.kind) &&
                         unit.stance == UnitStance::passive;
-                }), 8);
+                }), 59);
         }
         const auto military_count = std::ranges::count_if(
             selected_units,
@@ -610,16 +654,47 @@ SelectionPanelModel build_selection_panel(
             const FormationKind formation = simulation.formation_kind(player);
             add(panel, PanelCommand::formation_line, "LINE", "L",
                 "Arrange selected units in a line.", true, std::nullopt,
-                formation == FormationKind::line, 9);
+                formation == FormationKind::line, 35);
             add(panel, PanelCommand::formation_box, "BOX", "B",
                 "Arrange selected units in a defensive box.", true,
-                std::nullopt, formation == FormationKind::box, 10);
+                std::nullopt, formation == FormationKind::box, 36);
             add(panel, PanelCommand::formation_staggered, "STAGGERED", "C",
                 "Spread selected units into a staggered formation.", true,
-                std::nullopt, formation == FormationKind::staggered, 11);
+                std::nullopt, formation == FormationKind::staggered, 37);
             add(panel, PanelCommand::formation_flank, "FLANK", "F",
                 "Split selected units into flanking groups.", true,
-                std::nullopt, formation == FormationKind::flank, 13);
+                std::nullopt, formation == FormationKind::flank, 38);
+        }
+        if (any(supports_military_orders)) {
+            constexpr std::array original_idle_order{
+                PanelCommand::stance_aggressive,
+                PanelCommand::attack_move,
+                PanelCommand::stance_stand_ground,
+                PanelCommand::stance_no_attack,
+                PanelCommand::garrison,
+                PanelCommand::stance_defensive,
+                PanelCommand::guard,
+                PanelCommand::follow,
+                PanelCommand::patrol,
+            };
+            const auto rank = [&original_idle_order](PanelCommand command) {
+                const auto found = std::ranges::find(
+                    original_idle_order, command);
+                return found == original_idle_order.end()
+                    ? original_idle_order.size()
+                    : static_cast<std::size_t>(
+                          found - original_idle_order.begin());
+            };
+            std::ranges::stable_sort(
+                panel.commands,
+                {},
+                [&rank](const CommandButtonModel& button) {
+                    return rank(button.command);
+                }
+            );
+            for (std::size_t slot = 0; slot < panel.commands.size(); ++slot) {
+                panel.commands[slot].grid_slot = slot;
+            }
         }
         paginate_root_commands(panel, page_index);
         return panel;
@@ -770,28 +845,97 @@ SelectionPanelModel build_selection_panel(
             return panel;
         }
 
+        if (selected->kind == BuildingKind::town_center) {
+            const auto villager = std::ranges::find(
+                units, UnitKind::villager);
+            if (villager != units.end()) {
+                Simulation probe = simulation;
+                add(panel, PanelCommand::train_unit, "villager", "V",
+                    "Train villager.",
+                    probe.queue_unit_at(selected->id, UnitKind::villager),
+                    UnitKind::villager, false, std::nullopt, 0);
+            }
+            const auto town_center_slot = [](Technology technology)
+                -> std::optional<std::size_t> {
+                switch (technology) {
+                    case Technology::loom: return 5;
+                    case Technology::wheelbarrow:
+                    case Technology::hand_cart: return 6;
+                    case Technology::town_watch:
+                    case Technology::town_patrol: return 7;
+                    default: return std::nullopt;
+                }
+            };
+            for (const Technology technology : technologies) {
+                const auto slot = town_center_slot(technology);
+                if (!slot) continue;
+                Simulation probe = simulation;
+                add_technology(
+                    panel,
+                    technology,
+                    probe.research_technology_at(selected->id, technology),
+                    *slot
+                );
+            }
+            if (simulation.age(player) != Age::imperial &&
+                selected->age_research_ticks_remaining == 0) {
+                const Age target =
+                    simulation.age(player) == Age::dark ? Age::feudal
+                    : simulation.age(player) == Age::feudal ? Age::castle
+                    : Age::imperial;
+                Simulation probe = simulation;
+                add(panel, PanelCommand::advance_age,
+                    "ADVANCE TO " + std::string{name(target)}, "A",
+                    "Advance civilization to " +
+                        std::string{name(target)} + ".",
+                    probe.advance_age_at(selected->id));
+                panel.commands.back().grid_slot = 10;
+                panel.commands.back().icon = ui_icons::Binding{
+                    ui_icons::technology_sheet,
+                    target == Age::feudal ? 30
+                    : target == Age::castle ? 31
+                    : 32,
+                    ui_icons::Evidence::exact_executable_dispatch,
+                };
+                panel.commands.back().procedural_icon_fallback = false;
+            }
+            add(panel, PanelCommand::ungarrison, "UNGARRISON", "U",
+                "Release all units garrisoned in this building.",
+                true, std::nullopt, false, 45, 4);
+            add(panel, PanelCommand::town_bell, "TOWN BELL", "B",
+                "Call villagers to shelter in the Town Center.", true,
+                std::nullopt, false, 49, 14);
+            return panel;
+        }
+
         if (supports_rally(selected->kind)) {
             add(panel, PanelCommand::rally, "RALLY POINT", "R",
                 "Set destination for newly trained units.", true,
-                std::nullopt, false, 14);
+                std::nullopt, false, 32);
         }
         if (supports_garrison(selected->kind)) {
             add(panel, PanelCommand::ungarrison, "UNGARRISON", "U",
                 "Release all units garrisoned in this building.",
-                panel.garrison_count > 0, std::nullopt, false, 15);
+                panel.garrison_count > 0, std::nullopt, false, 5);
         }
         if (supports_production(selected->kind)) {
             add(panel, PanelCommand::cancel_production, "CANCEL LAST", "Q",
                 "Cancel last queued unit and refund its cost.",
-                !selected->production_queue.empty(), std::nullopt, false, 16);
+                !selected->production_queue.empty(), std::nullopt, false, 0);
         }
         if (!units.empty()) {
             add(panel, PanelCommand::open_production,
-                "PRODUCTION", "P", "Open unit production.");
+                "PRODUCTION", "P", "Open unit production.",
+                true, units.front());
         }
         if (!technologies.empty()) {
             add(panel, PanelCommand::open_research,
                 "RESEARCH", "T", "Open available technologies.");
+            const auto icon = ui_icons::technology_icon(
+                technologies.front());
+            panel.commands.back().icon = icon;
+            panel.commands.back().procedural_icon_fallback =
+                !icon.has_value();
         }
     }
     return panel;

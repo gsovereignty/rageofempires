@@ -30,6 +30,7 @@
 #include "aoe/command_panel.hpp"
 #include "aoe/cursor_contract.hpp"
 #include "aoe/frontend_audio.hpp"
+#include "aoe/frame_timing.hpp"
 #include "aoe/computer_player.hpp"
 #include "aoe/game_command.hpp"
 #include "aoe/game_rules.hpp"
@@ -613,6 +614,7 @@ struct LegacySprites {
     std::map<std::int32_t, LegacySprite> action_command_icons;
     std::map<std::int32_t, LegacySprite> unit_command_icons;
     std::map<std::int32_t, LegacySprite> technology_command_icons;
+    std::map<std::int32_t, LegacySprite> building_command_icons;
     std::array<LegacySprite, 4> resource_icons;
     LegacySprite portrait_frame;
     SDL_Texture* frontend_background{};
@@ -777,6 +779,11 @@ struct LegacySprites {
             icon.destroy();
         }
         technology_command_icons.clear();
+        for (auto& [frame, icon] : building_command_icons) {
+            static_cast<void>(frame);
+            icon.destroy();
+        }
+        building_command_icons.clear();
         for (LegacySprite& icon : resource_icons) {
             icon.destroy();
         }
@@ -3913,7 +3920,7 @@ LegacySprites load_local_legacy_sprites(
             sprites.hud_actions,
             ui_asset_mapping(UiAssetRole::action_sheet).resource_id
         );
-        for (std::int32_t frame = 0; frame < 14; ++frame) {
+        for (std::int32_t frame = 0; frame < 69; ++frame) {
             attempt_interface(
                 sprites.action_command_icons[frame],
                 ui_icons::command_sheet,
@@ -3931,6 +3938,13 @@ LegacySprites load_local_legacy_sprites(
             attempt_interface(
                 sprites.technology_command_icons[frame],
                 ui_icons::technology_sheet,
+                static_cast<std::size_t>(frame)
+            );
+        }
+        for (std::int32_t frame = 0; frame < 52; ++frame) {
+            attempt_interface(
+                sprites.building_command_icons[frame],
+                ui_icons::building_sheet,
                 static_cast<std::size_t>(frame)
             );
         }
@@ -7489,13 +7503,19 @@ void render_unit(
     SDL_Renderer* renderer,
     const Simulation& simulation,
     const Unit& unit,
-    float movement_alpha
+    float movement_alpha,
+    std::uint64_t presentation_time_ms
 ) {
     const UnitRules& unit_rules = rules_for(unit.kind);
     const SDL_FPoint current = tile_top(unit.position);
     SDL_FPoint top = current;
     const bool interpolating =
         render_unit_is_interpolating(simulation, unit);
+    const std::uint64_t unit_animation_tick =
+        unit_animation_tick_from_milliseconds(
+            presentation_time_ms,
+            unit.id
+        );
     if (interpolating) {
         const SDL_FPoint previous = tile_top(unit.previous_position);
         top = {
@@ -7650,7 +7670,7 @@ void render_unit(
                         },
                         facing_previous,
                         facing_current,
-                        simulation.tick_number() + unit.id,
+                        unit_animation_tick,
                         true
                     )) {
                     if (unit.hit_points < unit_rules.hit_points ||
@@ -7689,7 +7709,7 @@ void render_unit(
                     {ground_top.x, ground_top.y + half_tile_height},
                     unit.previous_position,
                     unit.position,
-                    simulation.tick_number() + unit.id,
+                    unit_animation_tick,
                     interpolating || unit.moving
                 )) {
                 if (unit.hit_points < unit_rules.hit_points ||
@@ -7850,7 +7870,7 @@ void render_unit(
                     ground,
                     unit.previous_position,
                     unit.position,
-                    simulation.tick_number() + unit.id,
+                    unit_animation_tick,
                     true
                 )) {
                 const int maximum_hit_points =
@@ -7934,7 +7954,7 @@ void render_unit(
                 {ground_top.x, ground_top.y + half_tile_height},
                 unit.previous_position,
                 unit.position,
-                simulation.tick_number() + unit.id,
+                unit_animation_tick,
                 true
             )) {
             const int maximum_hit_points =
@@ -7965,7 +7985,7 @@ void render_unit(
             ? static_cast<std::uint64_t>(
                 (2 - unit.trebuchet_transform_ticks_remaining) * 4
             )
-            : simulation.tick_number() + unit.id;
+            : unit_animation_tick;
         if (render_legacy_animation(
                 renderer,
                 *early_animation,
@@ -10317,6 +10337,27 @@ void render_hud(
                         portrait_sprite = &animation->frames.front();
                     }
                 }
+            } else if (simulation.selected_building()) {
+                const auto selected = std::ranges::find(
+                    simulation.buildings(),
+                    *simulation.selected_building(),
+                    &Building::id
+                );
+                if (selected != simulation.buildings().end()) {
+                    const auto binding =
+                        ui_icons::building(selected->kind);
+                    if (binding) {
+                        const auto icon =
+                            active_legacy_sprites.building_command_icons.find(
+                                binding->frame
+                            );
+                        if (icon !=
+                            active_legacy_sprites
+                                .building_command_icons.end()) {
+                            portrait_sprite = &icon->second;
+                        }
+                    }
+                }
             }
             if (portrait_sprite != nullptr) {
                 const SDL_Rect portrait_clip{
@@ -10412,29 +10453,32 @@ void render_hud(
         }
         SDL_SetRenderClipRect(renderer, nullptr);
         for (std::size_t index = 0;
-             index < selection_panel.commands.size() && index < 15;
+             index < selection_panel.commands.size();
              ++index) {
-            const int column = static_cast<int>(index % 5);
-            const int row = static_cast<int>(index / 5);
+            const CommandButtonModel& command =
+                selection_panel.commands[index];
+            if (command.grid_slot >= 15) continue;
+            const int column = static_cast<int>(command.grid_slot % 5);
+            const int row = static_cast<int>(command.grid_slot / 5);
             const SDL_FRect button{
                 37.0F + column * 41.0F,
                 top + 31.0F + row * 41.0F,
                 40.0F, 40.0F,
             };
-            const CommandButtonModel& command =
-                selection_panel.commands[index];
             const bool command_enabled =
                 command.enabled && !observer_mode;
             const bool pressed =
                 command_enabled &&
-                active_command_hover == static_cast<int>(index) &&
+                active_command_hover ==
+                    static_cast<int>(command.grid_slot) &&
                 (SDL_GetMouseState(nullptr, nullptr) &
                  SDL_BUTTON_MASK(SDL_BUTTON_LEFT)) != 0;
             render_beveled_panel(
                 renderer, button,
                 !command_enabled ? SDL_Color{45, 43, 39, 255} :
                 command.selected ? SDL_Color{128, 91, 31, 255} :
-                active_command_hover == static_cast<int>(index)
+                active_command_hover ==
+                    static_cast<int>(command.grid_slot)
                     ? SDL_Color{104, 78, 38, 255}
                     : SDL_Color{64, 51, 34, 255}
             );
@@ -10475,6 +10519,17 @@ void render_hud(
                     active_legacy_sprites.technology_command_icons.end()) {
                     icon_sprite = &icon->second;
                 }
+            } else if (command.icon &&
+                command.icon->evidence ==
+                    ui_icons::Evidence::exact_executable_dispatch &&
+                command.icon->sheet == ui_icons::building_sheet) {
+                const auto icon =
+                    active_legacy_sprites.building_command_icons.find(
+                        command.icon->frame);
+                if (icon !=
+                    active_legacy_sprites.building_command_icons.end()) {
+                    icon_sprite = &icon->second;
+                }
             }
             if (icon_sprite != nullptr && icon_sprite->texture != nullptr) {
                 SDL_SetTextureColorMod(
@@ -10499,12 +10554,16 @@ void render_hud(
                 command.hotkey.substr(0, 4).c_str()
             );
         }
-        if (active_command_hover >= 0 &&
-            static_cast<std::size_t>(active_command_hover) <
-                selection_panel.commands.size()) {
-            const CommandButtonModel& hovered =
-                selection_panel.commands[
-                    static_cast<std::size_t>(active_command_hover)];
+        const auto hovered_command = std::ranges::find_if(
+            selection_panel.commands,
+            [](const CommandButtonModel& command) {
+                return active_command_hover >= 0 &&
+                    command.grid_slot ==
+                        static_cast<std::size_t>(active_command_hover);
+            }
+        );
+        if (hovered_command != selection_panel.commands.end()) {
+            const CommandButtonModel& hovered = *hovered_command;
             const SDL_FRect tooltip{5.0F, top + 2.0F, 240.0F, 38.0F};
             render_beveled_panel(renderer, tooltip, {31, 25, 18, 245});
             const std::string heading =
@@ -13068,6 +13127,7 @@ std::size_t render(
     const CampaignPresentation* campaign_presentation,
     const MultiplayerPresentation* multiplayer_presentation,
     float movement_alpha,
+    std::uint64_t presentation_time_ms,
     const CameraView& camera
 ) {
     std::size_t rendered_tiles{};
@@ -13539,7 +13599,8 @@ std::size_t render(
                 renderer,
                 simulation,
                 unit,
-                movement_alpha
+                movement_alpha,
+                presentation_time_ms
             );
         }
     }
@@ -15137,11 +15198,20 @@ int SdlApp::run() {
         active_frontend_screen = FrontendScreen::hidden;
     }
     if (const char* panel = SDL_getenv("AOE_COMMAND_PANEL")) {
-        if (std::string_view{panel} == "unit") {
+        const std::string_view panel_name{panel};
+        if (panel_name == "unit" || panel_name == "villager" ||
+            panel_name == "scout") {
             const auto unit = std::ranges::find_if(
                 simulation.units(),
-                [](const Unit& candidate) {
-                    return candidate.owner == active_view_player;
+                [panel_name](const Unit& candidate) {
+                    const bool requested_kind =
+                        panel_name == "unit" ||
+                        (panel_name == "villager" &&
+                         candidate.kind == UnitKind::villager) ||
+                        (panel_name == "scout" &&
+                         candidate.kind == UnitKind::scout_cavalry);
+                    return candidate.owner == active_view_player &&
+                        requested_kind;
                 }
             );
             if (unit != simulation.units().end()) {
@@ -15417,7 +15487,9 @@ int SdlApp::run() {
         if (multiplayer_presentation) return false;
         return aoe::execute(target, command);
     };
-    auto last_update = std::chrono::steady_clock::now();
+    auto last_frame_time = std::chrono::steady_clock::now();
+    FixedStepAccumulator simulation_time;
+    FrameDuration presentation_time{};
     const auto set_build_mode = [
         &pending_building,
         &pending_attack_move,
@@ -15642,10 +15714,16 @@ int SdlApp::run() {
                             active_view_player,
                             active_command_page,
                             active_command_subpage);
-                    if (static_cast<std::size_t>(active_command_hover) <
-                            panel.commands.size()) {
-                        const CommandButtonModel& button =
-                            panel.commands[active_command_hover];
+                    const auto hovered = std::ranges::find_if(
+                        panel.commands,
+                        [](const CommandButtonModel& button) {
+                            return active_command_hover >= 0 &&
+                                button.grid_slot == static_cast<std::size_t>(
+                                    active_command_hover);
+                        }
+                    );
+                    if (hovered != panel.commands.end()) {
+                        const CommandButtonModel& button = *hovered;
                         if (simulation.observer_perspective(
                                 active_view_player)) {
                             control_group_status =
@@ -15719,6 +15797,44 @@ int SdlApp::run() {
                                 }
                             }
                         } else if (
+                            button.command == PanelCommand::delete_entity) {
+                            const std::vector<EntityId> selected =
+                                simulation.selected_units();
+                            for (EntityId id : selected) {
+                                GameCommand command =
+                                    DeleteEntityCommand{id, false};
+                                if (execute(simulation, command)) {
+                                    replay.record(
+                                        simulation.tick_number(),
+                                        std::move(command)
+                                    );
+                                }
+                            }
+                            if (selected.empty() &&
+                                simulation.selected_building()) {
+                                GameCommand command = DeleteEntityCommand{
+                                    *simulation.selected_building(),
+                                    true,
+                                };
+                                if (execute(simulation, command)) {
+                                    replay.record(
+                                        simulation.tick_number(),
+                                        std::move(command)
+                                    );
+                                }
+                            }
+                        } else if (
+                            button.command == PanelCommand::advance_age &&
+                            simulation.selected_building()) {
+                            GameCommand command = AdvanceAgeCommand{
+                                *simulation.selected_building()};
+                            if (execute(simulation, command)) {
+                                replay.record(
+                                    simulation.tick_number(),
+                                    std::move(command)
+                                );
+                            }
+                        } else if (
                             button.command ==
                             PanelCommand::attack_move) {
                             pending_attack_move = true;
@@ -15730,8 +15846,13 @@ int SdlApp::run() {
                             button.command == PanelCommand::patrol) {
                             pending_patrol = true;
                         } else if (
-                            button.command == PanelCommand::guard) {
+                            button.command == PanelCommand::guard ||
+                            button.command == PanelCommand::follow) {
                             pending_guard = true;
+                            control_group_status =
+                                button.command == PanelCommand::follow
+                                    ? "RIGHT CLICK FRIENDLY UNIT TO FOLLOW"
+                                    : "RIGHT CLICK FRIENDLY UNIT OR BUILDING";
                         } else if (
                             button.command == PanelCommand::garrison) {
                             pending_garrison = true;
@@ -18118,9 +18239,8 @@ int SdlApp::run() {
                         }
                     );
                     if (match != panel.commands.end()) {
-                        active_command_hover = static_cast<int>(
-                            std::distance(panel.commands.begin(), match)
-                        );
+                        active_command_hover =
+                            static_cast<int>(match->grid_slot);
                         SDL_Event activation{};
                         activation.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
                         activation.button.button = SDL_BUTTON_LEFT;
@@ -20261,18 +20381,35 @@ int SdlApp::run() {
             campaign_presentation->visible &&
             campaign_presentation->screen !=
                 CampaignPresentation::Screen::status;
-        if (!paused && !campaign_modal && !scenario_editor &&
+        const bool simulation_active =
+            !paused && !campaign_modal && !scenario_editor &&
             active_frontend_screen == FrontendScreen::hidden &&
-            now - last_update >= std::chrono::milliseconds(
-                multiplayer_runtime || multiplayer_presentation
-                    ? 200
-                    : active_settings.game_speed ==
-                              SinglePlayerSpeed::slow
-                        ? 400
-                    : active_settings.game_speed ==
-                              SinglePlayerSpeed::fast
-                        ? 100
-                        : 200)) {
+            (!multiplayer_runtime || !multiplayer_runtime->paused());
+        const FrameDuration frame_elapsed = now - last_frame_time;
+        last_frame_time = now;
+        const std::optional<int> multiplayer_cadence =
+            multiplayer_runtime
+            ? std::optional<int>{
+                  multiplayer_runtime->effective_tick_cadence_ms()
+              }
+            : multiplayer_presentation
+                ? std::optional<int>{200}
+                : std::nullopt;
+        const std::chrono::milliseconds tick_duration =
+            authoritative_tick_duration(
+                active_settings.game_speed,
+                multiplayer_cadence
+            );
+        if (simulation_active) {
+            simulation_time.add(frame_elapsed);
+            presentation_time += frame_elapsed;
+        } else {
+            simulation_time.reset();
+        }
+        while (
+            simulation_active &&
+            simulation_time.step_due(tick_duration)
+        ) {
             if (multiplayer_runtime) {
                 multiplayer_runtime->pump(simulation);
             } else if (multiplayer_presentation) {
@@ -20290,7 +20427,7 @@ int SdlApp::run() {
                 simulation.update();
                 computer.update(simulation);
             }
-            last_update = now;
+            simulation_time.consume_step(tick_duration);
         }
         if (multiplayer_runtime && !multiplayer_state_written &&
             multiplayer_exit_tick > 0 &&
@@ -20742,12 +20879,13 @@ int SdlApp::run() {
             multiplayer_presentation
                 ? &*multiplayer_presentation
                 : nullptr,
-            std::clamp(
-                std::chrono::duration<float>(
-                    now - last_update
-                ).count() / 0.2F,
-                0.0F,
-                1.0F
+            simulation_active
+                ? simulation_time.interpolation_alpha(tick_duration)
+                : 1.0F,
+            static_cast<std::uint64_t>(
+                std::chrono::duration_cast<std::chrono::milliseconds>(
+                    presentation_time
+                ).count()
             ),
             camera
         );

@@ -18,6 +18,17 @@ COMMANDS = [
 
 SHEET_ROLE_EVIDENCE = [
     {
+        "resource_id": 50706, "role": "building_icons",
+        "classification": "exact",
+        "source": (
+            "AoK-HD-patched.c FUN_005c7560 building subtype dispatch"
+        ),
+        "note": (
+            "DAT +0x54 frame is unchanged; installed resources "
+            "50705..50708 are byte-identical"
+        ),
+    },
+    {
         "resource_id": 50721, "role": "command_sheet",
         "classification": "exact",
         "source": (
@@ -179,6 +190,12 @@ def main():
                 "record_field": "+0x54 signed short",
                 "frame_transform": "identity",
                 "excluded_subtypes": [2, 10],
+                "evidence": "FUN_005c7560 -> FUN_005c5e40",
+            },
+            "building": {
+                "sheet": 50706,
+                "record_field": "+0x54 signed short",
+                "frame_transform": "identity",
                 "evidence": "FUN_005c7560 -> FUN_005c5e40",
             },
             "pressed": {

@@ -7611,7 +7611,7 @@ void render_unit(
             const auto& table =
                 unit.attack_target_id != 0
                 ? active_legacy_sprites.naval_attack
-                : interpolating || unit.moving
+                : interpolating
                     ? active_legacy_sprites.naval_move
                     : active_legacy_sprites.naval_idle;
             const auto found = table.find(unit.kind);
@@ -7697,7 +7697,7 @@ void render_unit(
         }
         if (unit.kind == UnitKind::fishing_ship) {
             const PlayerLegacySprites& ship_sprites =
-                interpolating || unit.moving
+                interpolating
                 ? active_legacy_sprites.fishing_ship_moving
                 : active_legacy_sprites.fishing_ship_standing;
             const LegacyAnimation* ship_animation =
@@ -7710,7 +7710,7 @@ void render_unit(
                     unit.previous_position,
                     unit.position,
                     unit_animation_tick,
-                    interpolating || unit.moving
+                    interpolating
                 )) {
                 if (unit.hit_points < unit_rules.hit_points ||
                     simulation.is_unit_selected(unit.id)) {
@@ -7859,7 +7859,7 @@ void render_unit(
         };
         {
             const PlayerLegacySprites& sprites =
-                interpolating || unit.moving
+                interpolating
                 ? active_legacy_sprites.trade_cart_moving
                 : active_legacy_sprites.trade_cart_standing;
             const LegacyAnimation* animation =
@@ -7943,7 +7943,7 @@ void render_unit(
     }
     if (unit.kind == UnitKind::monk && unit.carrying_relic) {
         const PlayerLegacySprites& carried_players =
-            interpolating || unit.moving
+            interpolating
             ? active_legacy_sprites.carried_relic_moving
             : active_legacy_sprites.carried_relic_standing;
         const LegacyAnimation* carried =

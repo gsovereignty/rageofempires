@@ -30,8 +30,8 @@ void state_derivation_is_deterministic() {
     );
     unit.moving = true;
     require(
-        aoe::render_action_for(unit) == aoe::RenderAction::moving,
-        "moving unit must select moving"
+        aoe::render_action_for(unit) == aoe::RenderAction::idle,
+        "move-order intent alone must not claim physical movement"
     );
     unit.attack_target_id = 9;
     require(
@@ -125,6 +125,58 @@ void simulation_command_reaches_sheep_attack_mapping() {
     require(
         resolution.request.slp_id == 3623,
         "reachable sheep attack must request missing SLP 3623"
+    );
+}
+
+void cavalry_accumulator_wait_does_not_animate_in_place() {
+    aoe::Simulation simulation{aoe::GameMap{8, 4}};
+    const aoe::EntityId scout = simulation.add_unit(
+        aoe::UnitKind::scout_cavalry,
+        aoe::Player::blue,
+        {1, 1}
+    );
+    simulation.add_unit(
+        aoe::UnitKind::villager,
+        aoe::Player::red,
+        {7, 3}
+    );
+    require(
+        simulation.command_unit(scout, {6, 1}),
+        "scout movement command must route"
+    );
+
+    simulation.update();
+    const aoe::Unit& first_step = simulation.units().front();
+    require(
+        first_step.position == aoe::TilePosition(2, 1) &&
+        aoe::render_unit_is_interpolating(simulation, first_step),
+        "scout must begin with a physical movement step"
+    );
+
+    simulation.update();
+    const aoe::Unit& waiting = simulation.units().front();
+    require(
+        waiting.moving &&
+        waiting.position == aoe::TilePosition(2, 1) &&
+        waiting.movement_speed_remainder > 0 &&
+        waiting.movement_speed_remainder < 320,
+        "scout must retain move order during accumulator wait"
+    );
+    require(
+        !aoe::render_unit_is_interpolating(simulation, waiting) &&
+        aoe::render_action_for(simulation, waiting) ==
+            aoe::RenderAction::idle,
+        "accumulator wait must not animate cavalry on the spot"
+    );
+
+    simulation.update();
+    const aoe::Unit& advanced = simulation.units().front();
+    require(
+        advanced.position == aoe::TilePosition(3, 1) &&
+        aoe::render_unit_is_interpolating(simulation, advanced) &&
+        aoe::render_action_for(simulation, advanced) ==
+            aoe::RenderAction::moving,
+        "physical cavalry step must select movement animation"
     );
 }
 
@@ -695,6 +747,7 @@ int main() {
     try {
         state_derivation_is_deterministic();
         simulation_command_reaches_sheep_attack_mapping();
+        cavalry_accumulator_wait_does_not_animate_in_place();
         telemetry_deduplicates_and_sorts();
         canonical_resolver_selects_exact_actions();
         canonical_unit_states_cover_runtime_special_actions();

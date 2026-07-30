@@ -266,30 +266,6 @@ if(AOE_ASSET_AUDIT_DATA_ROOT)
     )
 endif()
 
-add_test(
-    NAME renderer_asset_baseline_compare_tests
-    COMMAND
-        "${Python3_EXECUTABLE}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/tools/test_compare_renderer_asset_coverage.py"
-)
-add_test(
-    NAME renderer_runtime_static_compare_tests
-    COMMAND
-        "${Python3_EXECUTABLE}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/tools/test_compare_runtime_static_coverage.py"
-)
-add_test(
-    NAME renderer_runtime_coverage_runner_tests
-    COMMAND
-        "${Python3_EXECUTABLE}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/tools/test_run_renderer_runtime_coverage.py"
-)
-add_test(
-    NAME renderer_runtime_fallback_checker_tests
-    COMMAND
-        "${Python3_EXECUTABLE}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/tools/test_check_runtime_fallbacks.py"
-)
 add_custom_target(
     run_renderer_runtime_coverage
     COMMAND
@@ -807,6 +783,42 @@ target_compile_options(
 )
 
 enable_testing()
+
+file(
+    GLOB_RECURSE AOE_PYTHON_TOOL_TESTS
+    CONFIGURE_DEPENDS
+    RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/test_*.py"
+)
+foreach(AOE_PYTHON_TOOL_TEST IN LISTS AOE_PYTHON_TOOL_TESTS)
+    string(
+        REGEX REPLACE "[^A-Za-z0-9]+" "_"
+        AOE_PYTHON_TOOL_TEST_SLUG
+        "${AOE_PYTHON_TOOL_TEST}"
+    )
+    string(SHA1 AOE_PYTHON_TOOL_TEST_HASH "${AOE_PYTHON_TOOL_TEST}")
+    string(SUBSTRING "${AOE_PYTHON_TOOL_TEST_HASH}" 0 10
+        AOE_PYTHON_TOOL_TEST_HASH
+    )
+    set(
+        AOE_PYTHON_TOOL_TEST_NAME
+        "python_${AOE_PYTHON_TOOL_TEST_SLUG}_${AOE_PYTHON_TOOL_TEST_HASH}"
+    )
+    add_test(
+        NAME "${AOE_PYTHON_TOOL_TEST_NAME}"
+        COMMAND
+            "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/${AOE_PYTHON_TOOL_TEST}"
+    )
+    set_tests_properties(
+        "${AOE_PYTHON_TOOL_TEST_NAME}"
+        PROPERTIES
+            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+            LABELS "python;tooling"
+            TIMEOUT 60
+    )
+endforeach()
+
 add_test(NAME aoe_core_tests COMMAND aoe_core_tests)
 add_test(NAME aoe_random_map_tests COMMAND aoe_random_map_tests)
 add_test(NAME aoe_rms_import_tests COMMAND aoe_rms_import_tests)

@@ -19,6 +19,7 @@ CASES = (
     ("movement-gait-audit.scenario", 4),
     ("villager-work-audit.scenario", 8),
     ("villager-repair-audit.scenario", 8),
+    ("sheep-gather-audit.scenario", 0),
     ("monk-conversion-audit.scenario", 12),
     ("monk-relic-healing-audit.scenario", 12),
     ("naval-fishing-audit.scenario", 12),

@@ -27,7 +27,7 @@ constexpr UnitAnimationSet unit_animation_sets[] = {
     {UnitKind::sheep, 3629, 9, 3634, 16, 3623, 15, -1, 0},
     {UnitKind::deer, 342, 5, 348, 15, 336, 15, -1, 0},
     {UnitKind::boar, 2557, 10, 2559, 10, 2555, 17, -1, 0},
-    {UnitKind::archer, -1, 0, 12, 10, 2, 10, 5, 10},
+    {UnitKind::archer, 8, 10, 12, 10, 2, 10, 5, 10},
     {UnitKind::elite_skirmisher, 613, 9, 617, 10, 607, 12, 610, 10},
     {UnitKind::skirmisher, 1650, 8, 1654, 10, 1644, 12, 1647, 10},
     {UnitKind::crossbowman, 192, 10, 196, 15, 186, 10, 189, 10},
@@ -1048,11 +1048,12 @@ AssetResolution resolve_building_asset(
         return result;
     }
     if (kind == BuildingKind::farm) {
-        result.status = AssetCoverageStatus::intentional_procedural;
+        result.status = AssetCoverageStatus::renderable;
         result.reason =
-            "Farm has no archive-backed building root; reviewed procedural "
-            "contract in PROCEDURAL_BUILDING_ASSET_MAP.md";
-        result.intentional_procedural = true;
+            "HD farm terrain textures selected";
+        result.request.source_mapping =
+            "Terrain/Textures/g_fm1_00_COLOR.png + "
+            "Terrain/Textures/g_fm2_00_COLOR.png";
         return result;
     }
     if (state.building_state == RenderBuildingState::construction &&
@@ -1110,16 +1111,8 @@ AssetResolution resolve_building_asset(
         state_root != nullptr) {
         result.request.graphic_id = state_root->graphic_root;
         result.state.composite = true;
-        if (state_root->intentional_procedural_body) {
-            result.status = AssetCoverageStatus::intentional_procedural;
-            result.reason =
-                "DAT root supplies construction shadow only; body is "
-                "reviewed procedural";
-            result.intentional_procedural = true;
-        } else {
-            result.status = AssetCoverageStatus::renderable;
-            result.reason = "canonical building-state graphic root selected";
-        }
+        result.status = AssetCoverageStatus::renderable;
+        result.reason = "canonical building-state graphic root selected";
         return result;
     }
     if (state.building_state == RenderBuildingState::completed) {
@@ -1293,21 +1286,6 @@ AssetResolution resolve_unit_asset(
             };
             return result;
         }
-    }
-    if (kind == UnitKind::archer &&
-        state.action == RenderAction::idle) {
-        result.status = AssetCoverageStatus::intentional_procedural;
-        result.reason =
-            "Archer DAT standing graphic 633 / SLP 8 has ambiguous "
-            "direction layout; reviewed fail-closed procedural idle";
-        result.intentional_procedural = true;
-        result.evidence_sources.push_back(
-            "generated/animation_evidence.json:archer"
-        );
-        result.evidence_sources.push_back(
-            "ANIMATION_FIDELITY.md:Archer"
-        );
-        return result;
     }
     if (const NavalCompositeSet* naval =
             naval_composite_set(kind, state.action);

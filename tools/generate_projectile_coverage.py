@@ -16,7 +16,7 @@ PROJECTILES = [
     ("onager_volley", 3385, 3986, "frame_zero_only", "exact_composite"),
     ("trebuchet_stone", 3394, 3815, "frame_zero_only", "exact_composite"),
     ("throwing_axe", 3380, 3801, "body_only", "exact_composite"),
-    ("arrow", 3378, 3799, "wrong_frame_zero", "procedural_fail_closed"),
+    ("arrow", 638, 50, "wrong_frame_zero", "exact_directional"),
     ("scorpion_bolt", 3391, 3812, "wrong_frame_zero", "exact_composite"),
 ]
 
@@ -58,17 +58,12 @@ def main() -> None:
         ],
         "summary": {
             "projectile_exact_before": 1,
-            "projectile_exact_after": 8,
+            "projectile_exact_after": 9,
             "projectile_total": 9,
             "impact_exact_before": 0,
             "impact_exact_after": 2,
             "impact_total": 2,
-            "fail_closed": [
-                {
-                    "kind": "arrow",
-                    "reason": "32-direction display transform unproved",
-                },
-            ],
+            "fail_closed": [],
         },
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)

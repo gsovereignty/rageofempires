@@ -45,12 +45,12 @@ the 18-direction half-plus-center layout. Scorpion now selects body and shadow
 independently from the same physical angle, applies DAT offsets, transforms
 mirrored draw hotspots with `width - hotspot_x`, and flips both layers.
 
-Arrow SLP 3799 has 176 physical frames, but its DAT contract requires
-`11 * (32 / 2 + 1) = 187` for that proved transform. Its shadow SLP 3800 does
-match at 37 frames. Pinned openage source itself marks short death/projectile
-animations as an unresolved TODO. Arrow therefore remains procedural rather
-than inventing handling for the absent 11-frame angle. Its DAT binding stays
-cataloged with `direction_mapping_proved=false`.
+Arrow uses DAT graphic 638 / SLP 50 (`ARROW_NN`): one frame over 72 logical
+directions. Its 37 physical frames exactly match the mirrored
+half-plus-center layout. Runtime selects the nearest logical direction and
+mirrors directions above 180 degrees. Expansion graphic 3378 / SLP 3799
+remains unsuitable because its 176 frames do not match its declared
+11-by-32 layout; renderer deliberately selects the complete static arrow.
 
 Machine-readable before/after inventory lives in
 `generated/projectile_impact_coverage.json`; regenerate with:
@@ -67,8 +67,7 @@ installer SLP counts, payload hashes, and hotspot bounds in
 
 `projectile_catalog_tests` covers exact body/shadow/impact resolution, wrong
 shadow-layer rejection, impact-cadence drift rejection, Scorpion front/back/
-mirrored selection, and Arrow short-layout rejection.
+mirrored selection, and static Arrow direction selection.
 
 Paired original-runtime captures remain needed for projectile hotspot, arc,
-shadow offset, action cadence, and impact timing. Exact Arrow promotion still
-requires authoritative evidence for its missing 180-degree body frames.
+shadow offset, action cadence, and impact timing.

@@ -70,12 +70,43 @@ startup paths use one observable map extent. RMS scripts with no
 behaviour where a script without the directive uses the lobby-selected size.
 An `override_map_size` above 240 snaps to `maximum`.
 
-Modern choice: the bundled native scenario is generated from its original
-24x16 demonstration layout at 255x255. Terrain rectangles scale as areas,
-placements scale as points, and generation rejects invalid footprints. No
-original bundled scenario exists. CMake tracks and deploys the generated
-scenario independently of executable relinking so source and app copies do
-not diverge.
+Modern choice: the bundled native scenarios are generated from their
+original 24x16 demonstration layouts at 255x255 by
+`tools/generate_demo_scenario.py`. Terrain rectangles and elevation tiles
+scale as areas, placements scale as points, and generation rejects invalid
+footprints. Both bundled campaign missions (`demo.scenario` and
+`elevation-demo.scenario`, referenced by `briefing-demo.campaign`) are
+generated, because the campaign path loads through the same playable-map
+guard as launch. No original bundled scenario exists. CMake tracks and
+deploys the generated startup scenario independently of executable
+relinking so source and app copies do not diverge, and
+`bundled_scenario_generator_tests` fails if a checked-in file stops
+matching the generator.
+
+Modern choice: the deliberately small renderer audit fixtures under
+`resources/` (18x10 and similar single-purpose sprite stages) keep their
+original dimensions and are loaded only by
+`tools/run_renderer_runtime_coverage.py`, which sets the
+`AOE_AUDIT_ANY_MAP_SIZE` diagnostic to bypass the 255x255 guard. Their
+fallback telemetry is position independent, so regenerating them at 255x255
+would churn the pixel-audit suite without changing what it proves. With the
+diagnostic unset, no launch path accepts a smaller map.
+
+Modern choice: the random-map preview in the frontend is square and samples
+one filled rect per preview pixel. It was a 128x96 rect filled once per
+tile, which stretched every square generated map by 4:3 and issued 65,025
+draw calls per frame at the maximum preset.
+
+Modern choice: generated-map feature radii scale by
+`sqrt(dimension / 96)`, and corridor widths (the Black Forest route, the
+Rivers channel and its fords) by `dimension / 96`. Blob counts already grew
+with the dimension, but the radii were fixed, so coverage grew linearly
+while area grew quadratically. Measured non-grass coverage at seed 7 before
+the change: Arabia 6.76% at 120 tiles, 3.76% at 200, 2.80% at 255; raised
+ground 8.78%, 2.96%, 1.65%. After: 6.76%, 7.78%, 7.69% and 13.42%, 9.90%,
+10.20%. 96 is the largest dimension the fixed radii were authored against
+and the scale never shrinks an extent, so nothing at or below it changes.
+No original scaling rule was recovered.
 
 Modern choice: renderer world extents, isometric origin, camera clamps, and
 minimap aggregation derive from the loaded map. The fixed 1280x640 world
@@ -83,6 +114,18 @@ viewport remains presentation geometry rather than a map-size limit. A
 headless `AOE_MAP_DIMENSION_PATH` diagnostic records the map presented by a
 real app launch and, when open, the generated frontend preview. SDL smoke
 tests assert both contain 65,025 tiles; no original diagnostic was recovered.
+Two further diagnostics support headless capture, neither with an original
+equivalent: `AOE_CAMERA_TILE` aims the initial camera at a named tile, since
+the start view now covers a small fraction of the world, and `AOE_FOG`
+overrides the existing fog display option, since one start's explored area
+no longer covers the map. The minimap now honours that option, which the
+world pass already did.
+
+Observed cost at 255x255 (65,025 tiles against 384): the app holds its
+fixed simulation cadence at both sizes. Wall clock to tick 100 was 23.61s
+at 255x255 against 23.07s at 24x16 with the GPU renderer, and 23.98s
+against 22.40s with the software renderer. The full test suite runs in
+21.95s against 12.36s before the change.
 
 Modern choice: playable app boundaries accept only 255x255 scenarios and
 saves. This covers bundled launch, `AOE_SCENARIO_PATH`, campaign selection,

@@ -1098,9 +1098,9 @@ Age Simulation::age(PlayerSlotId player) const {
 
 Age Simulation::age(EntityOwner player) const {
     const auto slot = entity_owner_slot(player);
-    if (!slot || slot->is_neutral()) {
-        throw std::invalid_argument("neutral has no age");
-    }
+    // Gaia has no player-state age, but shared unit calculations still need a
+    // stable baseline for neutral animals and relics.
+    if (!slot || slot->is_neutral()) return Age::dark;
     return age(*slot);
 }
 
@@ -2199,30 +2199,41 @@ std::vector<TilePosition> Simulation::formation_destinations(
     const auto selected = [&unit_ids](EntityId id) {
         return std::ranges::find(unit_ids, id) != unit_ids.end();
     };
-    const auto blocked = [this, &selected](TilePosition position) {
-        const bool stationary_unit = std::ranges::any_of(
-            units_,
-            [position, &selected](const Unit& unit) {
-                return unit.garrisoned_in == 0 &&
-                    !selected(unit.id) &&
-                    unit.position == position;
-            }
-        );
-        if (stationary_unit) {
-            return true;
+    const auto tile_index = [this](TilePosition position) {
+        return static_cast<std::size_t>(position.y) *
+                   static_cast<std::size_t>(map_.width()) +
+               static_cast<std::size_t>(position.x);
+    };
+    std::vector<bool> blocked_tiles(
+        static_cast<std::size_t>(map_.width()) *
+            static_cast<std::size_t>(map_.height()),
+        false
+    );
+    for (const Unit& unit : units_) {
+        if (unit.garrisoned_in == 0 && !selected(unit.id) &&
+            map_.contains(unit.position)) {
+            blocked_tiles[tile_index(unit.position)] = true;
         }
-        return std::ranges::any_of(
-            buildings_,
-            [position](const Building& building) {
-                const BuildingRules& rules = rules_for(building.kind);
-                return position.x >= building.position.x &&
-                    position.y >= building.position.y &&
-                    position.x <
-                        building.position.x + rules.footprint_width &&
-                    position.y <
-                        building.position.y + rules.footprint_height;
+    }
+    for (const Building& building : buildings_) {
+        const BuildingRules& rules = rules_for(building.kind);
+        for (int y = building.position.y;
+             y < building.position.y + rules.footprint_height;
+             ++y) {
+            for (int x = building.position.x;
+                 x < building.position.x + rules.footprint_width;
+                 ++x) {
+                const TilePosition position{x, y};
+                if (map_.contains(position)) {
+                    blocked_tiles[tile_index(position)] = true;
+                }
             }
-        );
+        }
+    }
+    const auto blocked =
+        [this, &blocked_tiles, &tile_index](TilePosition position) {
+            return !map_.contains(position) ||
+                blocked_tiles[tile_index(position)];
     };
 
     bool all_ships = true;
@@ -2304,14 +2315,15 @@ std::vector<TilePosition> Simulation::formation_destinations(
     }
 
     std::vector<TilePosition> candidates;
+    std::vector<bool> candidate_added(blocked_tiles.size(), false);
     for (TilePosition ideal : ideals) {
         if (!map_.contains(ideal) || blocked(ideal)) continue;
         const bool terrain_ok = all_ships
             ? map_.sailable(ideal)
             : map_.walkable(ideal);
-        if (terrain_ok &&
-            std::ranges::find(candidates, ideal) == candidates.end()) {
+        if (terrain_ok && !candidate_added[tile_index(ideal)]) {
             candidates.push_back(ideal);
+            candidate_added[tile_index(ideal)] = true;
         }
     }
     const std::size_t ideal_candidate_count = candidates.size();
@@ -2322,9 +2334,9 @@ std::vector<TilePosition> Simulation::formation_destinations(
                 ? map_.sailable(position)
                 : map_.walkable(position);
             if (terrain_ok && !blocked(position) &&
-                std::ranges::find(candidates, position) ==
-                    candidates.end()) {
+                !candidate_added[tile_index(position)]) {
                 candidates.push_back(position);
+                candidate_added[tile_index(position)] = true;
             }
         }
     }
@@ -7751,6 +7763,53 @@ bool Simulation::route_unit(Unit& unit, TilePosition destination) {
             ? map_.sailable(position)
             : map_.walkable(position);
     };
+    const auto tile_index = [this](TilePosition position) {
+        return static_cast<std::size_t>(position.y) *
+                   static_cast<std::size_t>(map_.width()) +
+               static_cast<std::size_t>(position.x);
+    };
+    std::vector<bool> blocked(
+        static_cast<std::size_t>(map_.width()) *
+            static_cast<std::size_t>(map_.height()),
+        false
+    );
+    for (const Unit& other : units_) {
+        if (other.garrisoned_in == 0 && other.id != unit.id &&
+            map_.contains(other.position)) {
+            blocked[tile_index(other.position)] = true;
+        }
+    }
+    for (const Building& building : buildings_) {
+        if (building.id == unit.id) {
+            continue;
+        }
+        const bool gate =
+            building.kind == BuildingKind::palisade_gate_x ||
+            building.kind == BuildingKind::palisade_gate_y ||
+            building.kind == BuildingKind::stone_gate_x ||
+            building.kind == BuildingKind::stone_gate_y;
+        if (gate &&
+            (building.gate_open || building.owner == unit.owner)) {
+            continue;
+        }
+        const BuildingRules& rules = rules_for(building.kind);
+        for (int y = building.position.y;
+             y < building.position.y + rules.footprint_height;
+             ++y) {
+            for (int x = building.position.x;
+                 x < building.position.x + rules.footprint_width;
+                 ++x) {
+                const TilePosition position{x, y};
+                if (map_.contains(position)) {
+                    blocked[tile_index(position)] = true;
+                }
+            }
+        }
+    }
+    const auto occupied_for_route =
+        [&blocked, &tile_index](TilePosition position) {
+            return blocked[tile_index(position)];
+        };
     TilePosition route_target = destination;
     if (Building* building = building_at(destination);
         building != nullptr && building->id != unit.id) {
@@ -7776,12 +7835,7 @@ bool Simulation::route_unit(Unit& unit, TilePosition destination) {
                 const TilePosition candidate{x, y};
                 if (!on_perimeter || !map_.contains(candidate) ||
                     !traversable(candidate) ||
-                    occupied(
-                        candidate,
-                        unit.id,
-                        unit.owner,
-                        true
-                    )) {
+                    occupied_for_route(candidate)) {
                     continue;
                 }
                 const int distance =
@@ -7801,13 +7855,13 @@ bool Simulation::route_unit(Unit& unit, TilePosition destination) {
         map_,
         unit.position,
         route_target,
-        [this, &unit, route_target](TilePosition position) {
+        [this, route_target, &occupied_for_route](TilePosition position) {
             const bool unrelated_resource =
                 position != route_target &&
                 resource_for(map_.terrain_at(position)) !=
                     ResourceKind::none;
             return unrelated_resource ||
-                occupied(position, unit.id, unit.owner, true);
+                occupied_for_route(position);
         },
         traversable
     );

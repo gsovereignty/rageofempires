@@ -247,6 +247,10 @@ if(AOE_ASSET_AUDIT_DATA_ROOT)
             "${CMAKE_CURRENT_SOURCE_DIR}/tools/compare_runtime_static_coverage.py"
             "${CMAKE_CURRENT_SOURCE_DIR}/generated/renderer_asset_coverage_v2.json"
             "${CMAKE_CURRENT_BINARY_DIR}/renderer_runtime_fallbacks.json"
+        COMMAND
+            "${Python3_EXECUTABLE}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/check_runtime_fallbacks.py"
+            "${CMAKE_CURRENT_BINARY_DIR}/renderer_runtime_fallbacks.json"
         DEPENDS aoe_reconstruction renderer_asset_coverage_audit
         VERBATIM
     )
@@ -269,6 +273,21 @@ add_test(
     COMMAND
         "${Python3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/test_run_renderer_runtime_coverage.py"
+)
+add_test(
+    NAME renderer_runtime_fallback_checker_tests
+    COMMAND
+        "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/test_check_runtime_fallbacks.py"
+)
+# The bundled scenarios are generator output, so a hand edit has to fail.
+add_test(
+    NAME bundled_scenario_generator_tests
+    COMMAND
+        "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/generate_demo_scenario.py"
+        --resources "${CMAKE_CURRENT_SOURCE_DIR}/resources"
+        --check
 )
 
 add_executable(
@@ -865,6 +884,19 @@ add_test(
 set_tests_properties(
     aoe_random_map_sdl_smoke
     PROPERTIES TIMEOUT 20
+)
+add_test(
+    NAME aoe_gameplay_performance_sdl
+    COMMAND
+        bash
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/gameplay_performance_sdl_test.sh
+        $<TARGET_FILE:aoe_reconstruction>
+)
+set_tests_properties(
+    aoe_gameplay_performance_sdl
+    PROPERTIES
+        TIMEOUT 30
+        LABELS "performance;sdl"
 )
 add_test(
     NAME aoe_diplomacy_panel_sdl_smoke

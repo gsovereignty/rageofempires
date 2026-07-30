@@ -32,9 +32,10 @@ build: configure
 run: build
 	@if [ "$$(uname -s)" = Darwin ] && \
 		[ -d "$(BUILD_DIR)/AoE Archaeology.app" ]; then \
-		open "$(BUILD_DIR)/AoE Archaeology.app"; \
+		AOE_MAIN_MENU=1 \
+			"$(BUILD_DIR)/AoE Archaeology.app/Contents/MacOS/AoE Archaeology"; \
 	else \
-		"$(BUILD_DIR)/aoe_reconstruction"; \
+		AOE_MAIN_MENU=1 "$(BUILD_DIR)/aoe_reconstruction"; \
 	fi
 
 test: build

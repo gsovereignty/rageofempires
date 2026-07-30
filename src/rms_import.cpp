@@ -2,8 +2,10 @@
 #include "aoe/game_rules.hpp"
 
 #include <algorithm>
+#include <array>
 #include <charconv>
 #include <cctype>
+#include <cmath>
 #include <set>
 #include <sstream>
 #include <unordered_map>
@@ -57,15 +59,21 @@ bool supported_directive(const std::string& name) {
         "create_land", "terrain_type", "land_percent", "base_size",
         "border_fuzziness", "left_border", "right_border", "top_border",
         "bottom_border", "zone", "other_zone_avoidance_distance",
-        "assign_to_player", "set_zone_by_team", "create_terrain",
+        "assign_to_player", "set_zone_by_team", "land_position",
+        "create_terrain",
         "number_of_clumps", "number_of_tiles", "clumping_factor",
         "spacing_to_other_terrain_types", "set_avoid_player_start_areas",
         "set_scale_by_groups", "set_scale_by_size", "create_elevation",
+        "spacing",
         "create_cliffs", "min_number_of_cliffs", "max_number_of_cliffs",
         "min_length_of_cliff", "max_length_of_cliff",
         "cliff_curliness", "min_distance_cliffs",
         "min_terrain_distance", "create_connect_all_lands",
+        "create_connect_all_players_land",
         "create_connect_teams_lands", "create_connect_same_land_zones",
+        "create_connect_land_zones", "create_connect_to_nonplayer_land",
+        "default_terrain_replacement", "replace_terrain", "terrain_cost",
+        "terrain_size",
         "create_object", "number_of_objects", "number_of_groups",
         "group_variance", "group_placement_radius",
         "set_place_for_every_player", "min_distance_to_players",
@@ -127,12 +135,12 @@ bool valid_object_arity(
 
 bool implemented_object_attribute(const std::string& name) {
     static const std::set<std::string> names{
-        "number_of_objects", "number_of_groups",
+        "number_of_objects", "number_of_groups", "group_variance",
         "group_placement_radius", "set_place_for_every_player",
         "min_distance_to_players", "max_distance_to_players",
         "min_distance_group_placement",
         "temp_min_distance_group_placement", "set_tight_grouping",
-        "set_loose_grouping", "resource_delta",
+        "set_loose_grouping", "resource_delta", "second_object",
         "set_gaia_object_only",
     };
     return names.contains(name);
@@ -153,10 +161,388 @@ std::uint64_t mix(std::uint64_t value) {
     return value ^ (value >> 31);
 }
 
+class RmsRandom {
+public:
+    explicit RmsRandom(std::uint64_t seed) : state_(seed) {}
+
+    std::uint64_t next() {
+        state_ = mix(state_);
+        return state_;
+    }
+
+    int between(int low, int high) {
+        if (high <= low) return low;
+        return low + static_cast<int>(
+            next() % static_cast<std::uint64_t>(high - low + 1)
+        );
+    }
+
+private:
+    std::uint64_t state_;
+};
+
+std::optional<Terrain> rms_terrain(std::string text) {
+    text = lower(std::move(text));
+    if (text == "grass" || text == "grass1" || text == "grass2" ||
+        text == "dirt" || text == "dirt2" || text == "dirt3" ||
+        text == "road" || text == "farm") return Terrain::grass;
+    if (text == "water" || text == "water_deep" ||
+        text == "deep_water" || text == "ocean") return Terrain::water;
+    if (text == "shallows" || text == "shallow") return Terrain::shallows;
+    if (text == "beach") return Terrain::beach;
+    if (text == "forest" || text == "pine_forest" ||
+        text == "oak_forest" || text == "bamboo" ||
+        text == "palm_forest") return Terrain::forest;
+    return std::nullopt;
+}
+
+void fill_map(GameMap& map, Terrain terrain) {
+    for (int y = 0; y < map.height(); ++y) {
+        for (int x = 0; x < map.width(); ++x) {
+            map.set_terrain({x, y}, terrain);
+            map.set_resource_amount({x, y}, 0);
+            map.set_elevation({x, y}, 0);
+        }
+    }
+}
+
+void paint_disc(
+    GameMap& map, TilePosition center, int radius, Terrain terrain
+) {
+    for (int y = center.y - radius; y <= center.y + radius; ++y) {
+        for (int x = center.x - radius; x <= center.x + radius; ++x) {
+            const TilePosition tile{x, y};
+            if (!map.contains(tile)) continue;
+            const int dx = x - center.x;
+            const int dy = y - center.y;
+            if (dx * dx + dy * dy <= radius * radius) {
+                map.set_terrain(tile, terrain);
+                map.set_resource_amount(tile, 0);
+            }
+        }
+    }
+}
+
+void paint_connection(
+    GameMap& map, TilePosition from, TilePosition to, int radius,
+    Terrain fallback,
+    const std::vector<std::pair<Terrain, Terrain>>& replacements
+) {
+    const int steps = std::max(
+        std::abs(to.x - from.x), std::abs(to.y - from.y)
+    );
+    for (int step = 0; step <= steps; ++step) {
+        const double fraction = steps == 0
+            ? 0.0 : static_cast<double>(step) / steps;
+        const TilePosition center{
+            static_cast<int>(std::lround(
+                from.x + (to.x - from.x) * fraction
+            )),
+            static_cast<int>(std::lround(
+                from.y + (to.y - from.y) * fraction
+            )),
+        };
+        for (int y = center.y - radius; y <= center.y + radius; ++y) {
+            for (int x = center.x - radius; x <= center.x + radius; ++x) {
+                const TilePosition tile{x, y};
+                if (!map.contains(tile)) continue;
+                const int dx = x - center.x;
+                const int dy = y - center.y;
+                if (dx * dx + dy * dy > radius * radius) continue;
+                Terrain replacement = fallback;
+                const Terrain existing = map.terrain_at(tile);
+                const auto rule = std::ranges::find_if(
+                    replacements, [existing](const auto& candidate) {
+                        return candidate.first == existing;
+                    }
+                );
+                if (rule != replacements.end()) replacement = rule->second;
+                map.set_terrain(tile, replacement);
+                map.set_resource_amount(tile, 0);
+            }
+        }
+    }
+}
+
+int directive_value(const RmsDirective& directive, int fallback) {
+    if (directive.arguments.empty()) return fallback;
+    const auto value = integer(directive.arguments.front());
+    return value ? *value : fallback;
+}
+
+struct LandGeneration {
+    Terrain terrain{Terrain::grass};
+    int percent{100};
+    int tiles{};
+    int base_size{8};
+    int left_border{};
+    int right_border{};
+    int top_border{};
+    int bottom_border{};
+    int zone{-10};
+    std::optional<TilePosition> position_percent;
+    std::optional<int> player;
+    bool player_lands{};
+};
+
+struct TerrainGeneration {
+    enum class Scale { none, size, groups };
+
+    Terrain terrain{Terrain::grass};
+    std::optional<Terrain> base;
+    int clumps{1};
+    int tiles{};
+    int percent{};
+    int clumping{8};
+    int spacing{};
+    Scale scale{Scale::none};
+    bool avoid_starts{};
+};
+
+struct ElevationGeneration {
+    enum class Scale { none, size, groups };
+
+    std::optional<Terrain> base;
+    int height{};
+    int clumps{1};
+    int tiles{20};
+    int spacing{1};
+    Scale scale{Scale::none};
+};
+
+struct ConnectionGeneration {
+    enum class Kind {
+        all_players,
+        teams,
+        all_lands,
+        same_zones,
+        explicit_zones,
+        nonplayer,
+    };
+
+    Kind kind{Kind::all_lands};
+    Terrain terrain{Terrain::grass};
+    int width{1};
+    std::optional<int> zone_one;
+    std::optional<int> zone_two;
+    std::vector<std::pair<Terrain, Terrain>> replacements;
+};
+
+struct LandSite {
+    TilePosition origin;
+    std::optional<Player> player;
+    int zone{-10};
+};
+
+template <typename Active>
+std::vector<LandGeneration> land_generations(
+    const RmsDocument& document, const Active& active
+) {
+    std::vector<LandGeneration> result;
+    LandGeneration* current{};
+    for (const RmsDirective& directive : document.directives) {
+        if (!active(directive) ||
+            directive.section != "land_generation") continue;
+        if (directive.name == "create_player_lands" ||
+            directive.name == "create_land") {
+            result.push_back({});
+            current = &result.back();
+            current->player_lands =
+                directive.name == "create_player_lands";
+            continue;
+        }
+        if (!current) continue;
+        if (directive.name == "terrain_type" &&
+            !directive.arguments.empty()) {
+            if (const auto terrain = rms_terrain(
+                    directive.arguments.front())) current->terrain = *terrain;
+        } else if (directive.name == "land_percent") {
+            current->percent = std::max(0, directive_value(directive, 100));
+        } else if (directive.name == "number_of_tiles") {
+            current->tiles = std::max(0, directive_value(directive, 0));
+        } else if (directive.name == "base_size") {
+            current->base_size = std::max(1, directive_value(directive, 8));
+        } else if (directive.name == "left_border") {
+            current->left_border = std::clamp(
+                directive_value(directive, 0), 0, 49
+            );
+        } else if (directive.name == "right_border") {
+            current->right_border = std::clamp(
+                directive_value(directive, 0), 0, 49
+            );
+        } else if (directive.name == "top_border") {
+            current->top_border = std::clamp(
+                directive_value(directive, 0), 0, 49
+            );
+        } else if (directive.name == "bottom_border") {
+            current->bottom_border = std::clamp(
+                directive_value(directive, 0), 0, 49
+            );
+        } else if (directive.name == "assign_to_player") {
+            current->player = directive_value(directive, 0);
+        } else if (directive.name == "zone") {
+            current->zone = directive_value(directive, -10);
+        } else if (directive.name == "land_position" &&
+                   directive.arguments.size() >= 2) {
+            const auto x = integer(directive.arguments[0]);
+            const auto y = integer(directive.arguments[1]);
+            if (x && y) {
+                current->position_percent = TilePosition{
+                    std::clamp(*x, 0, 100),
+                    std::clamp(*y, 0, 100),
+                };
+            }
+        }
+    }
+    return result;
+}
+
+template <typename Active>
+std::vector<TerrainGeneration> terrain_generations(
+    const RmsDocument& document, const Active& active
+) {
+    std::vector<TerrainGeneration> result;
+    TerrainGeneration* current{};
+    for (const RmsDirective& directive : document.directives) {
+        if (!active(directive) ||
+            directive.section != "terrain_generation") continue;
+        if (directive.name == "create_terrain") {
+            result.push_back({});
+            current = &result.back();
+            if (!directive.arguments.empty()) {
+                if (const auto terrain = rms_terrain(
+                        directive.arguments.front())) {
+                    current->terrain = *terrain;
+                }
+            }
+            continue;
+        }
+        if (!current) continue;
+        if (directive.name == "base_terrain" &&
+            !directive.arguments.empty()) {
+            current->base = rms_terrain(directive.arguments.front());
+        } else if (directive.name == "number_of_clumps") {
+            current->clumps = std::max(1, directive_value(directive, 1));
+        } else if (directive.name == "number_of_tiles") {
+            current->tiles = std::max(0, directive_value(directive, 0));
+        } else if (directive.name == "land_percent") {
+            current->percent = std::max(0, directive_value(directive, 0));
+        } else if (directive.name == "clumping_factor") {
+            current->clumping = std::max(1, directive_value(directive, 8));
+        } else if (
+            directive.name == "spacing_to_other_terrain_types"
+        ) {
+            current->spacing = std::max(
+                0, directive_value(directive, 0)
+            );
+        } else if (directive.name == "set_scale_by_size") {
+            current->scale = TerrainGeneration::Scale::size;
+        } else if (directive.name == "set_scale_by_groups") {
+            current->scale = TerrainGeneration::Scale::groups;
+        } else if (directive.name == "set_avoid_player_start_areas") {
+            current->avoid_starts = true;
+        }
+    }
+    return result;
+}
+
+template <typename Active>
+std::vector<ElevationGeneration> elevation_generations(
+    const RmsDocument& document, const Active& active
+) {
+    std::vector<ElevationGeneration> result;
+    ElevationGeneration* current{};
+    for (const RmsDirective& directive : document.directives) {
+        if (!active(directive) ||
+            directive.section != "elevation_generation") continue;
+        if (directive.name == "create_elevation") {
+            result.push_back({});
+            current = &result.back();
+            current->height = std::clamp(
+                directive_value(directive, 1), 0, 255
+            );
+            continue;
+        }
+        if (!current) continue;
+        if (directive.name == "base_terrain" &&
+            !directive.arguments.empty()) {
+            current->base = rms_terrain(directive.arguments.front());
+        } else if (directive.name == "number_of_clumps") {
+            current->clumps = std::max(1, directive_value(directive, 1));
+        } else if (directive.name == "number_of_tiles") {
+            current->tiles = std::max(1, directive_value(directive, 20));
+        } else if (directive.name == "spacing") {
+            current->spacing = std::max(1, directive_value(directive, 1));
+        } else if (directive.name == "set_scale_by_size") {
+            current->scale = ElevationGeneration::Scale::size;
+        } else if (directive.name == "set_scale_by_groups") {
+            current->scale = ElevationGeneration::Scale::groups;
+        }
+    }
+    return result;
+}
+
+template <typename Active>
+std::vector<ConnectionGeneration> connection_generations(
+    const RmsDocument& document, const Active& active
+) {
+    std::vector<ConnectionGeneration> result;
+    ConnectionGeneration* current{};
+    for (const RmsDirective& directive : document.directives) {
+        if (!active(directive) ||
+            directive.section != "connection_generation") continue;
+        if (directive.name.starts_with("create_connect_")) {
+            result.push_back({});
+            current = &result.back();
+            if (directive.name == "create_connect_all_players_land") {
+                current->kind = ConnectionGeneration::Kind::all_players;
+            } else if (directive.name == "create_connect_teams_lands") {
+                current->kind = ConnectionGeneration::Kind::teams;
+            } else if (directive.name == "create_connect_same_land_zones") {
+                current->kind = ConnectionGeneration::Kind::same_zones;
+            } else if (directive.name == "create_connect_land_zones") {
+                current->kind = ConnectionGeneration::Kind::explicit_zones;
+                if (directive.arguments.size() >= 2) {
+                    current->zone_one = integer(directive.arguments[0]);
+                    current->zone_two = integer(directive.arguments[1]);
+                }
+            } else if (
+                directive.name == "create_connect_to_nonplayer_land"
+            ) {
+                current->kind = ConnectionGeneration::Kind::nonplayer;
+            } else {
+                current->kind = ConnectionGeneration::Kind::all_lands;
+            }
+            continue;
+        }
+        if (!current) continue;
+        if ((directive.name == "terrain_type" ||
+             directive.name == "default_terrain_replacement") &&
+            !directive.arguments.empty()) {
+            if (const auto terrain = rms_terrain(
+                    directive.arguments.front())) current->terrain = *terrain;
+        } else if (directive.name == "replace_terrain" &&
+                   directive.arguments.size() >= 2) {
+            const auto source = rms_terrain(directive.arguments[0]);
+            const auto replacement = rms_terrain(directive.arguments[1]);
+            if (source && replacement) {
+                current->replacements.emplace_back(*source, *replacement);
+            }
+        } else if (directive.name == "terrain_size") {
+            current->width = std::max(
+                1, directive_value(directive, 1) / 2
+            );
+        }
+    }
+    return result;
+}
+
 struct ObjectGeneration {
     std::string name;
+    std::optional<std::string> second_name;
     int objects{1};
     int groups{1};
+    int group_variance{};
     int group_radius{2};
     int minimum_player_distance{};
     std::optional<int> maximum_player_distance;
@@ -176,7 +562,9 @@ std::vector<ObjectGeneration> object_generations(
         if (!active(directive) || directive.object_block == 0) continue;
         if (directive.name == "create_object") {
             indexes[directive.object_block] = result.size();
-            result.push_back({lower(directive.arguments.front())});
+            ObjectGeneration object;
+            object.name = lower(directive.arguments.front());
+            result.push_back(std::move(object));
             continue;
         }
         const auto found = indexes.find(directive.object_block);
@@ -186,6 +574,9 @@ std::vector<ObjectGeneration> object_generations(
             ? 0 : *integer(directive.arguments.front());
         if (directive.name == "number_of_objects") object.objects = value;
         else if (directive.name == "number_of_groups") object.groups = value;
+        else if (directive.name == "group_variance") {
+            object.group_variance = value;
+        }
         else if (directive.name == "group_placement_radius") {
             object.group_radius = value;
         } else if (directive.name == "set_place_for_every_player") {
@@ -207,6 +598,8 @@ std::vector<ObjectGeneration> object_generations(
             object.group_radius = 3;
         } else if (directive.name == "resource_delta") {
             object.resource_delta = value;
+        } else if (directive.name == "second_object") {
+            object.second_name = lower(directive.arguments.front());
         }
     }
     return result;
@@ -235,6 +628,9 @@ TilePosition bounded_object_position(
     const ObjectGeneration& object,
     int group,
     int item,
+    int items_in_group,
+    int random_x,
+    int random_y,
     bool reverse
 ) {
     int distance = object.minimum_player_distance +
@@ -244,11 +640,17 @@ TilePosition bounded_object_position(
     }
     const int diameter = object.group_radius * 2 + 1;
     const int offset_x =
-        object.group_radius == 0 || object.objects == 1 ? 0 :
-        item % diameter - object.group_radius;
+        object.group_radius == 0 || items_in_group == 1 ? 0 :
+        std::clamp(
+            item % diameter - object.group_radius + random_x,
+            -object.group_radius, object.group_radius
+        );
     const int offset_y =
-        object.group_radius == 0 || object.objects == 1 ? 0 :
-        item / diameter % diameter - object.group_radius;
+        object.group_radius == 0 || items_in_group == 1 ? 0 :
+        std::clamp(
+            item / diameter % diameter - object.group_radius + random_y,
+            -object.group_radius, object.group_radius
+        );
     int x = center.x + (reverse ? -distance : distance) + offset_x;
     int y = center.y + (group % 2 == 0 ? distance : -distance) + offset_y;
     x = std::clamp(x, 1, map.width() - 2);
@@ -308,7 +710,8 @@ TilePosition nearest_available_tile(
 
 void apply_object_generations(
     Scenario& scenario,
-    const std::vector<ObjectGeneration>& objects
+    const std::vector<ObjectGeneration>& objects,
+    std::uint64_t seed
 ) {
     const auto blue_start = start_for(scenario, Player::blue);
     const auto red_start = start_for(scenario, Player::red);
@@ -316,6 +719,7 @@ void apply_object_generations(
     const std::array<std::pair<Player, TilePosition>, 2> players{{
         {Player::blue, *blue_start}, {Player::red, *red_start},
     }};
+    RmsRandom random(seed ^ 0x6f626a656374ULL);
 
     for (const ObjectGeneration& object : objects) {
         const int total = object.objects * object.groups;
@@ -332,6 +736,25 @@ void apply_object_generations(
             if (object.name == "gold") return Terrain::gold_mine;
             if (object.name == "stone") return Terrain::stone_mine;
             if (object.name == "berries") return Terrain::berry_bush;
+            return std::nullopt;
+        }();
+        const auto second_unit_kind = [&]() -> std::optional<UnitKind> {
+            if (!object.second_name) return std::nullopt;
+            if (*object.second_name == "villager") return UnitKind::villager;
+            if (*object.second_name == "scout") {
+                return UnitKind::scout_cavalry;
+            }
+            if (*object.second_name == "sheep") return UnitKind::sheep;
+            if (*object.second_name == "boar") return UnitKind::boar;
+            if (*object.second_name == "deer") return UnitKind::deer;
+            if (*object.second_name == "relic") return UnitKind::relic;
+            return std::nullopt;
+        }();
+        const auto second_terrain_kind = [&]() -> std::optional<Terrain> {
+            if (!object.second_name) return std::nullopt;
+            if (*object.second_name == "gold") return Terrain::gold_mine;
+            if (*object.second_name == "stone") return Terrain::stone_mine;
+            if (*object.second_name == "berries") return Terrain::berry_bush;
             return std::nullopt;
         }();
 
@@ -378,10 +801,81 @@ void apply_object_generations(
 
         const auto place_for = [&](Player player, TilePosition center,
                                    bool reverse) {
+            std::vector<TilePosition> group_centers;
             for (int group = 0; group < object.groups; ++group) {
-                for (int item = 0; item < object.objects; ++item) {
+                TilePosition group_center = center;
+                ObjectGeneration positioned = object;
+                if (player == Player::neutral) {
+                    bool found{};
+                    for (int attempt = 0; attempt < 256; ++attempt) {
+                        const TilePosition candidate{
+                            random.between(
+                                object.group_radius + 1,
+                                scenario.map.width() -
+                                    object.group_radius - 2
+                            ),
+                            random.between(
+                                object.group_radius + 1,
+                                scenario.map.height() -
+                                    object.group_radius - 2
+                            ),
+                        };
+                        const int blue_distance =
+                            std::abs(candidate.x - blue_start->x) +
+                            std::abs(candidate.y - blue_start->y);
+                        const int red_distance =
+                            std::abs(candidate.x - red_start->x) +
+                            std::abs(candidate.y - red_start->y);
+                        const int nearest_player =
+                            std::min(blue_distance, red_distance);
+                        if (nearest_player <
+                            object.minimum_player_distance) continue;
+                        if (object.maximum_player_distance &&
+                            nearest_player >
+                                *object.maximum_player_distance) continue;
+                        const bool separated = std::ranges::all_of(
+                            group_centers,
+                            [&](TilePosition existing) {
+                                return std::abs(
+                                    candidate.x - existing.x
+                                ) + std::abs(
+                                    candidate.y - existing.y
+                                ) >= object.minimum_group_distance;
+                            }
+                        );
+                        if (!separated) continue;
+                        group_center = candidate;
+                        found = true;
+                        break;
+                    }
+                    if (!found) continue;
+                    group_centers.push_back(group_center);
+                    positioned.minimum_player_distance = 0;
+                    positioned.maximum_player_distance.reset();
+                    positioned.minimum_group_distance = 0;
+                }
+                const int variance = object.group_variance == 0 ? 0 :
+                    random.between(
+                        -object.group_variance,
+                        object.group_variance - 1
+                    );
+                const int items = object.group_variance == 0
+                    ? object.objects
+                    : std::max(1, object.objects + variance);
+                for (int item = 0; item < items; ++item) {
+                    const int random_x = object.group_radius == 0 ? 0 :
+                        random.between(
+                            -object.group_radius, object.group_radius
+                        );
+                    const int random_y = object.group_radius == 0 ? 0 :
+                        random.between(
+                            -object.group_radius, object.group_radius
+                    );
                     TilePosition position = bounded_object_position(
-                        scenario.map, center, object, group, item, reverse
+                        scenario.map, group_center, positioned,
+                        player == Player::neutral ? 0 : group,
+                        item, items,
+                        random_x, random_y, reverse
                     );
                     const EntityOwner owner =
                         object.gaia_only || terrain_kind
@@ -438,6 +932,29 @@ void apply_object_generations(
                         scenario.map.set_resource_amount(
                             position, std::max(0, base + object.resource_delta)
                         );
+                    }
+                    if (second_unit_kind) {
+                        scenario.units.push_back({
+                            *second_unit_kind, owner, position,
+                            std::nullopt, std::nullopt,
+                            std::nullopt, std::nullopt, false, {},
+                            UnitStance::aggressive, std::nullopt,
+                        });
+                    } else if (second_terrain_kind) {
+                        scenario.map.set_terrain(position, *second_terrain_kind);
+                        const int amount =
+                            *second_terrain_kind == Terrain::gold_mine ? 800 :
+                            *second_terrain_kind == Terrain::stone_mine ? 700 :
+                                                                        125;
+                        scenario.map.set_resource_amount(position, amount);
+                    } else if (
+                        object.second_name &&
+                        *object.second_name == "town_center"
+                    ) {
+                        scenario.buildings.push_back({
+                            BuildingKind::town_center, owner, position,
+                            std::nullopt, std::nullopt, std::nullopt,
+                        });
                     }
                 }
             }
@@ -684,6 +1201,13 @@ RmsDocument parse_rms(
                     "unsupported create_object attribute " + name,
                     true,
                 });
+            } else if (name == "second_object" &&
+                       !implemented_object_name(parts[1])) {
+                document.unsupported.push_back({
+                    {index + 1, index + 1}, original,
+                    "unsupported second_object type " + lower(parts[1]),
+                    true,
+                });
             }
         }
         if (opens_block) {
@@ -776,14 +1300,9 @@ std::optional<Scenario> evaluate_rms(
             choice -= branch.second;
         }
     }
-    RandomMapKind kind = RandomMapKind::arabia;
     // No override_map_size directive means the script inherits the
     // lobby-selected size, so track the shared default.
     RandomMapSize size = RandomMapSettings{}.size;
-    bool water{};
-    bool forest_base{};
-    bool connection{};
-    bool shallows{};
     const auto active = [&](const RmsDirective& directive) {
         if (directive.random_group == 0) return true;
         return selected[directive.random_group] ==
@@ -806,29 +1325,652 @@ std::optional<Scenario> evaluate_rms(
                                        RandomMapSize::maximum;
             }
         }
-        if ((directive.name == "base_terrain" ||
-             directive.name == "terrain_type") &&
-            !directive.arguments.empty()) {
-            const std::string terrain = lower(directive.arguments.front());
-            water = water || terrain.find("water") != std::string::npos;
-            forest_base = forest_base ||
-                terrain.find("forest") != std::string::npos ||
-                terrain == "bamboo" || terrain == "pine_forest";
-            shallows = shallows ||
-                terrain.find("shallows") != std::string::npos;
-        }
-        connection = connection ||
-            directive.name.starts_with("create_connect_");
     }
-    if (water && connection) kind = RandomMapKind::rivers;
-    else if (water) kind = RandomMapKind::islands;
-    else if (forest_base) kind = RandomMapKind::black_forest;
-    else if (shallows || connection) kind = RandomMapKind::rivers;
-    Scenario scenario = generate_random_map({kind, size, seed, blue, red});
+
+    const int dimension = random_map_dimension(size);
+    Scenario scenario(dimension, dimension);
+    scenario.blue_civilization = blue;
+    scenario.red_civilization = red;
+    Terrain base = Terrain::grass;
+    for (const RmsDirective& directive : document.directives) {
+        if (!active(directive) ||
+            directive.section != "land_generation" ||
+            directive.name != "base_terrain" ||
+            directive.arguments.empty()) continue;
+        if (const auto terrain = rms_terrain(directive.arguments.front())) {
+            base = *terrain;
+        }
+    }
+    fill_map(scenario.map, base);
+
+    RmsRandom random(seed);
+    const TilePosition blue_start{dimension / 4, dimension / 2};
+    const TilePosition red_start{
+        dimension - 1 - blue_start.x,
+        dimension - 1 - blue_start.y,
+    };
+    std::vector<LandSite> land_sites;
+
+    for (const LandGeneration& land :
+         land_generations(document, active)) {
+        const int wanted = land.tiles > 0
+            ? land.tiles
+            : std::max(
+                1,
+                dimension * dimension * std::min(100, land.percent) / 100
+            );
+        if (land.player_lands) {
+            const int radius = std::max(
+                land.base_size,
+                static_cast<int>(std::sqrt(
+                    static_cast<double>(wanted) / (2.0 * 3.141592653589793)
+                ))
+            );
+            paint_disc(scenario.map, blue_start, radius, land.terrain);
+            paint_disc(scenario.map, red_start, radius, land.terrain);
+            land_sites.push_back({
+                blue_start, Player::blue,
+                land.zone == -10 ? -9 : land.zone,
+            });
+            land_sites.push_back({
+                red_start, Player::red,
+                land.zone == -10 ? -8 : land.zone,
+            });
+        } else {
+            const int minimum_x = std::max(
+                land.base_size,
+                dimension * land.left_border / 100
+            );
+            const int maximum_x = std::min(
+                dimension - land.base_size - 1,
+                dimension - 1 - dimension * land.right_border / 100
+            );
+            const int minimum_y = std::max(
+                land.base_size,
+                dimension * land.top_border / 100
+            );
+            const int maximum_y = std::min(
+                dimension - land.base_size - 1,
+                dimension - 1 - dimension * land.bottom_border / 100
+            );
+            TilePosition center{
+                random.between(minimum_x, maximum_x),
+                random.between(minimum_y, maximum_y),
+            };
+            if (land.position_percent) {
+                center = {
+                    dimension * land.position_percent->x / 100,
+                    dimension * land.position_percent->y / 100,
+                };
+            }
+            if (land.player == 1) center = blue_start;
+            else if (land.player == 2) center = red_start;
+            const int radius = std::max(
+                land.base_size,
+                static_cast<int>(std::sqrt(
+                    static_cast<double>(wanted) / 3.141592653589793
+                ))
+            );
+            paint_disc(scenario.map, center, radius, land.terrain);
+            const std::optional<Player> owner =
+                land.player == 1 ? std::optional{Player::blue} :
+                land.player == 2 ? std::optional{Player::red} :
+                                   std::nullopt;
+            land_sites.push_back({center, owner, land.zone});
+        }
+    }
+    if (land_sites.empty()) {
+        land_sites.push_back({blue_start, Player::blue, -9});
+        land_sites.push_back({red_start, Player::red, -8});
+    }
+
+    // Starts are anchors for every-player object placement. Explicit
+    // TOWN_CENTER blocks replace these provisional buildings.
+    scenario.buildings.push_back({
+        BuildingKind::town_center, Player::blue, blue_start,
+        std::nullopt, std::nullopt, std::nullopt,
+    });
+    scenario.buildings.push_back({
+        BuildingKind::town_center, Player::red, red_start,
+        std::nullopt, std::nullopt, std::nullopt,
+    });
+    paint_disc(scenario.map, blue_start, 3, Terrain::grass);
+    paint_disc(scenario.map, red_start, 3, Terrain::grass);
+
+    for (const ElevationGeneration& elevation :
+         elevation_generations(document, active)) {
+        const double size_scale =
+            static_cast<double>(dimension * dimension) / 10000.0;
+        const int elevation_tiles =
+            elevation.scale == ElevationGeneration::Scale::size
+            ? std::max(
+                1, static_cast<int>(std::lround(
+                    elevation.tiles * size_scale
+                ))
+            )
+            : elevation.tiles;
+        const int elevation_clumps =
+            elevation.scale == ElevationGeneration::Scale::groups
+            ? std::max(
+                1, static_cast<int>(std::lround(
+                    elevation.clumps * size_scale
+                ))
+            )
+            : elevation.clumps;
+        const int radius = std::max(
+            1, static_cast<int>(std::sqrt(
+                static_cast<double>(elevation_tiles) /
+                (elevation_clumps * 3.141592653589793)
+            ))
+        );
+        for (int clump = 0; clump < elevation_clumps; ++clump) {
+            TilePosition center;
+            bool accepted{};
+            for (int attempt = 0; attempt < 64; ++attempt) {
+                center = {
+                    random.between(radius, dimension - radius - 1),
+                    random.between(radius, dimension - radius - 1),
+                };
+                const auto clear_of_start = [&](TilePosition start) {
+                    return std::abs(center.x - start.x) +
+                        std::abs(center.y - start.y) > radius + 9;
+                };
+                if ((!elevation.base ||
+                     scenario.map.terrain_at(center) == *elevation.base) &&
+                    clear_of_start(blue_start) &&
+                    clear_of_start(red_start)) {
+                    accepted = true;
+                    break;
+                }
+            }
+            if (!accepted) continue;
+            for (int y = center.y - radius; y <= center.y + radius; ++y) {
+                for (int x = center.x - radius; x <= center.x + radius; ++x) {
+                    const TilePosition tile{x, y};
+                    if (!scenario.map.contains(tile)) continue;
+                    if (elevation.base &&
+                        scenario.map.terrain_at(tile) != *elevation.base) {
+                        continue;
+                    }
+                    const int distance = std::abs(x - center.x) +
+                        std::abs(y - center.y);
+                    if (distance <= radius) {
+                        const int level = std::max(
+                            1,
+                            elevation.height -
+                                distance / elevation.spacing
+                        );
+                        scenario.map.set_elevation(tile, level);
+                    }
+                }
+            }
+        }
+    }
+
+    for (const TerrainGeneration& terrain :
+         terrain_generations(document, active)) {
+        const double size_scale =
+            static_cast<double>(dimension * dimension) / 10000.0;
+        int clumps = terrain.clumps;
+        int tiles = terrain.tiles;
+        if (tiles > 0 && terrain.scale != TerrainGeneration::Scale::none) {
+            tiles = std::max(
+                1, static_cast<int>(std::lround(tiles * size_scale))
+            );
+        }
+        if (terrain.scale == TerrainGeneration::Scale::groups) {
+            clumps = std::max(
+                1, static_cast<int>(std::lround(clumps * size_scale))
+            );
+        }
+        if (tiles == 0 && terrain.percent > 0) {
+            tiles = dimension * dimension *
+                std::min(100, terrain.percent) / 100;
+        }
+        if (tiles == 0) tiles = clumps * 12;
+        const int per_clump = std::max(1, tiles / clumps);
+        const int radius = std::max(
+            1, static_cast<int>(std::sqrt(
+                static_cast<double>(per_clump) / 3.141592653589793
+            ))
+        );
+        for (int clump = 0; clump < clumps; ++clump) {
+            TilePosition center;
+            bool accepted{};
+            for (int attempt = 0; attempt < 32; ++attempt) {
+                center = {
+                    random.between(radius, dimension - radius - 1),
+                    random.between(radius, dimension - radius - 1),
+                };
+                const auto far_from_starts = [&](TilePosition start) {
+                    return std::abs(center.x - start.x) +
+                        std::abs(center.y - start.y) > 10;
+                };
+                const bool starts_allowed =
+                    !terrain.avoid_starts ||
+                    (far_from_starts(blue_start) &&
+                     far_from_starts(red_start));
+                const Terrain substrate =
+                    scenario.map.terrain_at(center);
+                bool spacing_allowed = true;
+                const int spacing_radius = radius + terrain.spacing;
+                for (int y = center.y - spacing_radius;
+                     y <= center.y + spacing_radius &&
+                     spacing_allowed; ++y) {
+                    for (int x = center.x - spacing_radius;
+                         x <= center.x + spacing_radius; ++x) {
+                        const TilePosition tile{x, y};
+                        if (!scenario.map.contains(tile)) continue;
+                        const Terrain existing =
+                            scenario.map.terrain_at(tile);
+                        if (existing != substrate &&
+                            existing != terrain.terrain) {
+                            spacing_allowed = false;
+                            break;
+                        }
+                    }
+                }
+                if (starts_allowed && spacing_allowed) {
+                    accepted = true;
+                    break;
+                }
+            }
+            if (!accepted) continue;
+            for (int y = center.y - radius; y <= center.y + radius; ++y) {
+                for (int x = center.x - radius; x <= center.x + radius; ++x) {
+                    const TilePosition tile{x, y};
+                    if (!scenario.map.contains(tile)) continue;
+                    const int dx = x - center.x;
+                    const int dy = y - center.y;
+                    const int irregularity = std::max(
+                        0, (20 - terrain.clumping) / 4
+                    );
+                    const std::uint64_t noise = mix(
+                        seed ^
+                        (static_cast<std::uint64_t>(
+                            static_cast<std::uint32_t>(x)
+                        ) << 32) ^
+                        static_cast<std::uint32_t>(y) ^
+                        static_cast<std::uint64_t>(clump)
+                    );
+                    const int edge_noise = irregularity == 0 ? 0 :
+                        static_cast<int>(
+                            noise %
+                            static_cast<std::uint64_t>(
+                                irregularity * 2 + 1
+                            )
+                        ) - irregularity;
+                    const int edge = std::max(1, radius + edge_noise);
+                    if (dx * dx + dy * dy > edge * edge) continue;
+                    if (terrain.base &&
+                        scenario.map.terrain_at(tile) != *terrain.base) {
+                        continue;
+                    }
+                    scenario.map.set_terrain(tile, terrain.terrain);
+                    scenario.map.set_resource_amount(tile, 0);
+                }
+            }
+        }
+    }
+
+    for (const ConnectionGeneration& connection :
+         connection_generations(document, active)) {
+        const auto connects = [&](const LandSite& first,
+                                  const LandSite& second) {
+            switch (connection.kind) {
+                case ConnectionGeneration::Kind::all_players:
+                    return first.player && second.player;
+                case ConnectionGeneration::Kind::teams:
+                    // Two reconstruction players are opponents, so no
+                    // same-team pair exists.
+                    return false;
+                case ConnectionGeneration::Kind::all_lands:
+                    return true;
+                case ConnectionGeneration::Kind::same_zones:
+                    return first.zone == second.zone;
+                case ConnectionGeneration::Kind::explicit_zones:
+                    return connection.zone_one && connection.zone_two &&
+                        ((first.zone == *connection.zone_one &&
+                          second.zone == *connection.zone_two) ||
+                         (first.zone == *connection.zone_two &&
+                          second.zone == *connection.zone_one));
+                case ConnectionGeneration::Kind::nonplayer:
+                    return first.player.has_value() !=
+                        second.player.has_value();
+            }
+            return false;
+        };
+        for (std::size_t first = 0; first < land_sites.size(); ++first) {
+            for (std::size_t second = first + 1;
+                 second < land_sites.size(); ++second) {
+                if (!connects(land_sites[first], land_sites[second])) {
+                    continue;
+                }
+                paint_connection(
+                    scenario.map,
+                    land_sites[first].origin,
+                    land_sites[second].origin,
+                    connection.width,
+                    connection.terrain,
+                    connection.replacements
+                );
+            }
+        }
+    }
+    paint_disc(scenario.map, blue_start, 3, Terrain::grass);
+    paint_disc(scenario.map, red_start, 3, Terrain::grass);
+
     apply_object_generations(
-        scenario, object_generations(document, active)
+        scenario, object_generations(document, active), seed
     );
     return scenario;
+}
+
+RmsMapResult generate_rms_map(
+    const RandomMapSettings& settings,
+    std::optional<std::string_view> source
+) {
+    static constexpr std::string_view arabia = R"rms(
+<LAND_GENERATION>
+base_terrain GRASS
+create_player_lands {
+ terrain_type GRASS
+ land_percent 42
+ base_size 10
+ border_fuzziness 12
+ clumping_factor 12
+}
+<ELEVATION_GENERATION>
+create_elevation 3 {
+ number_of_clumps 10
+ number_of_tiles 700
+ set_scale_by_size
+}
+<TERRAIN_GENERATION>
+create_terrain FOREST {
+ base_terrain GRASS
+ land_percent 7
+ number_of_clumps 18
+ clumping_factor 13
+ set_avoid_player_start_areas
+}
+<CONNECTION_GENERATION>
+create_connect_all_players_land {
+ default_terrain_replacement GRASS
+ terrain_size 3
+}
+<OBJECTS_GENERATION>
+create_object TOWN_CENTER {
+ set_place_for_every_player
+ min_distance_to_players 0
+}
+create_object VILLAGER {
+ set_place_for_every_player
+ number_of_objects 3
+ group_placement_radius 3
+}
+create_object SCOUT {
+ set_place_for_every_player
+ number_of_objects 1
+ min_distance_to_players 5
+}
+create_object BERRIES {
+ set_place_for_every_player
+ set_gaia_object_only
+ number_of_objects 6
+ group_placement_radius 2
+ min_distance_to_players 8
+}
+create_object GOLD {
+ set_place_for_every_player
+ set_gaia_object_only
+ number_of_objects 7
+ group_placement_radius 2
+ min_distance_to_players 11
+}
+create_object STONE {
+ set_place_for_every_player
+ set_gaia_object_only
+ number_of_objects 5
+ group_placement_radius 2
+ min_distance_to_players 15
+}
+create_object SHEEP {
+ set_place_for_every_player
+ set_gaia_object_only
+ number_of_objects 4
+ group_placement_radius 3
+ min_distance_to_players 5
+}
+create_object BOAR {
+ set_place_for_every_player
+ set_gaia_object_only
+ number_of_objects 2
+ min_distance_to_players 13
+}
+create_object DEER {
+ set_place_for_every_player
+ set_gaia_object_only
+ number_of_objects 4
+ group_placement_radius 3
+ min_distance_to_players 17
+}
+)rms";
+    static constexpr std::string_view black_forest = R"rms(
+<LAND_GENERATION>
+base_terrain FOREST
+create_player_lands {
+ terrain_type GRASS
+ land_percent 18
+ base_size 12
+}
+<ELEVATION_GENERATION>
+create_elevation 2 {
+ base_terrain GRASS
+ number_of_clumps 6
+ number_of_tiles 400
+}
+<CONNECTION_GENERATION>
+create_connect_all_players_land {
+ default_terrain_replacement GRASS
+ replace_terrain FOREST GRASS
+ terrain_size 7
+}
+<OBJECTS_GENERATION>
+create_object TOWN_CENTER {
+ set_place_for_every_player
+ min_distance_to_players 0
+}
+create_object VILLAGER {
+ set_place_for_every_player
+ number_of_objects 3
+}
+create_object SCOUT {
+ set_place_for_every_player
+ min_distance_to_players 5
+}
+create_object BERRIES {
+ set_place_for_every_player
+ set_gaia_object_only
+ number_of_objects 6
+ group_placement_radius 2
+ min_distance_to_players 8
+}
+create_object GOLD {
+ set_place_for_every_player
+ set_gaia_object_only
+ number_of_objects 7
+ group_placement_radius 2
+ min_distance_to_players 11
+}
+create_object STONE {
+ set_place_for_every_player
+ set_gaia_object_only
+ number_of_objects 5
+ group_placement_radius 2
+ min_distance_to_players 15
+}
+create_object SHEEP {
+ set_place_for_every_player
+ set_gaia_object_only
+ number_of_objects 4
+ min_distance_to_players 5
+}
+)rms";
+    static constexpr std::string_view islands = R"rms(
+<LAND_GENERATION>
+base_terrain WATER
+create_player_lands {
+ terrain_type GRASS
+ land_percent 18
+ base_size 14
+ clumping_factor 18
+}
+<TERRAIN_GENERATION>
+create_terrain FOREST {
+ base_terrain GRASS
+ land_percent 8
+ number_of_clumps 10
+ set_avoid_player_start_areas
+}
+<OBJECTS_GENERATION>
+create_object TOWN_CENTER {
+ set_place_for_every_player
+ min_distance_to_players 0
+}
+create_object VILLAGER {
+ set_place_for_every_player
+ number_of_objects 3
+}
+create_object SCOUT {
+ set_place_for_every_player
+ min_distance_to_players 5
+}
+create_object BERRIES {
+ set_place_for_every_player
+ set_gaia_object_only
+ number_of_objects 6
+ group_placement_radius 2
+ min_distance_to_players 8
+}
+create_object GOLD {
+ set_place_for_every_player
+ set_gaia_object_only
+ number_of_objects 7
+ group_placement_radius 2
+ min_distance_to_players 11
+}
+create_object STONE {
+ set_place_for_every_player
+ set_gaia_object_only
+ number_of_objects 5
+ group_placement_radius 2
+ min_distance_to_players 15
+}
+create_object SHEEP {
+ set_place_for_every_player
+ set_gaia_object_only
+ number_of_objects 4
+ min_distance_to_players 5
+}
+)rms";
+    static constexpr std::string_view rivers = R"rms(
+<LAND_GENERATION>
+base_terrain GRASS
+create_player_lands {
+ terrain_type GRASS
+ land_percent 55
+ base_size 12
+}
+create_land {
+ terrain_type WATER
+ number_of_tiles 4200
+ land_position 50 50
+ base_size 12
+ zone 20
+}
+<ELEVATION_GENERATION>
+create_elevation 3 {
+ base_terrain GRASS
+ number_of_clumps 8
+ number_of_tiles 600
+}
+<TERRAIN_GENERATION>
+create_terrain FOREST {
+ base_terrain GRASS
+ land_percent 6
+ number_of_clumps 14
+ set_avoid_player_start_areas
+}
+<CONNECTION_GENERATION>
+create_connect_all_players_land {
+ default_terrain_replacement GRASS
+ replace_terrain WATER SHALLOWS
+ terrain_size 5
+}
+<OBJECTS_GENERATION>
+create_object TOWN_CENTER {
+ set_place_for_every_player
+ min_distance_to_players 0
+}
+create_object VILLAGER {
+ set_place_for_every_player
+ number_of_objects 3
+}
+create_object SCOUT {
+ set_place_for_every_player
+ min_distance_to_players 5
+}
+create_object BERRIES {
+ set_place_for_every_player
+ set_gaia_object_only
+ number_of_objects 6
+ group_placement_radius 2
+ min_distance_to_players 8
+}
+create_object GOLD {
+ set_place_for_every_player
+ set_gaia_object_only
+ number_of_objects 7
+ group_placement_radius 2
+ min_distance_to_players 11
+}
+create_object STONE {
+ set_place_for_every_player
+ set_gaia_object_only
+ number_of_objects 5
+ group_placement_radius 2
+ min_distance_to_players 15
+}
+)rms";
+
+    const std::string_view selected = source ? *source :
+        settings.kind == RandomMapKind::black_forest ? black_forest :
+        settings.kind == RandomMapKind::islands ? islands :
+        settings.kind == RandomMapKind::rivers ? rivers : arabia;
+    std::string complete =
+        "<PLAYER_SETUP>\noverride_map_size " +
+        std::to_string(random_map_dimension(settings.size)) + "\n";
+    complete.append(selected);
+    const RmsDocument document = parse_rms(complete);
+    if (!document.syntactically_valid) {
+        return {std::nullopt, document.error};
+    }
+    if (!document.playable()) {
+        const std::string reason = document.unsupported.empty()
+            ? "RMS refused"
+            : document.unsupported.front().reason + " at line " +
+                std::to_string(document.unsupported.front().span.first_line);
+        return {std::nullopt, reason};
+    }
+    std::optional<Scenario> scenario = evaluate_rms(
+        document,
+        settings.seed,
+        settings.blue_civilization,
+        settings.red_civilization
+    );
+    if (!scenario) return {std::nullopt, "RMS evaluation failed"};
+    return {std::move(scenario), {}};
 }
 
 }  // namespace aoe

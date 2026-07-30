@@ -1,8 +1,9 @@
-# Classic RMS inspection and bounded import
+# Classic RMS parsing and native placement
 
-This module inspects a strict subset of classic *Age of Conquerors* random-map
+This module parses a strict subset of classic *Age of Conquerors* random-map
 scripts (`.rms`) and evaluates accepted scripts into reconstruction-native
-Scenario66 maps. It does not claim full RMS compatibility or reproduce the
+Scenario66 maps. Accepted generation sections drive native tile and entity
+placement directly. It does not claim byte-for-byte compatibility with the
 commercial generator.
 
 ## Pinned grammar evidence
@@ -29,9 +30,25 @@ open `aoe2-rms-lib` reference:
   count, so it snaps up to the nearest `RandomMapSize` preset
   (120/144/168/200/220/240/255) and clamps above 255. A script with no
   `override_map_size` inherits the `RandomMapSettings` default.
-- Common land/terrain/elevation/cliff/connection creation commands and their
-  distance, count, scale, border, clumping, and placement attributes.
-- Common object creation/count/group/player/resource attributes.
+- Land creation paints requested terrain over `base_terrain`; player lands use
+  deterministic player anchors and requested percentages/base sizes. Explicit
+  `number_of_tiles`, `land_position`, player assignment, zones, and borders
+  feed land origin and size decisions.
+- Terrain clumps use requested terrain, counts, tile/percentage coverage, and
+  player-start avoidance. A block-local `base_terrain` filters replacement
+  tiles and cannot alter the map-wide base. Clumping changes edge regularity;
+  spacing excludes terrain types already present when a clump is generated.
+- Elevation clumps write requested height, count, tile coverage, level spacing,
+  and map-size/group scaling. They honor block-local base terrain and avoid
+  player-land origins.
+- Connections operate on recorded player and neutral land origins. Supported
+  connection kinds select origin pairs, while
+  `default_terrain_replacement`, `replace_terrain`, and `terrain_size`
+  control path painting.
+- Common object creation/count/group/player/resource attributes. Neutral
+  groups use seeded map-wide placement with player-distance and inter-group
+  constraints. `group_variance` varies each group independently within classic
+  bounds, and `second_object` overlays every placed primary.
 - Supplied classic `temp_min_distance_group_placement`, bounded as the same
   per-generation minimum group-spacing field used by
   `min_distance_group_placement`. The temporary lifetime has no distinct
@@ -40,10 +57,18 @@ open `aoe2-rms-lib` reference:
 - `#include_drs` and `#include` are preserved but treated as non-map-affecting;
   no external include is loaded.
 
-Evaluation maps accepted high-level terrain evidence onto the deterministic
-native Arabia, Black Forest, Islands, or Rivers generators. Map-size and
-civilization selections flow into the Scenario66 result. This is a bounded
-semantic bridge, not an emulation of AoC tile placement.
+Evaluation constructs a blank map at the selected size, fills base terrain,
+then applies active land, elevation, terrain, connection, and object
+generations in classic section order regardless of source section order. It
+no longer selects Arabia, Black Forest,
+Islands, or Rivers from script keywords. Map-size and civilization selections
+flow into the Scenario66 result. Placement is deterministic for a given seed.
+
+The SDL random-map lobby uses this evaluator for both its preview and the
+scenario started by Enter. Its Arabia, Black Forest, Islands, and Rivers
+choices select reconstruction-owned RMS definitions rather than the older
+hard-coded native recipes. Set `AOE_RMS_PATH` to a supported `.rms` file to
+evaluate that script through the same gameplay path.
 
 ## Refusal and limits
 
@@ -56,7 +81,8 @@ semantic bridge, not an emulation of AoC tile placement.
   expansion, named-user constants, and later-engine extensions are preserved
   or rejected; they are never guessed.
 
-Hermetic tests cover common sections/directives, random selection,
+Hermetic tests cover direct section-driven tile/elevation/entity placement,
+common sections/directives, random selection,
 same-seed output identity, civilization flow, exact unsupported spans,
 closed failure for malformed/oversized input, live simulation construction,
 and Scenario66 serialization.

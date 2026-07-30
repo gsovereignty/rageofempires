@@ -1,5 +1,6 @@
 /build/
 /build-*/
+/artifacts/
 /archaeology-save.txt
 .DS_Store
 __pycache__/

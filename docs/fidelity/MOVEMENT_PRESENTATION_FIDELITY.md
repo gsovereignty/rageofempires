@@ -22,12 +22,13 @@ phase. They no longer inherit the coarse simulation tick rate. This clock is
 presentation-only and is absent from saves, replays, deterministic hashes, and
 multiplayer commands.
 
-Movement animation follows physical displacement, not pending order state.
-Fixed-point cavalry, ships, formation members, and other units can retain a
-move order during an accumulator, cooldown, regroup, or blockage tick without
-changing position. Those waits render a standing frame instead of cycling the
-moving graphic on one tile. A unit selects moving art for the presentation
-interval immediately after an authoritative position change.
+Movement animation follows physical presentation displacement, not pending
+order state. Fixed-point cavalry, ships, formation members, and unique units
+derive deterministic 1/320-tile presentation coordinates from their current
+path leg and speed remainder. Interpolation joins the prior and current
+sub-tile coordinates, so an accumulator tick advances through the next tile
+instead of cycling moving art at one integer position. Cooldown, regroup, and
+blockage waits with no presentation displacement use standing art.
 
 Blocked fixed-point movement restores the accumulator value from before the
 blocked tick. Cavalry, ships, unique units, and paced formation members cannot
@@ -46,11 +47,9 @@ integration mathematics.
 
 ## Remaining parity gaps
 
-- Authoritative reconstruction positions remain integer tiles. Smooth motion
-  is presentation interpolation, not original-style sub-tile simulation.
-- Fractional-speed units still alternate displaced and non-displaced logical
-  ticks. Standing art on the latter removes on-tile oscillation, but true
-  continuous sub-tile integration remains open.
+- Authoritative collision and commands remain integer-tile deterministic.
+  Fixed-point sub-tile coordinates are presentation state, not original-style
+  authoritative floating-point simulation.
 - Walking art currently uses a bounded 100 ms frame period because exact
   per-graphic timing metadata has not been proved and integrated.
 - A very late frame runs every due deterministic step and can therefore cause

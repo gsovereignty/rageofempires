@@ -40,10 +40,10 @@ def main() -> None:
     runtime_rows = [
         {
             "area": "movement animation",
-            "ours": "moving art selected from pending move-order flag",
+            "ours": "moving art was selected from pending move-order flag",
             "original": "floating-coordinate service path represents physical motion",
             "classification": "fixed",
-            "note": "99d7782 gates moving art on current-tick displacement",
+            "note": "99d7782 gates moving art on presentation displacement",
         },
         {
             "area": "blocked fractional movement",
@@ -54,10 +54,10 @@ def main() -> None:
         },
         {
             "area": "authoritative coordinates",
-            "ours": "integer tile positions",
+            "ours": "integer collision plus deterministic 1/320-tile presentation",
             "original": "binary object coordinates are floating point",
-            "classification": "open",
-            "note": "render interpolation only; sub-tile simulation remains absent",
+            "classification": "transformed",
+            "note": "continuous rendering added; authoritative floating-point simulation remains absent",
         },
         {
             "area": "walking frame period",

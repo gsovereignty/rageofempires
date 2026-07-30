@@ -1587,7 +1587,8 @@ bool render_unit_is_interpolating(
     const Unit& unit
 ) {
     return simulation.tick_number() > 0 &&
-        unit.last_move_tick == simulation.tick_number();
+        unit.render_subtile_initialized &&
+        unit.render_previous_subtile != unit.render_current_subtile;
 }
 
 RenderAction render_action_for(

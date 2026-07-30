@@ -80,7 +80,9 @@ void state_derivation_is_deterministic() {
             aoe::RenderAction::idle,
         "tick-zero placement must not masquerade as movement"
     );
-    placed.last_move_tick = 3;
+    placed.render_subtile_initialized = true;
+    placed.render_previous_subtile = {320, 320};
+    placed.render_current_subtile = {480, 320};
     simulation.replace_state(
         {placed}, {}, {}, {}, 3
     );
@@ -163,10 +165,13 @@ void cavalry_accumulator_wait_does_not_animate_in_place() {
         "scout must retain move order during accumulator wait"
     );
     require(
-        !aoe::render_unit_is_interpolating(simulation, waiting) &&
+        aoe::render_unit_is_interpolating(simulation, waiting) &&
         aoe::render_action_for(simulation, waiting) ==
-            aoe::RenderAction::idle,
-        "accumulator wait must not animate cavalry on the spot"
+            aoe::RenderAction::moving &&
+        waiting.render_previous_subtile == aoe::TilePosition(640, 320) &&
+        waiting.render_current_subtile.x > 640 &&
+        waiting.render_current_subtile.x < 960,
+        "accumulator interval must advance cavalry through sub-tile space"
     );
 
     simulation.update();

@@ -27,9 +27,9 @@ python3 tools/generate_500_discrepancy_audit.py
 
 | ID | Area | Reconstruction | Original evidence | Class | Note |
 |---:|---|---|---|---|---|
-| D001 | movement animation | moving art selected from pending move-order flag | floating-coordinate service path represents physical motion | fixed | 99d7782 gates moving art on current-tick displacement |
+| D001 | movement animation | moving art was selected from pending move-order flag | floating-coordinate service path represents physical motion | fixed | 99d7782 gates moving art on presentation displacement |
 | D002 | blocked fractional movement | blocked ticks banked speed remainder | continuous speed evidence gives no basis for stored blocked bursts | fixed | 89e9f86 restores pre-tick accumulator on failed primary step |
-| D003 | authoritative coordinates | integer tile positions | binary object coordinates are floating point | open | render interpolation only; sub-tile simulation remains absent |
+| D003 | authoritative coordinates | integer collision plus deterministic 1/320-tile presentation | binary object coordinates are floating point | transformed | continuous rendering added; authoritative floating-point simulation remains absent |
 | D004 | walking frame period | bounded 100 ms presentation period | per-graphic timing path exists but exact integrated cadence is unproved | open | exact graphic timing metadata not integrated |
 
 ## Live DAT discrepancies

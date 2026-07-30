@@ -483,6 +483,7 @@ public:
     void replace_match_statistics(MatchStatistics statistics);
 
 private:
+    void refresh_unit_render_subtile(Unit& unit);
     bool evaluate_scenario_triggers();
     [[nodiscard]] bool trigger_condition_met(
         const TriggerState& trigger

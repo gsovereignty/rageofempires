@@ -148,6 +148,7 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory(prefix="aoe-visual-smoke-") as directory:
         capture = Path(directory) / "frame.bmp"
+        dimensions = Path(directory) / "dimensions.txt"
         environment = os.environ.copy()
         environment.update(
             {
@@ -158,6 +159,7 @@ def main() -> int:
                 # The map is larger than one start's explored area, so the
                 # capture would otherwise be mostly fog.
                 "AOE_FOG": "0",
+                "AOE_MAP_DIMENSION_PATH": str(dimensions),
                 "AOE_SCREENSHOT_PATH": str(capture),
                 "AOE_SCREENSHOT_TICK": "0",
                 "AOE_EXIT_AFTER_SCREENSHOT": "1",
@@ -178,6 +180,10 @@ def main() -> int:
             )
         if not capture.is_file() or capture.stat().st_size == 0:
             raise RuntimeError("render process produced no screenshot")
+        require(
+            dimensions.read_text() == "map 255 255\ntiles 65025\n",
+            "runtime did not present the maximum 255x255 map",
+        )
         validate_capture(capture)
 
     print("visual smoke passed: world, HUD, minimap, terrain, and water present")

@@ -8357,11 +8357,26 @@ void report_map_dimensions(const Simulation& simulation) {
     if (path == nullptr || path[0] == '\0') return;
     static int reported_width = -1;
     static int reported_height = -1;
+    static int reported_preview_width = -1;
+    static int reported_preview_height = -1;
     const int width = simulation.map().width();
     const int height = simulation.map().height();
-    if (width == reported_width && height == reported_height) return;
+    const int preview_width = active_random_preview != nullptr
+        ? active_random_preview->map.width()
+        : -1;
+    const int preview_height = active_random_preview != nullptr
+        ? active_random_preview->map.height()
+        : -1;
+    if (width == reported_width &&
+        height == reported_height &&
+        preview_width == reported_preview_width &&
+        preview_height == reported_preview_height) {
+        return;
+    }
     reported_width = width;
     reported_height = height;
+    reported_preview_width = preview_width;
+    reported_preview_height = preview_height;
     std::ofstream output(path, std::ios::trunc);
     if (!output) {
         SDL_Log("Could not write map dimensions to %s", path);
@@ -8369,6 +8384,13 @@ void report_map_dimensions(const Simulation& simulation) {
     }
     output << "map " << width << ' ' << height << '\n'
            << "tiles " << static_cast<long long>(width) * height << '\n';
+    if (active_random_preview != nullptr) {
+        output << "preview " << preview_width << ' '
+               << preview_height << '\n'
+               << "preview_tiles "
+               << static_cast<long long>(preview_width) * preview_height
+               << '\n';
+    }
 }
 
 void capture_requested_frame(

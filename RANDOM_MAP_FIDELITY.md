@@ -81,7 +81,8 @@ Modern choice: renderer world extents, isometric origin, camera clamps, and
 minimap aggregation derive from the loaded map. The fixed 1280x640 world
 viewport remains presentation geometry rather than a map-size limit. A
 headless `AOE_MAP_DIMENSION_PATH` diagnostic records the map presented by a
-real app launch; no original diagnostic was recovered.
+real app launch and, when open, the generated frontend preview. SDL smoke
+tests assert both contain 65,025 tiles; no original diagnostic was recovered.
 
 Modern choice: playable app boundaries accept only 255x255 scenarios and
 saves. This covers bundled launch, `AOE_SCENARIO_PATH`, campaign selection,

@@ -18,6 +18,7 @@
 
 #if AOE_HAVE_MPG123
 #include <mpg123.h>
+#include <dlfcn.h>
 #endif
 
 namespace aoe {
@@ -228,18 +229,103 @@ bool load_wav_bytes(
 }
 
 #if AOE_HAVE_MPG123
+struct Mpg123Api {
+    void* library{};
+    decltype(&mpg123_init) init{};
+    decltype(&mpg123_exit) exit{};
+    decltype(&mpg123_new) create{};
+    decltype(&mpg123_delete) destroy{};
+    decltype(&mpg123_open_fixed) open_fixed{};
+    decltype(&mpg123_getformat) getformat{};
+    decltype(&mpg123_outblock) outblock{};
+    decltype(&mpg123_read) read{};
+    decltype(&mpg123_plain_strerror) plain_strerror{};
+    bool initialized{};
+
+    ~Mpg123Api() {
+        if (initialized && exit != nullptr) exit();
+        if (library != nullptr) dlclose(library);
+    }
+};
+
+template <typename Function>
+Function load_mpg123_symbol(void* library, const char* name) {
+    return reinterpret_cast<Function>(dlsym(library, name));
+}
+
+std::unique_ptr<Mpg123Api> load_mpg123_api() {
+    constexpr std::array candidates{
+        "libmpg123.dylib",
+        "libmpg123.so.0",
+        "libmpg123.so",
+        "/opt/homebrew/opt/mpg123/lib/libmpg123.dylib",
+        "/usr/local/opt/mpg123/lib/libmpg123.dylib",
+    };
+    void* library{};
+    for (const char* candidate : candidates) {
+        library = dlopen(candidate, RTLD_NOW | RTLD_LOCAL);
+        if (library != nullptr) break;
+    }
+    if (library == nullptr) return nullptr;
+
+    auto api = std::make_unique<Mpg123Api>();
+    api->library = library;
+    api->init = load_mpg123_symbol<decltype(api->init)>(
+        library, "mpg123_init"
+    );
+    api->exit = load_mpg123_symbol<decltype(api->exit)>(
+        library, "mpg123_exit"
+    );
+    api->create = load_mpg123_symbol<decltype(api->create)>(
+        library, "mpg123_new"
+    );
+    api->destroy = load_mpg123_symbol<decltype(api->destroy)>(
+        library, "mpg123_delete"
+    );
+    api->open_fixed = load_mpg123_symbol<decltype(api->open_fixed)>(
+        library, "mpg123_open_fixed"
+    );
+    api->getformat = load_mpg123_symbol<decltype(api->getformat)>(
+        library, "mpg123_getformat"
+    );
+    api->outblock = load_mpg123_symbol<decltype(api->outblock)>(
+        library, "mpg123_outblock"
+    );
+    api->read = load_mpg123_symbol<decltype(api->read)>(
+        library, "mpg123_read"
+    );
+    api->plain_strerror =
+        load_mpg123_symbol<decltype(api->plain_strerror)>(
+            library, "mpg123_plain_strerror"
+        );
+    if (api->init == nullptr || api->exit == nullptr ||
+        api->create == nullptr || api->destroy == nullptr ||
+        api->open_fixed == nullptr || api->getformat == nullptr ||
+        api->outblock == nullptr || api->read == nullptr ||
+        api->plain_strerror == nullptr) {
+        return nullptr;
+    }
+    const int result = api->init();
+    if (result != MPG123_OK) {
+        return nullptr;
+    }
+    api->initialized = true;
+    return api;
+}
+
 bool load_mp3_track(
     AudioTrack& track,
     const std::filesystem::path& path,
-    float gain
+    float gain,
+    Mpg123Api& api
 ) {
     int error{};
-    std::unique_ptr<mpg123_handle, decltype(&mpg123_delete)> decoder{
-        mpg123_new(nullptr, &error),
-        mpg123_delete
+    std::unique_ptr<mpg123_handle, decltype(api.destroy)> decoder{
+        api.create(nullptr, &error),
+        api.destroy
     };
     if (decoder == nullptr ||
-        mpg123_open_fixed(
+        api.open_fixed(
             decoder.get(),
             path.string().c_str(),
             MPG123_STEREO,
@@ -251,7 +337,7 @@ bool load_mp3_track(
     long rate{};
     int channels{};
     int encoding{};
-    if (mpg123_getformat(
+    if (api.getformat(
             decoder.get(),
             &rate,
             &channels,
@@ -261,11 +347,11 @@ bool load_mp3_track(
         return false;
     }
 
-    const std::size_t block_size = mpg123_outblock(decoder.get());
+    const std::size_t block_size = api.outblock(decoder.get());
     std::vector<Uint8> block(std::max<std::size_t>(block_size, 4096));
     while (true) {
         std::size_t decoded{};
-        const int result = mpg123_read(
+        const int result = api.read(
             decoder.get(),
             block.data(),
             block.size(),
@@ -289,7 +375,7 @@ bool load_mp3_track(
         channels,
         static_cast<int>(rate)
     };
-    track.looping = false;
+    track.looping = true;
     return begin_playback(track, spec, gain);
 }
 #endif
@@ -309,8 +395,9 @@ struct AudioSystem::Impl {
     AudioMix mix;
     float environment_gain{0.35F};
     bool trace{};
+    bool reported_music_failure{};
 #if AOE_HAVE_MPG123
-    bool owns_mpg123{};
+    std::unique_ptr<Mpg123Api> mpg123;
 #endif
 
     bool start_next_music();
@@ -331,11 +418,6 @@ struct AudioSystem::Impl {
             }
             effects.clear();
         }
-#if AOE_HAVE_MPG123
-        if (owns_mpg123) {
-            mpg123_exit();
-        }
-#endif
     }
 };
 
@@ -382,13 +464,16 @@ bool AudioSystem::Impl::start_next_music() {
         bool loaded = false;
         if (extension == ".wav") {
             loaded = load_wav_track(
-                music, path, environment_gain * mix.music_gain(), false
+                music, path, environment_gain * mix.music_gain(), true
             );
         }
 #if AOE_HAVE_MPG123
-        else if (extension == ".mp3" && owns_mpg123) {
+        else if (extension == ".mp3" && mpg123 != nullptr) {
             loaded = load_mp3_track(
-                music, path, environment_gain * mix.music_gain()
+                music,
+                path,
+                environment_gain * mix.music_gain(),
+                *mpg123
             );
         }
 #endif
@@ -400,6 +485,20 @@ bool AudioSystem::Impl::start_next_music() {
             return true;
         }
         music = {};
+    }
+    if (!reported_music_failure) {
+#if AOE_HAVE_MPG123
+        std::cerr
+            << "Music unavailable: discovered tracks could not be decoded "
+               "or opened; verify files and audio device ("
+            << music_paths.front().parent_path().string() << ")\n";
+#else
+        std::cerr
+            << "Music unavailable: discovered MP3 tracks but this build has "
+               "no mpg123 decoder; install mpg123 and reconfigure with "
+               "-DAOE_ENABLE_MPG123=ON\n";
+#endif
+        reported_music_failure = true;
     }
     return false;
 }
@@ -442,7 +541,8 @@ std::unique_ptr<AudioSystem> AudioSystem::start_from_environment() {
         return nullptr;
     }
     if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
-        std::cerr << "Audio disabled: " << SDL_GetError() << '\n';
+        std::cerr << "Audio disabled: cannot initialize playback device: "
+                  << SDL_GetError() << '\n';
         return nullptr;
     }
 
@@ -490,8 +590,13 @@ std::unique_ptr<AudioSystem> AudioSystem::start_from_environment() {
                 );
                 return extension == ".mp3";
             }
-        ) && mpg123_init() == MPG123_OK) {
-        impl->owns_mpg123 = true;
+        )) {
+        impl->mpg123 = load_mpg123_api();
+        if (impl->mpg123 == nullptr) {
+            std::cerr
+                << "Music unavailable: mpg123 runtime library could not be "
+                   "loaded; install mpg123 for this CPU architecture\n";
+        }
     }
 #endif
     playing = impl->start_next_music() || playing;

@@ -7915,7 +7915,8 @@ std::optional<TilePosition> Simulation::spawn_position(
 ) const {
     const auto available = [this](TilePosition candidate) {
         return map_.contains(candidate) &&
-            map_.terrain_at(candidate) == Terrain::grass &&
+            map_.walkable(candidate) &&
+            resource_for(map_.terrain_at(candidate)) == ResourceKind::none &&
             !occupied(candidate, 0);
     };
     const BuildingRules& rules = rules_for(building.kind);
@@ -9110,7 +9111,7 @@ int Simulation::work_resource_amount(const Unit& unit) const {
 void Simulation::update_production() {
     struct CompletedOrder {
         UnitKind kind;
-        Player owner;
+        EntityOwner owner;
         TilePosition position;
         TilePosition rally_point;
         bool has_rally_point;
@@ -9753,7 +9754,9 @@ void Simulation::update_production() {
         order.work_remainder += production_rate;
         const int production_work = order.work_remainder / 100;
         order.work_remainder %= 100;
-        order.ticks_remaining -= production_work;
+        order.ticks_remaining = std::max(
+            0, order.ticks_remaining - production_work
+        );
         if (order.ticks_remaining > 0) {
             continue;
         }
@@ -9782,7 +9785,6 @@ void Simulation::update_production() {
             position = spawn_position(building);
         }
         if (!position) {
-            order.ticks_remaining = 1;
             continue;
         }
         const int already_completed = static_cast<int>(std::ranges::count_if(
@@ -9793,7 +9795,6 @@ void Simulation::update_production() {
         ));
         if (population(building.owner) + already_completed >=
             population_capacity(building.owner)) {
-            order.ticks_remaining = 1;
             continue;
         }
         completed.push_back({

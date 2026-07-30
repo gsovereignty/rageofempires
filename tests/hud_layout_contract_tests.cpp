@@ -40,7 +40,30 @@ int main() {
            Rect{944, 855, 326, 164}));
     assert((anchored_large_panel(1024, 768) ==
            Rect{688, 599, 326, 164}));
-    assert((top_status_strip() == Rect{2, 2, 420, 16}));
+    assert((top_status_strip() == Rect{8, 4, 404, 14}));
+    assert((inset(Rect{0, 0, 100, 40}, 6) == Rect{6, 6, 88, 28}));
+    assert((inset(Rect{0, 0, 8, 8}, 6) == Rect{6, 6, 0, 0}));
+    assert(truncate_debug_text("VILLAGER", 64) == "VILLAGER");
+    assert(truncate_debug_text("VILLAGER", 56) == "VILL...");
+    assert(truncate_debug_text("VILLAGER", 16).empty());
+    constexpr std::array screen_widths{640, 1024, 1280};
+    for (const int screen_width : screen_widths) {
+        constexpr int left_margin = 10;
+        constexpr int right_margin = 10;
+        const std::string bounded = truncate_debug_text(
+            std::string(300, 'X'),
+            screen_width - left_margin - right_margin
+        );
+        assert(left_margin >= 8);
+        assert(
+            left_margin + static_cast<int>(bounded.size()) * 8 <=
+            screen_width - right_margin
+        );
+    }
+    assert((contain(40, 80, {10.0F, 20.0F, 60.0F, 60.0F}) ==
+            FloatRect{25.0F, 20.0F, 30.0F, 60.0F}));
+    assert((contain(0, 80, {10.0F, 20.0F, 60.0F, 60.0F}) ==
+            FloatRect{}));
     assert((centered_top_control(1280) == Rect{485, 16, 310, 20}));
     assert((top_right_control(1280, 0) == Rect{1020, 3, 50, 19}));
     assert((top_right_control(1280, 4) == Rect{1220, 3, 50, 19}));

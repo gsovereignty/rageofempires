@@ -4495,6 +4495,94 @@ void town_center_produces_villager() {
     require(simulation.units().size() == original_units + 1);
 }
 
+void completed_villager_order_retries_once_on_valid_land() {
+    aoe::GameMap map(12, 10);
+    aoe::Simulation simulation(std::move(map));
+    const aoe::EntityId town_center = simulation.add_building(
+        aoe::BuildingKind::town_center, aoe::Player::red, {4, 3}
+    );
+    simulation.add_building(
+        aoe::BuildingKind::house, aoe::Player::blue, {9, 7}
+    );
+
+    constexpr std::array<aoe::TilePosition, 16> perimeter{{
+        {4, 2}, {5, 2}, {6, 2}, {7, 2},
+        {8, 3}, {8, 4}, {8, 5}, {8, 6},
+        {7, 7}, {6, 7}, {5, 7}, {4, 7},
+        {3, 6}, {3, 5}, {3, 4}, {3, 3},
+    }};
+    for (const aoe::TilePosition position : perimeter) {
+        simulation.add_unit(
+            aoe::UnitKind::deer, aoe::Player::neutral, position
+        );
+    }
+
+    const int food_before = simulation.economy(aoe::Player::red).food;
+    require(simulation.queue_unit_at(
+        town_center, aoe::UnitKind::villager
+    ));
+    const int food_after_queue =
+        simulation.economy(aoe::Player::red).food;
+    require(food_after_queue < food_before);
+    for (int tick = 0; tick < 100; ++tick) simulation.update();
+
+    const auto blocked_building = std::ranges::find(
+        simulation.buildings(), town_center, &aoe::Building::id
+    );
+    require(blocked_building != simulation.buildings().end());
+    require(blocked_building->production_queue.size() == 1);
+    require(
+        blocked_building->production_queue.front().ticks_remaining == 0
+    );
+    require(
+        simulation.economy(aoe::Player::red).food == food_after_queue
+    );
+    require(std::ranges::none_of(
+        simulation.units(),
+        [](const aoe::Unit& unit) {
+            return unit.kind == aoe::UnitKind::villager;
+        }
+    ));
+
+    auto units = simulation.units();
+    units.erase(units.begin());
+    simulation.replace_state(
+        std::move(units),
+        simulation.buildings(),
+        simulation.economy(aoe::Player::blue),
+        simulation.economy(aoe::Player::red),
+        simulation.tick_number()
+    );
+    simulation.update();
+
+    const auto villagers = std::ranges::count_if(
+        simulation.units(),
+        [](const aoe::Unit& unit) {
+            return unit.kind == aoe::UnitKind::villager &&
+                unit.owner == aoe::Player::red;
+        }
+    );
+    require(villagers == 1);
+    require(std::ranges::any_of(
+        simulation.units(),
+        [](const aoe::Unit& unit) {
+            return unit.kind == aoe::UnitKind::villager &&
+                unit.position == aoe::TilePosition{4, 2};
+        }
+    ));
+    require(simulation.buildings().front().production_queue.empty());
+    require(
+        simulation.economy(aoe::Player::red).food == food_after_queue
+    );
+    for (int tick = 0; tick < 20; ++tick) simulation.update();
+    require(std::ranges::count_if(
+        simulation.units(),
+        [](const aoe::Unit& unit) {
+            return unit.kind == aoe::UnitKind::villager;
+        }
+    ) == 1);
+}
+
 void villagers_repair_buildings_with_persistent_costs() {
     aoe::Simulation simulation(aoe::GameMap(14, 10));
     const aoe::EntityId villager = simulation.add_unit(
@@ -7928,7 +8016,7 @@ void housing_loss_stalls_completed_production() {
     );
     require(
         simulation.buildings().front()
-            .production_queue.front().ticks_remaining == 1
+            .production_queue.front().ticks_remaining == 0
     );
 }
 
@@ -22462,6 +22550,10 @@ int main() {
     run("river routing", path_routes_through_river_crossing);
     run("save round trip", save_round_trip_preserves_state);
     run("villager production", town_center_produces_villager);
+    run(
+        "completed villager retry",
+        completed_villager_order_retries_once_on_valid_land
+    );
     run(
         "building and knight production",
         villager_constructs_stable_and_trains_knight

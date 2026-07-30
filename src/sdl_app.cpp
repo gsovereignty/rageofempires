@@ -196,15 +196,10 @@ RandomMapSettings active_random_settings{
 };
 const Scenario* active_random_preview{};
 
-// Original size ladder order: TINY, SMALL, MEDIUM, NORMAL, LARGE, GIANT,
-// then the unnamed index-6 maximum exposed as MAXIMUM.
-constexpr std::array<RandomMapSize, 7> random_map_size_order{{
-    RandomMapSize::tiny,
-    RandomMapSize::small,
-    RandomMapSize::medium,
-    RandomMapSize::normal,
-    RandomMapSize::large,
-    RandomMapSize::giant,
+// Modern choice: the reconstruction presents only the recovered maximum.
+// Smaller presets remain available to import/generation APIs for fidelity
+// tests, but cannot become a playable frontend selection.
+constexpr std::array<RandomMapSize, 1> random_map_size_order{{
     RandomMapSize::maximum,
 }};
 
@@ -13313,6 +13308,31 @@ bool contextual_group_target(
            enemy_building != simulation.buildings().end();
 }
 
+Scenario load_presentable_scenario(
+    const std::filesystem::path& path
+) {
+    Scenario scenario = load_scenario(path);
+    if (scenario.map.width() != 255 || scenario.map.height() != 255) {
+        throw std::runtime_error(
+            "playable scenarios must use a 255x255 map"
+        );
+    }
+    return scenario;
+}
+
+Simulation load_presentable_game(
+    const std::filesystem::path& path
+) {
+    Simulation simulation = load_game(path);
+    if (simulation.map().width() != 255 ||
+        simulation.map().height() != 255) {
+        throw std::runtime_error(
+            "playable saves must use a 255x255 map"
+        );
+    }
+    return simulation;
+}
+
 ScenarioStartup load_bundled_scenario() {
     if (const char* requested = SDL_getenv("AOE_CAMPAIGN")) {
         if (requested[0] != '\0') {
@@ -13331,7 +13351,7 @@ ScenarioStartup load_bundled_scenario() {
             CampaignScenarioEntry selected =
                 current_campaign_scenario(campaign, loaded.progress);
             return {
-                load_scenario(selected.path),
+                load_presentable_scenario(selected.path),
                 CampaignPresentation{
                     std::move(campaign),
                     std::move(loaded.progress),
@@ -13348,7 +13368,9 @@ ScenarioStartup load_bundled_scenario() {
     }
     if (const char* requested = SDL_getenv("AOE_SCENARIO_PATH")) {
         if (requested[0] != '\0') {
-            return {load_scenario(requested), std::nullopt};
+            return {
+                load_presentable_scenario(requested), std::nullopt
+            };
         }
     }
     const std::filesystem::path base = SDL_GetBasePath();
@@ -13358,7 +13380,9 @@ ScenarioStartup load_bundled_scenario() {
     };
     for (const auto& candidate : candidates) {
         if (std::filesystem::exists(candidate)) {
-            return {load_scenario(candidate), std::nullopt};
+            return {
+                load_presentable_scenario(candidate), std::nullopt
+            };
         }
     }
     throw std::runtime_error("bundled demo.scenario not found");
@@ -13522,7 +13546,9 @@ int SdlApp::run() {
         editor != nullptr && editor[0] != '0') {
         if (const char* input = SDL_getenv("AOE_EDITOR_INPUT");
             input != nullptr && input[0] != '\0') {
-            scenario_editor.emplace(ScenarioEditor::load(input));
+            scenario_editor.emplace(
+                load_presentable_scenario(input)
+            );
             simulation = create_simulation(
                 scenario_editor->scenario()
             );
@@ -15647,7 +15673,8 @@ int SdlApp::run() {
                             try {
                                 if (entry.kind ==
                                     BrowserFileKind::save) {
-                                    simulation = load_game(path);
+                                    simulation =
+                                        load_presentable_game(path);
                                     computer =
                                         ComputerPlayer(Player::red);
                                     replaying = false;
@@ -16206,7 +16233,11 @@ int SdlApp::run() {
                     } else if (command && event.key.key == SDLK_O) {
                         try {
                             *scenario_editor =
-                                ScenarioEditor::load(scenario_editor_path);
+                                ScenarioEditor{
+                                    load_presentable_scenario(
+                                        scenario_editor_path
+                                    )
+                                };
                             simulation = create_simulation(
                                 scenario_editor->scenario()
                             );
@@ -17837,7 +17868,8 @@ int SdlApp::run() {
                         break;
                     case SDLK_L:
                         if (std::filesystem::exists(save_path)) {
-                            simulation = load_game(save_path);
+                            simulation =
+                                load_presentable_game(save_path);
                         }
                         break;
                     case SDLK_BACKSPACE:

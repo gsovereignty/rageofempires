@@ -7530,8 +7530,13 @@ void render_unit(
     std::uint64_t presentation_time_ms
 ) {
     const UnitRules& unit_rules = rules_for(unit.kind);
+    const RenderUnitElevationEndpoints elevation_endpoints =
+        render_unit_elevation_endpoints(simulation, unit);
     const SDL_FPoint current = unit.render_subtile_initialized
-        ? subtile_top(unit.render_current_subtile, unit.position)
+        ? subtile_top(
+            unit.render_current_subtile,
+            elevation_endpoints.current
+        )
         : tile_top(unit.position);
     SDL_FPoint top = current;
     const bool interpolating =
@@ -7549,7 +7554,7 @@ void render_unit(
     if (interpolating) {
         const SDL_FPoint previous = subtile_top(
             unit.render_previous_subtile,
-            unit.previous_position
+            elevation_endpoints.previous
         );
         top = {
             previous.x + (current.x - previous.x) * movement_alpha,

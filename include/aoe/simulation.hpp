@@ -2,6 +2,7 @@
 
 #include <array>
 #include <optional>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -77,6 +78,12 @@ public:
         return selected_building_;
     }
     [[nodiscard]] std::uint64_t tick_number() const { return tick_number_; }
+    [[nodiscard]] TilePosition render_previous_elevation_position(
+        const Unit& unit
+    ) const;
+    [[nodiscard]] TilePosition render_current_elevation_position(
+        const Unit& unit
+    ) const;
     [[nodiscard]] EntityId next_entity_id() const { return next_id_; }
     [[nodiscard]] std::uint64_t next_formation_group_id() const {
         return next_formation_group_id_;
@@ -483,6 +490,13 @@ public:
     void replace_match_statistics(MatchStatistics statistics);
 
 private:
+    struct RenderElevationPositions {
+        TilePosition previous{};
+        TilePosition current{};
+    };
+
+    void initialize_unit_render_elevation(const Unit& unit);
+    void prune_unit_render_elevations();
     void refresh_unit_render_subtile(Unit& unit);
     bool evaluate_scenario_triggers();
     [[nodiscard]] bool trigger_condition_met(
@@ -620,6 +634,8 @@ private:
 
     GameMap map_;
     std::vector<Unit> units_;
+    std::unordered_map<EntityId, RenderElevationPositions>
+        unit_render_elevations_;
     std::vector<Building> buildings_;
     std::vector<Projectile> projectiles_;
     std::vector<ImpactEffect> impact_effects_;

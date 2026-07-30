@@ -1591,6 +1591,16 @@ bool render_unit_is_interpolating(
         unit.render_previous_subtile != unit.render_current_subtile;
 }
 
+RenderUnitElevationEndpoints render_unit_elevation_endpoints(
+    const Simulation& simulation,
+    const Unit& unit
+) {
+    return {
+        simulation.render_previous_elevation_position(unit),
+        simulation.render_current_elevation_position(unit),
+    };
+}
+
 RenderAction render_action_for(
     const Simulation& simulation,
     const Unit& unit

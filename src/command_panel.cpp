@@ -21,10 +21,15 @@ void add(
     bool selected = false,
     std::optional<std::int32_t> action_icon = std::nullopt
 ) {
-    static_cast<void>(action_icon);
     std::optional<ui_icons::Binding> exact_icon;
     if (unit) {
         exact_icon = ui_icons::training_unit(*unit);
+    } else if (action_icon) {
+        exact_icon = ui_icons::Binding{
+            ui_icons::command_sheet,
+            *action_icon,
+            ui_icons::Evidence::unknown,
+        };
     }
     panel.commands.push_back({
         command, std::move(label), std::move(hotkey), std::move(tooltip),
@@ -442,9 +447,9 @@ SelectionPanelModel build_selection_panel(
                 "Return to unit commands.");
             return panel;
         }
-        // btncmd (50721) is an action-icon sheet. Each command uses its own
-        // frame. Semantic frame mappings below remain explicitly unproved and
-        // therefore render through procedural/text fallback.
+        // btncmd (50721) is an action-icon sheet. Candidate semantic frame
+        // mappings remain explicitly unknown; missing or undecodable frames
+        // retain the procedural/text fallback.
         add(panel, PanelCommand::stop, "STOP", "S",
             "Stop all current orders.", true, std::nullopt, false, 4);
         if (any(supports_military_orders)) {

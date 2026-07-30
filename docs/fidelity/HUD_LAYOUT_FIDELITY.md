@@ -142,14 +142,16 @@ proves the absolute bottom split. Semantic roles for several child pointers
 remain unproved.
 
 Runtime frame inspection proves 50721 frames 36 and 37 contain action artwork,
-not reusable button chrome. Command slots therefore use procedural normal,
-pressed, selected, and disabled chrome around distinct archive action icons.
+not reusable button chrome. Command slots use procedural normal, pressed,
+selected, and disabled chrome. Bounded candidate frames render for mapped
+actions with `unknown` semantic evidence; missing candidates retain labels.
 
 ## Original button and icon assets
 
-The renderer uses `interfac.drs` command sheet 50721 (`btncmd`) for distinct
-action artwork and sheet 50730 (`ico_unit`) for proven unit icons. Procedural
-button chrome prevents any action frame from repeating behind every command.
+The renderer uses `interfac.drs` command sheet 50721 (`btncmd`) for bounded
+candidate action artwork and sheet 50730 (`ico_unit`) for proven unit icons.
+Procedural button chrome prevents any action frame from repeating behind every
+command. Candidate action mappings are not promoted to exact dispatch.
 `btntech`, `ico_bld2`, `btngame`, `ico_game`, and
 `icomap_b/c/d` are not present in the recovered installation; `btngame2x.slp`
 is present but no recovered in-game command-grid callsite selects it.

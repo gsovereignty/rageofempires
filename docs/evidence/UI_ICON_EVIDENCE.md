@@ -91,9 +91,11 @@ The runtime handoff API is in `aoe/ui_assets.hpp`:
 - `decode_ui_icon` refuses anything except an explicitly `exact` SLP/frame
   binding and checks frame bounds before decoding.
 
-SDL loads proved 50730 frames needed by train buttons and distinct 50721
-action frames for represented commands. Procedural bevels provide normal,
-pressed, selected, and disabled chrome without repeating action artwork.
+SDL loads proved 50730 frames needed by train buttons. It also loads bounded
+50721 candidate frames for represented commands, but keeps their semantic
+evidence `unknown`; only sheet role and frame bounds are exact. Procedural
+bevels provide normal, pressed, selected, and disabled chrome. Missing or
+undecodable candidates retain labeled fallback buttons.
 
 No original archive, SLP, or decoded bitmap is committed. Runtime capture
 requires the user's `AOE_ASSET_ROOT`; the selection-controls smoke validates

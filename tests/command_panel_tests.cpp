@@ -63,12 +63,19 @@ int main() {
     expect(panel.hit_points > 0 && panel.maximum_hit_points > 0, "unit HP");
     expect(!panel.commands.empty(), "unit command grid");
     expect(
-        std::ranges::all_of(panel.commands, [](const auto& button) {
-            return !button.icon.has_value() &&
-                button.procedural_icon_fallback &&
-                !button.tooltip.empty();
+        std::ranges::any_of(panel.commands, [](const auto& button) {
+            return button.icon.has_value() &&
+                button.icon->sheet == aoe::ui_icons::command_sheet &&
+                button.icon->evidence == aoe::ui_icons::Evidence::unknown &&
+                !button.procedural_icon_fallback;
         }),
-        "unproved unit actions need explicit fallback and tooltips"
+        "mapped unit actions need archive candidates with unknown evidence"
+    );
+    expect(
+        std::ranges::all_of(panel.commands, [](const auto& button) {
+            return !button.tooltip.empty();
+        }),
+        "unit actions need tooltips"
     );
     expect(
         std::ranges::none_of(panel.commands, [](const auto& button) {

@@ -7541,6 +7541,11 @@ void render_unit(
             presentation_time_ms,
             unit.id
         );
+    const std::uint64_t unit_animation_frame =
+        unit_animation_frame_from_milliseconds(
+            presentation_time_ms,
+            unit.id
+        );
     if (interpolating) {
         const SDL_FPoint previous = subtile_top(
             unit.render_previous_subtile,
@@ -7737,7 +7742,7 @@ void render_unit(
                     {ground_top.x, ground_top.y + half_tile_height},
                     unit.previous_position,
                     unit.position,
-                    unit_animation_tick,
+                    unit_animation_frame,
                     interpolating
                 )) {
                 if (unit.hit_points < unit_rules.hit_points ||
@@ -7898,7 +7903,7 @@ void render_unit(
                     ground,
                     unit.previous_position,
                     unit.position,
-                    unit_animation_tick,
+                    unit_animation_frame,
                     true
                 )) {
                 const int maximum_hit_points =
@@ -7982,7 +7987,7 @@ void render_unit(
                 {ground_top.x, ground_top.y + half_tile_height},
                 unit.previous_position,
                 unit.position,
-                unit_animation_tick,
+                unit_animation_frame,
                 true
             )) {
             const int maximum_hit_points =
@@ -8013,7 +8018,7 @@ void render_unit(
             ? static_cast<std::uint64_t>(
                 (2 - unit.trebuchet_transform_ticks_remaining) * 4
             )
-            : unit_animation_tick;
+            : unit_animation_frame;
         if (render_legacy_animation(
                 renderer,
                 *early_animation,

@@ -78,9 +78,15 @@ std::uint64_t unit_animation_tick_from_milliseconds(
     std::uint64_t elapsed_ms,
     std::uint64_t unit_id
 ) {
-    // Legacy animation selection advances once per two animation ticks.
-    // A 50 ms source tick therefore gives walking art a 100 ms frame period.
+    // Composite animation selection divides this 50 ms source tick by two.
     return elapsed_ms / 50U + unit_id * 2U;
+}
+
+std::uint64_t unit_animation_frame_from_milliseconds(
+    std::uint64_t elapsed_ms,
+    std::uint64_t unit_id
+) {
+    return elapsed_ms / 100U + unit_id;
 }
 
 }  // namespace aoe

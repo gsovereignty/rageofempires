@@ -36,4 +36,9 @@ private:
     std::uint64_t unit_id
 );
 
+[[nodiscard]] std::uint64_t unit_animation_frame_from_milliseconds(
+    std::uint64_t elapsed_ms,
+    std::uint64_t unit_id
+);
+
 }  // namespace aoe

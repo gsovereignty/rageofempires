@@ -232,8 +232,8 @@ def make_catalog(interface_drs: Path, executable: Path) -> dict:
                 "semantic panel roles"
             ) if pinned else "unproved for non-pinned executable",
             "button_chrome": (
-                "FUN_005c5e40 uses chrome frame 36 normally, frame 37 when "
-                "pressed, and offsets pressed icon by 1,1"
+                "runtime artwork inspection rejects action frames 36 and 37 "
+                "as reusable button chrome"
             ) if pinned else "unproved for non-pinned executable",
         },
         "unproved": {

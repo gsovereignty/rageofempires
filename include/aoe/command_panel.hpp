@@ -10,8 +10,9 @@ namespace aoe {
 
 enum class PanelCommand {
     stop, attack_move, attack_ground, patrol, guard, garrison,
-    stance, formation_compact, formation_line, formation_box,
-    formation_flank, rally, ungarrison, cancel_production,
+    stance_aggressive, stance_defensive, stance_stand_ground,
+    stance_no_attack, formation_line, formation_box,
+    formation_staggered, formation_flank, rally, ungarrison, cancel_production,
     train_unit, research,
 };
 
@@ -19,10 +20,13 @@ struct CommandButtonModel {
     PanelCommand command{PanelCommand::stop};
     std::string label;
     std::string hotkey;
+    std::string tooltip;
     bool enabled{true};
+    bool selected{};
     std::optional<UnitKind> unit;
     std::optional<Technology> technology;
     std::optional<std::int32_t> proven_archive_icon_id;
+    std::optional<std::int32_t> action_archive_icon_id;
 };
 
 struct SelectionPanelModel {

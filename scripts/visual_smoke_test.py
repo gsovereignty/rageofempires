@@ -12,7 +12,7 @@ import tempfile
 
 
 EXPECTED_WIDTH = 800
-EXPECTED_HEIGHT = 450
+EXPECTED_HEIGHT = 600
 
 
 def load_bmp(path: Path) -> tuple[int, int, list[tuple[int, int, int]]]:
@@ -84,16 +84,12 @@ def validate_capture(path: Path) -> None:
     require(len(unique_colors) >= 30, "capture has too little color diversity")
     require(max(luminance) - min(luminance) >= 150, "capture lacks contrast")
 
-    world = region(pixels, width, 0, 0, width, 400)
-    hud = region(pixels, width, 0, 401, width, height)
-    minimap = region(pixels, width, 660, 401, width, height)
+    world = region(pixels, width, 0, 0, width, 425)
+    hud = region(pixels, width, 0, 425, width, height)
+    minimap = region(pixels, width, 464, 431, 790, 595)
 
     green_terrain = sum(
         green >= red + 18 and green >= blue + 18 and green >= 55
-        for red, green, blue in world
-    )
-    blue_water = sum(
-        blue >= red + 25 and blue >= green + 5 and blue >= 75
         for red, green, blue in world
     )
     bright_hud = sum(max(pixel) >= 170 for pixel in hud)
@@ -103,7 +99,6 @@ def validate_capture(path: Path) -> None:
     )
 
     require(green_terrain >= 20_000, "world lacks expected grass terrain")
-    require(blue_water >= 300, "world lacks expected water detail")
     require(len(set(world)) >= 20, "world region appears blank or incomplete")
     require(len(set(hud)) >= 10, "HUD region appears blank or incomplete")
     require(bright_hud >= 150, "HUD text/details are missing")

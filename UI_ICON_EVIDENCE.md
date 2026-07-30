@@ -46,7 +46,8 @@ Exact dispatch:
   unchanged as the frame. Subtypes 2 and 10 instead select a
   civilization-indexed building sheet.
 - `FUN_005c5e40` keeps the actual icon sheet/frame unchanged when pressed.
-  It changes chrome frame 36 to 37 and offsets the icon by 1,1.
+  Runtime artwork inspection proves frames 36 and 37 are action pictures,
+  so they cannot serve as reusable button chrome.
 - No disabled alternate icon frame or command-page ordering is proved.
 
 Raw 50721 constants are also exact: action `0x7c` uses frame 12, `0x7d` uses
@@ -90,10 +91,9 @@ The runtime handoff API is in `aoe/ui_assets.hpp`:
 - `decode_ui_icon` refuses anything except an explicitly `exact` SLP/frame
   binding and checks frame bounds before decoding.
 
-SDL loads only the proved 50730 frames needed by train buttons. Unknown action
-buttons retain text. Enabled/disabled colors and the 4×3 insertion order remain
-reconstruction behavior because archive variants and executable page ordering
-are unproved.
+SDL loads proved 50730 frames needed by train buttons and distinct 50721
+action frames for represented commands. Procedural bevels provide normal,
+pressed, selected, and disabled chrome without repeating action artwork.
 
 No original archive, SLP, or decoded bitmap is committed. Runtime capture
 requires the user's `AOE_ASSET_ROOT`; the selection-controls smoke validates

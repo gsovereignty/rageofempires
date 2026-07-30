@@ -13,20 +13,62 @@ void add(
     PanelCommand command,
     std::string label,
     std::string hotkey,
+    std::string tooltip,
     bool enabled = true,
-    std::optional<UnitKind> unit = std::nullopt
+    std::optional<UnitKind> unit = std::nullopt,
+    bool selected = false,
+    std::optional<std::int32_t> action_icon = std::nullopt
 ) {
-    if (panel.commands.size() >= 12) return;
-    std::optional<std::int32_t> exact_icon;
+    if (panel.commands.size() >= 15) return;
+    std::optional<std::int32_t> exact_icon = action_icon;
     if (unit) {
         if (const auto binding = ui_icons::training_unit(*unit)) {
             exact_icon = binding->frame;
         }
     }
     panel.commands.push_back({
-        command, std::move(label), std::move(hotkey), enabled,
-        unit, std::nullopt, exact_icon,
+        command, std::move(label), std::move(hotkey), std::move(tooltip),
+        enabled, selected,
+        unit, std::nullopt, unit ? exact_icon : std::nullopt,
+        unit ? std::nullopt : action_icon,
     });
+}
+
+bool supports_attack_ground(UnitKind kind) {
+    return kind == UnitKind::mangonel ||
+        kind == UnitKind::onager ||
+        kind == UnitKind::siege_onager ||
+        kind == UnitKind::bombard_cannon;
+}
+
+bool ram(UnitKind kind) {
+    return kind == UnitKind::battering_ram ||
+        kind == UnitKind::capped_ram ||
+        kind == UnitKind::siege_ram;
+}
+
+bool supports_military_orders(UnitKind kind) {
+    return rules_for(kind).attack > 0 &&
+        kind != UnitKind::trebuchet &&
+        kind != UnitKind::packed_trebuchet;
+}
+
+bool supports_stance(UnitKind kind) {
+    return supports_military_orders(kind) && !is_ship(kind) &&
+        !ram(kind);
+}
+
+bool supports_garrison(UnitKind kind) {
+    return !is_ship(kind) && !ram(kind) &&
+        kind != UnitKind::mangonel &&
+        kind != UnitKind::onager &&
+        kind != UnitKind::siege_onager &&
+        kind != UnitKind::scorpion &&
+        kind != UnitKind::heavy_scorpion &&
+        kind != UnitKind::packed_trebuchet &&
+        kind != UnitKind::trebuchet &&
+        kind != UnitKind::bombard_cannon &&
+        kind != UnitKind::trade_cart;
 }
 
 }  // namespace
@@ -55,17 +97,63 @@ SelectionPanelModel build_selection_panel(
             selected->patrolling ? "PATROLLING" :
             selected->guard_target_id != 0 ? "GUARDING" :
             selected->moving ? "MOVING" : "IDLE";
-        add(panel, PanelCommand::stop, "STOP", "S");
-        add(panel, PanelCommand::attack_move, "ATTACK MOVE", "A");
-        add(panel, PanelCommand::attack_ground, "ATTACK GROUND", "X");
-        add(panel, PanelCommand::patrol, "PATROL", "P");
-        add(panel, PanelCommand::guard, "GUARD", "G");
-        add(panel, PanelCommand::garrison, "GARRISON", "H");
-        add(panel, PanelCommand::stance, "STANCE", "O");
-        add(panel, PanelCommand::formation_compact, "COMPACT", "C");
-        add(panel, PanelCommand::formation_line, "LINE", "L");
-        add(panel, PanelCommand::formation_box, "BOX", "B");
-        add(panel, PanelCommand::formation_flank, "FLANK", "F");
+        // btncmd (50721) is an action-icon sheet. Each command uses its own
+        // frame; frames 36/37 are artwork, not reusable button chrome.
+        add(panel, PanelCommand::stop, "STOP", "S",
+            "Stop all current orders.", true, std::nullopt, false, 4);
+        if (supports_military_orders(selected->kind)) {
+            add(panel, PanelCommand::attack_move, "ATTACK MOVE", "A",
+                "Move to a location and attack enemies along the way.",
+                true, std::nullopt, selected->attack_moving, 0);
+            add(panel, PanelCommand::patrol, "PATROL", "P",
+                "Patrol between the current position and a destination.",
+                true, std::nullopt, selected->patrolling, 1);
+            add(panel, PanelCommand::guard, "GUARD", "G",
+                "Follow and protect a friendly unit or building.",
+                true, std::nullopt, selected->guard_target_id != 0, 2);
+        }
+        if (supports_attack_ground(selected->kind)) {
+            add(panel, PanelCommand::attack_ground, "ATTACK GROUND", "X",
+                "Fire at a chosen ground location.",
+                true, std::nullopt, selected->attacking_ground, 12);
+        }
+        if (supports_garrison(selected->kind)) {
+            add(panel, PanelCommand::garrison, "GARRISON", "H",
+                "Enter a compatible friendly building.", true,
+                std::nullopt, selected->garrisoned_in != 0, 3);
+        }
+        if (supports_stance(selected->kind)) {
+            add(panel, PanelCommand::stance_aggressive, "AGGRESSIVE", "O",
+                "Pursue enemies at full sight range.", true, std::nullopt,
+                selected->stance == UnitStance::aggressive, 5);
+            add(panel, PanelCommand::stance_defensive, "DEFENSIVE", "D",
+                "Pursue nearby enemies, then return.", true, std::nullopt,
+                selected->stance == UnitStance::defensive, 6);
+            add(panel, PanelCommand::stance_stand_ground, "STAND GROUND", "N",
+                "Attack in range without moving.", true, std::nullopt,
+                selected->stance == UnitStance::stand_ground, 7);
+            add(panel, PanelCommand::stance_no_attack, "NO ATTACK", "T",
+                "Do not acquire or attack enemies.", true, std::nullopt,
+                selected->stance == UnitStance::passive, 8);
+        }
+        const bool group_formation =
+            simulation.selected_units().size() > 1 &&
+            supports_military_orders(selected->kind);
+        if (group_formation) {
+            const FormationKind formation = simulation.formation_kind(player);
+            add(panel, PanelCommand::formation_line, "LINE", "L",
+                "Arrange selected units in a line.", true, std::nullopt,
+                formation == FormationKind::line, 9);
+            add(panel, PanelCommand::formation_box, "BOX", "B",
+                "Arrange selected units in a defensive box.", true,
+                std::nullopt, formation == FormationKind::box, 10);
+            add(panel, PanelCommand::formation_staggered, "STAGGERED", "C",
+                "Spread selected units into a staggered formation.", true,
+                std::nullopt, formation == FormationKind::staggered, 11);
+            add(panel, PanelCommand::formation_flank, "FLANK", "F",
+                "Split selected units into flanking groups.", true,
+                std::nullopt, formation == FormationKind::flank, 13);
+        }
         return panel;
     }
     if (simulation.selected_building()) {
@@ -126,18 +214,23 @@ SelectionPanelModel build_selection_panel(
         } else {
             panel.status = "READY";
         }
-        add(panel, PanelCommand::rally, "RALLY POINT", "R");
+        add(panel, PanelCommand::rally, "RALLY POINT", "R",
+            "Set destination for newly trained units.", true,
+            std::nullopt, false, 14);
         add(panel, PanelCommand::ungarrison, "UNGARRISON", "U",
-            panel.garrison_count > 0);
+            "Release all units garrisoned in this building.",
+            panel.garrison_count > 0, std::nullopt, false, 15);
         add(panel, PanelCommand::cancel_production, "CANCEL LAST", "Q",
-            !selected->production_queue.empty());
+            "Cancel last queued unit and refund its cost.",
+            !selected->production_queue.empty(), std::nullopt, false, 16);
         const auto train = [&](UnitKind kind, std::string key) {
             if (civilization_has_unit(
                     simulation.civilization(player), kind
                 ) &&
                 simulation.age(player) >= rules_for(kind).minimum_age) {
                 add(panel, PanelCommand::train_unit,
-                    std::string{name(kind)}, std::move(key), true, kind);
+                    std::string{name(kind)}, std::move(key),
+                    "Train " + std::string{name(kind)} + ".", true, kind);
             }
         };
         switch (selected->kind) {

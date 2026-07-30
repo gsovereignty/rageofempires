@@ -1,8 +1,13 @@
 #pragma once
 
 #include <compare>
+#include <array>
 #include <cstdint>
 #include <optional>
+#include <string_view>
+#include <vector>
+
+#include "aoe/types.hpp"
 
 namespace aoe::hud_layout {
 
@@ -22,6 +27,112 @@ struct VerticalLayout {
 
     auto operator<=>(const VerticalLayout&) const = default;
 };
+
+struct FrameMetrics {
+    int width{};
+    int height{};
+    int hotspot_x{};
+    int hotspot_y{};
+
+    auto operator<=>(const FrameMetrics&) const = default;
+};
+
+struct BackgroundDraw {
+    int frame{};
+    int anchor_x{};
+    int anchor_y{};
+
+    auto operator<=>(const BackgroundDraw&) const = default;
+};
+
+inline constexpr int game_background_frame_count = 8;
+
+[[nodiscard]] constexpr int civilization_file_index(
+    Civilization civilization
+) {
+    const int index = static_cast<int>(civilization);
+    return index >= 1 && index <= 18 ? index : 1;
+}
+
+[[nodiscard]] constexpr std::string_view civilization_file_name(
+    Civilization civilization
+) {
+    constexpr std::array<std::string_view, 19> names{
+        "game_b1.slp",
+        "game_b1.slp", "game_b2.slp", "game_b3.slp",
+        "game_b4.slp", "game_b5.slp", "game_b6.slp",
+        "game_b7.slp", "game_b8.slp", "game_b9.slp",
+        "game_b10.slp", "game_b11.slp", "game_b12.slp",
+        "game_b13.slp", "game_b14.slp", "game_b15.slp",
+        "game_b16.slp", "game_b17.slp", "game_b18.slp",
+    };
+    return names[static_cast<std::size_t>(
+        civilization_file_index(civilization)
+    )];
+}
+
+// Exact FUN_005e7cb0 call order and operands. Coordinates are SLP draw
+// anchors; callers apply each frame hotspot when producing its destination.
+[[nodiscard]] inline std::vector<BackgroundDraw> background_composition(
+    int screen_width,
+    int screen_height,
+    int sibling_x,
+    int sibling_width,
+    const std::array<FrameMetrics, game_background_frame_count>& frames
+) {
+    std::vector<BackgroundDraw> draws;
+    if (screen_width <= 0 || screen_height <= 0 ||
+        frames[0].width <= 0 || frames[1].width <= 0 ||
+        frames[2].width <= 0 || frames[3].width <= 0 ||
+        frames[4].width <= 0) {
+        return draws;
+    }
+    for (int x = 0; x < screen_width; x += frames[0].width) {
+        draws.push_back({0, x, 0});
+    }
+    draws.push_back({6, 0, 0});
+
+    const int bottom = screen_height - frames[1].height;
+    const int right_cap_x = screen_width - frames[4].width;
+    int x = frames[1].width - frames[2].width;
+    unsigned index = 0;
+    while (x < frames[2].width + right_cap_x) {
+        const int frame = index % 4 == 3 ? 3 : 2;
+        draws.push_back({frame, x, bottom});
+        x += frames[static_cast<std::size_t>(frame)].width;
+        ++index;
+    }
+    draws.push_back({1, 0, bottom});
+    draws.push_back({4, right_cap_x, bottom});
+    draws.push_back({
+        5,
+        ((right_cap_x - frames[1].width) / 2 -
+         frames[5].width / 2) + frames[1].width,
+        bottom - frames[5].height / 2,
+    });
+    draws.push_back({
+        7,
+        sibling_x - (frames[7].width - sibling_width) / 2,
+        0,
+    });
+    return draws;
+}
+
+// FUN_005f37c0 positions the sibling used by FUN_005e7cb0 frame 7 between
+// frame 6's right edge and the 260-pixel top-right control zone.
+[[nodiscard]] constexpr Rect frame7_sibling_view(
+    int screen_width,
+    const FrameMetrics& frame6,
+    const FrameMetrics& frame7
+) {
+    return {
+        ((screen_width - frame6.width - 260) / 2 -
+         frame7.width / 2) + frame6.width,
+        6,
+        frame7.width,
+        20,
+    };
+}
 
 // FUN_005f37c0 operands. Inputs are stored screen fields; their producers and
 // semantic resolution names are not recovered.
@@ -53,6 +164,21 @@ struct VerticalLayout {
     };
 }
 
+[[nodiscard]] constexpr int command_button_at(
+    int bottom,
+    int x,
+    int y
+) {
+    for (int index = 0; index < 15; ++index) {
+        const Rect button = command_button(bottom, index);
+        if (x >= button.x && x < button.x + button.width &&
+            y >= button.y && y < button.y + button.height) {
+            return index;
+        }
+    }
+    return -1;
+}
+
 [[nodiscard]] constexpr Rect anchored_large_panel(
     int screen_width,
     int screen_height
@@ -76,15 +202,51 @@ struct VerticalLayout {
     return {screen_width - 260 + 50 * index, 3, 50, 19};
 }
 
-// Absolute split, panel roles, and width-to-layout-class mapping stay unknown.
-[[nodiscard]] constexpr std::optional<VerticalLayout> absolute_layout(
-    int,
-    int
+[[nodiscard]] constexpr Rect bottom_right_control(
+    int screen_width,
+    int screen_height,
+    int index
 ) {
-    return std::nullopt;
+    constexpr std::array<Rect, 8> offsets{{
+        {-308, -154, 35, 35},
+        {-309, -49, 35, 35},
+        {-96, -156, 25, 25},
+        {-69, -162, 25, 25},
+        {-60, -137, 25, 25},
+        {-61, -59, 25, 25},
+        {-74, -35, 25, 25},
+        {-102, -39, 25, 25},
+    }};
+    if (index < 0 || index >= static_cast<int>(offsets.size())) {
+        return {};
+    }
+    const Rect value = offsets[static_cast<std::size_t>(index)];
+    return {
+        screen_width + value.x,
+        screen_height + value.y,
+        value.width,
+        value.height,
+    };
 }
 
-inline constexpr bool loose_game_background_metrics_available = false;
+[[nodiscard]] constexpr int background_bottom(
+    int screen_height,
+    const FrameMetrics& left_cap
+) {
+    return screen_height - left_cap.height;
+}
+
+// Every recovered game_b file has a 175-pixel frame-1 left cap. This proves
+// the compositor's absolute bottom-band start for any current screen height.
+[[nodiscard]] constexpr std::optional<VerticalLayout> absolute_layout(
+    int screen_width,
+    int screen_height
+) {
+    if (screen_width <= 0 || screen_height < 175) return std::nullopt;
+    return vertical_layout(screen_width, screen_height, 0, 175, false);
+}
+
+inline constexpr bool loose_game_background_metrics_available = true;
 inline constexpr bool resolution_class_mapping_proved = false;
 inline constexpr bool panel_roles_proved = false;
 

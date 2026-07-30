@@ -1,0 +1,17 @@
+background1_files     cam_32  none  50232  -1
+background2_files     cam_32  none  50232  -1
+background3_files     cam_32  none  50232  -1
+palette_file          cam 50268
+cursor_file           mcursors  51000
+shade_amount          percent  47
+button_file           btncam   50269
+popup_dialog_sin      cam      50267
+background_position   2
+background_color      0
+bevel_colors          236  223 205  183  138  93
+text_color1           217  208  176
+text_color2           0    0    0
+focus_color1          202  207  1
+focus_color2          0    0    0
+state_color1          255  255  255
+state_color2          0    0    0

@@ -1,0 +1,17 @@
+background1_files     xcam3_32  none  53103  -1
+background2_files     xcam3_32  none  53103  -1
+background3_files     xcam3_32  none  53103  -1
+palette_file          xcam3  53113
+cursor_file           mcursors  51000
+shade_amount          percent  47
+button_file           xbtncam3  53133
+popup_dialog_sin      xcamdlg3     53143
+background_position   2
+background_color      0
+bevel_colors          236  222  190  140  71  47
+text_color1           217  208  176
+text_color2           0    0    0
+focus_color1          202  207  1
+focus_color2          0    0    0
+state_color1          255  255  255
+state_color2          0    0    0

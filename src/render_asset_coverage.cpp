@@ -954,7 +954,7 @@ AssetResolution resolve_building_asset(
             "generated/building_body_state_catalog.json:fish_trap"
         );
         result.evidence_sources.push_back(
-            "PROCEDURAL_BUILDING_ASSET_MAP.md:Fish Trap"
+            "docs/assets/PROCEDURAL_BUILDING_ASSET_MAP.md:Fish Trap"
         );
         return result;
     }
@@ -1000,10 +1000,10 @@ AssetResolution resolve_building_asset(
             result.reason =
                 "Palisade Wall damage graphics have no drawable SLP; "
                 "reviewed procedural contract in "
-                "PROCEDURAL_BUILDING_ASSET_MAP.md";
+                "docs/assets/PROCEDURAL_BUILDING_ASSET_MAP.md";
             result.intentional_procedural = true;
             result.evidence_sources.push_back(
-                "PROCEDURAL_BUILDING_ASSET_MAP.md:Palisade Wall"
+                "docs/assets/PROCEDURAL_BUILDING_ASSET_MAP.md:Palisade Wall"
             );
             return result;
         }

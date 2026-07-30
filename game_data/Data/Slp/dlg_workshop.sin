@@ -1,0 +1,18 @@
+background1_files     dlg_dip  none   50221  -1
+background2_files     none   none     -1  -1
+background3_files     none   none     -1  -1
+palette_file          xmain  50589
+cursor_file           mcursors  51000
+shade_amount          percent  36
+button_file           btnmain  52064
+popup_dialog_sin      dlg6_2           50007
+background_position   2
+background_color      0
+bevel_colors          242 232 165 196 168 138
+text_color1           255  255  255
+text_color2           0    0    0
+focus_color1          255  255  0
+focus_color2          0    0    0
+state_color1          255  255  255
+state_color2          0    0    0
+

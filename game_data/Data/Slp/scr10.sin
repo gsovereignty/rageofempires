@@ -1,0 +1,17 @@
+background1_files     scr10B_32  none   50149  -1
+background2_files     scr10B_32  none   50149  -1
+background3_files     scr10B_32  none   50149  -1
+palette_file          scr_ach  50531
+cursor_file           mcursors  51000
+shade_amount          percent  50
+button_file           btn6_2           50606
+popup_dialog_sin      dlg_ach          50020
+background_position   2
+background_color      136
+bevel_colors          227  181  145  37   35   14 
+text_color1           255  255  255
+text_color2           0    0    0
+focus_color1          255  255  0
+focus_color2          0    0    0
+state_color1          255  255  255
+state_color2          0    0    0

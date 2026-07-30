@@ -12,6 +12,7 @@ framework="$app/Contents/Frameworks/libSDL3.0.dylib"
 scenario="$app/Contents/Resources/demo.scenario"
 resource_manifest="$app/Contents/Resources/resource-manifest.json"
 resource_tree="$app/Contents/Resources/resources"
+game_data="$app/Contents/Resources/game_data/Data"
 
 require_universal_2() {
     binary=$1
@@ -49,6 +50,18 @@ test -f "$framework"
 test -f "$scenario"
 test -f "$resource_manifest"
 test -d "$resource_tree"
+test -f "$game_data/graphics.drs"
+test -f "$game_data/interfac.drs"
+test -f "$game_data/empires2_x1_p1.dat"
+test -f "$game_data/pal_2.pal"
+test -f "$game_data/sounds.drs"
+test -f "$game_data/sounds_x1.drs"
+test -f "$app/Contents/Resources/game_data/Sound/music/xmusic1.mp3"
+test -f "$app/Contents/Resources/game_data/Sound/stream/xopen.mp3"
+test -f "$app/Contents/Resources/game_data/Sound/terrain/Wave1.wav"
+test -f "$app/Contents/Resources/game_data/Terrain/Textures/g_grs_00_COLOR.png"
+python3 "$(dirname "$0")/verify_resource_manifest.py" \
+    "$resource_manifest" "$app/Contents/Resources"
 plutil -lint "$app/Contents/Info.plist"
 test "$(plutil -extract LSMinimumSystemVersion raw \
     "$app/Contents/Info.plist")" = "11.0"

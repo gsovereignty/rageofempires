@@ -1,0 +1,119 @@
+"INVITE"	"Invite"
+"ERRORCODE_1" "error 1"
+"ERRORCODE_27" "Unable to initialize graphics system. Device may not meet minimum specs."
+"31050"		"Select the type of match to view or create. Public matches are visible to everyone. Friend matches are visible to people on your friend's list only. Invite Only matches require an invitation to join. Skill matches are based on your player rank."
+"9260"		"Click to display the games you can join."
+"REFRESH"	"Refresh Games"
+"MATCH_TYPE"	"Match Type"
+"COMM_INIT_ERROR"	"Error initializing. Please launch Age of Empires II HD through your Steam client."
+"COMM_LOGIN_ERROR"	"You are not logged into Steam."
+"30209"		"Click to invite a friend to join this game."
+"31006"	"Change your player name, sound volume, hotkeys, and other game settings."
+"31009"	"Exit Age of Empires II: HD Edition."
+"PLAYER_NAME_AND_RANK" "Global Rank: %i"
+"PLAYER_STATS_ROLLOVER"	"Ranked match victories: %i / %i"
+"OPTIONS_FULLSCREEN" "Full screen"
+"OPTIONS_FULLSCREEN_ROLLOVER" "Toggle between full screen and windowed mode. You can also press Alt+Enter to toggle between modes at any time."
+
+// About text
+9241	"Microsoft® Age of Empires® II\nHD Edition"
+// 9242	"Version %s"
+// 9243	"© & "
+// 9244	"%s Microsoft Corp. All rights reserved."
+9245	"Developed by Ensemble Studios and Hidden Path Entertainment for Microsoft Corp."
+
+// FONT CHANGES
+// Each font set consists of a face name, point size, and weight code
+
+// RGE_FONT_ONE_BUTTON_TECH_TREE
+140		"Ariel Narrow"
+141		"7"
+142		"B"
+
+// NEW STRINGS BY NUMERICAL ID
+// These are new strings that are identified by a numerical ID rather than a text ID. New values begin at range 169501
+
+// Mod Manager
+"169500"	"Steam Workshop Manager"
+"169501"	"Publish New Item"
+"169502"	"Upload the selected file to the Steam Workshop."
+"169503"	"Manage Existing"
+"169504"	"Manage your Steam Workshop files"
+"169512"	"Add files"
+"169513"	"Remove"
+"169514"	"Error: You can only add files that reside within Age of Empires II HD's installation directory or a subdirectory"
+"169515"	"Error: Unknown error during mod packaging"
+
+"169505"	"Mod Type"
+"169506"	"Campaign"
+"169507"	"Scenario"
+"169508"	"Random Map Script"
+"169509"	"AI"
+"169510"	"Game Data"
+"169511"	"Multiplayer Replays"
+
+"169600"	"Steam Workshop Publish"
+"169601"	"Title"
+"169602"	"Author"
+"169603"	"Description"
+"169604"	"Visibility"
+"169605"	"Public"
+"169606"	"Friends"
+"169607"	"Private"
+"169608"	"Publish"
+"169609"	"You must enter a title for your mod"
+//"169610"	"A mod with the name %s "
+"169611"	"Error: Validate Package Move failed."
+"169612"	"Publishing..."
+"169613"	"Publish Succeeded"
+"169614"	"Publish Failed"
+"169615"	"Steam Workshop"
+"169616"	"Share your mods on the Steam Workshop"
+"169617"	"A mod with that name already exists. Would you like to overwrite it?"
+"169618"	"Select Image"
+"169619"	"Add Preview"
+
+// Matchmaking
+
+"170000"	"Quick Match"
+"170001"	"Lock in your preferences and automatically join a game."
+"170002"	"Lobby Browser"
+"170003"	"Browse for lobbies using a details filter."
+"170004"	"Filters"
+"170005"	"Any"
+"170006"	"No games matching those parameters found"
+"170007"	"Game Name"
+"170008"	"Player Count"
+"170009"	"Change"
+"170010"	"The name of your game, which is visible during matchmaking within the lobby browser"
+"170011"	"Match Type"
+"170012"	"Filter by privacy or player rank"
+"170013" 	"Invite Only"
+"170014"	"Skill"
+
+"170015"	"Begin Quick Match"
+"170016"	"Quick Match Options"
+"170017"	"Players"
+"170018"	"Lock Resolutions"
+"170019"	"Select to lock resolutions to aspect ratios equal to or less than 16:10."
+"170020"	"Ranked matchmaking games require players to run in an aspect ratio equal to or less than 16:10."
+"170021"	"Computer Players"
+"170022"	"Select to search for games including Computer Players"
+
+//Launcher Buttons
+"170023"	"Play"
+"170024"	"Workshop"
+"170025"	"AOE Website"
+"170026"	"Leaderboards"
+"170027"	"Achievements"
+
+"170030"	"Searching..."
+"170031"	"No games found. Creating a new lobby."
+
+"170032"	"You are entering the Steam Workshop which is not owned or operated by Microsoft Corporation."
+"170033"	"These mods from the Steam Workshop may alter how Age of Empires II HD Edition functions, and are not created or supported by Microsoft.  By downloading files from the Steam Workshop, you acknowledge the risks and release Microsoft Corporation and affiliated entities from any liability related to your use of the Steam Workshop. Your use of Steam Workshop will be governed by Steam’s terms of use and not Microsoft’s End User License Agreement."
+"170034"	"I agree to the terms and conditions of the Steam Workshop Subscriber Agreement: http://store.steampowered.com/subscriber_agreement/"
+"170035"	"Agreement:"
+"170036"	"Accept"
+"170037"	"Decline"
+

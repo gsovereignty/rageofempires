@@ -1,0 +1,1 @@
+"DO_NOT_MODIFY" "language.txt files are only used for non-english overrides. Add your new strings to Game/Bin/language_base.txt"

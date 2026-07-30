@@ -15,7 +15,7 @@ enum class RandomMapKind {
 };
 
 // Original map-size ladder recovered from the shipped executable; see
-// RANDOM_MAP_FIDELITY.md for the decompiled switch and tile counts.
+// ../../docs/fidelity/RANDOM_MAP_FIDELITY.md for the decompiled switch and tile counts.
 enum class RandomMapSize {
     tiny,
     small,
@@ -30,7 +30,7 @@ enum class RandomMapSize {
 struct RandomMapSettings {
     RandomMapKind kind{RandomMapKind::arabia};
     // Modern choice: the recovered index-6 maximum (255 tiles). No original
-    // default index was recovered; see RANDOM_MAP_FIDELITY.md.
+    // default index was recovered; see ../../docs/fidelity/RANDOM_MAP_FIDELITY.md.
     RandomMapSize size{RandomMapSize::maximum};
     std::uint64_t seed{};
     Civilization blue_civilization{Civilization::generic};

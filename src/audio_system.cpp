@@ -22,6 +22,10 @@
 #include <utility>
 #include <vector>
 
+#if AOE_HAVE_NATIVE_MP3
+#include <AudioToolbox/AudioToolbox.h>
+#endif
+
 #if AOE_HAVE_MPG123
 #include <mpg123.h>
 #include <dlfcn.h>
@@ -356,6 +360,94 @@ bool load_wav_bytes(
     return begin_playback(track, spec, gain);
 }
 
+#if AOE_HAVE_NATIVE_MP3
+bool load_native_mp3_track(
+    AudioTrack& track,
+    const std::filesystem::path& path,
+    float gain,
+    bool looping
+) {
+    const std::string native_path = path.string();
+    CFURLRef url = CFURLCreateFromFileSystemRepresentation(
+        kCFAllocatorDefault,
+        reinterpret_cast<const UInt8*>(native_path.data()),
+        native_path.size(),
+        false
+    );
+    if (url == nullptr) return false;
+
+    ExtAudioFileRef file{};
+    const OSStatus open_status = ExtAudioFileOpenURL(url, &file);
+    CFRelease(url);
+    if (open_status != noErr || file == nullptr) return false;
+
+    AudioStreamBasicDescription source{};
+    UInt32 property_size = sizeof(source);
+    if (ExtAudioFileGetProperty(
+            file,
+            kExtAudioFileProperty_FileDataFormat,
+            &property_size,
+            &source
+        ) != noErr ||
+        source.mSampleRate <= 0.0) {
+        ExtAudioFileDispose(file);
+        return false;
+    }
+
+    AudioStreamBasicDescription client{};
+    client.mSampleRate = source.mSampleRate;
+    client.mFormatID = kAudioFormatLinearPCM;
+    client.mFormatFlags =
+        kLinearPCMFormatFlagIsSignedInteger |
+        kLinearPCMFormatFlagIsPacked |
+        kAudioFormatFlagsNativeEndian;
+    client.mBytesPerPacket = 4;
+    client.mFramesPerPacket = 1;
+    client.mBytesPerFrame = 4;
+    client.mChannelsPerFrame = 2;
+    client.mBitsPerChannel = 16;
+    if (ExtAudioFileSetProperty(
+            file,
+            kExtAudioFileProperty_ClientDataFormat,
+            sizeof(client),
+            &client
+        ) != noErr) {
+        ExtAudioFileDispose(file);
+        return false;
+    }
+
+    constexpr UInt32 frame_capacity = 4096;
+    std::array<Uint8, frame_capacity * 4> block{};
+    while (true) {
+        UInt32 frames = frame_capacity;
+        AudioBufferList buffers{};
+        buffers.mNumberBuffers = 1;
+        buffers.mBuffers[0].mNumberChannels = 2;
+        buffers.mBuffers[0].mDataByteSize = block.size();
+        buffers.mBuffers[0].mData = block.data();
+        if (ExtAudioFileRead(file, &frames, &buffers) != noErr) {
+            ExtAudioFileDispose(file);
+            return false;
+        }
+        if (frames == 0) break;
+        track.samples.insert(
+            track.samples.end(),
+            block.begin(),
+            block.begin() + static_cast<std::ptrdiff_t>(frames * 4)
+        );
+    }
+    ExtAudioFileDispose(file);
+
+    const SDL_AudioSpec spec{
+        SDL_AUDIO_S16,
+        2,
+        static_cast<int>(std::lround(source.mSampleRate))
+    };
+    track.looping = looping;
+    return begin_playback(track, spec, gain);
+}
+#endif
+
 #if AOE_HAVE_MPG123
 struct Mpg123Api {
     void* library{};
@@ -604,6 +696,16 @@ bool AudioSystem::Impl::start_music(
             music, path, environment_gain * mix.music_gain(), looping
         );
     }
+#if AOE_HAVE_NATIVE_MP3
+    else if (extension == ".mp3") {
+        loaded = load_native_mp3_track(
+            music,
+            path,
+            environment_gain * mix.music_gain(),
+            looping
+        );
+    }
+#endif
 #if AOE_HAVE_MPG123
     else if (extension == ".mp3" && mpg123 != nullptr) {
         loaded = load_mp3_track(
@@ -625,7 +727,7 @@ bool AudioSystem::Impl::start_music(
         return true;
     }
     if (!reported_music_failure) {
-#if AOE_HAVE_MPG123
+#if AOE_HAVE_NATIVE_MP3 || AOE_HAVE_MPG123
         std::cerr
             << "Music unavailable: discovered tracks could not be decoded "
                "or opened; verify files and audio device ("
@@ -664,6 +766,16 @@ bool AudioSystem::Impl::start_loose_effect(
             false
         );
     }
+#if AOE_HAVE_NATIVE_MP3
+    else if (extension == ".mp3") {
+        loaded = load_native_mp3_track(
+            *effect,
+            path,
+            environment_gain * mix.category_gain(category),
+            false
+        );
+    }
+#endif
 #if AOE_HAVE_MPG123
     else if (extension == ".mp3" && mpg123 != nullptr) {
         loaded = load_mp3_track(
@@ -754,6 +866,7 @@ std::unique_ptr<AudioSystem> AudioSystem::start_from_environment() {
     bool playing = false;
 
 #if AOE_HAVE_MPG123
+#if !AOE_HAVE_NATIVE_MP3
     if (std::ranges::any_of(
             std::array{
                 initial_music,
@@ -772,6 +885,7 @@ std::unique_ptr<AudioSystem> AudioSystem::start_from_environment() {
                    "loaded; install mpg123 for this CPU architecture\n";
         }
     }
+#endif
 #endif
     playing = impl->start_music(initial_music, false) || playing;
 

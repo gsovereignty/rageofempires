@@ -3,7 +3,7 @@
 
 The bundled scenarios used to be hand-written 24x16 maps. The map sizes the
 original engine actually generates are 120..255 tiles square (see
-RANDOM_MAP_FIDELITY.md for the decompiled switch), and the app now presents
+../docs/fidelity/RANDOM_MAP_FIDELITY.md for the decompiled switch), and the app now presents
 only the recovered maximum, so these are emitted at 255x255 from the layouts
 below instead of being edited by hand.
 

@@ -1,0 +1,17 @@
+background1_files     scr9b_32   none   50145  -1
+background2_files     scr9b_32   none   50145  -1
+background3_files     scr9b_32   none   50145  -1
+palette_file          pal9  50507
+cursor_file           mcursors  51000
+shade_amount          percent  54
+button_file           btn9  50611
+popup_dialog_sin      dlg9  50012
+background_position   0
+background_color      0
+bevel_colors          245  239  231  205  170  133
+text_color1           245  243  235
+text_color2           0    0    0  
+focus_color1          202  207  1
+focus_color2          0    0    0
+state_color1          255  255  255
+state_color2          0    0    0  

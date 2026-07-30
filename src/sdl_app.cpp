@@ -615,6 +615,9 @@ struct LegacySprites {
     std::map<std::int32_t, LegacySprite> technology_command_icons;
     std::array<LegacySprite, 4> resource_icons;
     LegacySprite portrait_frame;
+    SDL_Texture* frontend_background{};
+    SDL_Texture* scenario_background{};
+    LegacySprite campaign_background;
     LegacySprite market_western_blue;
     LegacySprite market_western_red;
     LegacySprite market_eastern_blue;
@@ -703,6 +706,11 @@ struct LegacySprites {
     PlayerLegacySprites missionary_heal;
 
     void destroy() {
+        SDL_DestroyTexture(frontend_background);
+        frontend_background = nullptr;
+        SDL_DestroyTexture(scenario_background);
+        scenario_background = nullptr;
+        campaign_background.destroy();
         sheep_blue.destroy();
         sheep_red.destroy();
         villager_blue.destroy();
@@ -2693,6 +2701,42 @@ std::vector<std::byte> read_binary_file(
     return bytes;
 }
 
+LegacySprite create_loose_legacy_sprite(
+    SDL_Renderer* renderer,
+    const std::filesystem::path& path,
+    const LegacyPalette& palette,
+    std::size_t frame_index = 0
+) {
+    const std::vector<std::byte> bytes = read_binary_file(path);
+    RgbaFrame frame = decode_slp_frame(
+        bytes, palette, frame_index, 1
+    );
+    SDL_Surface* surface = SDL_CreateSurfaceFrom(
+        frame.width,
+        frame.height,
+        SDL_PIXELFORMAT_RGBA32,
+        frame.rgba.data(),
+        frame.width * 4
+    );
+    if (surface == nullptr) {
+        throw LegacyAssetError{SDL_GetError()};
+    }
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_DestroySurface(surface);
+    if (texture == nullptr) {
+        throw LegacyAssetError{SDL_GetError()};
+    }
+    SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_LINEAR);
+    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+    return {
+        texture,
+        frame.width,
+        frame.height,
+        frame.hotspot_x,
+        frame.hotspot_y,
+    };
+}
+
 LegacyHudBackground create_hud_background(
     SDL_Renderer* renderer,
     const std::filesystem::path& path,
@@ -3120,6 +3164,58 @@ LegacySprites load_local_legacy_sprites(
     }
     const std::filesystem::path data_root =
         *requested_root / "Data";
+    const auto load_packaged_texture =
+        [renderer](const std::filesystem::path& path, bool png) {
+            SDL_Surface* surface = png
+                ? SDL_LoadPNG(path.string().c_str())
+                : SDL_LoadBMP(path.string().c_str());
+            if (surface == nullptr) return static_cast<SDL_Texture*>(nullptr);
+            SDL_Texture* texture =
+                SDL_CreateTextureFromSurface(renderer, surface);
+            SDL_DestroySurface(surface);
+            if (texture != nullptr) {
+                SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_LINEAR);
+            }
+            return texture;
+        };
+    sprites.frontend_background = load_packaged_texture(
+        *requested_root / "launcher_res" / "background.png", true
+    );
+    sprites.scenario_background = load_packaged_texture(
+        *requested_root / "scenariobkg.bmp", false
+    );
+    if (sprites.frontend_background != nullptr) {
+        SDL_Log(
+            "using packaged frontend background from %s",
+            requested_root->string().c_str()
+        );
+    }
+    if (sprites.scenario_background != nullptr) {
+        SDL_Log(
+            "using packaged scenario background from %s",
+            requested_root->string().c_str()
+        );
+    }
+    try {
+        const std::filesystem::path media =
+            *requested_root / "Campaign" / "Media";
+        const LegacyPalette campaign_palette = LegacyPalette::from_jasc(
+            read_binary_file(media / "backgrd1.pal")
+        );
+        sprites.campaign_background = create_loose_legacy_sprite(
+            renderer, media / "backgrd1.SLP", campaign_palette
+        );
+        SDL_Log(
+            "using packaged campaign SLP background from %s",
+            media.string().c_str()
+        );
+    } catch (const std::exception& error) {
+        SDL_LogWarn(
+            SDL_LOG_CATEGORY_APPLICATION,
+            "cannot load packaged campaign SLP background: %s",
+            error.what()
+        );
+    }
     try {
         const DrsArchive graphics{data_root / "graphics.drs"};
         const DrsArchive interface{data_root / "interfac.drs"};
@@ -11438,6 +11534,31 @@ void render_campaign_presentation(
 
     if (presentation->screen !=
             CampaignPresentation::Screen::status) {
+        if (active_legacy_sprites.campaign_background.texture != nullptr) {
+            const SDL_FRect destination{
+                0.0F, 0.0F,
+                static_cast<float>(view_pixel_width),
+                static_cast<float>(view_pixel_height),
+            };
+            SDL_RenderTexture(
+                renderer,
+                active_legacy_sprites.campaign_background.texture,
+                nullptr,
+                &destination
+            );
+        } else if (active_legacy_sprites.scenario_background != nullptr) {
+            const SDL_FRect destination{
+                0.0F, 0.0F,
+                static_cast<float>(view_pixel_width),
+                static_cast<float>(view_pixel_height),
+            };
+            SDL_RenderTexture(
+                renderer,
+                active_legacy_sprites.scenario_background,
+                nullptr,
+                &destination
+            );
+        }
         const bool debrief =
             presentation->screen ==
             CampaignPresentation::Screen::debrief;
@@ -12129,6 +12250,19 @@ void render_editor_overlay(SDL_Renderer* renderer) {
 
 void render_frontend_overlay(SDL_Renderer* renderer) {
     if (active_frontend_screen == FrontendScreen::hidden) return;
+    if (active_legacy_sprites.frontend_background != nullptr) {
+        const SDL_FRect destination{
+            0.0F, 0.0F,
+            static_cast<float>(view_pixel_width),
+            static_cast<float>(view_pixel_height + hud_height),
+        };
+        SDL_RenderTexture(
+            renderer,
+            active_legacy_sprites.frontend_background,
+            nullptr,
+            &destination
+        );
+    }
     const SDL_FRect shade{
         0.0F, 0.0F,
         static_cast<float>(view_pixel_width),
@@ -14297,6 +14431,36 @@ int SdlApp::run() {
         : std::nullopt;
     LocalizationResult localization =
         negotiate_localization(requested_locale, language_file);
+    if (!language_file) {
+        if (const auto asset_root = configured_asset_root()) {
+            const std::filesystem::path language_root =
+                *asset_root / "Bin" / "en";
+            const std::vector<std::filesystem::path> sources{
+                language_root / "language.dll",
+                language_root / "language_x1.dll",
+                language_root / "language_x1_p1.dll",
+            };
+            try {
+                LegacyLanguageReport legacy =
+                    load_legacy_language_sources(
+                        requested_locale, 0x0409, sources, {}
+                    );
+                localization.table = std::move(legacy.table);
+                SDL_Log(
+                    "using packaged legacy localization: %zu strings from "
+                    "%zu sources",
+                    legacy.extracted.size(),
+                    legacy.sources.size()
+                );
+            } catch (const std::exception& error) {
+                SDL_LogWarn(
+                    SDL_LOG_CATEGORY_APPLICATION,
+                    "cannot load packaged legacy localization: %s",
+                    error.what()
+                );
+            }
+        }
+    }
     active_string_table = &localization.table;
     ScenarioStartup startup = load_bundled_scenario();
     Scenario demo_scenario = std::move(startup.scenario);
@@ -14949,6 +15113,16 @@ int SdlApp::run() {
         if (const char* requested =
                 SDL_getenv("AOE_AUDIO_PROOF_SOUND")) {
             audio->play_effect(SDL_atoi(requested));
+        }
+        if (const char* requested =
+                SDL_getenv("AOE_AUDIO_PROOF_TAUNT")) {
+            audio->play_taunt(
+                static_cast<unsigned>(SDL_atoi(requested))
+            );
+        }
+        if (const char* requested =
+                SDL_getenv("AOE_AUDIO_PROOF_NARRATION")) {
+            audio->play_narration(requested);
         }
     }
     Replay replay;

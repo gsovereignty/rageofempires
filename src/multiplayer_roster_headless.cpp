@@ -212,6 +212,8 @@ void write_image(
     SDL_DestroyWindow(window);
     SDL_Quit();
 #else
+    static_cast<void>(indices);
+    static_cast<void>(resumed);
     std::ofstream output(path, std::ios::binary | std::ios::trunc);
     if (!output) throw std::runtime_error("cannot write screenshot");
     output << "P6\n32 24\n255\n";

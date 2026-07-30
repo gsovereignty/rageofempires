@@ -1,0 +1,7 @@
+clf_pal - clf
+pal_2 - foak_nn
+pal_3 - fpal_nn
+pal_4 - fpin_nn
+pal_5 - fsno_nn
+pal_6 - fire effects
+pal_7 - unassigned

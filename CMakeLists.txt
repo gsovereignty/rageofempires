@@ -35,6 +35,30 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 find_package(ZLIB REQUIRED)
 find_package(Python3 3.9 REQUIRED COMPONENTS Interpreter)
 
+# FindZLIB can publish the macOS SDK's usr/include as an explicit system
+# include.  That path is already supplied by -isysroot, and spelling it out
+# makes libc++'s wrapper headers fail to find their C counterparts via
+# include_next with recent Apple Clang releases.
+if(APPLE AND TARGET ZLIB::ZLIB)
+    get_target_property(
+        AOE_ZLIB_INCLUDE_DIRECTORIES
+        ZLIB::ZLIB
+        INTERFACE_INCLUDE_DIRECTORIES
+    )
+    if(AOE_ZLIB_INCLUDE_DIRECTORIES)
+        list(
+            FILTER AOE_ZLIB_INCLUDE_DIRECTORIES
+            EXCLUDE REGEX "/MacOSX[^/]*/usr/include/?$"
+        )
+        set_target_properties(
+            ZLIB::ZLIB
+            PROPERTIES
+                INTERFACE_INCLUDE_DIRECTORIES
+                    "${AOE_ZLIB_INCLUDE_DIRECTORIES}"
+        )
+    endif()
+endif()
+
 if(AOE_BUILD_SDL3)
     include(FetchContent)
     set(SDL_SHARED ON CACHE BOOL "" FORCE)
@@ -54,16 +78,23 @@ endif()
 
 option(
     AOE_ENABLE_MPG123
-    "Use a host mpg123 library for original MP3 music playback"
+    "Use a host mpg123 library for MP3 playback on non-macOS platforms"
     ON
 )
 set(
-    AOE_ASSET_AUDIT_DATA_ROOT ""
+    AOE_ASSET_AUDIT_DATA_ROOT
+    "${CMAKE_CURRENT_SOURCE_DIR}/game_data/Data"
     CACHE PATH
-    "Classic Data directory used by renderer asset coverage targets"
+    "Packaged Data directory used by renderer asset coverage targets"
 )
 if(AOE_ENABLE_MPG123)
-    find_path(AOE_MPG123_INCLUDE_DIR mpg123.h)
+    find_path(
+        AOE_MPG123_INCLUDE_DIR
+        mpg123.h
+        HINTS
+            /opt/homebrew/include
+            /usr/local/include
+    )
     if(NOT AOE_MPG123_INCLUDE_DIR)
         message(WARNING
             "mpg123 headers not found: gameplay MP3 music disabled. Install "
@@ -252,6 +283,23 @@ add_test(
     COMMAND
         "${Python3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/test_check_runtime_fallbacks.py"
+)
+add_custom_target(
+    run_renderer_runtime_coverage
+    COMMAND
+        "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_renderer_runtime_coverage.py"
+        "$<TARGET_FILE:aoe_reconstruction>"
+        "${CMAKE_CURRENT_SOURCE_DIR}/resources"
+        "${CMAKE_CURRENT_BINARY_DIR}/renderer_runtime_coverage.json"
+    COMMAND
+        "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/compare_runtime_static_coverage.py"
+        "${CMAKE_CURRENT_SOURCE_DIR}/generated/renderer_asset_coverage_v2.json"
+        "${CMAKE_CURRENT_BINARY_DIR}/renderer_runtime_coverage.json"
+    DEPENDS aoe_deploy_demo_scenario
+    COMMENT "Checking runtime renderer asset selections against static audit"
+    VERBATIM
 )
 # The bundled scenarios are generator output, so a hand edit has to fail.
 add_test(
@@ -454,7 +502,21 @@ target_compile_options(
     aoe_multiplayer_roster_sdl PRIVATE -Wall -Wextra -Wpedantic
 )
 target_link_libraries(aoe_reconstruction PRIVATE aoe_core SDL3::SDL3)
-if(AOE_MPG123_INCLUDE_DIR)
+if(APPLE)
+    target_link_libraries(
+        aoe_reconstruction PRIVATE
+        "-framework AudioToolbox"
+        "-framework CoreFoundation"
+    )
+    target_compile_definitions(
+        aoe_reconstruction PRIVATE AOE_HAVE_NATIVE_MP3=1
+    )
+else()
+    target_compile_definitions(
+        aoe_reconstruction PRIVATE AOE_HAVE_NATIVE_MP3=0
+    )
+endif()
+if(AOE_MPG123_INCLUDE_DIR AND NOT APPLE)
     target_include_directories(
         aoe_reconstruction PRIVATE "${AOE_MPG123_INCLUDE_DIR}"
     )
@@ -469,14 +531,25 @@ file(
     CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/resources/*"
 )
+file(
+    GLOB_RECURSE AOE_GAME_DATA_FILES
+    CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/game_data/*"
+)
 # Track every runtime resource, not just executable relinks.
 add_custom_command(
     OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/deployed-demo-scenario.stamp"
+    COMMAND ${CMAKE_COMMAND} -E rm -rf
+        "$<TARGET_FILE_DIR:aoe_reconstruction>/resources"
+        "$<TARGET_FILE_DIR:aoe_reconstruction>/game_data"
     COMMAND ${CMAKE_COMMAND} -E make_directory
         "$<TARGET_FILE_DIR:aoe_reconstruction>/resources"
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_CURRENT_SOURCE_DIR}/resources"
         "$<TARGET_FILE_DIR:aoe_reconstruction>/resources"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/game_data"
+        "$<TARGET_FILE_DIR:aoe_reconstruction>/game_data"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_CURRENT_SOURCE_DIR}/generated/resource_manifest.json"
         "$<TARGET_FILE_DIR:aoe_reconstruction>/resource-manifest.json"
@@ -484,6 +557,7 @@ add_custom_command(
         "${CMAKE_CURRENT_BINARY_DIR}/deployed-demo-scenario.stamp"
     DEPENDS
         ${AOE_RUNTIME_RESOURCE_FILES}
+        ${AOE_GAME_DATA_FILES}
         "${CMAKE_CURRENT_SOURCE_DIR}/generated/resource_manifest.json"
     COMMENT "Deploying tracked runtime resources"
     VERBATIM
@@ -506,11 +580,17 @@ if(APPLE)
     )
     add_custom_command(
         TARGET aoe_reconstruction_app POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E rm -rf
+            "$<TARGET_BUNDLE_CONTENT_DIR:aoe_reconstruction_app>/Resources/resources"
+            "$<TARGET_BUNDLE_CONTENT_DIR:aoe_reconstruction_app>/Resources/game_data"
         COMMAND ${CMAKE_COMMAND} -E make_directory
             "$<TARGET_BUNDLE_CONTENT_DIR:aoe_reconstruction_app>/Resources/resources"
         COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${CMAKE_CURRENT_SOURCE_DIR}/resources"
             "$<TARGET_BUNDLE_CONTENT_DIR:aoe_reconstruction_app>/Resources/resources"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/game_data"
+            "$<TARGET_BUNDLE_CONTENT_DIR:aoe_reconstruction_app>/Resources/game_data"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${CMAKE_CURRENT_SOURCE_DIR}/generated/resource_manifest.json"
             "$<TARGET_BUNDLE_CONTENT_DIR:aoe_reconstruction_app>/Resources/resource-manifest.json"
@@ -519,10 +599,18 @@ if(APPLE)
     target_link_libraries(
         aoe_reconstruction_app PRIVATE aoe_core SDL3::SDL3
     )
+    target_link_libraries(
+        aoe_reconstruction_app PRIVATE
+        "-framework AudioToolbox"
+        "-framework CoreFoundation"
+    )
+    target_compile_definitions(
+        aoe_reconstruction_app PRIVATE AOE_HAVE_NATIVE_MP3=1
+    )
     target_compile_options(
         aoe_reconstruction_app PRIVATE -Wall -Wextra -Wpedantic
     )
-    if(AOE_MPG123_INCLUDE_DIR)
+    if(AOE_MPG123_INCLUDE_DIR AND NOT APPLE)
         target_include_directories(
             aoe_reconstruction_app PRIVATE "${AOE_MPG123_INCLUDE_DIR}"
         )
@@ -781,6 +869,33 @@ add_test(
         "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 add_test(
+    NAME aoe_packaged_sprites_sdl_smoke
+    COMMAND
+        bash
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/packaged_sprites_sdl_smoke.sh
+        $<TARGET_FILE:aoe_reconstruction>
+)
+set_tests_properties(
+    aoe_packaged_sprites_sdl_smoke PROPERTIES TIMEOUT 30
+)
+add_test(
+    NAME aoe_packaged_audio_sdl_smoke
+    COMMAND
+        bash
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/audio_playback_sdl_smoke.sh
+        $<TARGET_FILE:aoe_reconstruction>
+)
+set_tests_properties(
+    aoe_packaged_audio_sdl_smoke PROPERTIES TIMEOUT 30
+)
+add_test(
+    NAME aoe_markdown_link_guard
+    COMMAND
+        "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_markdown_links.py"
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+)
+add_test(
     NAME aoe_command_icon_manifest
     COMMAND
         "${Python3_EXECUTABLE}"
@@ -802,6 +917,14 @@ add_test(
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/generate_resource_manifest.py"
         "${CMAKE_CURRENT_SOURCE_DIR}"
         --check
+)
+add_test(
+    NAME aoe_deployed_resource_manifest
+    COMMAND
+        "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/scripts/verify_resource_manifest.py"
+        "$<TARGET_FILE_DIR:aoe_reconstruction>/resource-manifest.json"
+        "$<TARGET_FILE_DIR:aoe_reconstruction>"
 )
 add_test(
     NAME aoe_selection_visual_sdl_smoke

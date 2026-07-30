@@ -12,22 +12,23 @@ import sys
 def main() -> int:
     root = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
     check_only = "--check" in sys.argv[2:]
-    resource_root = root / "resources"
     records = []
-    for path in sorted(resource_root.rglob("*")):
-        if not path.is_file() or path.name == ".DS_Store":
-            continue
-        data = path.read_bytes()
-        records.append(
-            {
-                "path": path.relative_to(resource_root).as_posix(),
-                "size": len(data),
-                "sha256": hashlib.sha256(data).hexdigest(),
-            }
-        )
+    for directory in ("resources", "game_data"):
+        resource_root = root / directory
+        for path in sorted(resource_root.rglob("*")):
+            if not path.is_file() or path.name == ".DS_Store":
+                continue
+            data = path.read_bytes()
+            records.append(
+                {
+                    "path": path.relative_to(root).as_posix(),
+                    "size": len(data),
+                    "sha256": hashlib.sha256(data).hexdigest(),
+                }
+            )
     document = {
         "schema": "aoe-runtime-resource-manifest-v1",
-        "root": "resources",
+        "root": ".",
         "files": records,
     }
     generated = json.dumps(

@@ -1,0 +1,17 @@
+background1_files     campaign\media\introbkg none  -1  -1
+background2_files     campaign\media\introbkg none  -1  -1
+background3_files     campaign\media\introbkg none  -1  -1
+palette_file          palette 50500
+cursor_file           cursor1  -1
+shade_amount          percent  47
+button_file           none   -1
+popup_dialog_sin      campaign\media\intro  -1
+background_position   2
+background_color      0
+bevel_colors          49  87  211  77  65  0
+text_color1           57    37   0
+text_color2           0    0    0
+focus_color1          202  207  1
+focus_color2          0    0    0
+state_color1          255  255  255
+state_color2          0    0    0

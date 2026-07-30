@@ -1,0 +1,17 @@
+background1_files     xcredits_32 none 50188 -1
+background2_files     xcredits_32 none -1 -1
+background3_files     xcredits_32 none -1 -1
+palette_file          xcredits  50588
+cursor_file           mcursors  51000
+shade_amount          percent  54
+button_file           none -1
+popup_dialog_sin      none -1
+background_position   2
+background_color      0
+bevel_colors          0 0 0 0 0 0
+text_color1           255  255  255
+text_color2           0    0    0  
+focus_color1          0 0 0
+focus_color2          0    0    0
+state_color1          0 0 0 
+state_color2          0    0    0  

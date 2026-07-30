@@ -1,0 +1,18 @@
+# Plate Barding Armor audit: fully armored cavalry beside infantry.
+AOE-ARCHAEOLOGY-SCENARIO 28
+map 18 10
+economy blue 0 0 0 0
+economy red 0 0 0 0
+age blue imperial
+age red imperial
+technology blue scale_barding_armor
+technology blue chain_barding_armor
+technology blue plate_barding_armor
+
+building blacksmith blue 1 1
+unit knight blue 5 3 stance passive
+unit scout_cavalry blue 6 4 stance passive
+unit long_swordsman blue 4 5 stance passive
+unit knight red 11 4 stance passive
+unit long_swordsman red 10 5 stance passive
+building house red 15 7

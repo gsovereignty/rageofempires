@@ -1,0 +1,19 @@
+# Briton and Teuton Castle unique lines at base and elite levels.
+AOE-ARCHAEOLOGY-SCENARIO 37
+map 20 10
+economy blue 2500 2500 2500 2500
+economy red 2500 2500 2500 2500
+age blue imperial
+age red imperial
+diplomacy enemy
+civilization blue britons
+civilization red teutons
+technology blue elite_longbowman
+technology red elite_teutonic_knight
+
+unit longbowman blue 4 5 stance stand_ground
+unit elite_longbowman blue 7 5 stance stand_ground
+unit teutonic_knight red 13 5 stance stand_ground
+unit elite_teutonic_knight red 16 5 stance stand_ground
+building castle blue 0 0
+building castle red 16 0

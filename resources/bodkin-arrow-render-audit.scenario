@@ -1,0 +1,18 @@
+# Bodkin Arrow audit: selected upgraded Crossbowman and Guard Tower fire.
+AOE-ARCHAEOLOGY-SCENARIO 28
+map 18 10
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue castle
+age red castle
+technology blue fletching
+technology blue bodkin_arrow
+technology blue guard_tower
+technology red fletching
+
+building blacksmith blue 1 1
+unit crossbowman blue 5 4 stance passive
+building watch_tower blue 7 2
+unit militia red 12 3 stance passive
+building watch_tower red 13 5
+building house red 15 7

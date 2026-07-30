@@ -1,0 +1,81 @@
+{
+  "openage_commit": "9a5a7ccbfc20c2de658fc746462cd4a69aa758ef",
+  "transform": {
+    "front_vector": [
+      -1,
+      1
+    ],
+    "angle_formula": "atan2(-(dx + dy), dy - dx), normalized to 0..360",
+    "quantization": "nearest logical angle center",
+    "mirror": "logical degrees above 180 mirror horizontally",
+    "frame_layout": "frame + stored_angle * frames_per_angle",
+    "mirrored_hotspot_x": "width - 1 - hotspot_x"
+  },
+  "resources": {
+    "arrow_body": {
+      "physical_frame_count": 176,
+      "sha256": "4989643b06f9746bb85d06ec62267d04ec15161e0d3696d6550cd7ad6631545e",
+      "hotspot_bounds": {
+        "x_min": 3,
+        "x_max": 15,
+        "y_min": 2,
+        "y_max": 14
+      },
+      "slp_id": 3799,
+      "frames_per_angle": 11,
+      "logical_angle_count": 32,
+      "expected_half_plus_center_frames": 187,
+      "layout_matches": false
+    },
+    "arrow_shadow": {
+      "physical_frame_count": 37,
+      "sha256": "d1c7c2dac1d9b1652b16ec257372d6f0bfc5fbd12d5040775e82f1dbb0df22b4",
+      "hotspot_bounds": {
+        "x_min": 2,
+        "x_max": 14,
+        "y_min": 1,
+        "y_max": 6
+      },
+      "slp_id": 3800,
+      "frames_per_angle": 1,
+      "logical_angle_count": 72,
+      "expected_half_plus_center_frames": 37,
+      "layout_matches": true
+    },
+    "scorpion_body": {
+      "physical_frame_count": 10,
+      "sha256": "f2805e7383fb5e512bf2bedc44770db97028771f7fb805cf5ec76b052dc19da4",
+      "hotspot_bounds": {
+        "x_min": 5,
+        "x_max": 20,
+        "y_min": 4,
+        "y_max": 13
+      },
+      "slp_id": 3812,
+      "frames_per_angle": 1,
+      "logical_angle_count": 18,
+      "expected_half_plus_center_frames": 10,
+      "layout_matches": true
+    },
+    "scorpion_shadow": {
+      "physical_frame_count": 10,
+      "sha256": "272363e459ba09180b8cf4eed524e15da8f31ca070cefeae2d8af9be351a5848",
+      "hotspot_bounds": {
+        "x_min": 4,
+        "x_max": 22,
+        "y_min": 2,
+        "y_max": 12
+      },
+      "slp_id": 3813,
+      "frames_per_angle": 1,
+      "logical_angle_count": 18,
+      "expected_half_plus_center_frames": 10,
+      "layout_matches": true
+    }
+  },
+  "classification": {
+    "scorpion_bolt": "proved",
+    "arrow": "fail_closed",
+    "arrow_reason": "body physical frame count does not match half-plus-center DAT layout"
+  }
+}

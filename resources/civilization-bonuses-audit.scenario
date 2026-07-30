@@ -1,0 +1,15 @@
+# Civilization audit: Briton ranged line faces Frank cavalry; Teuton support is documented.
+AOE-ARCHAEOLOGY-SCENARIO 31
+map 18 10
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue castle
+age red castle
+diplomacy enemy
+civilization blue britons
+civilization red franks
+
+unit crossbowman blue 4 5 stance passive
+unit knight red 13 5 stance passive
+unit villager blue 2 8 stance passive
+unit villager red 16 8 stance passive

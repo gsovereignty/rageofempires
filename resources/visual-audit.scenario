@@ -1,0 +1,72 @@
+# Comprehensive renderer audit scene. Launch with:
+# AOE_SCENARIO_PATH=resources/visual-audit.scenario
+AOE-ARCHAEOLOGY-SCENARIO 27
+map 24 16
+economy blue 1000 1000 1000 1000
+economy red 1000 1000 1000 1000
+age blue imperial
+age red imperial
+technology blue wheelbarrow
+technology blue fletching
+technology blue forging
+technology blue murder_holes
+technology blue man_at_arms
+technology blue crossbowman
+technology blue pikeman
+technology blue long_swordsman
+
+terrain_rect forest 1 7 3 9
+terrain_rect berries 5 8 6 9
+terrain_rect gold 8 8 9 9
+terrain_rect stone 11 8 12 9
+terrain_rect water 23 0 23 15
+
+unit villager blue 1 5 garrison 0 0
+unit militia blue 2 5 stance defensive
+unit spearman blue 3 5 guard_unit 5 5
+unit archer blue 4 5 attack_move 20 5
+unit scout_cavalry blue 5 5 patrol 20 4
+unit knight blue 6 5 waypoint 6 7 waypoint 10 11 waypoint 4 12
+unit battering_ram blue 7 6
+unit skirmisher blue 8 6
+unit mangonel blue 9 6
+unit man_at_arms blue 10 6
+unit crossbowman blue 11 6
+unit pikeman blue 12 6
+unit long_swordsman blue 12 7
+unit villager red 9 5
+unit militia red 10 5
+unit spearman red 11 5
+unit archer red 12 5
+unit scout_cavalry red 13 5
+unit knight red 14 5
+unit battering_ram red 13 6
+unit skirmisher red 15 5
+unit mangonel red 16 5
+unit man_at_arms red 17 5
+unit crossbowman red 18 5
+unit pikeman red 18 6
+unit long_swordsman red 18 7
+
+building town_center blue 0 0
+building barracks blue 4 1
+building archery_range blue 5 1
+building stable blue 7 1
+building blacksmith blue 9 1
+building house blue 11 1
+building mill blue 13 1
+building lumber_camp blue 2 4
+building mining_camp blue 4 3
+building farm blue 6 3
+building palisade_wall blue 8 3
+building palisade_wall blue 9 3
+building palisade_wall blue 10 3
+building watch_tower blue 12 3
+building stone_wall blue 13 3
+building stone_wall blue 14 3
+building stone_wall blue 15 3
+building castle blue 14 6
+building university blue 2 10
+building siege_workshop blue 6 10
+
+building town_center red 19 12

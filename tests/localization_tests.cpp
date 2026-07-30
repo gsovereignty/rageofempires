@@ -1,0 +1,258 @@
+#include "aoe/localization.hpp"
+
+#include <filesystem>
+#include <fstream>
+#include <cstdint>
+#include <iostream>
+#include <stdexcept>
+#include <string_view>
+#include <vector>
+
+namespace {
+
+int failures{};
+
+void check(bool condition, std::string_view message) {
+    if (!condition) {
+        std::cerr << "FAIL: " << message << '\n';
+        ++failures;
+    }
+}
+
+template <typename Callback>
+void check_throws(Callback callback, std::string_view message) {
+    try {
+        callback();
+        check(false, message);
+    } catch (const std::exception&) {
+    }
+}
+
+std::filesystem::path write_fixture(
+    std::string_view name,
+    std::string_view contents
+) {
+    const auto path =
+        std::filesystem::temp_directory_path() / std::string{name};
+    std::ofstream output(path, std::ios::trunc);
+    output << contents;
+    output.close();
+    return path;
+}
+
+std::filesystem::path write_pe_fixture(
+    std::string_view name,
+    const std::vector<std::vector<std::uint16_t>>& strings
+) {
+    std::vector<std::uint8_t> bytes(0x500);
+    const auto put16 = [&bytes](std::size_t offset, std::uint16_t value) {
+        bytes[offset] = static_cast<std::uint8_t>(value);
+        bytes[offset + 1] = static_cast<std::uint8_t>(value >> 8);
+    };
+    const auto put32 = [&bytes](std::size_t offset, std::uint32_t value) {
+        for (int index = 0; index < 4; ++index) {
+            bytes[offset + index] =
+                static_cast<std::uint8_t>(value >> (index * 8));
+        }
+    };
+    put16(0, 0x5a4d);
+    put32(0x3c, 0x80);
+    put32(0x80, 0x00004550);
+    put16(0x86, 1);
+    put16(0x94, 224);
+    put16(0x98, 0x10b);
+    put32(0x98 + 112, 0x1000);
+    put32(0x98 + 116, 0x200);
+    const std::size_t section = 0x98 + 224;
+    put32(section + 8, 0x400);
+    put32(section + 12, 0x1000);
+    put32(section + 16, 0x400);
+    put32(section + 20, 0x200);
+    put16(0x200 + 14, 1);
+    put32(0x200 + 16, 6);
+    put32(0x200 + 20, 0x80000020);
+    put16(0x220 + 14, 1);
+    put32(0x220 + 16, 1);
+    put32(0x220 + 20, 0x80000040);
+    put16(0x240 + 14, 1);
+    put32(0x240 + 16, 0x0409);
+    put32(0x240 + 20, 0x60);
+    put32(0x260, 0x1100);
+    std::size_t cursor = 0x300;
+    for (std::size_t slot = 0; slot < 16; ++slot) {
+        const auto& value = slot < strings.size()
+            ? strings[slot] : std::vector<std::uint16_t>{};
+        put16(cursor, static_cast<std::uint16_t>(value.size()));
+        cursor += 2;
+        for (const std::uint16_t code : value) {
+            put16(cursor, code);
+            cursor += 2;
+        }
+    }
+    put32(0x264, static_cast<std::uint32_t>(cursor - 0x300));
+    const auto path =
+        std::filesystem::temp_directory_path() / std::string{name};
+    std::ofstream output(path, std::ios::binary | std::ios::trunc);
+    output.write(
+        reinterpret_cast<const char*>(bytes.data()),
+        static_cast<std::streamsize>(bytes.size())
+    );
+    return path;
+}
+
+}  // namespace
+
+int main() {
+    const aoe::StringTable english = aoe::english_string_table();
+    check(english.locale() == "en", "English locale");
+    check(english.text("hud.wood") == "WOOD", "English HUD string");
+    check(
+        english.text("technology_tree.title") ==
+            "CIVILIZATION TECHNOLOGY TREE",
+        "technology browser chrome is localized"
+    );
+    check(
+        english.text("editor.title") == "SCENARIO EDITOR",
+        "scenario editor chrome is localized"
+    );
+    check(
+        english.count_text(
+            "browser.entry_one", "browser.entry_other", 1
+        ) == "1 ENTRY",
+        "singular grammar path"
+    );
+    check(
+        english.count_text(
+            "browser.entry_one", "browser.entry_other", 23
+        ) == "23 ENTRIES",
+        "plural grammar path"
+    );
+    check(aoe::valid_utf8("ÁRVORE"), "valid UTF-8 accepted");
+    check(
+        !aoe::valid_utf8(std::string_view{"\xc0\xaf", 2}),
+        "overlong UTF-8 rejected"
+    );
+    check(
+        aoe::debug_font_fallback("Árvore 中") == "Arvore ?",
+        "debug font folds Latin and marks missing glyph"
+    );
+    check_throws(
+        [] {
+            (void)aoe::debug_font_fallback(
+                std::string_view{"\xed\xa0\x80", 3}
+            );
+        },
+        "debug font rejects invalid UTF-8"
+    );
+    check_throws(
+        [&] { (void)english.text("unknown"); },
+        "unknown runtime key rejected"
+    );
+
+    const auto portuguese = write_fixture(
+        "aoe-localization-pt.lang",
+        "aoe-language 1\n"
+        "locale \"pt-PT\"\n"
+        "string \"hud.wood\" \"MADEIRA\"\n"
+        "string \"hud.food\" \"PÃO\"\n"
+        "string \"ui.objectives\" \"OBJETIVOS\"\n"
+        "string \"objective.required\" \"OBRIGATORIO\"\n"
+    );
+    const aoe::LocalizationResult selected =
+        aoe::negotiate_localization("pt_PT", portuguese);
+    check(selected.external_loaded, "external locale selected");
+    check(selected.table.locale() == "pt-pt", "locale normalized");
+    check(selected.table.text("hud.wood") == "MADEIRA", "override loaded");
+    check(selected.table.text("hud.food") == "PÃO", "UTF-8 override loaded");
+    check(
+        selected.table.text("hud.gold") == "GOLD",
+        "missing string falls back to English"
+    );
+
+    const aoe::LocalizationResult mismatch =
+        aoe::negotiate_localization("de-DE", portuguese);
+    check(!mismatch.external_loaded, "locale mismatch falls back");
+    check(mismatch.table.locale() == "en", "mismatch uses English");
+    check(mismatch.table.text("hud.wood") == "WOOD", "English deterministic");
+
+    const auto duplicate = write_fixture(
+        "aoe-localization-duplicate.lang",
+        "aoe-language 1\nlocale \"pt\"\n"
+        "string \"hud.wood\" \"A\"\n"
+        "string \"hud.wood\" \"B\"\n"
+    );
+    check_throws(
+        [&] { (void)aoe::negotiate_localization("pt", duplicate); },
+        "duplicate key rejected"
+    );
+    const auto unknown = write_fixture(
+        "aoe-localization-unknown.lang",
+        "aoe-language 1\nlocale \"pt\"\n"
+        "string \"private.key\" \"NO\"\n"
+    );
+    check_throws(
+        [&] { (void)aoe::negotiate_localization("pt", unknown); },
+        "unknown key rejected"
+    );
+    const auto control = write_fixture(
+        "aoe-localization-control.lang",
+        "aoe-language 1\nlocale \"pt\"\n"
+        "string \"hud.wood\" \"bad\tvalue\"\n"
+    );
+    check_throws(
+        [&] { (void)aoe::negotiate_localization("pt", control); },
+        "control byte rejected"
+    );
+    check_throws(
+        [] { (void)aoe::negotiate_localization("../pt"); },
+        "invalid locale rejected"
+    );
+
+    const auto base_dll = write_pe_fixture(
+        "aoe-language-base.dll",
+        {{'B', 'A', 'S', 'E'}, {0x00c1}}
+    );
+    const auto expansion_dll = write_pe_fixture(
+        "aoe-language-x1.dll",
+        {{'E', 'X', 'P'}}
+    );
+    const auto exact = aoe::extract_pe_string_resources(base_dll, 0x0409);
+    check(exact.at(0) == "BASE", "exact RT_STRING ID decoded");
+    check(exact.at(1) == "\xc3\x81", "UTF-16 converted to UTF-8");
+    const aoe::LegacyLanguageReport legacy =
+        aoe::load_legacy_language_sources(
+            "en-US", 0x0409, {base_dll, expansion_dll},
+            {{0, "hud.wood"}}
+        );
+    check(legacy.table.text("hud.wood") == "EXP", "later DLL precedence");
+    check(legacy.unknown.at(1) == "\xc3\x81", "unknown ID reported");
+    check(legacy.sources.size() == 2, "external sources reported");
+    check_throws(
+        [&] {
+            (void)aoe::load_legacy_language_sources(
+                "en", 0x0409, {base_dll}, {{0, "private.key"}}
+            );
+        },
+        "unknown mapping key rejected"
+    );
+    const auto malformed_dll = write_pe_fixture(
+        "aoe-language-malformed.dll", {{0xd800}}
+    );
+    check_throws(
+        [&] {
+            (void)aoe::extract_pe_string_resources(
+                malformed_dll, 0x0409
+            );
+        },
+        "invalid UTF-16 rejected"
+    );
+
+    std::filesystem::remove(portuguese);
+    std::filesystem::remove(duplicate);
+    std::filesystem::remove(unknown);
+    std::filesystem::remove(control);
+    std::filesystem::remove(base_dll);
+    std::filesystem::remove(expansion_dll);
+    std::filesystem::remove(malformed_dll);
+    return failures == 0 ? 0 : 1;
+}

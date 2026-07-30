@@ -1,0 +1,117 @@
+{
+  "status": "proved",
+  "source": {
+    "path": "/Users/gareth/Downloads/AOE/Crack/AoK HD.exe",
+    "sha256": "e23272e21014fb281f71a21ef96a6437ab8b322f4978fd4998be835be219edcc",
+    "pe_neighbor_table_va": "0x0081d310",
+    "decompiled_path": "/Users/gareth/Downloads/AOE/decompiled/AoK-HD-patched.c",
+    "neighbor_table_function": "FUN_00553b10",
+    "mask_catalog_function": "FUN_0054e400",
+    "mask_application_function": "FUN_0054e810"
+  },
+  "neighbor_order": [
+    {
+      "direction": "north_west",
+      "dx": -1,
+      "dy": -1,
+      "influence_bit": 1,
+      "mask": 19,
+      "cardinal_family": null
+    },
+    {
+      "direction": "north_east",
+      "dx": 1,
+      "dy": -1,
+      "influence_bit": 2,
+      "mask": 18,
+      "cardinal_family": null
+    },
+    {
+      "direction": "south_east",
+      "dx": 1,
+      "dy": 1,
+      "influence_bit": 4,
+      "mask": 16,
+      "cardinal_family": null
+    },
+    {
+      "direction": "south_west",
+      "dx": -1,
+      "dy": 1,
+      "influence_bit": 8,
+      "mask": 17,
+      "cardinal_family": null
+    },
+    {
+      "direction": "north",
+      "dx": 0,
+      "dy": -1,
+      "influence_bit": 16,
+      "mask": null,
+      "cardinal_family": [
+        12,
+        13,
+        14,
+        15
+      ]
+    },
+    {
+      "direction": "east",
+      "dx": 1,
+      "dy": 0,
+      "influence_bit": 32,
+      "mask": null,
+      "cardinal_family": [
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    {
+      "direction": "south",
+      "dx": 0,
+      "dy": 1,
+      "influence_bit": 64,
+      "mask": null,
+      "cardinal_family": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "direction": "west",
+      "dx": -1,
+      "dy": 0,
+      "influence_bit": 128,
+      "mask": null,
+      "cardinal_family": [
+        8,
+        9,
+        10,
+        11
+      ]
+    }
+  ],
+  "cardinal_variant": {
+    "formula": "(tile_x + tile_y) & 3",
+    "decompiler_expression": "local_a8 = param_6 + param_7 & 3;",
+    "application": "variant is added only when base mask ID is below 16",
+    "decompiler_application": "bVar7 = bVar7 + param_9;"
+  },
+  "fixed_cardinal_combinations": {
+    "north_east": 23,
+    "north_south": 21,
+    "east_south": 25,
+    "north_east_south": 29,
+    "north_west": 22,
+    "east_west": 20,
+    "north_east_west": 28,
+    "south_west": 24,
+    "north_south_west": 27,
+    "east_south_west": 26,
+    "all": 30
+  }
+}

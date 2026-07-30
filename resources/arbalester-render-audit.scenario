@@ -1,0 +1,22 @@
+# Imperial Arbalester audit: completed classic foot archer line.
+AOE-ARCHAEOLOGY-SCENARIO 28
+map 18 10
+economy blue 0 0 0 0
+economy red 0 0 0 0
+age blue imperial
+age red imperial
+technology blue crossbowman
+technology blue arbalester
+technology blue fletching
+technology blue bodkin_arrow
+technology blue bracer
+technology blue padded_archer_armor
+technology blue leather_archer_armor
+technology blue ring_archer_armor
+
+building archery_range blue 1 1
+unit arbalester blue 5 3 stance passive
+unit crossbowman blue 6 4 stance passive
+unit knight red 11 4 stance passive
+unit arbalester red 10 5 stance passive
+building house red 15 7

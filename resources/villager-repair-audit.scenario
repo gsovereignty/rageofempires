@@ -1,0 +1,11 @@
+# Focused renderer audit. Select 3,2 and command damaged house at 4,2.
+AOE-ARCHAEOLOGY-SCENARIO 27
+map 10 6
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue dark
+age red dark
+
+unit villager blue 3 2 stance passive
+unit villager red 8 4 stance passive
+building house blue 4 2 hit_points 40

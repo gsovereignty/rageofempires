@@ -1,0 +1,24 @@
+# Imperial Paladin audit: completed generic heavy cavalry line.
+AOE-ARCHAEOLOGY-SCENARIO 28
+map 18 10
+economy blue 0 0 0 0
+economy red 0 0 0 0
+age blue imperial
+age red imperial
+technology blue cavalier
+technology blue paladin
+technology blue bloodlines
+technology blue husbandry
+technology blue forging
+technology blue iron_casting
+technology blue blast_furnace
+technology blue scale_barding_armor
+technology blue chain_barding_armor
+technology blue plate_barding_armor
+
+building stable blue 1 1
+unit paladin blue 5 3 stance passive
+unit cavalier blue 6 4 stance passive
+unit pikeman red 11 4 stance passive
+unit paladin red 10 5 stance passive
+building house red 15 7

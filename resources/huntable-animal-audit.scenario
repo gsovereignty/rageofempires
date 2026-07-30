@@ -1,0 +1,14 @@
+# Hunt audit: deer is light prey; boar retaliates and can kill lone villagers.
+AOE-ARCHAEOLOGY-SCENARIO 27
+map 14 8
+economy blue 250 200 100 200
+economy red 250 200 100 200
+age blue dark
+age red dark
+
+unit villager blue 3 3 stance passive
+unit villager blue 3 5 stance passive
+unit deer red 6 3 food 140 stance passive
+unit boar red 7 5 food 340 stance passive
+unit villager red 13 7 stance passive
+building town_center blue 0 0

@@ -1,0 +1,15 @@
+# Guard Tower audit: upgraded blue tower beside base red Watch Tower.
+AOE-ARCHAEOLOGY-SCENARIO 28
+map 16 10
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue castle
+age red feudal
+technology blue guard_tower
+
+building university blue 1 1
+building watch_tower blue 6 3
+unit villager blue 5 4 stance passive
+building watch_tower red 11 4
+unit militia red 10 5 stance passive
+building house red 13 7

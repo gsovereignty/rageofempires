@@ -1,0 +1,44 @@
+# Cannon Galleon line with all generic Dock ship technologies.
+AOE-ARCHAEOLOGY-SCENARIO 35
+map 20 10
+economy blue 2000 2000 2000 2000
+economy red 2000 2000 2000 2000
+age blue imperial
+age red imperial
+diplomacy enemy
+civilization blue generic
+civilization red generic
+technology blue cannon_galleon
+technology blue elite_cannon_galleon
+technology blue careening
+technology blue dry_dock
+technology blue shipwright
+technology red cannon_galleon
+
+terrain water 0 5
+terrain water 1 5
+terrain water 2 5
+terrain water 3 5
+terrain water 4 5
+terrain water 5 5
+terrain water 6 5
+terrain water 7 5
+terrain water 8 5
+terrain water 9 5
+terrain water 10 5
+terrain water 11 5
+terrain water 12 5
+terrain water 13 5
+terrain water 14 5
+terrain water 15 5
+terrain water 16 5
+terrain water 17 5
+terrain water 18 5
+terrain water 19 5
+unit elite_cannon_galleon blue 3 5 stance stand_ground
+unit transport_ship blue 6 5 stance passive
+unit fishing_ship blue 8 5 stance passive
+unit cannon_galleon red 16 5 stance stand_ground
+unit galleon red 12 5 stance stand_ground
+building dock blue 0 1
+building dock red 16 1

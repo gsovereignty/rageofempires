@@ -1,0 +1,587 @@
+{
+  "source_format": "AOE_VER_5_7_METADATA_V1",
+  "scope": "Wonder, Wonder Plans and bounded victory-resource evidence",
+  "wonder": {
+    "action": {
+      "command_sound": null,
+      "default_task": 0,
+      "move_sound": null,
+      "search_radius": 8.0,
+      "task_list_source": "global_copy_id",
+      "work_rate": 1.0,
+      "tasks_structured": [
+        {
+          "id": 0,
+          "is_default": true,
+          "action_type": 120,
+          "object_class": -1,
+          "object_id": "None",
+          "terrain_id": -1,
+          "attribute_types": "(-1, -1, -1, -1)",
+          "work_values": "(0.0, 0.0)",
+          "work_range": 0.0,
+          "auto_search_targets": false,
+          "search_wait_time": 0.0,
+          "enable_targeting": false,
+          "combat_level": 0,
+          "work_flags": "(0, 0)",
+          "owner_type": 0,
+          "holding_attribute": 0,
+          "state_building": 0,
+          "move_sprite": "None",
+          "work_sprite": "None",
+          "work_sprite2": "None",
+          "carry_sprite": "None",
+          "work_sound": "None",
+          "work_sound2": "None"
+        }
+      ]
+    },
+    "area_effect_level": 2,
+    "attack_graphic": null,
+    "attribute_max_amount": 0,
+    "attribute_rot": 0.0,
+    "attributes": [],
+    "base_class": "Building",
+    "building": {
+      "garrison_heal_rate": 0.0,
+      "garrison_repair_rate": 0.0,
+      "garrison_type": 0
+    },
+    "button_icon": 37,
+    "combat": {
+      "accuracy": 0,
+      "area_effect_range": 0.0,
+      "armor": 1000,
+      "armors": [
+        {
+          "amount": 0,
+          "class": 21
+        },
+        {
+          "amount": 0,
+          "class": 11
+        },
+        {
+          "amount": 3,
+          "class": 4
+        },
+        {
+          "amount": 10,
+          "class": 3
+        }
+      ],
+      "blast_level_offense": 0,
+      "break_off_combat": 0,
+      "displayed_armor": 3,
+      "displayed_attack": 0,
+      "displayed_range": 0.0,
+      "displayed_reload_time": 0.0,
+      "frame_delay": 0,
+      "missed_missile_spread": 0.0,
+      "missile_unit": null,
+      "range_max": 0.0,
+      "range_min": 0.0,
+      "reload_time": 0.0,
+      "weapon_offset": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "weapons": []
+    },
+    "construction_graphic": 123,
+    "copy_id": 276,
+    "creation": {
+      "costs": [
+        {
+          "amount": 1000,
+          "flag": 1,
+          "resource": 1
+        },
+        {
+          "amount": 1000,
+          "flag": 1,
+          "resource": 3
+        },
+        {
+          "amount": 1000,
+          "flag": 1,
+          "resource": 2
+        }
+      ],
+      "create_at_unit": 118,
+      "create_button": 12,
+      "create_time": 3500,
+      "flank_attack_modifier": 0.0,
+      "max_attacks_in_volley": 0,
+      "rear_attack_modifier": 0.0,
+      "special_attack_flag": 0,
+      "special_attack_graphic": null,
+      "volley_fire_amount": 0.0,
+      "volley_missile_unit": null,
+      "volley_spread": [
+        0.0,
+        0.0
+      ],
+      "volley_start_spread_adjustment": 0.0
+    },
+    "damage_sound": null,
+    "damage_sprites": [
+      {
+        "damage_percent": 25,
+        "flag": 0,
+        "graphic_id": 5275
+      },
+      {
+        "damage_percent": 50,
+        "flag": 0,
+        "graphic_id": 5288
+      },
+      {
+        "damage_percent": 75,
+        "flag": 0,
+        "graphic_id": 5301
+      }
+    ],
+    "death_sound": null,
+    "disabled": false,
+    "dying_graphic": 42,
+    "enabled": false,
+    "garrison_capacity": 0,
+    "hit_points": 4800,
+    "id": 276,
+    "line_of_sight": 8.0,
+    "missile": null,
+    "moving": {
+      "maximum_yaw_per_second_moving": 3.4028234663852886e+38,
+      "maximum_yaw_per_second_stationary": 3.4028234663852886e+38,
+      "move_algorithm": 0,
+      "size_class": 0,
+      "stationary_yaw_revolution_time": 0.0,
+      "trailing_options": 0,
+      "trailing_spacing": 0.0,
+      "trailing_unit": null,
+      "turn_radius": 0.0,
+      "turn_radius_speed": 3.4028234663852886e+38,
+      "turn_speed": 0.0
+    },
+    "obstruction_type": 2,
+    "outline_radius": [
+      2.5,
+      2.5,
+      3.0
+    ],
+    "portrait_icon": null,
+    "radius": [
+      2.5,
+      2.5,
+      4.0
+    ],
+    "resource_group": 0,
+    "running_graphic": null,
+    "selected_sound": 383,
+    "selection_shape": 3,
+    "speed": 0.0,
+    "standing_graphic": 3068,
+    "standing_graphic_2": null,
+    "terrain_restriction_id": 4,
+    "track_as_resource": false,
+    "train_sound": null,
+    "unit_class": 3,
+    "unit_group": 276,
+    "walking_graphic": null
+  },
+  "wonder_gate": {
+    "id": 144,
+    "name": "Wonder Plans",
+    "required_techs": [
+      103
+    ],
+    "costs": [],
+    "location": null,
+    "research_time": 0,
+    "effect_id_raw": 145,
+    "effect_commands": [
+      {
+        "a": 276,
+        "attribute_name": null,
+        "b": 1,
+        "c": -1,
+        "d": 0.0,
+        "packed_amount": null,
+        "packed_attack_amount": null,
+        "packed_attack_class": null,
+        "packed_class": null,
+        "type": 2
+      }
+    ],
+    "icon": 77,
+    "button": 0,
+    "civilization_id": null
+  },
+  "atheism": {
+    "id": 21,
+    "name": "Hun Atheism",
+    "required_techs": [
+      103
+    ],
+    "costs": [
+      {
+        "resource": 0,
+        "amount": 500
+      },
+      {
+        "resource": 3,
+        "amount": 500
+      }
+    ],
+    "location": 82,
+    "research_time": 60,
+    "effect_id_raw": 464,
+    "effect_commands": [
+      {
+        "a": 196,
+        "attribute_name": null,
+        "b": 1,
+        "c": -1,
+        "d": 1000.0,
+        "packed_amount": null,
+        "packed_attack_amount": null,
+        "packed_attack_class": null,
+        "packed_class": null,
+        "type": 1
+      },
+      {
+        "a": 197,
+        "attribute_name": null,
+        "b": 0,
+        "c": -1,
+        "d": 1.0,
+        "packed_amount": null,
+        "packed_attack_amount": null,
+        "packed_attack_class": null,
+        "packed_class": null,
+        "type": 1
+      }
+    ],
+    "icon": 107,
+    "button": 8,
+    "civilization_id": 17
+  },
+  "victory_resource_commands": [
+    {
+      "effect_id": 464,
+      "effect_name": "CHUN4",
+      "command": {
+        "a": 196,
+        "attribute_name": null,
+        "b": 1,
+        "c": -1,
+        "d": 1000.0,
+        "packed_amount": null,
+        "packed_attack_amount": null,
+        "packed_attack_class": null,
+        "packed_class": null,
+        "type": 1
+      }
+    },
+    {
+      "effect_id": 464,
+      "effect_name": "CHUN4",
+      "command": {
+        "a": 197,
+        "attribute_name": null,
+        "b": 0,
+        "c": -1,
+        "d": 1.0,
+        "packed_amount": null,
+        "packed_attack_amount": null,
+        "packed_attack_class": null,
+        "packed_class": null,
+        "type": 1
+      }
+    }
+  ],
+  "availability": [
+    {
+      "id": 1,
+      "name": "British",
+      "wonder": "available",
+      "wonder_plans": "available",
+      "atheism": "unavailable"
+    },
+    {
+      "id": 2,
+      "name": "French",
+      "wonder": "available",
+      "wonder_plans": "available",
+      "atheism": "unavailable"
+    },
+    {
+      "id": 3,
+      "name": "Goths",
+      "wonder": "available",
+      "wonder_plans": "available",
+      "atheism": "unavailable"
+    },
+    {
+      "id": 4,
+      "name": "Germans",
+      "wonder": "available",
+      "wonder_plans": "available",
+      "atheism": "unavailable"
+    },
+    {
+      "id": 5,
+      "name": "Japanese",
+      "wonder": "available",
+      "wonder_plans": "available",
+      "atheism": "unavailable"
+    },
+    {
+      "id": 6,
+      "name": "Chinese",
+      "wonder": "available",
+      "wonder_plans": "available",
+      "atheism": "unavailable"
+    },
+    {
+      "id": 7,
+      "name": "Byzantine",
+      "wonder": "available",
+      "wonder_plans": "available",
+      "atheism": "unavailable"
+    },
+    {
+      "id": 8,
+      "name": "Persians",
+      "wonder": "available",
+      "wonder_plans": "available",
+      "atheism": "unavailable"
+    },
+    {
+      "id": 9,
+      "name": "Saracens",
+      "wonder": "available",
+      "wonder_plans": "available",
+      "atheism": "unavailable"
+    },
+    {
+      "id": 10,
+      "name": "Turks",
+      "wonder": "available",
+      "wonder_plans": "available",
+      "atheism": "unavailable"
+    },
+    {
+      "id": 11,
+      "name": "Vikings",
+      "wonder": "available",
+      "wonder_plans": "available",
+      "atheism": "unavailable"
+    },
+    {
+      "id": 12,
+      "name": "Mongols",
+      "wonder": "available",
+      "wonder_plans": "available",
+      "atheism": "unavailable"
+    },
+    {
+      "id": 13,
+      "name": "Celts",
+      "wonder": "available",
+      "wonder_plans": "available",
+      "atheism": "unavailable"
+    },
+    {
+      "id": 14,
+      "name": "Spanish",
+      "wonder": "available",
+      "wonder_plans": "available",
+      "atheism": "unavailable"
+    },
+    {
+      "id": 15,
+      "name": "Aztecs",
+      "wonder": "available",
+      "wonder_plans": "available",
+      "atheism": "unavailable"
+    },
+    {
+      "id": 16,
+      "name": "Mayan",
+      "wonder": "available",
+      "wonder_plans": "available",
+      "atheism": "unavailable"
+    },
+    {
+      "id": 17,
+      "name": "Huns",
+      "wonder": "available",
+      "wonder_plans": "available",
+      "atheism": "available"
+    },
+    {
+      "id": 18,
+      "name": "Koreans",
+      "wonder": "available",
+      "wonder_plans": "available",
+      "atheism": "unavailable"
+    }
+  ],
+  "graphics": [
+    {
+      "angle_count": 1,
+      "deltas": [
+        {
+          "display_angle": -1,
+          "graphic_id": 477,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": null,
+          "offset_x": 0,
+          "offset_y": 0
+        }
+      ],
+      "filename": "BEXP3_NN",
+      "frame_count": 10,
+      "frame_rate": 0.04650000110268593,
+      "id": 42,
+      "layer": 30,
+      "mirror_flag": 0,
+      "name": "BEXP8_NN",
+      "palette": 65535,
+      "replay_delay": 0.0,
+      "sequence_type": 9,
+      "slp_id": 75,
+      "sound_triggers": {
+        "attack_sounds": [],
+        "graphic_id": 42,
+        "sound_id": 323
+      }
+    },
+    {
+      "angle_count": 3,
+      "deltas": [],
+      "filename": "CNST8_NN",
+      "frame_count": 1,
+      "frame_rate": 0.0,
+      "id": 123,
+      "layer": 10,
+      "mirror_flag": 0,
+      "name": "CNST8_NN",
+      "palette": 65535,
+      "replay_delay": 0.0,
+      "sequence_type": 3,
+      "slp_id": 241,
+      "sound_triggers": null
+    },
+    {
+      "angle_count": 1,
+      "deltas": [
+        {
+          "display_angle": -1,
+          "graphic_id": 3042,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": null,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": 3055,
+          "offset_x": 0,
+          "offset_y": 0
+        }
+      ],
+      "filename": "WNDR0NNB",
+      "frame_count": 1,
+      "frame_rate": 0.0,
+      "id": 3068,
+      "layer": 20,
+      "mirror_flag": 0,
+      "name": "WNDR0NNB",
+      "palette": 65535,
+      "replay_delay": 0.0,
+      "sequence_type": 0,
+      "slp_id": 3534,
+      "sound_triggers": null
+    }
+  ],
+  "sounds": [
+    {
+      "id": 323,
+      "items": [
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 30,
+          "resource_id": 5316
+        },
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 30,
+          "resource_id": 5317
+        },
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 30,
+          "resource_id": 5318
+        },
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 10,
+          "resource_id": 5459
+        }
+      ],
+      "play_delay": 0
+    },
+    {
+      "id": 383,
+      "items": [
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 100,
+          "resource_id": 5456
+        }
+      ],
+      "play_delay": 0
+    }
+  ],
+  "extractor_absence": [
+    "pinned genie-rs exposes no victory-mode or countdown table",
+    "pinned extractor emits no localized message table",
+    "civilization resource defaults are not exposed by pinned API"
+  ],
+  "validation_boundary": {
+    "dat_proves": [
+      "Wonder record, gate, costs, time, tasks and civilization presence",
+      "Atheism technology and raw resource 196/197 commands",
+      "Wonder graphic-to-SLP and conceptual sound-to-WAV links"
+    ],
+    "original_runtime_required": [
+      "Wonder/relic countdown lengths, units and reset behavior",
+      "relic ownership threshold and team/allied aggregation",
+      "score, time-limit and conquest victory rules",
+      "Atheism resource meanings and countdown/relic-income semantics"
+    ]
+  }
+}

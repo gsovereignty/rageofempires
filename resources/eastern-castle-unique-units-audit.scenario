@@ -1,0 +1,19 @@
+# Japanese Samurai and Persian War Elephant lines, base and elite.
+AOE-ARCHAEOLOGY-SCENARIO 38
+map 20 10
+economy blue 3000 3000 3000 3000
+economy red 3000 3000 3000 3000
+age blue imperial
+age red imperial
+diplomacy enemy
+civilization blue japanese
+civilization red persians
+technology blue elite_samurai
+technology red elite_war_elephant
+
+unit samurai blue 4 5 stance stand_ground
+unit elite_samurai blue 7 5 stance stand_ground
+unit war_elephant red 13 5 stance stand_ground
+unit elite_war_elephant red 16 5 stance stand_ground
+building castle blue 0 0
+building castle red 16 0

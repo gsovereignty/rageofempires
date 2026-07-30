@@ -1,0 +1,12 @@
+# Focused renderer audit for moderate and heavy building damage.
+AOE-ARCHAEOLOGY-SCENARIO 27
+map 12 7
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue castle
+age red castle
+
+unit scout_cavalry blue 6 5 stance passive
+unit villager red 10 5 stance passive
+building house red 5 2 hit_points 100
+building house red 7 2 hit_points 40

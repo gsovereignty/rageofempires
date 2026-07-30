@@ -1,0 +1,709 @@
+#include "aoe/render_asset_coverage.hpp"
+#include "aoe/simulation.hpp"
+
+#include <algorithm>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+
+namespace {
+
+void require(bool value, const char* message) {
+    if (!value) throw std::runtime_error{message};
+}
+
+std::string read_all(const std::filesystem::path& path) {
+    std::ifstream input{path, std::ios::binary};
+    std::ostringstream output;
+    output << input.rdbuf();
+    return output.str();
+}
+
+void state_derivation_is_deterministic() {
+    aoe::Unit unit;
+    require(
+        aoe::render_action_for(unit) == aoe::RenderAction::idle,
+        "default unit must be idle"
+    );
+    unit.moving = true;
+    require(
+        aoe::render_action_for(unit) == aoe::RenderAction::moving,
+        "moving unit must select moving"
+    );
+    unit.attack_target_id = 9;
+    require(
+        aoe::render_action_for(unit) == aoe::RenderAction::attacking,
+        "attack must override moving"
+    );
+    unit.conversion_target_id = 10;
+    require(
+        aoe::render_action_for(unit) == aoe::RenderAction::converting,
+        "conversion must override attack"
+    );
+    unit.trebuchet_transform_ticks_remaining = 1;
+    require(
+        aoe::render_action_for(unit) == aoe::RenderAction::transforming,
+        "transformation must override other actions"
+    );
+
+    aoe::Building building;
+    building.construction_ticks_remaining = 50;
+    require(
+        aoe::render_state_for(building, 500) ==
+            aoe::RenderBuildingState::construction,
+        "unfinished building must select construction"
+    );
+    require(
+        aoe::render_construction_stage(building, 100) == 2,
+        "half-built building must select stage two"
+    );
+    building.construction_ticks_remaining = 0;
+    building.hit_points = 249;
+    require(
+        aoe::render_state_for(building, 500) ==
+            aoe::RenderBuildingState::damaged,
+        "damaged completed building must select damaged"
+    );
+    require(
+        aoe::render_damage_stage(124, 500) == 3,
+        "quarter-health building must select severe damage"
+    );
+
+    aoe::Simulation simulation{aoe::GameMap{4, 4}};
+    aoe::Unit placed;
+    require(
+        !aoe::render_unit_is_interpolating(simulation, placed) &&
+        aoe::render_action_for(simulation, placed) ==
+            aoe::RenderAction::idle,
+        "tick-zero placement must not masquerade as movement"
+    );
+    placed.last_move_tick = 3;
+    simulation.replace_state(
+        {placed}, {}, {}, {}, 3
+    );
+    require(
+        aoe::render_unit_is_interpolating(
+            simulation, simulation.units().front()
+        ) &&
+        aoe::render_action_for(
+            simulation, simulation.units().front()
+        ) == aoe::RenderAction::moving,
+        "current-tick movement must drive moving render selection"
+    );
+}
+
+void simulation_command_reaches_sheep_attack_mapping() {
+    aoe::Simulation simulation{aoe::GameMap{8, 6}};
+    const aoe::EntityId sheep = simulation.add_unit(
+        aoe::UnitKind::sheep, aoe::Player::blue, {2, 2}
+    );
+    simulation.add_unit(
+        aoe::UnitKind::villager, aoe::Player::red, {3, 2}
+    );
+    require(
+        simulation.command_unit(sheep, {3, 2}),
+        "production command path must accept sheep attack target"
+    );
+    const auto found = std::ranges::find(
+        simulation.units(), sheep, &aoe::Unit::id
+    );
+    require(
+        found != simulation.units().end() &&
+        aoe::render_action_for(simulation, *found) ==
+            aoe::RenderAction::attacking,
+        "sheep attack mapping must be reachable from production command path"
+    );
+    aoe::RenderStateKey state;
+    state.object_kind = "sheep";
+    state.action = aoe::render_action_for(simulation, *found);
+    const auto resolution = aoe::resolve_unit_asset(
+        state, found->kind
+    );
+    require(
+        resolution.request.slp_id == 3623,
+        "reachable sheep attack must request missing SLP 3623"
+    );
+}
+
+void telemetry_deduplicates_and_sorts() {
+    const auto path = std::filesystem::temp_directory_path() /
+        "aoe-render-fallback-telemetry-test.json";
+    std::filesystem::remove(path);
+    aoe::RuntimeFallbackTelemetry telemetry{path};
+
+    aoe::RuntimeFallbackEvent second;
+    second.entity_id = 8;
+    second.state.object_kind = "sheep";
+    second.state.action = aoe::RenderAction::attacking;
+    second.status = aoe::AssetCoverageStatus::missing_archive_resource;
+    second.reason = "SLP 3623 absent";
+    second.simulation_tick = 22;
+    second.renderer_call_site = "render_unit";
+    second.request.slp_id = 3623;
+    require(telemetry.record(second), "first event must insert");
+    require(!telemetry.record(second), "duplicate state must deduplicate");
+
+    aoe::RuntimeFallbackEvent first = second;
+    first.entity_id = 2;
+    first.state.object_kind = "farm";
+    first.state.category = aoe::RenderObjectCategory::building;
+    first.state.action = aoe::RenderAction::working;
+    first.state.building_state = aoe::RenderBuildingState::construction;
+    first.status = aoe::AssetCoverageStatus::intentional_procedural;
+    first.reason = "reviewed procedural contract";
+    first.request.slp_id.reset();
+    require(telemetry.record(first), "distinct state must insert");
+
+    const std::string once = read_all(path);
+    telemetry.write_report();
+    const std::string twice = read_all(path);
+    require(once == twice, "telemetry JSON must be byte deterministic");
+    require(
+        once.find("\"schema\":\"aoe-runtime-render-fallback-v1\"") !=
+            std::string::npos,
+        "schema missing"
+    );
+    require(
+        once.find("\"slp_id\":3623") != std::string::npos,
+        "requested SLP missing"
+    );
+    require(
+        once.find("\"missing_archive_resource\"") != std::string::npos,
+        "failure status missing"
+    );
+    require(
+        telemetry.events().size() == 2,
+        "wrong deduplicated event count"
+    );
+    std::filesystem::remove(path);
+}
+
+void canonical_resolver_selects_exact_actions() {
+    aoe::RenderStateKey state;
+    state.object_kind = "sheep";
+    state.action = aoe::RenderAction::attacking;
+    const aoe::AssetResolution attack = aoe::resolve_unit_asset(
+        state, aoe::UnitKind::sheep
+    );
+    require(
+        attack.status == aoe::AssetCoverageStatus::renderable,
+        "mapped sheep attack must resolve before archive validation"
+    );
+    require(
+        attack.request.slp_id == 3623,
+        "sheep attack must request exact mapped SLP 3623"
+    );
+    require(
+        attack.request.required_frame_count == 15,
+        "sheep attack frame layout must remain exact"
+    );
+
+    state.object_kind = "archer";
+    state.action = aoe::RenderAction::idle;
+    const aoe::AssetResolution idle = aoe::resolve_unit_asset(
+        state, aoe::UnitKind::archer
+    );
+    require(
+        idle.status ==
+            aoe::AssetCoverageStatus::intentional_procedural &&
+        idle.intentional_procedural,
+        "ambiguous archer idle must remain reviewed procedural"
+    );
+
+    state.category = aoe::RenderObjectCategory::unit_death;
+    state.object_kind = "heavy_demolition_ship";
+    state.action = aoe::RenderAction::dying;
+    const aoe::AssetResolution naval_death = aoe::resolve_unit_asset(
+        state, aoe::UnitKind::heavy_demolition_ship
+    );
+    require(
+        naval_death.status == aoe::AssetCoverageStatus::renderable,
+        "dedicated naval death must resolve through canonical catalog"
+    );
+    require(
+        naval_death.request.slp_id == 4338 &&
+        naval_death.request.required_frame_count == 7,
+        "heavy demolition ship death mapping must remain exact"
+    );
+
+    state.object_kind = "villager";
+    const aoe::AssetResolution villager_death =
+        aoe::resolve_unit_asset(state, aoe::UnitKind::villager);
+    require(
+        villager_death.status ==
+            aoe::AssetCoverageStatus::renderable &&
+        villager_death.request.slp_id == 1476 &&
+        villager_death.request.required_frame_count == 15,
+        "villager death must use exact live DAT/DRS animation"
+    );
+}
+
+void canonical_unit_states_cover_runtime_special_actions() {
+    const auto villager = aoe::canonical_unit_render_states(
+        aoe::UnitKind::villager
+    );
+    const auto contains = [](
+        const std::vector<aoe::UnitRenderStateVariant>& states,
+        aoe::RenderAction action,
+        aoe::RenderActionDetail detail,
+        bool moving
+    ) {
+        for (const auto& state : states) {
+            if (state.action == action &&
+                state.action_detail == detail &&
+                state.moving == moving) {
+                return true;
+            }
+        }
+        return false;
+    };
+    require(
+        contains(
+            villager,
+            aoe::RenderAction::gathering,
+            aoe::RenderActionDetail::animal_resource,
+            false
+        ) &&
+        contains(
+            villager,
+            aoe::RenderAction::working,
+            aoe::RenderActionDetail::construction,
+            true
+        ),
+        "villager catalog must include gather and construction variants"
+    );
+
+    const auto monk = aoe::canonical_unit_render_states(
+        aoe::UnitKind::monk
+    );
+    require(
+        contains(
+            monk,
+            aoe::RenderAction::converting,
+            aoe::RenderActionDetail::none,
+            false
+        ) &&
+        contains(
+            monk,
+            aoe::RenderAction::carrying_relic,
+            aoe::RenderActionDetail::none,
+            true
+        ),
+        "monk catalog must include conversion and moving relic variants"
+    );
+
+    const auto trade_cart = aoe::canonical_unit_render_states(
+        aoe::UnitKind::trade_cart
+    );
+    require(
+        !contains(
+            trade_cart,
+            aoe::RenderAction::attacking,
+            aoe::RenderActionDetail::none,
+            false
+        ) &&
+        contains(
+            trade_cart,
+            aoe::RenderAction::dying,
+            aoe::RenderActionDetail::none,
+            false
+        ),
+        "noncombat trade cart must omit attack but retain reachable death"
+    );
+
+    const auto sheep = aoe::canonical_unit_render_states(
+        aoe::UnitKind::sheep
+    );
+    require(
+        contains(
+            sheep,
+            aoe::RenderAction::attacking,
+            aoe::RenderActionDetail::none,
+            false
+        ),
+        "production-reachable sheep attack must remain audited"
+    );
+
+    const auto relic_states = aoe::canonical_unit_render_states(
+        aoe::UnitKind::relic
+    );
+    require(
+        relic_states.size() == 1 &&
+        relic_states.front().action == aoe::RenderAction::idle,
+        "untargetable stationary relic must expose only reachable idle"
+    );
+
+    aoe::RenderStateKey state;
+    state.object_kind = "villager";
+    state.action = aoe::RenderAction::gathering;
+    state.action_detail = aoe::RenderActionDetail::animal_resource;
+    const auto gather = aoe::resolve_unit_asset(
+        state, aoe::UnitKind::villager
+    );
+    require(
+        gather.request.slp_id == 1528 &&
+        gather.request.required_frame_count == 15,
+        "animal gathering must select runtime SLP 1528"
+    );
+
+    state.object_kind = "monk";
+    state.action = aoe::RenderAction::carrying_relic;
+    state.action_detail = aoe::RenderActionDetail::none;
+    state.moving = true;
+    const auto relic = aoe::resolve_unit_asset(
+        state, aoe::UnitKind::monk
+    );
+    require(
+        relic.request.slp_id == 3831,
+        "moving relic monk must select runtime SLP 3831"
+    );
+}
+
+void projectile_resolver_covers_body_shadow_and_impact() {
+    aoe::RenderStateKey state;
+    state.category = aoe::RenderObjectCategory::projectile;
+    state.object_kind = "cannonball";
+    const auto body = aoe::resolve_projectile_asset(
+        state, aoe::ProjectileAssetKind::cannonball
+    );
+    require(
+        body.status == aoe::AssetCoverageStatus::renderable &&
+        body.request.graphic_id == 3382 &&
+        body.request.slp_id == 3803 &&
+        body.request.shadow_slp_id == 3804,
+        "cannonball body and shadow dependency must remain exact"
+    );
+
+    state.shadow = true;
+    const auto shadow = aoe::resolve_projectile_asset(
+        state, aoe::ProjectileAssetKind::cannonball
+    );
+    require(
+        shadow.request.graphic_id == 3383 &&
+        shadow.request.slp_id == 3804,
+        "cannonball linked shadow must remain exact"
+    );
+
+    state.category = aoe::RenderObjectCategory::impact;
+    state.shadow = false;
+    const auto impact = aoe::resolve_projectile_asset(
+        state, aoe::ProjectileAssetKind::cannonball
+    );
+    require(
+        impact.request.graphic_id == 1744 &&
+        impact.request.slp_id == 416 &&
+        impact.request.required_frame_count == 10,
+        "cannonball impact must remain exact"
+    );
+
+    state.category = aoe::RenderObjectCategory::projectile;
+    state.object_kind = "arrow";
+    const auto arrow = aoe::resolve_projectile_asset(
+        state, aoe::ProjectileAssetKind::arrow
+    );
+    require(
+        arrow.status ==
+            aoe::AssetCoverageStatus::intentional_procedural &&
+        arrow.intentional_procedural,
+        "unproved arrow transform must remain explicit procedural"
+    );
+}
+
+void resource_resolver_covers_all_depletion_frames() {
+    const auto mappings = aoe::canonical_resource_asset_sets();
+    require(mappings.size() == 5, "all terrain resource kinds required");
+    for (const aoe::ResourceAssetSet& mapping : mappings) {
+        for (int frame = 0; frame < mapping.frame_count; ++frame) {
+            aoe::RenderStateKey state;
+            state.category = aoe::RenderObjectCategory::resource;
+            state.object_kind = std::string{
+                aoe::resource_render_kind_name(mapping.kind)
+            };
+            state.animation_frame = frame;
+            const auto resolution = aoe::resolve_resource_asset(
+                state, mapping.kind
+            );
+            require(
+                resolution.status ==
+                    aoe::AssetCoverageStatus::renderable &&
+                resolution.request.slp_id == mapping.slp_id,
+                "resource frame must resolve through canonical mapping"
+            );
+        }
+    }
+    require(
+        aoe::render_resource_frame(
+            aoe::ResourceRenderKind::berry_bush, 125
+        ) == 0 &&
+        aoe::render_resource_frame(
+            aoe::ResourceRenderKind::berry_bush, 0
+        ) == 3 &&
+        aoe::render_resource_frame(
+            aoe::ResourceRenderKind::gold_mine, 0
+        ) == 6,
+        "resource depletion endpoints must match runtime frame selection"
+    );
+}
+
+void building_resolver_selects_age_family_and_reviewed_farm() {
+    aoe::RenderStateKey state;
+    state.category = aoe::RenderObjectCategory::building;
+    state.object_kind = "barracks";
+    state.building_state = aoe::RenderBuildingState::completed;
+    state.age = aoe::Age::castle;
+    state.architecture_family = 2;
+    const aoe::AssetResolution barracks = aoe::resolve_building_asset(
+        state, aoe::BuildingKind::barracks
+    );
+    require(
+        barracks.status == aoe::AssetCoverageStatus::renderable,
+        "castle-age barracks must resolve"
+    );
+    require(
+        barracks.request.graphic_id == 104,
+        "barracks must select exact castle-age Mediterranean root"
+    );
+
+    state.building_state = aoe::RenderBuildingState::damaged;
+    state.civilization = aoe::Civilization::britons;
+    state.architecture_family = 0;
+    state.damage_stage = 1;
+    const aoe::AssetResolution damaged_barracks =
+        aoe::resolve_building_asset(
+            state, aoe::BuildingKind::barracks
+        );
+    require(
+        damaged_barracks.status ==
+            aoe::AssetCoverageStatus::renderable,
+        "damaged barracks must preserve renderable completed body"
+    );
+    require(
+        damaged_barracks.request.graphic_id == 105 &&
+        damaged_barracks.request.overlay_graphic_ids ==
+            std::vector<std::int16_t>{4429},
+        "damaged barracks must select body and first exact overlay root"
+    );
+    require(
+        aoe::render_damage_stage(100, 100) == 0 &&
+        aoe::render_damage_stage(74, 100) == 1 &&
+        aoe::render_damage_stage(49, 100) == 2 &&
+        aoe::render_damage_stage(24, 100) == 3,
+        "damage stages must match serialized 25/50/75 thresholds"
+    );
+
+    state.building_state = aoe::RenderBuildingState::foundation;
+    state.construction_stage = 0;
+    const aoe::AssetResolution foundation =
+        aoe::resolve_building_asset(
+            state, aoe::BuildingKind::barracks
+        );
+    require(
+        foundation.status ==
+            aoe::AssetCoverageStatus::intentional_procedural &&
+        foundation.request.graphic_id == 120,
+        "foundation must share canonical construction selection"
+    );
+
+    state.category = aoe::RenderObjectCategory::building_rubble;
+    state.building_state = aoe::RenderBuildingState::dying;
+    state.action = aoe::RenderAction::dying;
+    const aoe::AssetResolution dying = aoe::resolve_building_asset(
+        state, aoe::BuildingKind::barracks
+    );
+    require(
+        dying.status == aoe::AssetCoverageStatus::renderable &&
+        dying.request.graphic_id == 39,
+        "dying building must share canonical destruction selection"
+    );
+
+    state.object_kind = "farm";
+    const aoe::AssetResolution farm = aoe::resolve_building_asset(
+        state, aoe::BuildingKind::farm
+    );
+    require(
+        farm.status == aoe::AssetCoverageStatus::intentional_procedural &&
+            farm.intentional_procedural,
+        "farm procedural path must remain explicit and reviewed"
+    );
+
+    state.object_kind = "house";
+    state.building_state = aoe::RenderBuildingState::destroyed;
+    const aoe::AssetResolution rubble = aoe::resolve_building_asset(
+        state, aoe::BuildingKind::house
+    );
+    require(
+        rubble.request.graphic_id == 38,
+        "house rubble must select canonical death root"
+    );
+
+    state.category = aoe::RenderObjectCategory::building;
+    state.object_kind = "fish_trap";
+    state.building_state = aoe::RenderBuildingState::construction;
+    const auto fish_trap = aoe::resolve_building_asset(
+        state, aoe::BuildingKind::fish_trap
+    );
+    require(
+        fish_trap.request.slp_id == 4585 &&
+        fish_trap.request.required_frame_count == 1,
+        "fish trap construction must use loaded exact animation"
+    );
+
+    state.object_kind = "wonder";
+    state.building_state = aoe::RenderBuildingState::completed;
+    state.civilization = aoe::Civilization::aztecs;
+    const auto wonder = aoe::resolve_building_asset(
+        state, aoe::BuildingKind::wonder
+    );
+    require(
+        wonder.request.graphic_id == 6631,
+        "Aztec Wonder must use civilization-specific root"
+    );
+
+    state.object_kind = "stone_wall";
+    state.civilization = aoe::Civilization::mayans;
+    state.architecture_family =
+        aoe::render_building_architecture_family(
+            aoe::BuildingKind::stone_wall,
+            state.civilization
+        );
+    state.animation_frame = 2;
+    const auto wall = aoe::resolve_building_asset(
+        state, aoe::BuildingKind::stone_wall
+    );
+    require(
+        state.architecture_family == 4 &&
+        wall.request.slp_id == 5124,
+        "Mesoamerican Stone Wall must use fifth exact SLP family"
+    );
+    state.building_state = aoe::RenderBuildingState::construction;
+    state.construction_stage = 2;
+    const auto wall_construction = aoe::resolve_building_asset(
+        state, aoe::BuildingKind::stone_wall
+    );
+    require(
+        wall_construction.request.graphic_id == 7107,
+        "Mesoamerican Stone Wall construction root must remain exact"
+    );
+
+    aoe::Simulation topology{aoe::GameMap{8, 6}};
+    const auto first = topology.add_building(
+        aoe::BuildingKind::stone_wall,
+        aoe::Player::blue,
+        {2, 2}
+    );
+    topology.add_building(
+        aoe::BuildingKind::stone_wall,
+        aoe::Player::blue,
+        {3, 2}
+    );
+    const auto first_wall = std::ranges::find(
+        topology.buildings(), first, &aoe::Building::id
+    );
+    require(
+        first_wall != topology.buildings().end() &&
+        aoe::render_building_topology_frame(
+            topology, *first_wall
+        ) == 0,
+        "horizontal wall connection must select topology frame zero"
+    );
+
+    state.object_kind = "palisade_wall";
+    state.building_state = aoe::RenderBuildingState::completed;
+    state.civilization = aoe::Civilization::generic;
+    state.architecture_family = 0;
+    state.animation_frame = 2;
+    const auto palisade = aoe::resolve_building_asset(
+        state, aoe::BuildingKind::palisade_wall
+    );
+    require(
+        palisade.request.slp_id == 1828 &&
+        palisade.request.shadow_slp_id == 4682 &&
+        palisade.request.composite_slp_ids ==
+            std::vector<std::int32_t>{4534},
+        "Palisade Wall junction must include body, shadow, and flags"
+    );
+    state.building_state = aoe::RenderBuildingState::damaged;
+    const auto damaged_palisade = aoe::resolve_building_asset(
+        state, aoe::BuildingKind::palisade_wall
+    );
+    require(
+        damaged_palisade.status ==
+            aoe::AssetCoverageStatus::intentional_procedural,
+        "Palisade Wall damaged body must remain reviewed procedural"
+    );
+
+    state.object_kind = "castle";
+    state.building_state = aoe::RenderBuildingState::completed;
+    state.age = aoe::Age::dark;
+    state.architecture_family = 0;
+    state.animation_frame = 0;
+    const auto early_castle = aoe::resolve_building_asset(
+        state, aoe::BuildingKind::castle
+    );
+    require(
+        aoe::render_building_visual_age(
+            aoe::BuildingKind::castle, aoe::Age::dark
+        ) == aoe::Age::castle &&
+        early_castle.request.graphic_id == 174,
+        "scenario-placed early Castle must clamp to minimum visual Age"
+    );
+
+    state.object_kind = "watch_tower";
+    state.age = aoe::Age::imperial;
+    state.upgrade_variant = 2;
+    const auto keep = aoe::resolve_building_asset(
+        state, aoe::BuildingKind::watch_tower
+    );
+    require(
+        keep.request.graphic_id == 2407,
+        "Keep technology variant must select exact upgraded root"
+    );
+    require(
+        aoe::render_building_composite_variant(
+            aoe::BuildingKind::stone_gate_x,
+            aoe::Age::dark,
+            0
+        ) == 2,
+        "early scenario Stone Gate must select first available Castle root"
+    );
+    state.object_kind = "palisade_gate_x";
+    state.building_state = aoe::RenderBuildingState::construction;
+    state.civilization = aoe::Civilization::mayans;
+    const auto gate_construction = aoe::resolve_building_asset(
+        state, aoe::BuildingKind::palisade_gate_x
+    );
+    require(
+        gate_construction.request.graphic_id == 6798,
+        "Mesoamerican Palisade Gate X construction root must remain exact"
+    );
+    state.building_state = aoe::RenderBuildingState::completed;
+    const auto gate_complete = aoe::resolve_building_asset(
+        state, aoe::BuildingKind::palisade_gate_x
+    );
+    require(
+        gate_complete.request.graphic_id == 6512,
+        "Palisade Gate X completed composite root must remain exact"
+    );
+}
+
+}  // namespace
+
+int main() {
+    try {
+        state_derivation_is_deterministic();
+        simulation_command_reaches_sheep_attack_mapping();
+        telemetry_deduplicates_and_sorts();
+        canonical_resolver_selects_exact_actions();
+        canonical_unit_states_cover_runtime_special_actions();
+        projectile_resolver_covers_body_shadow_and_impact();
+        resource_resolver_covers_all_depletion_frames();
+        building_resolver_selects_age_family_and_reviewed_farm();
+    } catch (const std::exception& error) {
+        std::cerr << "render_asset_coverage_tests: " << error.what() << '\n';
+        return 1;
+    }
+    return 0;
+}

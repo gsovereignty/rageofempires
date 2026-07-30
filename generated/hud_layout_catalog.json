@@ -1,0 +1,145 @@
+{
+  "schema": "aoe-hud-layout-contract-v3",
+  "sources": {
+    "interfac_drs": {
+      "filename": "interfac.drs",
+      "bytes": 54029361,
+      "sha256": "cb9e4d0f59d6cdb7af70da38cc910d0c33d210fe2d2a73dea17ef52a4ac8826e"
+    },
+    "executable": {
+      "filename": "AoK HD.exe",
+      "bytes": 4444160,
+      "sha256": "e23272e21014fb281f71a21ef96a6437ab8b322f4978fd4998be835be219edcc",
+      "pinned_executable": true,
+      "string_offsets": {
+        "game_b%d.slp": 3714352,
+        "map1024.bmp": 3714416,
+        "Game Screen": 3647252
+      },
+      "proved_call_sites": {
+        "background_filename": "0x005f33f1..0x005f341b",
+        "loose_only_loader": "0x005f3437..0x005f3446",
+        "background_compositor": "0x005e7cb0",
+        "large_minimap_frame": "0x005f3ad3"
+      }
+    }
+  },
+  "unlinked_candidate_sheet": {
+    "resource_id": 51141,
+    "version": "2.0N",
+    "frame_count": 1,
+    "payload_bytes": 285831,
+    "payload_sha256": "f8c313020a2f20d257cc952f9ee06a740b7908a066d77754bd562a842f2c635a",
+    "frames": [
+      {
+        "index": 0,
+        "width": 1280,
+        "height": 1024,
+        "hotspot_x": 0,
+        "hotspot_y": 0,
+        "properties": 16,
+        "command_table_offset": 4160,
+        "outline_table_offset": 64,
+        "palette_offset": 0
+      }
+    ],
+    "native_dimensions_match": true,
+    "game_background_compatible": false
+  },
+  "renderer_resolution": {
+    "window": {
+      "width": 1280,
+      "height": 720
+    },
+    "world_viewport": {
+      "x": 0,
+      "y": 0,
+      "width": 1280,
+      "height": 640
+    },
+    "hud_band": {
+      "x": 0,
+      "y": 640,
+      "width": 1280,
+      "height": 80
+    },
+    "classification": "reconstruction_policy"
+  },
+  "executable_relative_layout": {
+    "classification": "exact_relative",
+    "callsite": "FUN_005f37c0",
+    "vertical_layout": {
+      "bottom": "screen_height - stored_bottom_height",
+      "optional_top_child": {
+        "x": 0,
+        "y": "stored_top",
+        "width": "screen_width",
+        "height": "top_child_visible ? 30 : 0"
+      },
+      "main_child": {
+        "x": 0,
+        "y": "stored_top + (top_child_visible ? 30 : 0)",
+        "width": "screen_width",
+        "height": "bottom - main_child.y + 1"
+      }
+    },
+    "command_grid": {
+      "count": 15,
+      "columns": 5,
+      "rows": 3,
+      "slot_width": 40,
+      "slot_height": 40,
+      "x": "37 + 41 * (index % 5)",
+      "y": "bottom + 31 + 41 * floor(index / 5)",
+      "index_domain": "0..14"
+    },
+    "other_rectangles": {
+      "anchored_large_panel": "(screen_width - 336, screen_height - 169, 326, 164)",
+      "top_status_strip": "(2, 2, 420, 16)",
+      "centered_top_control": "(screen_width / 2 - 155, 16, 310, 20)",
+      "top_right_controls": "(screen_width - 260 + 50 * index, 3, 50, 19), index 0..4"
+    },
+    "limits": "stored field producers, absolute world/HUD split, semantic resolution labels, and panel roles remain unproved"
+  },
+  "button_chrome": {
+    "classification": "exact_relative",
+    "normal_frame": 36,
+    "pressed_frame": 37,
+    "pressed_icon_offset": {
+      "x": 1,
+      "y": 1
+    },
+    "limits": "FUN_005c5e40 proves generic pressed rendering only; it does not prove command-slot semantics, hover/disabled frames, or archive-backed layout"
+  },
+  "proved": {
+    "asset_identity": "interfac.drs contains unlinked SLP 51141 with one 1280x1024 frame",
+    "executable_names": "executable contains game_b%d.slp, map1024.bmp, and Game Screen",
+    "background_filename_selector": "pinned executable formats game_b%d.slp with local player's civilization byte at player +0x15d",
+    "background_load_source": "pinned executable passes resource ID -1 to the SLP loader, so game_b%d.slp is loaded from loose slp/ path rather than DRS",
+    "background_composition": "pinned FUN_005e7cb0 composes game_b frames 0 through 7: frame 0 tiles across top, frame 6 overlays at origin, frames 2/3 alternate across bottom span, frames 1/4 cap its sides, frame 5 centers, and frame 7 anchors to a sibling view",
+    "candidate_rejection": "SLP 51141 has one frame, while executable compositor requires game_b frames 0 through 7; it cannot be promoted as game_b",
+    "relative_layout": "pinned FUN_005f37c0 proves field-relative vertical geometry, a 15-slot 5x3 command grid, and several screen-edge-relative rectangles; these formulas do not prove absolute split or semantic panel roles",
+    "button_chrome": "FUN_005c5e40 uses chrome frame 36 normally, frame 37 when pressed, and offsets pressed icon by 1,1"
+  },
+  "unproved": {
+    "resolution_to_resource": "game_b selection is by civilization, not resolution; no authoritative mapping connects its loose files to SLP 51141",
+    "world_hud_split": "FUN_005f37c0 formulas are exact relative to stored fields, but field producers and loose game_b dimensions do not prove numeric world/HUD split or resolution-class labels",
+    "crop_anchor_scale": "single-frame SLP 51141 bottom crop/scaling is contradicted by the proved eight-frame game_b compositor",
+    "panel_rectangles": "portrait, resource, information, minimap, and command panel rectangles are not linked to exact sheet coordinates",
+    "button_states": "generic normal/pressed chrome is proved; hover, disabled, command semantics, icon ordering, and hotkey layout are not"
+  },
+  "renderer_decision": {
+    "exact_layout_enabled": false,
+    "candidate_sheet_available": true,
+    "candidate_sheet_promoted": false,
+    "fallback": "retain procedural panels; do not promote or crop SLP 51141 as game_b; exact background requires original loose game_b files",
+    "reconstruction_policy": [
+      "1280x720 window",
+      "640-pixel world viewport",
+      "80-pixel HUD band",
+      "procedural panel role assignments",
+      "absolute placement derived from those reconstruction dimensions"
+    ],
+    "exact_relative_contract_enabled": true
+  }
+}

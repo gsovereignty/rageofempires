@@ -1,0 +1,17 @@
+# Open NW-SE Stone Gate beside a friendly; closed NE-SW gate without one.
+AOE-ARCHAEOLOGY-SCENARIO 28
+map 18 10
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue feudal
+age red dark
+
+unit villager blue 4 1 stance passive
+building stone_wall blue 2 2
+building stone_gate_x blue 3 2
+building stone_wall blue 7 2
+
+building stone_wall blue 12 1
+building stone_gate_y blue 12 2
+building stone_wall blue 12 6
+building house red 15 7

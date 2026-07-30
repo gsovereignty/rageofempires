@@ -1,0 +1,9 @@
+[package]
+name = "aoe-dat-metadata"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+genie-dat = { git = "https://github.com/SiegeEngineers/genie-rs.git", rev = "a77200aef567b40b7db51cf47c1fda8db75e8e67" }
+serde_json = "1"

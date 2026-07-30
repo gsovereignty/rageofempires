@@ -1,0 +1,24 @@
+AOE-ARCHAEOLOGY-SCENARIO 63
+map 16 12
+trigger_syntax strict
+match 1 0 0 0 0 0 0 0
+formation blue 0
+formation red 0
+economy blue 500 400 300 200
+economy red 200 200 200 200
+age blue castle
+age red feudal
+diplomacy enemy
+civilization blue britons
+civilization red franks
+objective 1 blue 1 0 "Hold the painted crossing."
+trigger 1 20 1 0 "elapsed_ticks >= 20" "victory blue"
+terrain water 6 5
+terrain water 7 5
+terrain forest 10 3
+elevation 4 4 1
+elevation 5 4 2
+unit villager blue 3 4
+unit archer red 11 5
+building town_center blue 1 7
+building house red 12 7

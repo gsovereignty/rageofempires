@@ -1,0 +1,16 @@
+# Padded Archer Armor audit: upgraded archers beside excluded melee units.
+AOE-ARCHAEOLOGY-SCENARIO 28
+map 18 10
+economy blue 0 0 0 0
+economy red 0 0 0 0
+age blue feudal
+age red feudal
+technology blue padded_archer_armor
+
+building blacksmith blue 1 1
+unit archer blue 5 3 stance passive
+unit crossbowman blue 6 4 stance passive
+unit man_at_arms blue 4 5 stance passive
+unit archer red 11 4 stance passive
+unit man_at_arms red 10 5 stance passive
+building house red 15 7

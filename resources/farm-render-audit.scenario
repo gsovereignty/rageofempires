@@ -1,0 +1,17 @@
+# Full, partly harvested, and exhausted farm render stages.
+AOE-ARCHAEOLOGY-SCENARIO 28
+map 14 9
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue dark
+age red dark
+
+unit villager blue 4 8 stance passive
+unit villager red 13 4 stance passive
+
+building town_center blue 0 0
+building mill blue 5 1
+building farm blue 4 4 resource_amount 175
+building farm blue 6 4 resource_amount 80
+building farm blue 8 4 resource_amount 0
+building town_center red 10 5

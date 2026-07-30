@@ -1,0 +1,31 @@
+# Naval economy audit: Fishing Ship harvests offshore fish for a shoreline Dock.
+AOE-ARCHAEOLOGY-SCENARIO 32
+map 16 10
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue dark
+age red dark
+diplomacy enemy
+civilization blue generic
+civilization red generic
+
+terrain water 0 5
+terrain water 1 5
+terrain water 2 5
+terrain water 3 5
+terrain water 4 5
+terrain water 5 5
+terrain water 6 5
+terrain water 7 5
+terrain fish 8 5
+terrain water 9 5
+terrain water 10 5
+terrain water 11 5
+terrain water 12 5
+terrain water 13 5
+terrain water 14 5
+terrain water 15 5
+unit fishing_ship blue 5 5 stance passive
+unit villager red 14 8 stance passive
+building dock blue 1 2
+building house blue 5 1

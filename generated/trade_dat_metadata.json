@@ -1,0 +1,2887 @@
+{
+  "source_format": "AOE_VER_5_7_METADATA_V1",
+  "scope": "Trade Cog, Fish Trap and five Market technologies",
+  "entities": {
+    "trade_cog": {
+      "action": {
+        "command_sound": 340,
+        "default_task": null,
+        "move_sound": 340,
+        "search_radius": 6.0,
+        "task_list_source": "global_copy_id",
+        "work_rate": 0.23000000417232513,
+        "tasks_structured": [
+          {
+            "id": 0,
+            "is_default": false,
+            "action_type": 109,
+            "object_class": -1,
+            "object_id": "None",
+            "terrain_id": -1,
+            "attribute_types": "(-1, -1, -1, -1)",
+            "work_values": "(0.0, 0.0)",
+            "work_range": 0.0,
+            "auto_search_targets": true,
+            "search_wait_time": 3.0,
+            "enable_targeting": false,
+            "combat_level": 0,
+            "work_flags": "(0, 0)",
+            "owner_type": 0,
+            "holding_attribute": 0,
+            "state_building": 0,
+            "move_sprite": "None",
+            "work_sprite": "None",
+            "work_sprite2": "None",
+            "carry_sprite": "None",
+            "work_sound": "None",
+            "work_sound2": "None"
+          },
+          {
+            "id": 1,
+            "is_default": false,
+            "action_type": 111,
+            "object_class": -1,
+            "object_id": "Some(UnitTypeID(45))",
+            "terrain_id": -1,
+            "attribute_types": "(-1, -1, -1, -1)",
+            "work_values": "(1.0, 0.0)",
+            "work_range": 0.0,
+            "auto_search_targets": false,
+            "search_wait_time": 0.0,
+            "enable_targeting": false,
+            "combat_level": 0,
+            "work_flags": "(0, 0)",
+            "owner_type": 0,
+            "holding_attribute": 0,
+            "state_building": 0,
+            "move_sprite": "None",
+            "work_sprite": "None",
+            "work_sprite2": "None",
+            "carry_sprite": "None",
+            "work_sound": "None",
+            "work_sound2": "None"
+          }
+        ]
+      },
+      "area_effect_level": 3,
+      "attack_graphic": 3971,
+      "attribute_max_amount": 200,
+      "attribute_rot": 10.0,
+      "attributes": [
+        {
+          "amount": -1.0,
+          "flag": 2,
+          "type": 4
+        },
+        {
+          "amount": 1.0,
+          "flag": 2,
+          "type": 11
+        },
+        {
+          "amount": 1.0,
+          "flag": 1,
+          "type": 19
+        }
+      ],
+      "base_class": "Combat",
+      "building": null,
+      "button_icon": 23,
+      "combat": {
+        "accuracy": 0,
+        "area_effect_range": 0.0,
+        "armor": 1000,
+        "armors": [
+          {
+            "amount": 0,
+            "class": 16
+          },
+          {
+            "amount": 0,
+            "class": 4
+          },
+          {
+            "amount": 6,
+            "class": 3
+          }
+        ],
+        "blast_level_offense": 0,
+        "break_off_combat": 0,
+        "displayed_armor": 0,
+        "displayed_attack": 0,
+        "displayed_range": 0.0,
+        "displayed_reload_time": 0.0,
+        "frame_delay": 0,
+        "missed_missile_spread": 0.0,
+        "missile_unit": null,
+        "range_max": 0.0,
+        "range_min": 0.0,
+        "reload_time": 0.0,
+        "weapon_offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "weapons": []
+      },
+      "construction_graphic": null,
+      "copy_id": 17,
+      "creation": {
+        "costs": [
+          {
+            "amount": 100,
+            "flag": 1,
+            "resource": 1
+          },
+          {
+            "amount": 50,
+            "flag": 1,
+            "resource": 3
+          },
+          {
+            "amount": 1,
+            "flag": 0,
+            "resource": 4
+          }
+        ],
+        "create_at_unit": 45,
+        "create_button": 3,
+        "create_time": 36,
+        "flank_attack_modifier": 0.0,
+        "max_attacks_in_volley": 2,
+        "rear_attack_modifier": 0.0,
+        "special_attack_flag": 0,
+        "special_attack_graphic": null,
+        "volley_fire_amount": 1.0,
+        "volley_missile_unit": null,
+        "volley_spread": [
+          1.0,
+          1.0
+        ],
+        "volley_start_spread_adjustment": 1.0
+      },
+      "damage_sound": null,
+      "damage_sprites": [],
+      "death_sound": null,
+      "disabled": false,
+      "dying_graphic": 735,
+      "enabled": false,
+      "garrison_capacity": 0,
+      "hit_points": 80,
+      "id": 17,
+      "line_of_sight": 6.0,
+      "missile": null,
+      "moving": {
+        "maximum_yaw_per_second_moving": 3.9269909858703613,
+        "maximum_yaw_per_second_stationary": 3.9269909858703613,
+        "move_algorithm": 0,
+        "size_class": 0,
+        "stationary_yaw_revolution_time": 1.600000023841858,
+        "trailing_options": 0,
+        "trailing_spacing": 0.0,
+        "trailing_unit": null,
+        "turn_radius": 0.0,
+        "turn_radius_speed": 3.4028234663852886e+38,
+        "turn_speed": 0.10000000149011612
+      },
+      "obstruction_type": 5,
+      "outline_radius": [
+        0.5,
+        0.5,
+        2.0
+      ],
+      "portrait_icon": null,
+      "radius": [
+        0.5,
+        0.5,
+        2.0
+      ],
+      "resource_group": 0,
+      "running_graphic": null,
+      "selected_sound": 339,
+      "selection_shape": 2,
+      "speed": 1.3200000524520874,
+      "standing_graphic": 3975,
+      "standing_graphic_2": null,
+      "terrain_restriction_id": 3,
+      "track_as_resource": false,
+      "train_sound": 338,
+      "unit_class": 2,
+      "unit_group": 17,
+      "walking_graphic": 3979
+    },
+    "fish_trap": {
+      "action": {
+        "command_sound": null,
+        "default_task": 0,
+        "move_sound": null,
+        "search_radius": 1.0,
+        "task_list_source": "global_copy_id",
+        "work_rate": 1.0,
+        "tasks_structured": [
+          {
+            "id": 0,
+            "is_default": true,
+            "action_type": 21,
+            "object_class": -1,
+            "object_id": "None",
+            "terrain_id": -1,
+            "attribute_types": "(17, -1, -1, -1)",
+            "work_values": "(1.0, 0.0)",
+            "work_range": 0.0,
+            "auto_search_targets": false,
+            "search_wait_time": 0.0,
+            "enable_targeting": false,
+            "combat_level": 0,
+            "work_flags": "(0, 0)",
+            "owner_type": 0,
+            "holding_attribute": 0,
+            "state_building": 0,
+            "move_sprite": "None",
+            "work_sprite": "None",
+            "work_sprite2": "None",
+            "carry_sprite": "None",
+            "work_sound": "None",
+            "work_sound2": "None"
+          },
+          {
+            "id": 1,
+            "is_default": false,
+            "action_type": 121,
+            "object_class": -1,
+            "object_id": "None",
+            "terrain_id": -1,
+            "attribute_types": "(17, -1, -1, -1)",
+            "work_values": "(1.0, 0.0)",
+            "work_range": 0.0,
+            "auto_search_targets": false,
+            "search_wait_time": 0.0,
+            "enable_targeting": false,
+            "combat_level": 0,
+            "work_flags": "(0, 0)",
+            "owner_type": 0,
+            "holding_attribute": 0,
+            "state_building": 0,
+            "move_sprite": "None",
+            "work_sprite": "None",
+            "work_sprite2": "None",
+            "carry_sprite": "None",
+            "work_sound": "None",
+            "work_sound2": "None"
+          }
+        ]
+      },
+      "area_effect_level": 2,
+      "attack_graphic": null,
+      "attribute_max_amount": 15,
+      "attribute_rot": 10000.0,
+      "attributes": [
+        {
+          "amount": 15.0,
+          "flag": 0,
+          "type": 17
+        }
+      ],
+      "base_class": "Building",
+      "building": {
+        "garrison_heal_rate": 0.0,
+        "garrison_repair_rate": 0.0,
+        "garrison_type": 0
+      },
+      "button_icon": 41,
+      "combat": {
+        "accuracy": 0,
+        "area_effect_range": 0.0,
+        "armor": 1000,
+        "armors": [
+          {
+            "amount": 0,
+            "class": 4
+          },
+          {
+            "amount": 0,
+            "class": 3
+          }
+        ],
+        "blast_level_offense": 0,
+        "break_off_combat": 0,
+        "displayed_armor": 0,
+        "displayed_attack": 0,
+        "displayed_range": 0.0,
+        "displayed_reload_time": 0.0,
+        "frame_delay": 0,
+        "missed_missile_spread": 0.0,
+        "missile_unit": null,
+        "range_max": 0.0,
+        "range_min": 0.0,
+        "reload_time": 0.0,
+        "weapon_offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "weapons": []
+      },
+      "construction_graphic": 5441,
+      "copy_id": 199,
+      "creation": {
+        "costs": [
+          {
+            "amount": 100,
+            "flag": 1,
+            "resource": 1
+          }
+        ],
+        "create_at_unit": 13,
+        "create_button": 1,
+        "create_time": 53,
+        "flank_attack_modifier": 0.0,
+        "max_attacks_in_volley": 0,
+        "rear_attack_modifier": 0.0,
+        "special_attack_flag": 0,
+        "special_attack_graphic": null,
+        "volley_fire_amount": 0.0,
+        "volley_missile_unit": null,
+        "volley_spread": [
+          0.0,
+          0.0
+        ],
+        "volley_start_spread_adjustment": 0.0
+      },
+      "damage_sound": null,
+      "damage_sprites": [
+        {
+          "damage_percent": 25,
+          "flag": 0,
+          "graphic_id": 5357
+        },
+        {
+          "damage_percent": 50,
+          "flag": 0,
+          "graphic_id": 5358
+        },
+        {
+          "damage_percent": 75,
+          "flag": 0,
+          "graphic_id": 5359
+        }
+      ],
+      "death_sound": null,
+      "disabled": false,
+      "dying_graphic": null,
+      "enabled": false,
+      "garrison_capacity": 0,
+      "hit_points": 50,
+      "id": 199,
+      "line_of_sight": 1.0,
+      "missile": null,
+      "moving": {
+        "maximum_yaw_per_second_moving": 3.4028234663852886e+38,
+        "maximum_yaw_per_second_stationary": 3.4028234663852886e+38,
+        "move_algorithm": 0,
+        "size_class": 0,
+        "stationary_yaw_revolution_time": 0.0,
+        "trailing_options": 0,
+        "trailing_spacing": 0.0,
+        "trailing_unit": null,
+        "turn_radius": 0.0,
+        "turn_radius_speed": 3.4028234663852886e+38,
+        "turn_speed": 0.0
+      },
+      "obstruction_type": 0,
+      "outline_radius": [
+        0.5,
+        0.5,
+        0.0
+      ],
+      "portrait_icon": null,
+      "radius": [
+        0.5,
+        0.5,
+        0.0
+      ],
+      "resource_group": 0,
+      "running_graphic": null,
+      "selected_sound": 460,
+      "selection_shape": 0,
+      "speed": 0.0,
+      "standing_graphic": 3281,
+      "standing_graphic_2": null,
+      "terrain_restriction_id": 13,
+      "track_as_resource": false,
+      "train_sound": null,
+      "unit_class": 49,
+      "unit_group": 199,
+      "walking_graphic": null
+    }
+  },
+  "supporting_entities": {
+    "market": {
+      "action": {
+        "command_sound": null,
+        "default_task": null,
+        "move_sound": null,
+        "search_radius": 6.0,
+        "task_list_source": "global_copy_id",
+        "work_rate": 1.0,
+        "tasks_structured": [
+          {
+            "id": 0,
+            "is_default": false,
+            "action_type": 7,
+            "object_class": -1,
+            "object_id": "None",
+            "terrain_id": -1,
+            "attribute_types": "(-1, -1, -1, -1)",
+            "work_values": "(0.0, 0.0)",
+            "work_range": 0.0,
+            "auto_search_targets": true,
+            "search_wait_time": 3.0,
+            "enable_targeting": true,
+            "combat_level": 1,
+            "work_flags": "(1, 0)",
+            "owner_type": 5,
+            "holding_attribute": 0,
+            "state_building": 0,
+            "move_sprite": "None",
+            "work_sprite": "None",
+            "work_sprite2": "None",
+            "carry_sprite": "None",
+            "work_sound": "None",
+            "work_sound2": "None"
+          }
+        ]
+      },
+      "area_effect_level": 2,
+      "attack_graphic": null,
+      "attribute_max_amount": 300,
+      "attribute_rot": 1000.0,
+      "attributes": [],
+      "base_class": "Building",
+      "building": {
+        "garrison_heal_rate": 0.0,
+        "garrison_repair_rate": 0.0,
+        "garrison_type": 0
+      },
+      "button_icon": 16,
+      "combat": {
+        "accuracy": 100,
+        "area_effect_range": 0.0,
+        "armor": 1000,
+        "armors": [
+          {
+            "amount": 0,
+            "class": 21
+          },
+          {
+            "amount": 0,
+            "class": 11
+          },
+          {
+            "amount": 1,
+            "class": 4
+          },
+          {
+            "amount": 8,
+            "class": 3
+          }
+        ],
+        "blast_level_offense": 0,
+        "break_off_combat": 0,
+        "displayed_armor": 1,
+        "displayed_attack": 0,
+        "displayed_range": 0.0,
+        "displayed_reload_time": 2.5,
+        "frame_delay": 0,
+        "missed_missile_spread": 0.0,
+        "missile_unit": null,
+        "range_max": 0.0,
+        "range_min": 0.0,
+        "reload_time": 2.5,
+        "weapon_offset": [
+          0.0,
+          3.0,
+          4.0
+        ],
+        "weapons": []
+      },
+      "construction_graphic": 121,
+      "copy_id": 84,
+      "creation": {
+        "costs": [
+          {
+            "amount": 175,
+            "flag": 1,
+            "resource": 1
+          }
+        ],
+        "create_at_unit": 118,
+        "create_button": 8,
+        "create_time": 60,
+        "flank_attack_modifier": 0.0,
+        "max_attacks_in_volley": 0,
+        "rear_attack_modifier": 0.0,
+        "special_attack_flag": 0,
+        "special_attack_graphic": null,
+        "volley_fire_amount": 0.0,
+        "volley_missile_unit": null,
+        "volley_spread": [
+          0.0,
+          0.0
+        ],
+        "volley_start_spread_adjustment": 0.0
+      },
+      "damage_sound": null,
+      "damage_sprites": [
+        {
+          "damage_percent": 25,
+          "flag": 0,
+          "graphic_id": 4994
+        },
+        {
+          "damage_percent": 50,
+          "flag": 0,
+          "graphic_id": 4998
+        },
+        {
+          "damage_percent": 75,
+          "flag": 0,
+          "graphic_id": 5002
+        }
+      ],
+      "death_sound": null,
+      "disabled": false,
+      "dying_graphic": 40,
+      "enabled": false,
+      "garrison_capacity": 0,
+      "hit_points": 2100,
+      "id": 84,
+      "line_of_sight": 6.0,
+      "missile": null,
+      "moving": {
+        "maximum_yaw_per_second_moving": 3.4028234663852886e+38,
+        "maximum_yaw_per_second_stationary": 3.4028234663852886e+38,
+        "move_algorithm": 0,
+        "size_class": 0,
+        "stationary_yaw_revolution_time": 0.0,
+        "trailing_options": 0,
+        "trailing_spacing": 0.0,
+        "trailing_unit": null,
+        "turn_radius": 0.0,
+        "turn_radius_speed": 3.4028234663852886e+38,
+        "turn_speed": 0.0
+      },
+      "obstruction_type": 2,
+      "outline_radius": [
+        2.0999999046325684,
+        2.0999999046325684,
+        3.0
+      ],
+      "portrait_icon": null,
+      "radius": [
+        2.0,
+        2.0,
+        4.0
+      ],
+      "resource_group": 0,
+      "running_graphic": null,
+      "selected_sound": 16,
+      "selection_shape": 3,
+      "speed": 0.0,
+      "standing_graphic": 2268,
+      "standing_graphic_2": null,
+      "terrain_restriction_id": 4,
+      "track_as_resource": false,
+      "train_sound": null,
+      "unit_class": 3,
+      "unit_group": 84,
+      "walking_graphic": null
+    },
+    "dock": {
+      "action": {
+        "command_sound": null,
+        "default_task": null,
+        "move_sound": null,
+        "search_radius": 6.0,
+        "task_list_source": "global_copy_id",
+        "work_rate": 1.0,
+        "tasks_structured": []
+      },
+      "area_effect_level": 2,
+      "attack_graphic": null,
+      "attribute_max_amount": 600,
+      "attribute_rot": 1000.0,
+      "attributes": [
+        {
+          "amount": 600.0,
+          "flag": 0,
+          "type": 9
+        }
+      ],
+      "base_class": "Building",
+      "building": {
+        "garrison_heal_rate": 0.0,
+        "garrison_repair_rate": 0.0,
+        "garrison_type": 0
+      },
+      "button_icon": 13,
+      "combat": {
+        "accuracy": 0,
+        "area_effect_range": 0.0,
+        "armor": 1000,
+        "armors": [
+          {
+            "amount": 0,
+            "class": 21
+          },
+          {
+            "amount": 0,
+            "class": 11
+          },
+          {
+            "amount": 0,
+            "class": 4
+          },
+          {
+            "amount": 7,
+            "class": 3
+          }
+        ],
+        "blast_level_offense": 0,
+        "break_off_combat": 0,
+        "displayed_armor": 0,
+        "displayed_attack": 0,
+        "displayed_range": 0.0,
+        "displayed_reload_time": 0.0,
+        "frame_delay": 0,
+        "missed_missile_spread": 0.0,
+        "missile_unit": null,
+        "range_max": 0.0,
+        "range_min": 0.0,
+        "reload_time": 0.0,
+        "weapon_offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "weapons": []
+      },
+      "construction_graphic": 4248,
+      "copy_id": 45,
+      "creation": {
+        "costs": [
+          {
+            "amount": 150,
+            "flag": 1,
+            "resource": 1
+          }
+        ],
+        "create_at_unit": 118,
+        "create_button": 5,
+        "create_time": 35,
+        "flank_attack_modifier": 0.0,
+        "max_attacks_in_volley": 0,
+        "rear_attack_modifier": 0.0,
+        "special_attack_flag": 0,
+        "special_attack_graphic": null,
+        "volley_fire_amount": 0.0,
+        "volley_missile_unit": null,
+        "volley_spread": [
+          0.0,
+          0.0
+        ],
+        "volley_start_spread_adjustment": 0.0
+      },
+      "damage_sound": null,
+      "damage_sprites": [
+        {
+          "damage_percent": 25,
+          "flag": 0,
+          "graphic_id": 4456
+        },
+        {
+          "damage_percent": 50,
+          "flag": 0,
+          "graphic_id": 4457
+        },
+        {
+          "damage_percent": 75,
+          "flag": 0,
+          "graphic_id": 4458
+        }
+      ],
+      "death_sound": null,
+      "disabled": false,
+      "dying_graphic": 5452,
+      "enabled": false,
+      "garrison_capacity": 10,
+      "hit_points": 1800,
+      "id": 45,
+      "line_of_sight": 6.0,
+      "missile": null,
+      "moving": {
+        "maximum_yaw_per_second_moving": 3.4028234663852886e+38,
+        "maximum_yaw_per_second_stationary": 3.4028234663852886e+38,
+        "move_algorithm": 0,
+        "size_class": 0,
+        "stationary_yaw_revolution_time": 0.0,
+        "trailing_options": 0,
+        "trailing_spacing": 0.0,
+        "trailing_unit": null,
+        "turn_radius": 0.0,
+        "turn_radius_speed": 3.4028234663852886e+38,
+        "turn_speed": 0.0
+      },
+      "obstruction_type": 2,
+      "outline_radius": [
+        1.5,
+        1.5,
+        3.0
+      ],
+      "portrait_icon": null,
+      "radius": [
+        1.5,
+        1.5,
+        4.0
+      ],
+      "resource_group": 0,
+      "running_graphic": null,
+      "selected_sound": 5,
+      "selection_shape": 3,
+      "speed": 0.0,
+      "standing_graphic": 215,
+      "standing_graphic_2": null,
+      "terrain_restriction_id": 6,
+      "track_as_resource": false,
+      "train_sound": null,
+      "unit_class": 3,
+      "unit_group": 45,
+      "walking_graphic": null
+    },
+    "fishing_ship": {
+      "action": {
+        "command_sound": 340,
+        "default_task": null,
+        "move_sound": 340,
+        "search_radius": 12.0,
+        "task_list_source": "global_copy_id",
+        "work_rate": 0.2800000011920929,
+        "tasks_structured": [
+          {
+            "id": 0,
+            "is_default": false,
+            "action_type": 5,
+            "object_class": 5,
+            "object_id": "None",
+            "terrain_id": -1,
+            "attribute_types": "(17, -1, 0, -1)",
+            "work_values": "(1.75, 0.0)",
+            "work_range": 0.0,
+            "auto_search_targets": true,
+            "search_wait_time": 3.0,
+            "enable_targeting": false,
+            "combat_level": 0,
+            "work_flags": "(0, 0)",
+            "owner_type": 3,
+            "holding_attribute": 1,
+            "state_building": 0,
+            "move_sprite": "None",
+            "work_sprite": "Some(SpriteID(1594))",
+            "work_sprite2": "None",
+            "carry_sprite": "None",
+            "work_sound": "None",
+            "work_sound2": "None"
+          },
+          {
+            "id": 1,
+            "is_default": false,
+            "action_type": 5,
+            "object_class": 33,
+            "object_id": "None",
+            "terrain_id": -1,
+            "attribute_types": "(17, -1, 0, -1)",
+            "work_values": "(1.0, 0.0)",
+            "work_range": 0.0,
+            "auto_search_targets": true,
+            "search_wait_time": 3.0,
+            "enable_targeting": false,
+            "combat_level": 0,
+            "work_flags": "(0, 0)",
+            "owner_type": 3,
+            "holding_attribute": 1,
+            "state_building": 0,
+            "move_sprite": "None",
+            "work_sprite": "Some(SpriteID(1594))",
+            "work_sprite2": "None",
+            "carry_sprite": "None",
+            "work_sound": "None",
+            "work_sound2": "None"
+          },
+          {
+            "id": 2,
+            "is_default": false,
+            "action_type": 5,
+            "object_class": 31,
+            "object_id": "None",
+            "terrain_id": -1,
+            "attribute_types": "(17, -1, 0, -1)",
+            "work_values": "(1.75, 0.0)",
+            "work_range": 0.0,
+            "auto_search_targets": true,
+            "search_wait_time": 3.0,
+            "enable_targeting": false,
+            "combat_level": 0,
+            "work_flags": "(0, 0)",
+            "owner_type": 3,
+            "holding_attribute": 1,
+            "state_building": 0,
+            "move_sprite": "None",
+            "work_sprite": "Some(SpriteID(1594))",
+            "work_sprite2": "None",
+            "carry_sprite": "None",
+            "work_sound": "None",
+            "work_sound2": "None"
+          },
+          {
+            "id": 3,
+            "is_default": false,
+            "action_type": 5,
+            "object_class": -1,
+            "object_id": "Some(UnitTypeID(199))",
+            "terrain_id": -1,
+            "attribute_types": "(17, -1, 0, -1)",
+            "work_values": "(1.25, 0.0)",
+            "work_range": 0.0,
+            "auto_search_targets": true,
+            "search_wait_time": 3.0,
+            "enable_targeting": false,
+            "combat_level": 0,
+            "work_flags": "(0, 0)",
+            "owner_type": 0,
+            "holding_attribute": 1,
+            "state_building": 0,
+            "move_sprite": "None",
+            "work_sprite": "Some(SpriteID(1594))",
+            "work_sprite2": "None",
+            "carry_sprite": "None",
+            "work_sound": "None",
+            "work_sound2": "None"
+          },
+          {
+            "id": 4,
+            "is_default": false,
+            "action_type": 101,
+            "object_class": -1,
+            "object_id": "None",
+            "terrain_id": -1,
+            "attribute_types": "(-1, -1, -1, -1)",
+            "work_values": "(3.57, 0.0)",
+            "work_range": 0.0,
+            "auto_search_targets": true,
+            "search_wait_time": 3.0,
+            "enable_targeting": false,
+            "combat_level": 0,
+            "work_flags": "(0, 0)",
+            "owner_type": 0,
+            "holding_attribute": 0,
+            "state_building": 0,
+            "move_sprite": "None",
+            "work_sprite": "Some(SpriteID(1594))",
+            "work_sprite2": "None",
+            "carry_sprite": "None",
+            "work_sound": "None",
+            "work_sound2": "None"
+          },
+          {
+            "id": 5,
+            "is_default": false,
+            "action_type": 109,
+            "object_class": -1,
+            "object_id": "None",
+            "terrain_id": -1,
+            "attribute_types": "(-1, -1, -1, -1)",
+            "work_values": "(0.0, 0.0)",
+            "work_range": 0.0,
+            "auto_search_targets": true,
+            "search_wait_time": 3.0,
+            "enable_targeting": false,
+            "combat_level": 0,
+            "work_flags": "(0, 0)",
+            "owner_type": 0,
+            "holding_attribute": 0,
+            "state_building": 0,
+            "move_sprite": "None",
+            "work_sprite": "None",
+            "work_sprite2": "None",
+            "carry_sprite": "None",
+            "work_sound": "None",
+            "work_sound2": "None"
+          },
+          {
+            "id": 6,
+            "is_default": false,
+            "action_type": 5,
+            "object_class": -1,
+            "object_id": "Some(UnitTypeID(278))",
+            "terrain_id": -1,
+            "attribute_types": "(-1, -1, -1, -1)",
+            "work_values": "(0.0, 0.0)",
+            "work_range": 0.0,
+            "auto_search_targets": false,
+            "search_wait_time": 0.0,
+            "enable_targeting": false,
+            "combat_level": 0,
+            "work_flags": "(0, 0)",
+            "owner_type": 0,
+            "holding_attribute": 0,
+            "state_building": 0,
+            "move_sprite": "None",
+            "work_sprite": "None",
+            "work_sprite2": "None",
+            "carry_sprite": "None",
+            "work_sound": "None",
+            "work_sound2": "None"
+          }
+        ]
+      },
+      "area_effect_level": 3,
+      "attack_graphic": 797,
+      "attribute_max_amount": 15,
+      "attribute_rot": 10.0,
+      "attributes": [
+        {
+          "amount": -1.0,
+          "flag": 2,
+          "type": 4
+        },
+        {
+          "amount": 1.0,
+          "flag": 2,
+          "type": 11
+        },
+        {
+          "amount": 1.0,
+          "flag": 1,
+          "type": 19
+        }
+      ],
+      "base_class": "Combat",
+      "building": null,
+      "button_icon": 24,
+      "combat": {
+        "accuracy": 0,
+        "area_effect_range": 0.0,
+        "armor": 1000,
+        "armors": [
+          {
+            "amount": 0,
+            "class": 16
+          },
+          {
+            "amount": 0,
+            "class": 4
+          },
+          {
+            "amount": 4,
+            "class": 3
+          }
+        ],
+        "blast_level_offense": 0,
+        "break_off_combat": 0,
+        "displayed_armor": 0,
+        "displayed_attack": 0,
+        "displayed_range": 0.0,
+        "displayed_reload_time": 0.0,
+        "frame_delay": 0,
+        "missed_missile_spread": 0.0,
+        "missile_unit": null,
+        "range_max": 0.0,
+        "range_min": 0.0,
+        "reload_time": 0.0,
+        "weapon_offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "weapons": []
+      },
+      "construction_graphic": null,
+      "copy_id": 13,
+      "creation": {
+        "costs": [
+          {
+            "amount": 75,
+            "flag": 1,
+            "resource": 1
+          },
+          {
+            "amount": 1,
+            "flag": 0,
+            "resource": 4
+          }
+        ],
+        "create_at_unit": 45,
+        "create_button": 1,
+        "create_time": 40,
+        "flank_attack_modifier": 0.0,
+        "max_attacks_in_volley": 1,
+        "rear_attack_modifier": 0.0,
+        "special_attack_flag": 0,
+        "special_attack_graphic": null,
+        "volley_fire_amount": 1.0,
+        "volley_missile_unit": null,
+        "volley_spread": [
+          1.0,
+          1.0
+        ],
+        "volley_start_spread_adjustment": 1.0
+      },
+      "damage_sound": null,
+      "damage_sprites": [],
+      "death_sound": null,
+      "disabled": false,
+      "dying_graphic": 800,
+      "enabled": false,
+      "garrison_capacity": 0,
+      "hit_points": 60,
+      "id": 13,
+      "line_of_sight": 5.0,
+      "missile": null,
+      "moving": {
+        "maximum_yaw_per_second_moving": 7.853981971740723,
+        "maximum_yaw_per_second_stationary": 7.853981971740723,
+        "move_algorithm": 0,
+        "size_class": 0,
+        "stationary_yaw_revolution_time": 0.800000011920929,
+        "trailing_options": 0,
+        "trailing_spacing": 0.0,
+        "trailing_unit": null,
+        "turn_radius": 0.0,
+        "turn_radius_speed": 3.4028234663852886e+38,
+        "turn_speed": 0.10000000149011612
+      },
+      "obstruction_type": 5,
+      "outline_radius": [
+        0.5,
+        0.5,
+        2.0
+      ],
+      "portrait_icon": null,
+      "radius": [
+        0.5,
+        0.5,
+        2.0
+      ],
+      "resource_group": 0,
+      "running_graphic": null,
+      "selected_sound": 339,
+      "selection_shape": 2,
+      "speed": 1.2599999904632568,
+      "standing_graphic": 803,
+      "standing_graphic_2": null,
+      "terrain_restriction_id": 13,
+      "track_as_resource": false,
+      "train_sound": 338,
+      "unit_class": 21,
+      "unit_group": 13,
+      "walking_graphic": 807
+    },
+    "trade_cart": {
+      "action": {
+        "command_sound": 306,
+        "default_task": null,
+        "move_sound": 306,
+        "search_radius": 7.0,
+        "task_list_source": "global_copy_id",
+        "work_rate": 0.23000000417232513,
+        "tasks_structured": [
+          {
+            "id": 0,
+            "is_default": false,
+            "action_type": 111,
+            "object_class": -1,
+            "object_id": "Some(UnitTypeID(84))",
+            "terrain_id": -1,
+            "attribute_types": "(9, -1, -1, -1)",
+            "work_values": "(0.0, 0.0)",
+            "work_range": 0.0,
+            "auto_search_targets": false,
+            "search_wait_time": 0.0,
+            "enable_targeting": false,
+            "combat_level": 0,
+            "work_flags": "(0, 0)",
+            "owner_type": 0,
+            "holding_attribute": 0,
+            "state_building": 0,
+            "move_sprite": "None",
+            "work_sprite": "None",
+            "work_sprite2": "None",
+            "carry_sprite": "Some(SpriteID(1145))",
+            "work_sound": "None",
+            "work_sound2": "None"
+          },
+          {
+            "id": 1,
+            "is_default": false,
+            "action_type": 109,
+            "object_class": -1,
+            "object_id": "None",
+            "terrain_id": -1,
+            "attribute_types": "(-1, -1, -1, -1)",
+            "work_values": "(0.0, 0.0)",
+            "work_range": 0.0,
+            "auto_search_targets": true,
+            "search_wait_time": 3.0,
+            "enable_targeting": false,
+            "combat_level": 0,
+            "work_flags": "(0, 0)",
+            "owner_type": 0,
+            "holding_attribute": 0,
+            "state_building": 0,
+            "move_sprite": "None",
+            "work_sprite": "None",
+            "work_sprite2": "None",
+            "carry_sprite": "None",
+            "work_sound": "None",
+            "work_sound2": "None"
+          },
+          {
+            "id": 2,
+            "is_default": false,
+            "action_type": 3,
+            "object_class": 20,
+            "object_id": "None",
+            "terrain_id": -1,
+            "attribute_types": "(-1, -1, -1, -1)",
+            "work_values": "(0.0, 0.0)",
+            "work_range": 1.0,
+            "auto_search_targets": false,
+            "search_wait_time": 0.0,
+            "enable_targeting": false,
+            "combat_level": 0,
+            "work_flags": "(0, 0)",
+            "owner_type": 4,
+            "holding_attribute": 0,
+            "state_building": 0,
+            "move_sprite": "None",
+            "work_sprite": "None",
+            "work_sprite2": "None",
+            "carry_sprite": "None",
+            "work_sound": "None",
+            "work_sound2": "None"
+          },
+          {
+            "id": 3,
+            "is_default": false,
+            "action_type": 131,
+            "object_class": -1,
+            "object_id": "None",
+            "terrain_id": -1,
+            "attribute_types": "(-1, -1, -1, -1)",
+            "work_values": "(0.0, 0.0)",
+            "work_range": 0.0,
+            "auto_search_targets": false,
+            "search_wait_time": 0.0,
+            "enable_targeting": false,
+            "combat_level": 0,
+            "work_flags": "(0, 0)",
+            "owner_type": 0,
+            "holding_attribute": 0,
+            "state_building": 0,
+            "move_sprite": "None",
+            "work_sprite": "None",
+            "work_sprite2": "None",
+            "carry_sprite": "None",
+            "work_sound": "None",
+            "work_sound2": "None"
+          }
+        ]
+      },
+      "area_effect_level": 3,
+      "attack_graphic": null,
+      "attribute_max_amount": 100,
+      "attribute_rot": 10.0,
+      "attributes": [
+        {
+          "amount": -1.0,
+          "flag": 2,
+          "type": 4
+        },
+        {
+          "amount": 1.0,
+          "flag": 2,
+          "type": 11
+        },
+        {
+          "amount": 1.0,
+          "flag": 1,
+          "type": 19
+        }
+      ],
+      "base_class": "Combat",
+      "building": null,
+      "button_icon": 34,
+      "combat": {
+        "accuracy": 0,
+        "area_effect_range": 0.0,
+        "armor": 1000,
+        "armors": [
+          {
+            "amount": 0,
+            "class": 4
+          },
+          {
+            "amount": 0,
+            "class": 3
+          }
+        ],
+        "blast_level_offense": 0,
+        "break_off_combat": 0,
+        "displayed_armor": 0,
+        "displayed_attack": 0,
+        "displayed_range": 0.0,
+        "displayed_reload_time": 0.0,
+        "frame_delay": 0,
+        "missed_missile_spread": 0.0,
+        "missile_unit": null,
+        "range_max": 0.0,
+        "range_min": 0.0,
+        "reload_time": 0.0,
+        "weapon_offset": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "weapons": []
+      },
+      "construction_graphic": null,
+      "copy_id": 128,
+      "creation": {
+        "costs": [
+          {
+            "amount": 100,
+            "flag": 1,
+            "resource": 1
+          },
+          {
+            "amount": 50,
+            "flag": 1,
+            "resource": 3
+          },
+          {
+            "amount": 1,
+            "flag": 0,
+            "resource": 4
+          }
+        ],
+        "create_at_unit": 84,
+        "create_button": 1,
+        "create_time": 51,
+        "flank_attack_modifier": 0.0,
+        "max_attacks_in_volley": 1,
+        "rear_attack_modifier": 0.0,
+        "special_attack_flag": 0,
+        "special_attack_graphic": null,
+        "volley_fire_amount": 1.0,
+        "volley_missile_unit": null,
+        "volley_spread": [
+          1.0,
+          1.0
+        ],
+        "volley_start_spread_adjustment": 1.0
+      },
+      "damage_sound": null,
+      "damage_sprites": [],
+      "death_sound": null,
+      "disabled": false,
+      "dying_graphic": 1138,
+      "enabled": false,
+      "garrison_capacity": 0,
+      "hit_points": 70,
+      "id": 128,
+      "line_of_sight": 7.0,
+      "missile": null,
+      "moving": {
+        "maximum_yaw_per_second_moving": 3.4028234663852886e+38,
+        "maximum_yaw_per_second_stationary": 3.4028234663852886e+38,
+        "move_algorithm": 0,
+        "size_class": 0,
+        "stationary_yaw_revolution_time": 0.0,
+        "trailing_options": 2,
+        "trailing_spacing": 0.5,
+        "trailing_unit": 417,
+        "turn_radius": 0.0,
+        "turn_radius_speed": 3.4028234663852886e+38,
+        "turn_speed": 0.0
+      },
+      "obstruction_type": 5,
+      "outline_radius": [
+        0.5,
+        0.5,
+        2.0
+      ],
+      "portrait_icon": null,
+      "radius": [
+        0.30000001192092896,
+        0.30000001192092896,
+        2.0
+      ],
+      "resource_group": 0,
+      "running_graphic": null,
+      "selected_sound": 305,
+      "selection_shape": 2,
+      "speed": 1.0,
+      "standing_graphic": 1141,
+      "standing_graphic_2": null,
+      "terrain_restriction_id": 20,
+      "track_as_resource": false,
+      "train_sound": 305,
+      "unit_class": 19,
+      "unit_group": 128,
+      "walking_graphic": 1681
+    }
+  },
+  "gates": {
+    "trade_cog": {
+      "id": 180,
+      "name": "Cog",
+      "required_techs": [
+        101
+      ],
+      "costs": [],
+      "location": null,
+      "research_time": 0,
+      "effect_id_raw": 153,
+      "effect_commands": [
+        {
+          "a": 17,
+          "attribute_name": null,
+          "b": 1,
+          "c": -1,
+          "d": 0.0,
+          "packed_amount": null,
+          "packed_attack_amount": null,
+          "packed_attack_class": null,
+          "packed_class": null,
+          "type": 2
+        }
+      ],
+      "icon": null,
+      "button": 0,
+      "civilization_id": null
+    },
+    "fish_trap": {
+      "id": 357,
+      "name": "Fish Trap (make avail)",
+      "required_techs": [
+        101
+      ],
+      "costs": [],
+      "location": null,
+      "research_time": 0,
+      "effect_id_raw": 356,
+      "effect_commands": [
+        {
+          "a": 199,
+          "attribute_name": null,
+          "b": 1,
+          "c": -1,
+          "d": 0.0,
+          "packed_amount": null,
+          "packed_attack_amount": null,
+          "packed_attack_class": null,
+          "packed_class": null,
+          "type": 2
+        }
+      ],
+      "icon": null,
+      "button": 0,
+      "civilization_id": null
+    }
+  },
+  "technologies": {
+    "coinage": {
+      "id": 23,
+      "name": "Coinage",
+      "required_techs": [
+        101
+      ],
+      "costs": [
+        {
+          "resource": 0,
+          "amount": 150
+        },
+        {
+          "resource": 3,
+          "amount": 50
+        }
+      ],
+      "location": 84,
+      "research_time": 50,
+      "effect_id_raw": 23,
+      "effect_commands": [
+        {
+          "a": 46,
+          "attribute_name": null,
+          "b": 0,
+          "c": -1,
+          "d": 0.20000000298023224,
+          "packed_amount": null,
+          "packed_attack_amount": null,
+          "packed_attack_class": null,
+          "packed_class": null,
+          "type": 1
+        }
+      ],
+      "icon": 7,
+      "button": 3,
+      "civilization_id": null
+    },
+    "banking": {
+      "id": 17,
+      "name": "Banking",
+      "required_techs": [
+        102,
+        23
+      ],
+      "costs": [
+        {
+          "resource": 0,
+          "amount": 200
+        },
+        {
+          "resource": 3,
+          "amount": 100
+        }
+      ],
+      "location": 84,
+      "research_time": 50,
+      "effect_id_raw": 17,
+      "effect_commands": [
+        {
+          "a": 46,
+          "attribute_name": null,
+          "b": 0,
+          "c": -1,
+          "d": 0.0,
+          "packed_amount": null,
+          "packed_attack_amount": null,
+          "packed_attack_class": null,
+          "packed_class": null,
+          "type": 1
+        }
+      ],
+      "icon": 3,
+      "button": 3,
+      "civilization_id": null
+    },
+    "cartography": {
+      "id": 19,
+      "name": "Cartography",
+      "required_techs": [
+        101
+      ],
+      "costs": [
+        {
+          "resource": 0,
+          "amount": 100
+        },
+        {
+          "resource": 3,
+          "amount": 100
+        }
+      ],
+      "location": 84,
+      "research_time": 60,
+      "effect_id_raw": 19,
+      "effect_commands": [
+        {
+          "a": 50,
+          "attribute_name": null,
+          "b": 1,
+          "c": -1,
+          "d": 1.0,
+          "packed_amount": null,
+          "packed_attack_amount": null,
+          "packed_attack_class": null,
+          "packed_class": null,
+          "type": 1
+        }
+      ],
+      "icon": 4,
+      "button": 2,
+      "civilization_id": null
+    },
+    "caravan": {
+      "id": 48,
+      "name": "Caravan",
+      "required_techs": [
+        102,
+        19
+      ],
+      "costs": [
+        {
+          "resource": 0,
+          "amount": 200
+        },
+        {
+          "resource": 3,
+          "amount": 200
+        }
+      ],
+      "location": 84,
+      "research_time": 40,
+      "effect_id_raw": 482,
+      "effect_commands": [
+        {
+          "a": 17,
+          "attribute_name": "movement_speed",
+          "b": -1,
+          "c": 5,
+          "d": 1.5,
+          "packed_amount": null,
+          "packed_attack_amount": null,
+          "packed_attack_class": null,
+          "packed_class": null,
+          "type": 5
+        },
+        {
+          "a": 17,
+          "attribute_name": "work_rate",
+          "b": -1,
+          "c": 13,
+          "d": 1.5,
+          "packed_amount": null,
+          "packed_attack_amount": null,
+          "packed_attack_class": null,
+          "packed_class": null,
+          "type": 5
+        },
+        {
+          "a": 128,
+          "attribute_name": "movement_speed",
+          "b": -1,
+          "c": 5,
+          "d": 1.5,
+          "packed_amount": null,
+          "packed_attack_amount": null,
+          "packed_attack_class": null,
+          "packed_class": null,
+          "type": 5
+        },
+        {
+          "a": 128,
+          "attribute_name": "work_rate",
+          "b": -1,
+          "c": 13,
+          "d": 1.5,
+          "packed_amount": null,
+          "packed_attack_amount": null,
+          "packed_attack_class": null,
+          "packed_class": null,
+          "type": 5
+        },
+        {
+          "a": 204,
+          "attribute_name": "movement_speed",
+          "b": -1,
+          "c": 5,
+          "d": 1.5,
+          "packed_amount": null,
+          "packed_attack_amount": null,
+          "packed_attack_class": null,
+          "packed_class": null,
+          "type": 5
+        },
+        {
+          "a": 204,
+          "attribute_name": "work_rate",
+          "b": -1,
+          "c": 13,
+          "d": 1.5,
+          "packed_amount": null,
+          "packed_attack_amount": null,
+          "packed_attack_class": null,
+          "packed_class": null,
+          "type": 5
+        }
+      ],
+      "icon": 113,
+      "button": 2,
+      "civilization_id": null
+    },
+    "guilds": {
+      "id": 15,
+      "name": "Guilds",
+      "required_techs": [
+        103
+      ],
+      "costs": [
+        {
+          "resource": 0,
+          "amount": 300
+        },
+        {
+          "resource": 3,
+          "amount": 200
+        }
+      ],
+      "location": 84,
+      "research_time": 50,
+      "effect_id_raw": 15,
+      "effect_commands": [
+        {
+          "a": 78,
+          "attribute_name": null,
+          "b": 0,
+          "c": -1,
+          "d": 0.15000000596046448,
+          "packed_amount": null,
+          "packed_attack_amount": null,
+          "packed_attack_class": null,
+          "packed_class": null,
+          "type": 1
+        }
+      ],
+      "icon": 58,
+      "button": 4,
+      "civilization_id": null
+    }
+  },
+  "availability": [
+    {
+      "id": 1,
+      "name": "British",
+      "entities": {
+        "trade_cog": "available",
+        "fish_trap": "available"
+      },
+      "technologies": {
+        "coinage": "available",
+        "banking": "available",
+        "cartography": "available",
+        "caravan": "available",
+        "guilds": "available"
+      }
+    },
+    {
+      "id": 2,
+      "name": "French",
+      "entities": {
+        "trade_cog": "available",
+        "fish_trap": "available"
+      },
+      "technologies": {
+        "coinage": "available",
+        "banking": "available",
+        "cartography": "available",
+        "caravan": "available",
+        "guilds": "unavailable"
+      }
+    },
+    {
+      "id": 3,
+      "name": "Goths",
+      "entities": {
+        "trade_cog": "available",
+        "fish_trap": "available"
+      },
+      "technologies": {
+        "coinage": "available",
+        "banking": "available",
+        "cartography": "available",
+        "caravan": "available",
+        "guilds": "available"
+      }
+    },
+    {
+      "id": 4,
+      "name": "Germans",
+      "entities": {
+        "trade_cog": "available",
+        "fish_trap": "available"
+      },
+      "technologies": {
+        "coinage": "available",
+        "banking": "available",
+        "cartography": "available",
+        "caravan": "available",
+        "guilds": "available"
+      }
+    },
+    {
+      "id": 5,
+      "name": "Japanese",
+      "entities": {
+        "trade_cog": "available",
+        "fish_trap": "available"
+      },
+      "technologies": {
+        "coinage": "available",
+        "banking": "available",
+        "cartography": "available",
+        "caravan": "available",
+        "guilds": "unavailable"
+      }
+    },
+    {
+      "id": 6,
+      "name": "Chinese",
+      "entities": {
+        "trade_cog": "available",
+        "fish_trap": "available"
+      },
+      "technologies": {
+        "coinage": "available",
+        "banking": "available",
+        "cartography": "available",
+        "caravan": "available",
+        "guilds": "unavailable"
+      }
+    },
+    {
+      "id": 7,
+      "name": "Byzantine",
+      "entities": {
+        "trade_cog": "available",
+        "fish_trap": "available"
+      },
+      "technologies": {
+        "coinage": "available",
+        "banking": "available",
+        "cartography": "available",
+        "caravan": "available",
+        "guilds": "available"
+      }
+    },
+    {
+      "id": 8,
+      "name": "Persians",
+      "entities": {
+        "trade_cog": "available",
+        "fish_trap": "available"
+      },
+      "technologies": {
+        "coinage": "available",
+        "banking": "available",
+        "cartography": "available",
+        "caravan": "available",
+        "guilds": "available"
+      }
+    },
+    {
+      "id": 9,
+      "name": "Saracens",
+      "entities": {
+        "trade_cog": "available",
+        "fish_trap": "available"
+      },
+      "technologies": {
+        "coinage": "available",
+        "banking": "available",
+        "cartography": "available",
+        "caravan": "available",
+        "guilds": "unavailable"
+      }
+    },
+    {
+      "id": 10,
+      "name": "Turks",
+      "entities": {
+        "trade_cog": "available",
+        "fish_trap": "available"
+      },
+      "technologies": {
+        "coinage": "available",
+        "banking": "available",
+        "cartography": "available",
+        "caravan": "available",
+        "guilds": "available"
+      }
+    },
+    {
+      "id": 11,
+      "name": "Vikings",
+      "entities": {
+        "trade_cog": "available",
+        "fish_trap": "available"
+      },
+      "technologies": {
+        "coinage": "available",
+        "banking": "available",
+        "cartography": "available",
+        "caravan": "available",
+        "guilds": "unavailable"
+      }
+    },
+    {
+      "id": 12,
+      "name": "Mongols",
+      "entities": {
+        "trade_cog": "available",
+        "fish_trap": "available"
+      },
+      "technologies": {
+        "coinage": "available",
+        "banking": "available",
+        "cartography": "available",
+        "caravan": "available",
+        "guilds": "unavailable"
+      }
+    },
+    {
+      "id": 13,
+      "name": "Celts",
+      "entities": {
+        "trade_cog": "available",
+        "fish_trap": "available"
+      },
+      "technologies": {
+        "coinage": "available",
+        "banking": "available",
+        "cartography": "available",
+        "caravan": "available",
+        "guilds": "available"
+      }
+    },
+    {
+      "id": 14,
+      "name": "Spanish",
+      "entities": {
+        "trade_cog": "available",
+        "fish_trap": "available"
+      },
+      "technologies": {
+        "coinage": "available",
+        "banking": "available",
+        "cartography": "available",
+        "caravan": "available",
+        "guilds": "available"
+      }
+    },
+    {
+      "id": 15,
+      "name": "Aztecs",
+      "entities": {
+        "trade_cog": "available",
+        "fish_trap": "available"
+      },
+      "technologies": {
+        "coinage": "available",
+        "banking": "available",
+        "cartography": "available",
+        "caravan": "available",
+        "guilds": "unavailable"
+      }
+    },
+    {
+      "id": 16,
+      "name": "Mayan",
+      "entities": {
+        "trade_cog": "available",
+        "fish_trap": "available"
+      },
+      "technologies": {
+        "coinage": "available",
+        "banking": "available",
+        "cartography": "available",
+        "caravan": "available",
+        "guilds": "available"
+      }
+    },
+    {
+      "id": 17,
+      "name": "Huns",
+      "entities": {
+        "trade_cog": "available",
+        "fish_trap": "available"
+      },
+      "technologies": {
+        "coinage": "available",
+        "banking": "available",
+        "cartography": "available",
+        "caravan": "available",
+        "guilds": "available"
+      }
+    },
+    {
+      "id": 18,
+      "name": "Koreans",
+      "entities": {
+        "trade_cog": "available",
+        "fish_trap": "available"
+      },
+      "technologies": {
+        "coinage": "available",
+        "banking": "available",
+        "cartography": "available",
+        "caravan": "available",
+        "guilds": "available"
+      }
+    }
+  ],
+  "graphics": [
+    {
+      "angle_count": 1,
+      "deltas": [
+        {
+          "display_angle": -1,
+          "graphic_id": 475,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": null,
+          "offset_x": 0,
+          "offset_y": 0
+        }
+      ],
+      "filename": "BEXP3_NN",
+      "frame_count": 10,
+      "frame_rate": 0.04650000110268593,
+      "id": 40,
+      "layer": 30,
+      "mirror_flag": 0,
+      "name": "BEXP4_NN",
+      "palette": 65535,
+      "replay_delay": 0.0,
+      "sequence_type": 9,
+      "slp_id": 75,
+      "sound_triggers": {
+        "attack_sounds": [],
+        "graphic_id": 40,
+        "sound_id": 323
+      }
+    },
+    {
+      "angle_count": 3,
+      "deltas": [],
+      "filename": "CNST4_NN",
+      "frame_count": 1,
+      "frame_rate": 2.0,
+      "id": 121,
+      "layer": 10,
+      "mirror_flag": 0,
+      "name": "CNST4_NN",
+      "palette": 65535,
+      "replay_delay": 0.0,
+      "sequence_type": 11,
+      "slp_id": 239,
+      "sound_triggers": null
+    },
+    {
+      "angle_count": 1,
+      "deltas": [
+        {
+          "display_angle": -1,
+          "graphic_id": 214,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": 216,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": 4411,
+          "offset_x": 0,
+          "offset_y": 0
+        }
+      ],
+      "filename": "None",
+      "frame_count": 60,
+      "frame_rate": 0.15000000596046448,
+      "id": 215,
+      "layer": 20,
+      "mirror_flag": 0,
+      "name": "DOCK1N1G",
+      "palette": 65535,
+      "replay_delay": 0.0,
+      "sequence_type": 5,
+      "slp_id": null,
+      "sound_triggers": null
+    },
+    {
+      "angle_count": 1,
+      "deltas": [
+        {
+          "display_angle": -1,
+          "graphic_id": 733,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": null,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": 734,
+          "offset_x": 0,
+          "offset_y": 0
+        }
+      ],
+      "filename": "CANGA_DN",
+      "frame_count": 6,
+      "frame_rate": 0.75,
+      "id": 735,
+      "layer": 20,
+      "mirror_flag": 0,
+      "name": "COGXX_DN",
+      "palette": 65535,
+      "replay_delay": 0.0,
+      "sequence_type": 11,
+      "slp_id": 2116,
+      "sound_triggers": {
+        "attack_sounds": [],
+        "graphic_id": 735,
+        "sound_id": 379
+      }
+    },
+    {
+      "angle_count": 8,
+      "deltas": [
+        {
+          "display_angle": -1,
+          "graphic_id": 795,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": null,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": 796,
+          "offset_x": 0,
+          "offset_y": 0
+        }
+      ],
+      "filename": "FSHSP_AN",
+      "frame_count": 10,
+      "frame_rate": 0.10000000149011612,
+      "id": 797,
+      "layer": 20,
+      "mirror_flag": 6,
+      "name": "FSHSP_AN",
+      "palette": 65535,
+      "replay_delay": 0.0,
+      "sequence_type": 3,
+      "slp_id": 438,
+      "sound_triggers": null
+    },
+    {
+      "angle_count": 1,
+      "deltas": [
+        {
+          "display_angle": -1,
+          "graphic_id": 798,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": null,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": 799,
+          "offset_x": 0,
+          "offset_y": 0
+        }
+      ],
+      "filename": "FSHSP_DN",
+      "frame_count": 5,
+      "frame_rate": 0.75,
+      "id": 800,
+      "layer": 20,
+      "mirror_flag": 0,
+      "name": "FSHSP_DN",
+      "palette": 65535,
+      "replay_delay": 0.0,
+      "sequence_type": 11,
+      "slp_id": 441,
+      "sound_triggers": {
+        "attack_sounds": [],
+        "graphic_id": 800,
+        "sound_id": 505
+      }
+    },
+    {
+      "angle_count": 8,
+      "deltas": [
+        {
+          "display_angle": -1,
+          "graphic_id": 801,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": null,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": 802,
+          "offset_x": 0,
+          "offset_y": 0
+        }
+      ],
+      "filename": "FSHSP_FN",
+      "frame_count": 1,
+      "frame_rate": 0.20000000298023224,
+      "id": 803,
+      "layer": 20,
+      "mirror_flag": 6,
+      "name": "FSHSP_FN",
+      "palette": 65535,
+      "replay_delay": 1.0,
+      "sequence_type": 7,
+      "slp_id": 444,
+      "sound_triggers": null
+    },
+    {
+      "angle_count": 8,
+      "deltas": [
+        {
+          "display_angle": -1,
+          "graphic_id": 805,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": null,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": 806,
+          "offset_x": 0,
+          "offset_y": 0
+        }
+      ],
+      "filename": "FSHSP_WN",
+      "frame_count": 1,
+      "frame_rate": 0.10000000149011612,
+      "id": 807,
+      "layer": 20,
+      "mirror_flag": 6,
+      "name": "FSHSP_WN",
+      "palette": 65535,
+      "replay_delay": 0.0,
+      "sequence_type": 3,
+      "slp_id": 449,
+      "sound_triggers": null
+    },
+    {
+      "angle_count": 8,
+      "deltas": [],
+      "filename": "TCARE_DN",
+      "frame_count": 15,
+      "frame_rate": 0.10000000149011612,
+      "id": 1138,
+      "layer": 20,
+      "mirror_flag": 6,
+      "name": "TCARE_DN",
+      "palette": 65535,
+      "replay_delay": 0.0,
+      "sequence_type": 11,
+      "slp_id": 1119,
+      "sound_triggers": {
+        "attack_sounds": [
+          [
+            {
+              "delay": 5,
+              "sound_id": 316
+            },
+            {
+              "delay": 18,
+              "sound_id": 315
+            }
+          ],
+          [
+            {
+              "delay": 5,
+              "sound_id": 316
+            },
+            {
+              "delay": 18,
+              "sound_id": 315
+            }
+          ],
+          [
+            {
+              "delay": 5,
+              "sound_id": 316
+            },
+            {
+              "delay": 18,
+              "sound_id": 315
+            }
+          ],
+          [
+            {
+              "delay": 5,
+              "sound_id": 316
+            },
+            {
+              "delay": 18,
+              "sound_id": 315
+            }
+          ],
+          [
+            {
+              "delay": 5,
+              "sound_id": 316
+            },
+            {
+              "delay": 18,
+              "sound_id": 315
+            }
+          ],
+          [
+            {
+              "delay": 5,
+              "sound_id": 316
+            },
+            {
+              "delay": 18,
+              "sound_id": 315
+            }
+          ],
+          [
+            {
+              "delay": 5,
+              "sound_id": 316
+            },
+            {
+              "delay": 18,
+              "sound_id": 315
+            }
+          ],
+          [
+            {
+              "delay": 5,
+              "sound_id": 316
+            },
+            {
+              "delay": 18,
+              "sound_id": 315
+            }
+          ]
+        ],
+        "graphic_id": 1138,
+        "sound_id": null
+      }
+    },
+    {
+      "angle_count": 8,
+      "deltas": [],
+      "filename": "TCARE_FN",
+      "frame_count": 10,
+      "frame_rate": 0.20000000298023224,
+      "id": 1141,
+      "layer": 20,
+      "mirror_flag": 6,
+      "name": "TCARE_FN",
+      "palette": 65535,
+      "replay_delay": 1.0,
+      "sequence_type": 7,
+      "slp_id": 1122,
+      "sound_triggers": null
+    },
+    {
+      "angle_count": 8,
+      "deltas": [],
+      "filename": "TCART_WN",
+      "frame_count": 10,
+      "frame_rate": 0.06975000351667404,
+      "id": 1145,
+      "layer": 20,
+      "mirror_flag": 6,
+      "name": "TCART_WN",
+      "palette": 65535,
+      "replay_delay": 0.0,
+      "sequence_type": 3,
+      "slp_id": 1127,
+      "sound_triggers": null
+    },
+    {
+      "angle_count": 8,
+      "deltas": [
+        {
+          "display_angle": -1,
+          "graphic_id": 807,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": null,
+          "offset_x": 0,
+          "offset_y": 0
+        }
+      ],
+      "filename": "FSHSP_TN",
+      "frame_count": 1,
+      "frame_rate": 0.20000000298023224,
+      "id": 1594,
+      "layer": 20,
+      "mirror_flag": 6,
+      "name": "FSHSP_TN",
+      "palette": 65535,
+      "replay_delay": 0.0,
+      "sequence_type": 7,
+      "slp_id": 446,
+      "sound_triggers": null
+    },
+    {
+      "angle_count": 8,
+      "deltas": [],
+      "filename": "TCARE_WN",
+      "frame_count": 10,
+      "frame_rate": 0.06975000351667404,
+      "id": 1681,
+      "layer": 20,
+      "mirror_flag": 6,
+      "name": "TCARE_WN",
+      "palette": 65535,
+      "replay_delay": 0.0,
+      "sequence_type": 3,
+      "slp_id": 4486,
+      "sound_triggers": null
+    },
+    {
+      "angle_count": 1,
+      "deltas": [
+        {
+          "display_angle": -1,
+          "graphic_id": 2260,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": null,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": 2264,
+          "offset_x": 0,
+          "offset_y": 0
+        }
+      ],
+      "filename": "MRKT2NNW",
+      "frame_count": 1,
+      "frame_rate": 0.0,
+      "id": 2268,
+      "layer": 20,
+      "mirror_flag": 0,
+      "name": "MRKT2NNW",
+      "palette": 65535,
+      "replay_delay": 0.0,
+      "sequence_type": 0,
+      "slp_id": 2278,
+      "sound_triggers": null
+    },
+    {
+      "angle_count": 1,
+      "deltas": [],
+      "filename": "FTRAP",
+      "frame_count": 6,
+      "frame_rate": 0.699999988079071,
+      "id": 3281,
+      "layer": 10,
+      "mirror_flag": 0,
+      "name": "FTRAP",
+      "palette": 65535,
+      "replay_delay": 0.0,
+      "sequence_type": 1,
+      "slp_id": 3593,
+      "sound_triggers": null
+    },
+    {
+      "angle_count": 16,
+      "deltas": [
+        {
+          "display_angle": -1,
+          "graphic_id": 3980,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": 3945,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": 3937,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": 3949,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": 730,
+          "offset_x": 0,
+          "offset_y": 0
+        }
+      ],
+      "filename": "W",
+      "frame_count": 10,
+      "frame_rate": 0.10000000149011612,
+      "id": 3971,
+      "layer": 20,
+      "mirror_flag": 12,
+      "name": "COGXX_ANW",
+      "palette": 65535,
+      "replay_delay": 0.0,
+      "sequence_type": 2,
+      "slp_id": 2263,
+      "sound_triggers": null
+    },
+    {
+      "angle_count": 16,
+      "deltas": [
+        {
+          "display_angle": -1,
+          "graphic_id": 3980,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": 3945,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": 3937,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": 3949,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": 736,
+          "offset_x": 0,
+          "offset_y": 0
+        }
+      ],
+      "filename": "W",
+      "frame_count": 10,
+      "frame_rate": 0.20000000298023224,
+      "id": 3975,
+      "layer": 20,
+      "mirror_flag": 12,
+      "name": "COGXX_FNW",
+      "palette": 65535,
+      "replay_delay": 1.0,
+      "sequence_type": 7,
+      "slp_id": 2263,
+      "sound_triggers": null
+    },
+    {
+      "angle_count": 16,
+      "deltas": [
+        {
+          "display_angle": -1,
+          "graphic_id": 3980,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": 3945,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": 3937,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": 3949,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": 740,
+          "offset_x": 0,
+          "offset_y": 0
+        }
+      ],
+      "filename": "W",
+      "frame_count": 10,
+      "frame_rate": 0.10000000149011612,
+      "id": 3979,
+      "layer": 20,
+      "mirror_flag": 12,
+      "name": "COGXX_WNW",
+      "palette": 65535,
+      "replay_delay": 0.0,
+      "sequence_type": 3,
+      "slp_id": 2263,
+      "sound_triggers": null
+    },
+    {
+      "angle_count": 3,
+      "deltas": [],
+      "filename": "CNSTD_NN",
+      "frame_count": 1,
+      "frame_rate": 2.0,
+      "id": 4248,
+      "layer": 10,
+      "mirror_flag": 0,
+      "name": "CNSTD_NN",
+      "palette": 65535,
+      "replay_delay": 0.0,
+      "sequence_type": 10,
+      "slp_id": 4397,
+      "sound_triggers": null
+    },
+    {
+      "angle_count": 3,
+      "deltas": [],
+      "filename": "FTRPC",
+      "frame_count": 1,
+      "frame_rate": 2.0,
+      "id": 5441,
+      "layer": 10,
+      "mirror_flag": 0,
+      "name": "FTRPC",
+      "palette": 65535,
+      "replay_delay": 0.0,
+      "sequence_type": 10,
+      "slp_id": 4585,
+      "sound_triggers": null
+    },
+    {
+      "angle_count": 1,
+      "deltas": [
+        {
+          "display_angle": -1,
+          "graphic_id": null,
+          "offset_x": 0,
+          "offset_y": 0
+        },
+        {
+          "display_angle": -1,
+          "graphic_id": null,
+          "offset_x": 0,
+          "offset_y": 0
+        }
+      ],
+      "filename": "DEXP3_NN",
+      "frame_count": 10,
+      "frame_rate": 0.4000000059604645,
+      "id": 5452,
+      "layer": 30,
+      "mirror_flag": 0,
+      "name": "DEXP3_NN",
+      "palette": 65535,
+      "replay_delay": 0.0,
+      "sequence_type": 9,
+      "slp_id": 4597,
+      "sound_triggers": {
+        "attack_sounds": [],
+        "graphic_id": 5452,
+        "sound_id": 323
+      }
+    }
+  ],
+  "sounds": [
+    {
+      "id": 5,
+      "items": [
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 100,
+          "resource_id": 5043
+        }
+      ],
+      "play_delay": 0
+    },
+    {
+      "id": 16,
+      "items": [
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 100,
+          "resource_id": 5110
+        }
+      ],
+      "play_delay": 0
+    },
+    {
+      "id": 305,
+      "items": [
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 50,
+          "resource_id": 5363
+        },
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 50,
+          "resource_id": 5364
+        }
+      ],
+      "play_delay": 0
+    },
+    {
+      "id": 306,
+      "items": [
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 100,
+          "resource_id": 5365
+        }
+      ],
+      "play_delay": 0
+    },
+    {
+      "id": 315,
+      "items": [
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 100,
+          "resource_id": 5300
+        }
+      ],
+      "play_delay": 0
+    },
+    {
+      "id": 316,
+      "items": [
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 33,
+          "resource_id": 5335
+        },
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 34,
+          "resource_id": 5336
+        },
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 33,
+          "resource_id": 5337
+        }
+      ],
+      "play_delay": 0
+    },
+    {
+      "id": 323,
+      "items": [
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 30,
+          "resource_id": 5316
+        },
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 30,
+          "resource_id": 5317
+        },
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 30,
+          "resource_id": 5318
+        },
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 10,
+          "resource_id": 5459
+        }
+      ],
+      "play_delay": 0
+    },
+    {
+      "id": 338,
+      "items": [
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 100,
+          "resource_id": 5416
+        }
+      ],
+      "play_delay": 0
+    },
+    {
+      "id": 339,
+      "items": [
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 100,
+          "resource_id": 5417
+        }
+      ],
+      "play_delay": 0
+    },
+    {
+      "id": 340,
+      "items": [
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 40,
+          "resource_id": 5413
+        },
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 40,
+          "resource_id": 5414
+        },
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 20,
+          "resource_id": 5415
+        }
+      ],
+      "play_delay": 0
+    },
+    {
+      "id": 379,
+      "items": [
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 25,
+          "resource_id": 5412
+        },
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 25,
+          "resource_id": 5498
+        },
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 25,
+          "resource_id": 5499
+        },
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 25,
+          "resource_id": 5500
+        }
+      ],
+      "play_delay": 0
+    },
+    {
+      "id": 460,
+      "items": [
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 100,
+          "resource_id": 6043
+        }
+      ],
+      "play_delay": 0
+    },
+    {
+      "id": 505,
+      "items": [
+        {
+          "civilization": -1,
+          "filename": "",
+          "icon_set": -1,
+          "probability": 100,
+          "resource_id": 6757
+        }
+      ],
+      "play_delay": 0
+    }
+  ],
+  "validation_boundary": {
+    "dat_proves": [
+      "records, producers/builders, costs, times, slots and icons",
+      "raw effect commands, tasks, gates and civilization disables",
+      "graphic-to-SLP and conceptual sound-to-WAV resource links"
+    ],
+    "original_runtime_required": [
+      "trade distance-to-gold formula and rounding",
+      "ally/endpoint interruption and team-vision semantics",
+      "market fee behavior and Fish Trap depletion/rebuild ordering"
+    ]
+  }
+}

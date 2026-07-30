@@ -1,0 +1,14 @@
+# Parallel Villagers: blue has Wheelbarrow, red does not.
+AOE-ARCHAEOLOGY-SCENARIO 28
+map 30 5
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue feudal
+age red feudal
+technology blue wheelbarrow
+
+unit villager blue 1 1 waypoint 25 1 stance passive
+unit villager red 1 3 waypoint 25 3 stance passive
+
+building house blue 28 0
+building house red 28 3

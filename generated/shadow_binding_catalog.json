@@ -1,0 +1,2154 @@
+{
+  "schema": "aoe-shadow-binding-catalog-v2",
+  "represented": {
+    "units": 94,
+    "buildings": 27
+  },
+  "building_state_coverage": {
+    "standing": {
+      "before": 15,
+      "after": 24,
+      "total": 27
+    },
+    "construction": {
+      "before": 0,
+      "after": 4,
+      "total": 27
+    },
+    "damage_shadow": {
+      "before": 15,
+      "after": 24,
+      "total": 27
+    },
+    "death": {
+      "before": 2,
+      "after": 3,
+      "total": 27
+    }
+  },
+  "evidence": {
+    "dat": "LegacyGraphic root deltas, layer, player_color, frame_count, angle_count, offsets, display_angle",
+    "archive": "SLP presence is checked by guarded runtime decode; missing payload retains procedural fallback",
+    "baseline": "generated/renderer_asset_coverage.json"
+  },
+  "policy": {
+    "exact_direct_binding": "all graphics sharing root SLP must agree on exactly one direct layer-10, player_color=-1 child; shadow frames must equal root frames or be static",
+    "ambiguity": "fallback",
+    "guarded_meaning": "candidate is promoted only when live DAT has one exact neutral direct layer-10 child and live DRS contains its SLP"
+  },
+  "entities": [
+    {
+      "kind": "villager",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "knight",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "archer",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "scout_cavalry",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "militia",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "spearman",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "battering_ram",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "skirmisher",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "mangonel",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "man_at_arms",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "crossbowman",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "pikeman",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "long_swordsman",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "cavalier",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "paladin",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "light_cavalry",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "hussar",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "two_handed_swordsman",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "champion",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "arbalester",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "elite_skirmisher",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "sheep",
+      "category": "unit",
+      "renderer_asset_status": "mapped_asset_gap",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "deer",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "boar",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "monk",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "relic",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "trade_cart",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "fishing_ship",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "galley",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "dat_animated_composite",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "war_galley",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "dat_animated_composite",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "galleon",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "dat_animated_composite",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "transport_ship",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "dat_animated_composite",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "fire_ship",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "dat_animated_composite",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "fast_fire_ship",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "dat_animated_composite",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "demolition_ship",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "dat_animated_composite",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "heavy_demolition_ship",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "dat_animated_composite",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "cannon_galleon",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "dat_animated_composite",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "elite_cannon_galleon",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "dat_animated_composite",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "longboat",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "dat_animated_composite",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "elite_longboat",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "dat_animated_composite",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "turtle_ship",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "dat_animated_composite",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "elite_turtle_ship",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "dat_animated_composite",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "longbowman",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "elite_longbowman",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "throwing_axeman",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "elite_throwing_axeman",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "huskarl",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "elite_huskarl",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "teutonic_knight",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "elite_teutonic_knight",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "samurai",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "elite_samurai",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "chu_ko_nu",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "elite_chu_ko_nu",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "cataphract",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "elite_cataphract",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "war_elephant",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "elite_war_elephant",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "mameluke",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "elite_mameluke",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "janissary",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "elite_janissary",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "berserk",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "elite_berserk",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "mangudai",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "elite_mangudai",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "jaguar_warrior",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "elite_jaguar_warrior",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "plumed_archer",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "elite_plumed_archer",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "conquistador",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "elite_conquistador",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "tarkan",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "elite_tarkan",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "eagle_warrior",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "elite_eagle_warrior",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "scorpion",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "heavy_scorpion",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "onager",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "siege_onager",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "packed_trebuchet",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "trebuchet",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "cavalry_archer",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "heavy_cavalry_archer",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "camel_rider",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "heavy_camel",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "capped_ram",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "siege_ram",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "halberdier",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "hand_cannoneer",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "bombard_cannon",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "petard",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "missionary",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_root_slp_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "trade_cog",
+      "category": "unit",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "dat_animated_composite",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": "guarded_by_exact_DAT_layer",
+        "moving": "guarded_by_exact_DAT_layer",
+        "attack": "guarded_by_exact_DAT_layer",
+        "death": "guarded_by_exact_DAT_layer"
+      }
+    },
+    {
+      "kind": "town_center",
+      "category": "building",
+      "renderer_asset_status": "mapped_asset_gap",
+      "shadow_path": "dat_static_composite",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "dat_static_composite",
+          "qualification": "standing body/shadow path"
+        },
+        "construction": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "construction animation/body path"
+        },
+        "damage": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "dat_static_composite",
+          "qualification": "standing shadow reused; damage flames remain procedural"
+        },
+        "death": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "death/rubble renderer path"
+        }
+      }
+    },
+    {
+      "kind": "barracks",
+      "category": "building",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "dat_static_composite",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "dat_static_composite",
+          "qualification": "standing body/shadow path"
+        },
+        "construction": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "construction animation/body path"
+        },
+        "damage": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "dat_static_composite",
+          "qualification": "standing shadow reused; damage flames remain procedural"
+        },
+        "death": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "death/rubble renderer path"
+        }
+      }
+    },
+    {
+      "kind": "archery_range",
+      "category": "building",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "dat_static_composite",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "dat_static_composite",
+          "qualification": "standing body/shadow path"
+        },
+        "construction": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "construction animation/body path"
+        },
+        "damage": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "dat_static_composite",
+          "qualification": "standing shadow reused; damage flames remain procedural"
+        },
+        "death": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "death/rubble renderer path"
+        }
+      }
+    },
+    {
+      "kind": "house",
+      "category": "building",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_unique_layer10_runtime_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": {
+          "before": "procedural_fallback",
+          "after": "guarded_exact_DAT_shadow",
+          "renderer_path": "guarded_unique_layer10_runtime_binding",
+          "qualification": "standing body/shadow path"
+        },
+        "construction": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "construction animation/body path"
+        },
+        "damage": {
+          "before": "procedural_fallback",
+          "after": "guarded_exact_DAT_shadow",
+          "renderer_path": "guarded_unique_layer10_runtime_binding",
+          "qualification": "standing shadow reused; damage flames remain procedural"
+        },
+        "death": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "death/rubble renderer path"
+        }
+      }
+    },
+    {
+      "kind": "mill",
+      "category": "building",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "dat_static_composite",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "dat_static_composite",
+          "qualification": "standing body/shadow path"
+        },
+        "construction": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "construction animation/body path"
+        },
+        "damage": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "dat_static_composite",
+          "qualification": "standing shadow reused; damage flames remain procedural"
+        },
+        "death": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "death/rubble renderer path"
+        }
+      }
+    },
+    {
+      "kind": "lumber_camp",
+      "category": "building",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_unique_layer10_runtime_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": {
+          "before": "procedural_fallback",
+          "after": "guarded_exact_DAT_shadow",
+          "renderer_path": "guarded_unique_layer10_runtime_binding",
+          "qualification": "standing body/shadow path"
+        },
+        "construction": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "construction animation/body path"
+        },
+        "damage": {
+          "before": "procedural_fallback",
+          "after": "guarded_exact_DAT_shadow",
+          "renderer_path": "guarded_unique_layer10_runtime_binding",
+          "qualification": "standing shadow reused; damage flames remain procedural"
+        },
+        "death": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "death/rubble renderer path"
+        }
+      }
+    },
+    {
+      "kind": "mining_camp",
+      "category": "building",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_unique_layer10_runtime_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": {
+          "before": "procedural_fallback",
+          "after": "guarded_exact_DAT_shadow",
+          "renderer_path": "guarded_unique_layer10_runtime_binding",
+          "qualification": "standing body/shadow path"
+        },
+        "construction": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "construction animation/body path"
+        },
+        "damage": {
+          "before": "procedural_fallback",
+          "after": "guarded_exact_DAT_shadow",
+          "renderer_path": "guarded_unique_layer10_runtime_binding",
+          "qualification": "standing shadow reused; damage flames remain procedural"
+        },
+        "death": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "death/rubble renderer path"
+        }
+      }
+    },
+    {
+      "kind": "farm",
+      "category": "building",
+      "renderer_asset_status": "guaranteed_fallback",
+      "shadow_path": "procedural_fallback",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "standing body/shadow path"
+        },
+        "construction": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "construction animation/body path"
+        },
+        "damage": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "standing shadow reused; damage flames remain procedural"
+        },
+        "death": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "death/rubble renderer path"
+        }
+      }
+    },
+    {
+      "kind": "stable",
+      "category": "building",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "dat_static_composite",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "dat_static_composite",
+          "qualification": "standing body/shadow path"
+        },
+        "construction": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "construction animation/body path"
+        },
+        "damage": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "dat_static_composite",
+          "qualification": "standing shadow reused; damage flames remain procedural"
+        },
+        "death": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "death/rubble renderer path"
+        }
+      }
+    },
+    {
+      "kind": "blacksmith",
+      "category": "building",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_unique_layer10_runtime_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": {
+          "before": "procedural_fallback",
+          "after": "guarded_exact_DAT_shadow",
+          "renderer_path": "guarded_unique_layer10_runtime_binding",
+          "qualification": "standing body/shadow path"
+        },
+        "construction": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "construction animation/body path"
+        },
+        "damage": {
+          "before": "procedural_fallback",
+          "after": "guarded_exact_DAT_shadow",
+          "renderer_path": "guarded_unique_layer10_runtime_binding",
+          "qualification": "standing shadow reused; damage flames remain procedural"
+        },
+        "death": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "death/rubble renderer path"
+        }
+      }
+    },
+    {
+      "kind": "castle",
+      "category": "building",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "dat_static_composite",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "dat_static_composite",
+          "qualification": "standing body/shadow path"
+        },
+        "construction": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "construction animation/body path"
+        },
+        "damage": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "dat_static_composite",
+          "qualification": "standing shadow reused; damage flames remain procedural"
+        },
+        "death": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "death/rubble renderer path"
+        }
+      }
+    },
+    {
+      "kind": "university",
+      "category": "building",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_unique_layer10_runtime_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": {
+          "before": "procedural_fallback",
+          "after": "guarded_exact_DAT_shadow",
+          "renderer_path": "guarded_unique_layer10_runtime_binding",
+          "qualification": "standing body/shadow path"
+        },
+        "construction": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "construction animation/body path"
+        },
+        "damage": {
+          "before": "procedural_fallback",
+          "after": "guarded_exact_DAT_shadow",
+          "renderer_path": "guarded_unique_layer10_runtime_binding",
+          "qualification": "standing shadow reused; damage flames remain procedural"
+        },
+        "death": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "death/rubble renderer path"
+        }
+      }
+    },
+    {
+      "kind": "siege_workshop",
+      "category": "building",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "dat_static_composite",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "dat_static_composite",
+          "qualification": "standing body/shadow path"
+        },
+        "construction": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "construction animation/body path"
+        },
+        "damage": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "dat_static_composite",
+          "qualification": "standing shadow reused; damage flames remain procedural"
+        },
+        "death": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "death/rubble renderer path"
+        }
+      }
+    },
+    {
+      "kind": "palisade_wall",
+      "category": "building",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "explicit_exact_shadow_slp",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "explicit_exact_shadow_slp",
+          "qualification": "standing body/shadow path"
+        },
+        "construction": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "construction animation/body path"
+        },
+        "damage": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "explicit_exact_shadow_slp",
+          "qualification": "standing shadow reused; damage flames remain procedural"
+        },
+        "death": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "death/rubble renderer path"
+        }
+      }
+    },
+    {
+      "kind": "watch_tower",
+      "category": "building",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "dat_static_composite",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "dat_static_composite",
+          "qualification": "standing body/shadow path"
+        },
+        "construction": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "construction animation/body path"
+        },
+        "damage": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "dat_static_composite",
+          "qualification": "standing shadow reused; damage flames remain procedural"
+        },
+        "death": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "death/rubble renderer path"
+        }
+      }
+    },
+    {
+      "kind": "stone_wall",
+      "category": "building",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_unique_layer10_runtime_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": {
+          "before": "procedural_fallback",
+          "after": "guarded_exact_DAT_shadow",
+          "renderer_path": "guarded_unique_layer10_runtime_binding",
+          "qualification": "standing body/shadow path"
+        },
+        "construction": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "construction animation/body path"
+        },
+        "damage": {
+          "before": "procedural_fallback",
+          "after": "guarded_exact_DAT_shadow",
+          "renderer_path": "guarded_unique_layer10_runtime_binding",
+          "qualification": "standing shadow reused; damage flames remain procedural"
+        },
+        "death": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "death/rubble renderer path"
+        }
+      }
+    },
+    {
+      "kind": "palisade_gate_x",
+      "category": "building",
+      "renderer_asset_status": "guaranteed_fallback",
+      "shadow_path": "procedural_fallback",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "standing body/shadow path"
+        },
+        "construction": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "construction animation/body path"
+        },
+        "damage": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "standing shadow reused; damage flames remain procedural"
+        },
+        "death": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "death/rubble renderer path"
+        }
+      }
+    },
+    {
+      "kind": "palisade_gate_y",
+      "category": "building",
+      "renderer_asset_status": "guaranteed_fallback",
+      "shadow_path": "procedural_fallback",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "standing body/shadow path"
+        },
+        "construction": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "construction animation/body path"
+        },
+        "damage": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "standing shadow reused; damage flames remain procedural"
+        },
+        "death": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "death/rubble renderer path"
+        }
+      }
+    },
+    {
+      "kind": "stone_gate_x",
+      "category": "building",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "dat_static_composite",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "dat_static_composite",
+          "qualification": "standing body/shadow path"
+        },
+        "construction": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "construction animation/body path"
+        },
+        "damage": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "dat_static_composite",
+          "qualification": "standing shadow reused; damage flames remain procedural"
+        },
+        "death": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "death/rubble renderer path"
+        }
+      }
+    },
+    {
+      "kind": "stone_gate_y",
+      "category": "building",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "dat_static_composite",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "dat_static_composite",
+          "qualification": "standing body/shadow path"
+        },
+        "construction": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "construction animation/body path"
+        },
+        "damage": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "dat_static_composite",
+          "qualification": "standing shadow reused; damage flames remain procedural"
+        },
+        "death": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "death/rubble renderer path"
+        }
+      }
+    },
+    {
+      "kind": "monastery",
+      "category": "building",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "dat_static_composite",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "dat_static_composite",
+          "qualification": "standing body/shadow path"
+        },
+        "construction": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "construction animation/body path"
+        },
+        "damage": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "dat_static_composite",
+          "qualification": "standing shadow reused; damage flames remain procedural"
+        },
+        "death": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "death/rubble renderer path"
+        }
+      }
+    },
+    {
+      "kind": "market",
+      "category": "building",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_unique_layer10_runtime_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": {
+          "before": "procedural_fallback",
+          "after": "guarded_exact_DAT_shadow",
+          "renderer_path": "guarded_unique_layer10_runtime_binding",
+          "qualification": "standing body/shadow path"
+        },
+        "construction": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "construction animation/body path"
+        },
+        "damage": {
+          "before": "procedural_fallback",
+          "after": "guarded_exact_DAT_shadow",
+          "renderer_path": "guarded_unique_layer10_runtime_binding",
+          "qualification": "standing shadow reused; damage flames remain procedural"
+        },
+        "death": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "death/rubble renderer path"
+        }
+      }
+    },
+    {
+      "kind": "dock",
+      "category": "building",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "dat_static_composite",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "dat_static_composite",
+          "qualification": "standing body/shadow path"
+        },
+        "construction": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "construction animation/body path"
+        },
+        "damage": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "dat_static_composite",
+          "qualification": "standing shadow reused; damage flames remain procedural"
+        },
+        "death": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "death/rubble renderer path"
+        }
+      }
+    },
+    {
+      "kind": "bombard_tower",
+      "category": "building",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_unique_layer10_runtime_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": {
+          "before": "procedural_fallback",
+          "after": "guarded_exact_DAT_shadow",
+          "renderer_path": "guarded_unique_layer10_runtime_binding",
+          "qualification": "standing body/shadow path"
+        },
+        "construction": {
+          "before": "procedural_fallback",
+          "after": "guarded_exact_DAT_shadow",
+          "renderer_path": "guarded_unique_layer10_runtime_binding",
+          "qualification": "construction animation/body path"
+        },
+        "damage": {
+          "before": "procedural_fallback",
+          "after": "guarded_exact_DAT_shadow",
+          "renderer_path": "guarded_unique_layer10_runtime_binding",
+          "qualification": "standing shadow reused; damage flames remain procedural"
+        },
+        "death": {
+          "before": "procedural_fallback",
+          "after": "guarded_exact_DAT_shadow",
+          "renderer_path": "guarded_unique_layer10_runtime_binding",
+          "qualification": "death/rubble renderer path"
+        }
+      }
+    },
+    {
+      "kind": "fish_trap",
+      "category": "building",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "guarded_unique_layer10_runtime_binding",
+      "live_binding": "resolved_at_runtime_from user DAT/DRS",
+      "states": {
+        "standing": {
+          "before": "procedural_fallback",
+          "after": "guarded_exact_DAT_shadow",
+          "renderer_path": "guarded_unique_layer10_runtime_binding",
+          "qualification": "standing body/shadow path"
+        },
+        "construction": {
+          "before": "procedural_fallback",
+          "after": "guarded_exact_DAT_shadow",
+          "renderer_path": "guarded_unique_layer10_runtime_binding",
+          "qualification": "construction animation/body path"
+        },
+        "damage": {
+          "before": "procedural_fallback",
+          "after": "guarded_exact_DAT_shadow",
+          "renderer_path": "guarded_unique_layer10_runtime_binding",
+          "qualification": "standing shadow reused; damage flames remain procedural"
+        },
+        "death": {
+          "before": "procedural_fallback",
+          "after": "procedural_fallback",
+          "renderer_path": "procedural_fallback",
+          "qualification": "death/rubble renderer path"
+        }
+      }
+    },
+    {
+      "kind": "outpost",
+      "category": "building",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "dat_static_composite",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "dat_static_composite",
+          "qualification": "standing body/shadow path"
+        },
+        "construction": {
+          "before": "procedural_fallback",
+          "after": "guarded_exact_DAT_shadow",
+          "renderer_path": "guarded_unique_layer10_runtime_binding",
+          "qualification": "construction animation/body path"
+        },
+        "damage": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "dat_static_composite",
+          "qualification": "standing shadow reused; damage flames remain procedural"
+        },
+        "death": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "existing_DAT_animation_shadow",
+          "qualification": "death/rubble renderer path"
+        }
+      }
+    },
+    {
+      "kind": "wonder",
+      "category": "building",
+      "renderer_asset_status": "mapped",
+      "shadow_path": "dat_static_composite",
+      "live_binding": "renderer source path",
+      "states": {
+        "standing": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "dat_static_composite",
+          "qualification": "standing body/shadow path"
+        },
+        "construction": {
+          "before": "procedural_fallback",
+          "after": "guarded_exact_DAT_shadow",
+          "renderer_path": "guarded_unique_layer10_runtime_binding",
+          "qualification": "construction animation/body path"
+        },
+        "damage": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "dat_static_composite",
+          "qualification": "standing shadow reused; damage flames remain procedural"
+        },
+        "death": {
+          "before": "exact_DAT_shadow",
+          "after": "exact_DAT_shadow",
+          "renderer_path": "existing_DAT_animation_shadow",
+          "qualification": "death/rubble renderer path"
+        }
+      }
+    }
+  ]
+}

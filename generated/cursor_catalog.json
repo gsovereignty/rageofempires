@@ -1,0 +1,261 @@
+{
+  "schema": "aoe-cursor-catalog-v1",
+  "source": {
+    "interfac_drs": "interfac.drs",
+    "interfac_drs_sha256": "cb9e4d0f59d6cdb7af70da38cc910d0c33d210fe2d2a73dea17ef52a4ac8826e",
+    "slp_resource_id": 51000,
+    "slp_payload_sha256": "44c68278a1c1dc0677549e9747d3503b3a538d05f643ccc904b62785cab8512b",
+    "hd_executable": "AoK HD.exe",
+    "hd_executable_sha256": "e23272e21014fb281f71a21ef96a6437ab8b322f4978fd4998be835be219edcc"
+  },
+  "executable_evidence": {
+    "filename": "mcursors.shp",
+    "resource_id": 51000,
+    "resource_binding_classification": "exact_hd_executable_load",
+    "decompile_evidence": "ppuStack_78 = 0xc738; pcStack_7c = \"mcursors.shp\"; FUN_005e5140()",
+    "state_to_frame_contract": "partial_exact_hd_executable",
+    "classic_aoc_state_mapping": "unknown",
+    "manager_selector": {
+      "function": "FUN_004dcca0",
+      "vtable_offset": "0x1c",
+      "behavior": "accepts 0 <= frame < 19 and stores the frame directly",
+      "cadence": "none; selected frame persists until another selector"
+    },
+    "proved_selectors": [
+      {
+        "state": "normal",
+        "frame_index": 0,
+        "callsite": "FUN_005b2f20",
+        "evidence": "LoadCursorA(IDC_ARROW); FUN_004ed910(0)"
+      },
+      {
+        "state": "modal_busy",
+        "frame_index": 6,
+        "callsite": "FUN_005b2ec0",
+        "evidence": "LoadCursorA(IDC_WAIT); FUN_004ed910(6)"
+      }
+    ],
+    "unproved_gameplay_states": [
+      "select",
+      "move",
+      "attack",
+      "gather",
+      "build",
+      "repair",
+      "heal",
+      "convert",
+      "invalid",
+      "scroll_north",
+      "scroll_north_east",
+      "scroll_east",
+      "scroll_south_east",
+      "scroll_south",
+      "scroll_south_west",
+      "scroll_west",
+      "scroll_north_west"
+    ],
+    "visibility": {
+      "show": "FUN_004ed780 -> manager vtable +0x38",
+      "hide": "FUN_004ed7e0 -> manager vtable +0x34",
+      "classification": "exact_hd_executable_control_flow"
+    }
+  },
+  "summary": {
+    "frame_count": 19,
+    "frames_with_exact_dimensions": 19,
+    "frames_with_exact_hotspots": 19,
+    "frames_with_proved_context_state": 2
+  },
+  "frames": [
+    {
+      "frame_index": 0,
+      "width": 24,
+      "height": 32,
+      "hotspot_x": 0,
+      "hotspot_y": 0,
+      "metadata_classification": "exact_archive_header",
+      "context_state": "normal",
+      "context_state_classification": "exact_hd_executable_selector"
+    },
+    {
+      "frame_index": 1,
+      "width": 26,
+      "height": 38,
+      "hotspot_x": 13,
+      "hotspot_y": 19,
+      "metadata_classification": "exact_archive_header",
+      "context_state": null,
+      "context_state_classification": "unknown"
+    },
+    {
+      "frame_index": 2,
+      "width": 42,
+      "height": 22,
+      "hotspot_x": 21,
+      "hotspot_y": 11,
+      "metadata_classification": "exact_archive_header",
+      "context_state": null,
+      "context_state_classification": "unknown"
+    },
+    {
+      "frame_index": 3,
+      "width": 37,
+      "height": 37,
+      "hotspot_x": 1,
+      "hotspot_y": 0,
+      "metadata_classification": "exact_archive_header",
+      "context_state": null,
+      "context_state_classification": "unknown"
+    },
+    {
+      "frame_index": 4,
+      "width": 35,
+      "height": 33,
+      "hotspot_x": 0,
+      "hotspot_y": 0,
+      "metadata_classification": "exact_archive_header",
+      "context_state": null,
+      "context_state_classification": "unknown"
+    },
+    {
+      "frame_index": 5,
+      "width": 54,
+      "height": 29,
+      "hotspot_x": 27,
+      "hotspot_y": 15,
+      "metadata_classification": "exact_archive_header",
+      "context_state": null,
+      "context_state_classification": "unknown"
+    },
+    {
+      "frame_index": 6,
+      "width": 27,
+      "height": 32,
+      "hotspot_x": 0,
+      "hotspot_y": 0,
+      "metadata_classification": "exact_archive_header",
+      "context_state": "modal_busy",
+      "context_state_classification": "exact_hd_executable_selector"
+    },
+    {
+      "frame_index": 7,
+      "width": 35,
+      "height": 35,
+      "hotspot_x": 0,
+      "hotspot_y": 17,
+      "metadata_classification": "exact_archive_header",
+      "context_state": null,
+      "context_state_classification": "unknown"
+    },
+    {
+      "frame_index": 8,
+      "width": 35,
+      "height": 37,
+      "hotspot_x": 0,
+      "hotspot_y": 13,
+      "metadata_classification": "exact_archive_header",
+      "context_state": null,
+      "context_state_classification": "unknown"
+    },
+    {
+      "frame_index": 9,
+      "width": 28,
+      "height": 46,
+      "hotspot_x": 0,
+      "hotspot_y": 0,
+      "metadata_classification": "exact_archive_header",
+      "context_state": null,
+      "context_state_classification": "unknown"
+    },
+    {
+      "frame_index": 10,
+      "width": 39,
+      "height": 39,
+      "hotspot_x": 0,
+      "hotspot_y": 0,
+      "metadata_classification": "exact_archive_header",
+      "context_state": null,
+      "context_state_classification": "unknown"
+    },
+    {
+      "frame_index": 11,
+      "width": 40,
+      "height": 28,
+      "hotspot_x": 5,
+      "hotspot_y": 0,
+      "metadata_classification": "exact_archive_header",
+      "context_state": null,
+      "context_state_classification": "unknown"
+    },
+    {
+      "frame_index": 12,
+      "width": 36,
+      "height": 22,
+      "hotspot_x": 18,
+      "hotspot_y": 9,
+      "metadata_classification": "exact_archive_header",
+      "context_state": null,
+      "context_state_classification": "unknown"
+    },
+    {
+      "frame_index": 13,
+      "width": 32,
+      "height": 38,
+      "hotspot_x": 0,
+      "hotspot_y": 0,
+      "metadata_classification": "exact_archive_header",
+      "context_state": null,
+      "context_state_classification": "unknown"
+    },
+    {
+      "frame_index": 14,
+      "width": 32,
+      "height": 38,
+      "hotspot_x": 0,
+      "hotspot_y": 0,
+      "metadata_classification": "exact_archive_header",
+      "context_state": null,
+      "context_state_classification": "unknown"
+    },
+    {
+      "frame_index": 15,
+      "width": 43,
+      "height": 42,
+      "hotspot_x": 2,
+      "hotspot_y": 0,
+      "metadata_classification": "exact_archive_header",
+      "context_state": null,
+      "context_state_classification": "unknown"
+    },
+    {
+      "frame_index": 16,
+      "width": 45,
+      "height": 43,
+      "hotspot_x": 7,
+      "hotspot_y": 0,
+      "metadata_classification": "exact_archive_header",
+      "context_state": null,
+      "context_state_classification": "unknown"
+    },
+    {
+      "frame_index": 17,
+      "width": 32,
+      "height": 26,
+      "hotspot_x": 15,
+      "hotspot_y": 17,
+      "metadata_classification": "exact_archive_header",
+      "context_state": null,
+      "context_state_classification": "unknown"
+    },
+    {
+      "frame_index": 18,
+      "width": 45,
+      "height": 41,
+      "hotspot_x": 23,
+      "hotspot_y": 40,
+      "metadata_classification": "exact_archive_header",
+      "context_state": null,
+      "context_state_classification": "unknown"
+    }
+  ]
+}

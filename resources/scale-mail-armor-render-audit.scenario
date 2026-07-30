@@ -1,0 +1,15 @@
+# Scale Mail Armor audit: upgraded infantry beside excluded Villagers.
+AOE-ARCHAEOLOGY-SCENARIO 28
+map 18 10
+economy blue 0 0 0 0
+economy red 0 0 0 0
+age blue feudal
+age red feudal
+technology blue scale_mail_armor
+building blacksmith blue 1 1
+unit man_at_arms blue 5 3 stance passive
+unit spearman blue 6 4 stance passive
+unit villager blue 4 5 stance passive
+unit man_at_arms red 11 4 stance passive
+unit villager red 10 5 stance passive
+building house red 15 7

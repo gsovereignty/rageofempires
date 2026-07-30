@@ -1,0 +1,206 @@
+{
+  "source_format": "AOE_VER_5_7_METADATA_V1",
+  "scope": "represented garrison buildings and raw combat fields",
+  "buildings": {
+    "watch_tower": {
+      "id": 79,
+      "unit_class": 52,
+      "garrison_capacity": 5,
+      "garrison_type_raw": 11,
+      "garrison_heal_rate_raw": 0.10000000149011612,
+      "garrison_repair_rate_raw": 0.0,
+      "combat": {
+        "weapons": [
+          {
+            "amount": 2,
+            "class": 27
+          },
+          {
+            "amount": 0,
+            "class": 11
+          },
+          {
+            "amount": 7,
+            "class": 16
+          },
+          {
+            "amount": 5,
+            "class": 3
+          }
+        ],
+        "range_min": 1.0,
+        "range_max": 8.0,
+        "area_effect_range": 0.0,
+        "blast_level_offense": 0,
+        "reload_time": 2.0,
+        "missile_unit": 504,
+        "accuracy": 100
+      }
+    },
+    "castle": {
+      "id": 82,
+      "unit_class": 3,
+      "garrison_capacity": 20,
+      "garrison_type_raw": 15,
+      "garrison_heal_rate_raw": 0.20000000298023224,
+      "garrison_repair_rate_raw": 0.0,
+      "combat": {
+        "weapons": [
+          {
+            "amount": 2,
+            "class": 27
+          },
+          {
+            "amount": 0,
+            "class": 16
+          },
+          {
+            "amount": 11,
+            "class": 3
+          }
+        ],
+        "range_min": 1.0,
+        "range_max": 8.0,
+        "area_effect_range": 0.0,
+        "blast_level_offense": 0,
+        "reload_time": 2.0,
+        "missile_unit": 746,
+        "accuracy": 100
+      }
+    },
+    "town_center": {
+      "id": 109,
+      "unit_class": 3,
+      "garrison_capacity": 15,
+      "garrison_type_raw": 11,
+      "garrison_heal_rate_raw": 0.10000000149011612,
+      "garrison_repair_rate_raw": 0.0,
+      "combat": {
+        "weapons": [
+          {
+            "amount": 5,
+            "class": 3
+          }
+        ],
+        "range_min": 0.0,
+        "range_max": 6.0,
+        "area_effect_range": 0.0,
+        "blast_level_offense": 0,
+        "reload_time": 2.0,
+        "missile_unit": null,
+        "accuracy": 100
+      }
+    },
+    "guard_tower": {
+      "id": 234,
+      "unit_class": 52,
+      "garrison_capacity": 5,
+      "garrison_type_raw": 11,
+      "garrison_heal_rate_raw": 0.10000000149011612,
+      "garrison_repair_rate_raw": 0.0,
+      "combat": {
+        "weapons": [
+          {
+            "amount": 2,
+            "class": 27
+          },
+          {
+            "amount": 0,
+            "class": 11
+          },
+          {
+            "amount": 9,
+            "class": 16
+          },
+          {
+            "amount": 6,
+            "class": 3
+          }
+        ],
+        "range_min": 1.0,
+        "range_max": 8.0,
+        "area_effect_range": 0.0,
+        "blast_level_offense": 0,
+        "reload_time": 2.0,
+        "missile_unit": 504,
+        "accuracy": 100
+      }
+    },
+    "keep": {
+      "id": 235,
+      "unit_class": 52,
+      "garrison_capacity": 5,
+      "garrison_type_raw": 11,
+      "garrison_heal_rate_raw": 0.10000000149011612,
+      "garrison_repair_rate_raw": 0.0,
+      "combat": {
+        "weapons": [
+          {
+            "amount": 2,
+            "class": 27
+          },
+          {
+            "amount": 0,
+            "class": 11
+          },
+          {
+            "amount": 10,
+            "class": 16
+          },
+          {
+            "amount": 7,
+            "class": 3
+          }
+        ],
+        "range_min": 1.0,
+        "range_max": 8.0,
+        "area_effect_range": 0.0,
+        "blast_level_offense": 0,
+        "reload_time": 2.0,
+        "missile_unit": 504,
+        "accuracy": 100
+      }
+    },
+    "bombard_tower": {
+      "id": 236,
+      "unit_class": 52,
+      "garrison_capacity": 5,
+      "garrison_type_raw": 11,
+      "garrison_heal_rate_raw": 0.10000000149011612,
+      "garrison_repair_rate_raw": 0.0,
+      "combat": {
+        "weapons": [
+          {
+            "amount": 40,
+            "class": 16
+          },
+          {
+            "amount": 120,
+            "class": 3
+          }
+        ],
+        "range_min": 1.0,
+        "range_max": 8.0,
+        "area_effect_range": 0.0,
+        "blast_level_offense": 2,
+        "reload_time": 6.0,
+        "missile_unit": 506,
+        "accuracy": 92
+      }
+    }
+  },
+  "validation_boundary": {
+    "dat_proves": [
+      "raw garrison capacity",
+      "raw garrison type, heal-rate and repair-rate fields",
+      "weapon classes, range, reload, accuracy, projectile and blast fields"
+    ],
+    "original_runtime_required": [
+      "garrison type-mask interpretation and accepted unit classes",
+      "capacity modifiers and occupancy cost",
+      "garrisoned projectile contribution and target selection",
+      "ejection, healing, repair, conversion and destruction behavior",
+      "area-effect and blast-level runtime filtering"
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+# Bracer audit: selected fully upgraded Crossbowman and Keep fire.
+AOE-ARCHAEOLOGY-SCENARIO 28
+map 20 11
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue imperial
+age red castle
+technology blue fletching
+technology blue bodkin_arrow
+technology blue bracer
+technology blue guard_tower
+technology blue keep
+technology red fletching
+technology red bodkin_arrow
+
+building blacksmith blue 1 1
+unit crossbowman blue 5 4 stance passive
+building watch_tower blue 8 2
+unit militia red 14 3 stance passive
+building watch_tower red 15 5
+building house red 17 8

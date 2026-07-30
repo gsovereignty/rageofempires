@@ -1,0 +1,921 @@
+{
+  "source_format": "AOE_VER_5_7_METADATA_V1",
+  "scope": "represented radial and attack-dispersion weapon records",
+  "weapons": {
+    "bombard_cannon": {
+      "id": 36,
+      "unit_class": 13,
+      "area_effect_level_raw": 3,
+      "combat": {
+        "weapons": [
+          {
+            "amount": 200,
+            "class": 11
+          },
+          {
+            "amount": 40,
+            "class": 16
+          },
+          {
+            "amount": 40,
+            "class": 4
+          },
+          {
+            "amount": 20,
+            "class": 20
+          },
+          {
+            "amount": 40,
+            "class": 13
+          }
+        ],
+        "range_min": 5.0,
+        "range_max": 12.0,
+        "area_effect_range": 0.5,
+        "blast_level_offense": 2,
+        "missed_missile_spread": 0.0,
+        "missile_unit": 368,
+        "accuracy": 92,
+        "weapon_offset": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "attack_dispersion": {
+        "volley_fire_amount": 1.0,
+        "max_attacks_in_volley": 1,
+        "volley_spread": [
+          1.0,
+          1.0
+        ],
+        "volley_start_spread_adjustment": 1.0,
+        "volley_missile_unit": null,
+        "special_attack_flag": 0
+      }
+    },
+    "trebuchet_unpacked": {
+      "id": 42,
+      "unit_class": 54,
+      "area_effect_level_raw": 3,
+      "combat": {
+        "weapons": [
+          {
+            "amount": 250,
+            "class": 11
+          },
+          {
+            "amount": 200,
+            "class": 3
+          }
+        ],
+        "range_min": 4.0,
+        "range_max": 16.0,
+        "area_effect_range": 0.0,
+        "blast_level_offense": 1,
+        "missed_missile_spread": 0.20000000298023224,
+        "missile_unit": 371,
+        "accuracy": 15,
+        "weapon_offset": [
+          0.0,
+          0.25,
+          9.5
+        ]
+      },
+      "attack_dispersion": {
+        "volley_fire_amount": 1.0,
+        "max_attacks_in_volley": 1,
+        "volley_spread": [
+          1.0,
+          1.0
+        ],
+        "volley_start_spread_adjustment": 1.0,
+        "volley_missile_unit": null,
+        "special_attack_flag": 0
+      }
+    },
+    "bombard_tower": {
+      "id": 236,
+      "unit_class": 52,
+      "area_effect_level_raw": 2,
+      "combat": {
+        "weapons": [
+          {
+            "amount": 40,
+            "class": 16
+          },
+          {
+            "amount": 120,
+            "class": 3
+          }
+        ],
+        "range_min": 1.0,
+        "range_max": 8.0,
+        "area_effect_range": 0.0,
+        "blast_level_offense": 2,
+        "missed_missile_spread": 0.0,
+        "missile_unit": 506,
+        "accuracy": 92,
+        "weapon_offset": [
+          0.0,
+          1.0,
+          5.0
+        ]
+      },
+      "attack_dispersion": {
+        "volley_fire_amount": 0.0,
+        "max_attacks_in_volley": 0,
+        "volley_spread": [
+          0.0,
+          0.0
+        ],
+        "volley_start_spread_adjustment": 0.0,
+        "volley_missile_unit": null,
+        "special_attack_flag": 0
+      }
+    },
+    "scorpion": {
+      "id": 279,
+      "unit_class": 55,
+      "area_effect_level_raw": 3,
+      "combat": {
+        "weapons": [
+          {
+            "amount": 2,
+            "class": 11
+          },
+          {
+            "amount": 6,
+            "class": 5
+          },
+          {
+            "amount": 0,
+            "class": 4
+          },
+          {
+            "amount": 12,
+            "class": 3
+          },
+          {
+            "amount": 1,
+            "class": 17
+          }
+        ],
+        "range_min": 2.0,
+        "range_max": 7.0,
+        "area_effect_range": 0.0,
+        "blast_level_offense": 0,
+        "missed_missile_spread": 0.0,
+        "missile_unit": 367,
+        "accuracy": 100,
+        "weapon_offset": [
+          0.0,
+          0.20000000298023224,
+          0.5
+        ]
+      },
+      "attack_dispersion": {
+        "volley_fire_amount": 1.0,
+        "max_attacks_in_volley": 1,
+        "volley_spread": [
+          1.0,
+          1.0
+        ],
+        "volley_start_spread_adjustment": 1.0,
+        "volley_missile_unit": null,
+        "special_attack_flag": 0
+      }
+    },
+    "mangonel": {
+      "id": 280,
+      "unit_class": 13,
+      "area_effect_level_raw": 3,
+      "combat": {
+        "weapons": [
+          {
+            "amount": 35,
+            "class": 11
+          },
+          {
+            "amount": 40,
+            "class": 4
+          },
+          {
+            "amount": 12,
+            "class": 20
+          }
+        ],
+        "range_min": 3.0,
+        "range_max": 7.0,
+        "area_effect_range": 1.0,
+        "blast_level_offense": 2,
+        "missed_missile_spread": 0.0,
+        "missile_unit": 656,
+        "accuracy": 100,
+        "weapon_offset": [
+          0.0,
+          0.0,
+          1.7999999523162842
+        ]
+      },
+      "attack_dispersion": {
+        "volley_fire_amount": 6.0,
+        "max_attacks_in_volley": 6,
+        "volley_spread": [
+          1.0,
+          1.0
+        ],
+        "volley_start_spread_adjustment": 99.0,
+        "volley_missile_unit": 369,
+        "special_attack_flag": 0
+      }
+    },
+    "trebuchet_packed": {
+      "id": 331,
+      "unit_class": 51,
+      "area_effect_level_raw": 3,
+      "combat": {
+        "weapons": [],
+        "range_min": 4.0,
+        "range_max": 16.0,
+        "area_effect_range": 0.0,
+        "blast_level_offense": 0,
+        "missed_missile_spread": 0.0,
+        "missile_unit": null,
+        "accuracy": 92,
+        "weapon_offset": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "attack_dispersion": {
+        "volley_fire_amount": 1.0,
+        "max_attacks_in_volley": 1,
+        "volley_spread": [
+          1.0,
+          1.0
+        ],
+        "volley_start_spread_adjustment": 1.0,
+        "volley_missile_unit": null,
+        "special_attack_flag": 0
+      }
+    },
+    "cannon_galleon": {
+      "id": 420,
+      "unit_class": 22,
+      "area_effect_level_raw": 3,
+      "combat": {
+        "weapons": [
+          {
+            "amount": 200,
+            "class": 11
+          },
+          {
+            "amount": 15,
+            "class": 1
+          },
+          {
+            "amount": 35,
+            "class": 4
+          },
+          {
+            "amount": 15,
+            "class": 15
+          },
+          {
+            "amount": 15,
+            "class": 8
+          },
+          {
+            "amount": 40,
+            "class": 20
+          }
+        ],
+        "range_min": 3.0,
+        "range_max": 13.0,
+        "area_effect_range": 0.0,
+        "blast_level_offense": 2,
+        "missed_missile_spread": 0.10000000149011612,
+        "missile_unit": 374,
+        "accuracy": 50,
+        "weapon_offset": [
+          0.0,
+          1.2000000476837158,
+          1.7999999523162842
+        ]
+      },
+      "attack_dispersion": {
+        "volley_fire_amount": 0.0,
+        "max_attacks_in_volley": 0,
+        "volley_spread": [
+          0.0,
+          0.0
+        ],
+        "volley_start_spread_adjustment": 0.0,
+        "volley_missile_unit": null,
+        "special_attack_flag": 0
+      }
+    },
+    "petard": {
+      "id": 440,
+      "unit_class": 35,
+      "area_effect_level_raw": 3,
+      "combat": {
+        "weapons": [
+          {
+            "amount": 100,
+            "class": 26
+          },
+          {
+            "amount": 500,
+            "class": 11
+          },
+          {
+            "amount": 25,
+            "class": 4
+          },
+          {
+            "amount": 60,
+            "class": 20
+          },
+          {
+            "amount": 900,
+            "class": 22
+          }
+        ],
+        "range_min": 0.0,
+        "range_max": 0.0,
+        "area_effect_range": 0.5,
+        "blast_level_offense": 2,
+        "missed_missile_spread": 0.0,
+        "missile_unit": null,
+        "accuracy": 100,
+        "weapon_offset": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "attack_dispersion": {
+        "volley_fire_amount": 0.0,
+        "max_attacks_in_volley": 0,
+        "volley_spread": [
+          0.0,
+          0.0
+        ],
+        "volley_start_spread_adjustment": 0.0,
+        "volley_missile_unit": null,
+        "special_attack_flag": 0
+      }
+    },
+    "demolition_ship": {
+      "id": 527,
+      "unit_class": 22,
+      "area_effect_level_raw": 3,
+      "combat": {
+        "weapons": [
+          {
+            "amount": 220,
+            "class": 11
+          },
+          {
+            "amount": 110,
+            "class": 4
+          }
+        ],
+        "range_min": 0.0,
+        "range_max": 0.0,
+        "area_effect_range": 2.5,
+        "blast_level_offense": 2,
+        "missed_missile_spread": 0.0,
+        "missile_unit": null,
+        "accuracy": 100,
+        "weapon_offset": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "attack_dispersion": {
+        "volley_fire_amount": 0.0,
+        "max_attacks_in_volley": 0,
+        "volley_spread": [
+          0.0,
+          0.0
+        ],
+        "volley_start_spread_adjustment": 0.0,
+        "volley_missile_unit": null,
+        "special_attack_flag": 0
+      }
+    },
+    "heavy_demolition_ship": {
+      "id": 528,
+      "unit_class": 22,
+      "area_effect_level_raw": 3,
+      "combat": {
+        "weapons": [
+          {
+            "amount": 280,
+            "class": 11
+          },
+          {
+            "amount": 140,
+            "class": 4
+          }
+        ],
+        "range_min": 0.0,
+        "range_max": 0.0,
+        "area_effect_range": 3.5,
+        "blast_level_offense": 2,
+        "missed_missile_spread": 0.0,
+        "missile_unit": null,
+        "accuracy": 100,
+        "weapon_offset": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "attack_dispersion": {
+        "volley_fire_amount": 0.0,
+        "max_attacks_in_volley": 0,
+        "volley_spread": [
+          0.0,
+          0.0
+        ],
+        "volley_start_spread_adjustment": 0.0,
+        "volley_missile_unit": null,
+        "special_attack_flag": 0
+      }
+    },
+    "heavy_scorpion": {
+      "id": 542,
+      "unit_class": 55,
+      "area_effect_level_raw": 3,
+      "combat": {
+        "weapons": [
+          {
+            "amount": 4,
+            "class": 11
+          },
+          {
+            "amount": 8,
+            "class": 5
+          },
+          {
+            "amount": 0,
+            "class": 4
+          },
+          {
+            "amount": 16,
+            "class": 3
+          },
+          {
+            "amount": 2,
+            "class": 17
+          }
+        ],
+        "range_min": 2.0,
+        "range_max": 7.0,
+        "area_effect_range": 0.0,
+        "blast_level_offense": 0,
+        "missed_missile_spread": 0.0,
+        "missile_unit": 627,
+        "accuracy": 100,
+        "weapon_offset": [
+          0.0,
+          0.20000000298023224,
+          0.5
+        ]
+      },
+      "attack_dispersion": {
+        "volley_fire_amount": 1.0,
+        "max_attacks_in_volley": 1,
+        "volley_spread": [
+          1.0,
+          1.0
+        ],
+        "volley_start_spread_adjustment": 1.0,
+        "volley_missile_unit": null,
+        "special_attack_flag": 0
+      }
+    },
+    "onager": {
+      "id": 550,
+      "unit_class": 13,
+      "area_effect_level_raw": 3,
+      "combat": {
+        "weapons": [
+          {
+            "amount": 45,
+            "class": 11
+          },
+          {
+            "amount": 50,
+            "class": 4
+          },
+          {
+            "amount": 12,
+            "class": 20
+          }
+        ],
+        "range_min": 3.0,
+        "range_max": 8.0,
+        "area_effect_range": 1.25,
+        "blast_level_offense": 2,
+        "missed_missile_spread": 0.0,
+        "missile_unit": 656,
+        "accuracy": 100,
+        "weapon_offset": [
+          0.0,
+          0.0,
+          1.7999999523162842
+        ]
+      },
+      "attack_dispersion": {
+        "volley_fire_amount": 8.0,
+        "max_attacks_in_volley": 8,
+        "volley_spread": [
+          1.25,
+          1.25
+        ],
+        "volley_start_spread_adjustment": 99.0,
+        "volley_missile_unit": 369,
+        "special_attack_flag": 0
+      }
+    },
+    "siege_onager": {
+      "id": 588,
+      "unit_class": 13,
+      "area_effect_level_raw": 3,
+      "combat": {
+        "weapons": [
+          {
+            "amount": 60,
+            "class": 11
+          },
+          {
+            "amount": 75,
+            "class": 4
+          },
+          {
+            "amount": 12,
+            "class": 20
+          }
+        ],
+        "range_min": 3.0,
+        "range_max": 8.0,
+        "area_effect_range": 1.5,
+        "blast_level_offense": 1,
+        "missed_missile_spread": 0.0,
+        "missile_unit": 656,
+        "accuracy": 100,
+        "weapon_offset": [
+          0.0,
+          0.0,
+          1.7999999523162842
+        ]
+      },
+      "attack_dispersion": {
+        "volley_fire_amount": 10.0,
+        "max_attacks_in_volley": 10,
+        "volley_spread": [
+          1.5,
+          1.5
+        ],
+        "volley_start_spread_adjustment": 99.0,
+        "volley_missile_unit": 369,
+        "special_attack_flag": 0
+      }
+    },
+    "elite_cannon_galleon": {
+      "id": 691,
+      "unit_class": 22,
+      "area_effect_level_raw": 3,
+      "combat": {
+        "weapons": [
+          {
+            "amount": 275,
+            "class": 11
+          },
+          {
+            "amount": 15,
+            "class": 1
+          },
+          {
+            "amount": 45,
+            "class": 4
+          },
+          {
+            "amount": 15,
+            "class": 15
+          },
+          {
+            "amount": 15,
+            "class": 8
+          },
+          {
+            "amount": 40,
+            "class": 20
+          }
+        ],
+        "range_min": 3.0,
+        "range_max": 15.0,
+        "area_effect_range": 0.0,
+        "blast_level_offense": 2,
+        "missed_missile_spread": 0.10000000149011612,
+        "missile_unit": 374,
+        "accuracy": 50,
+        "weapon_offset": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "attack_dispersion": {
+        "volley_fire_amount": 0.0,
+        "max_attacks_in_volley": 0,
+        "volley_spread": [
+          0.0,
+          0.0
+        ],
+        "volley_start_spread_adjustment": 0.0,
+        "volley_missile_unit": null,
+        "special_attack_flag": 0
+      }
+    }
+  },
+  "projectiles": {
+    "367": {
+      "id": 367,
+      "unit_class": 11,
+      "area_effect_level_raw": 0,
+      "combat": {
+        "weapons": [
+          {
+            "amount": 1,
+            "class": 11
+          },
+          {
+            "amount": 3,
+            "class": 5
+          },
+          {
+            "amount": 6,
+            "class": 3
+          }
+        ],
+        "range_min": 0.0,
+        "range_max": 0.0,
+        "area_effect_range": 0.0,
+        "blast_level_offense": 3,
+        "missed_missile_spread": 0.0,
+        "missile_unit": null,
+        "accuracy": 100,
+        "weapon_offset": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "missile_raw": {
+        "area_effect_specials": 0,
+        "ballistics_ratio": 0.0,
+        "missile_die_info": 1,
+        "missile_hit_info": 1,
+        "missile_type": 0,
+        "targetting_type": 0
+      }
+    },
+    "368": {
+      "id": 368,
+      "unit_class": 11,
+      "area_effect_level_raw": 0,
+      "combat": {
+        "weapons": [],
+        "range_min": 0.0,
+        "range_max": 25.0,
+        "area_effect_range": 0.0,
+        "blast_level_offense": 2,
+        "missed_missile_spread": 0.0,
+        "missile_unit": null,
+        "accuracy": 100,
+        "weapon_offset": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "missile_raw": {
+        "area_effect_specials": 0,
+        "ballistics_ratio": -0.05000000074505806,
+        "missile_die_info": 0,
+        "missile_hit_info": 0,
+        "missile_type": 0,
+        "targetting_type": 0
+      }
+    },
+    "369": {
+      "id": 369,
+      "unit_class": 11,
+      "area_effect_level_raw": 0,
+      "combat": {
+        "weapons": [],
+        "range_min": 0.0,
+        "range_max": 25.0,
+        "area_effect_range": 0.0,
+        "blast_level_offense": 2,
+        "missed_missile_spread": 0.0,
+        "missile_unit": null,
+        "accuracy": 100,
+        "weapon_offset": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "missile_raw": {
+        "area_effect_specials": 0,
+        "ballistics_ratio": 0.4000000059604645,
+        "missile_die_info": 0,
+        "missile_hit_info": 0,
+        "missile_type": 0,
+        "targetting_type": 0
+      }
+    },
+    "371": {
+      "id": 371,
+      "unit_class": 11,
+      "area_effect_level_raw": 0,
+      "combat": {
+        "weapons": [],
+        "range_min": 0.0,
+        "range_max": 25.0,
+        "area_effect_range": 0.0,
+        "blast_level_offense": 1,
+        "missed_missile_spread": 0.20000000298023224,
+        "missile_unit": null,
+        "accuracy": 15,
+        "weapon_offset": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "missile_raw": {
+        "area_effect_specials": 0,
+        "ballistics_ratio": 0.6499999761581421,
+        "missile_die_info": 0,
+        "missile_hit_info": 0,
+        "missile_type": 0,
+        "targetting_type": 0
+      }
+    },
+    "374": {
+      "id": 374,
+      "unit_class": 11,
+      "area_effect_level_raw": 0,
+      "combat": {
+        "weapons": [],
+        "range_min": 0.0,
+        "range_max": 25.0,
+        "area_effect_range": 0.0,
+        "blast_level_offense": 2,
+        "missed_missile_spread": 0.0,
+        "missile_unit": null,
+        "accuracy": 100,
+        "weapon_offset": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "missile_raw": {
+        "area_effect_specials": 0,
+        "ballistics_ratio": 0.4000000059604645,
+        "missile_die_info": 0,
+        "missile_hit_info": 0,
+        "missile_type": 0,
+        "targetting_type": 0
+      }
+    },
+    "506": {
+      "id": 506,
+      "unit_class": 11,
+      "area_effect_level_raw": 0,
+      "combat": {
+        "weapons": [],
+        "range_min": 0.0,
+        "range_max": 25.0,
+        "area_effect_range": 0.0,
+        "blast_level_offense": 3,
+        "missed_missile_spread": 0.0,
+        "missile_unit": null,
+        "accuracy": 100,
+        "weapon_offset": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "missile_raw": {
+        "area_effect_specials": 0,
+        "ballistics_ratio": 0.30000001192092896,
+        "missile_die_info": 0,
+        "missile_hit_info": 1,
+        "missile_type": 0,
+        "targetting_type": 0
+      }
+    },
+    "627": {
+      "id": 627,
+      "unit_class": 11,
+      "area_effect_level_raw": 0,
+      "combat": {
+        "weapons": [
+          {
+            "amount": 2,
+            "class": 11
+          },
+          {
+            "amount": 4,
+            "class": 5
+          },
+          {
+            "amount": 8,
+            "class": 3
+          },
+          {
+            "amount": 1,
+            "class": 17
+          }
+        ],
+        "range_min": 0.0,
+        "range_max": 0.0,
+        "area_effect_range": 0.0,
+        "blast_level_offense": 3,
+        "missed_missile_spread": 0.0,
+        "missile_unit": null,
+        "accuracy": 100,
+        "weapon_offset": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "missile_raw": {
+        "area_effect_specials": 0,
+        "ballistics_ratio": 0.0,
+        "missile_die_info": 1,
+        "missile_hit_info": 1,
+        "missile_type": 0,
+        "targetting_type": 0
+      }
+    },
+    "656": {
+      "id": 656,
+      "unit_class": 11,
+      "area_effect_level_raw": 0,
+      "combat": {
+        "weapons": [],
+        "range_min": 0.0,
+        "range_max": 25.0,
+        "area_effect_range": 0.0,
+        "blast_level_offense": 2,
+        "missed_missile_spread": 0.0,
+        "missile_unit": null,
+        "accuracy": 100,
+        "weapon_offset": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "missile_raw": {
+        "area_effect_specials": 0,
+        "ballistics_ratio": 0.4000000059604645,
+        "missile_die_info": 0,
+        "missile_hit_info": 0,
+        "missile_type": 0,
+        "targetting_type": 0
+      }
+    }
+  },
+  "validation_boundary": {
+    "dat_proves": [
+      "raw minimum and maximum range fields",
+      "raw area-effect range and area/blast level fields",
+      "raw missed-missile and volley spread fields",
+      "raw weapon offset, projectile links and missile attributes"
+    ],
+    "original_runtime_required": [
+      "distance metric, impact center and area shape",
+      "damage falloff or uniform-damage behavior",
+      "blast-level and area-effect-level target filtering",
+      "friendly-fire, collision and footprint interaction",
+      "missed-shot sampling and volley projectile placement",
+      "projectile flight, impact, terrain and elevation behavior"
+    ]
+  }
+}

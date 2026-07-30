@@ -1,0 +1,13 @@
+# Selected Loom-upgraded Villager exposes 40 HP and 1/2 armor in HUD.
+AOE-ARCHAEOLOGY-SCENARIO 28
+map 12 8
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue dark
+age red dark
+technology blue loom
+
+unit villager blue 5 4 stance passive
+unit militia red 7 4 stance passive
+building town_center blue 0 3
+building house red 9 2

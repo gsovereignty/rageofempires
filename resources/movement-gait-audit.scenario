@@ -1,0 +1,12 @@
+# Focused renderer audit for foot, hoof, and siege-wheel movement.
+AOE-ARCHAEOLOGY-SCENARIO 27
+map 12 8
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue castle
+age red castle
+
+unit villager blue 1 1 waypoint 6 1 stance passive
+unit scout_cavalry blue 1 3 waypoint 6 3 stance passive
+unit battering_ram blue 1 5 waypoint 6 5 stance passive
+unit villager red 10 7 stance passive

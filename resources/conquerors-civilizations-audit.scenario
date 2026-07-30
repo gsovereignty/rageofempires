@@ -1,0 +1,15 @@
+# Conquerors audit: Korean tower/villager vision against Mayan archers.
+AOE-ARCHAEOLOGY-SCENARIO 31
+map 18 10
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue castle
+age red castle
+diplomacy enemy
+civilization blue koreans
+civilization red mayans
+
+unit villager blue 4 6 stance passive
+unit archer red 13 6 stance passive
+building watch_tower blue 6 4
+building archery_range red 14 2

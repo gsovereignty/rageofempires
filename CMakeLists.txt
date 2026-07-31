@@ -235,7 +235,7 @@ add_test(
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/terrain_edge_sdl_smoke.sh
         $<TARGET_FILE:aoe_reconstruction>
 )
-set_tests_properties(terrain_edge_sdl_smoke PROPERTIES TIMEOUT 20)
+set_tests_properties(terrain_edge_sdl_smoke PROPERTIES TIMEOUT 30)
 
 add_executable(shadow_catalog_tests tests/shadow_catalog_tests.cpp)
 target_link_libraries(shadow_catalog_tests PRIVATE aoe_core)

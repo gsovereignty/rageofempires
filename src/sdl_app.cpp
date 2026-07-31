@@ -680,10 +680,6 @@ struct LegacySprites {
     std::array<std::array<LegacySprite, 5>, 8>
         palisade_wall_by_owner;
     PlayerLegacySprites palisade_wall_flags;
-    std::array<std::array<std::array<LegacySprite, 4>, 5>, 4>
-        town_center_layers_blue;
-    std::array<std::array<std::array<LegacySprite, 4>, 5>, 4>
-        town_center_layers_red;
     std::map<
         BuildingKind,
         std::array<std::array<PlayerLegacyComposite, 5>, 4>
@@ -885,16 +881,6 @@ struct LegacySprites {
             for (LegacySprite& sprite : owner) sprite.destroy();
         }
         palisade_wall_flags.destroy();
-        for (auto& age : town_center_layers_blue) {
-            for (auto& family : age) {
-                for (LegacySprite& sprite : family) sprite.destroy();
-            }
-        }
-        for (auto& age : town_center_layers_red) {
-            for (auto& family : age) {
-                for (LegacySprite& sprite : family) sprite.destroy();
-            }
-        }
         for (auto& [kind, ages] : building_composites) {
             static_cast<void>(kind);
             for (auto& families : ages) {
@@ -4164,35 +4150,6 @@ LegacySprites load_local_legacy_sprites(
                 {{820, 817, 819, 818, -1}},
                 {{3797, 3794, 3796, 3795, -1}},
             }};
-        constexpr std::array<
-            std::array<std::array<std::int32_t, 4>, 4>,
-            4
-        > town_center_layer_slps{{
-            {{
-                {{889, 890, 3596, 4612}},
-                {{889, 890, 3596, 4612}},
-                {{889, 890, 3596, 4612}},
-                {{889, 890, 3596, 4612}},
-            }},
-            {{
-                {{895, 899, 3608, 4624}},
-                {{892, 896, 3605, 4621}},
-                {{894, 898, 3607, 4623}},
-                {{893, 897, 3606, 4622}},
-            }},
-            {{
-                {{907, 911, 3620, 4636}},
-                {{904, 908, 3617, 4633}},
-                {{906, 910, 3619, 4635}},
-                {{905, 909, 3618, 4634}},
-            }},
-            {{
-                {{919, 923, 3476, 4648}},
-                {{916, 920, 3473, 4645}},
-                {{918, 922, 3475, 4647}},
-                {{917, 921, 3474, 4646}},
-            }},
-        }};
         for (std::size_t age = 0; age < house_slps.size(); ++age) {
             for (std::size_t family = 0;
                  family < house_slps[age].size();
@@ -4217,24 +4174,6 @@ LegacySprites load_local_legacy_sprites(
                     town_center_age_slps[age][family],
                     2
                 );
-                for (std::size_t layer = 0; layer < 4; ++layer) {
-                    const std::size_t layer_family =
-                        family < town_center_layer_slps[age].size()
-                        ? family
-                        : 0U;
-                    attempt(
-                        sprites
-                            .town_center_layers_blue[age][family][layer],
-                        town_center_layer_slps[age][layer_family][layer],
-                        1
-                    );
-                    attempt(
-                        sprites
-                            .town_center_layers_red[age][family][layer],
-                        town_center_layer_slps[age][layer_family][layer],
-                        2
-                    );
-                }
             }
         }
         for (std::size_t family = 0;
@@ -6880,28 +6819,15 @@ void render_building(
                 building.owner == Player::blue
                 ? active_legacy_sprites.town_center_age_blue
                 : active_legacy_sprites.town_center_age_red;
-            const auto& layers =
-                building.owner == Player::blue
-                ? active_legacy_sprites.town_center_layers_blue
-                : active_legacy_sprites.town_center_layers_red;
             const SDL_FPoint ground{
                 top.x, top.y + half_tile_height
             };
-            // Supplied Town Center root SLPs are not standalone rendered
-            // images. Keep the known base authoritative and add every
-            // available component; missing optional layers remain harmless.
+            // Age/family base is already a coherent rendered Town Center.
+            // Neighboring DAT component SLPs have independent displaced art;
+            // drawing them here adds unrelated poles and fragments.
             rendered_original = render_legacy_sprite(
                 renderer, base[age][family], ground
             );
-            if (rendered_original) {
-                for (const LegacySprite& layer : layers[age][family]) {
-                    if (layer.texture != nullptr) {
-                        (void)render_legacy_sprite(
-                            renderer, layer, ground
-                        );
-                    }
-                }
-            }
         }
         if (rendered_original) {
             if (building.hit_points < maximum_hit_points ||

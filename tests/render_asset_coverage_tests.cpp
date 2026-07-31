@@ -830,6 +830,131 @@ void building_resolver_selects_age_family_and_reviewed_farm() {
             "Town Center renderer must isolate requested current Age"
         );
     }
+    state.object_kind = "town_center";
+    state.building_state = aoe::RenderBuildingState::completed;
+    state.age = aoe::Age::feudal;
+    state.civilization = aoe::Civilization::mayans;
+    state.architecture_family =
+        aoe::render_building_architecture_family(
+            aoe::BuildingKind::town_center,
+            state.civilization
+        );
+    const auto mayan_town_center = aoe::resolve_building_asset(
+        state, aoe::BuildingKind::town_center
+    );
+    require(
+        state.architecture_family == 4 &&
+        mayan_town_center.request.graphic_id == 6986,
+        "Mesoamerican Town Center must select exact X-family Feudal root"
+    );
+    const auto* town_center_mapping =
+        aoe::building_composite_set(aoe::BuildingKind::town_center);
+    require(
+        town_center_mapping != nullptr &&
+        town_center_mapping->composition_policy ==
+            aoe::CompositePolicy::complete_root,
+        "present Town Center root SLP must not expand its DAT deltas"
+    );
+
+    state.object_kind = "monastery";
+    state.age = aoe::Age::castle;
+    state.civilization = aoe::Civilization::mayans;
+    state.architecture_family =
+        aoe::render_building_architecture_family(
+            aoe::BuildingKind::monastery,
+            state.civilization
+        );
+    const auto missing_mayan_monastery = aoe::resolve_building_asset(
+        state, aoe::BuildingKind::monastery
+    );
+    require(
+        missing_mayan_monastery.status ==
+            aoe::AssetCoverageStatus::missing_mapping &&
+        !missing_mayan_monastery.request.graphic_id,
+        "missing selected X-family mapping must not borrow another family"
+    );
+
+    const auto* dock_mapping =
+        aoe::building_composite_set(aoe::BuildingKind::dock);
+    require(
+        dock_mapping != nullptr &&
+        dock_mapping->composition_policy ==
+            aoe::CompositePolicy::delta_graph,
+        "SLP-less Dock root must retain selected-root delta composition"
+    );
+    require(
+        aoe::render_component_animation_frame(1, 999, true) == 0 &&
+        aoe::render_component_animation_frame(6, 14, true) == 1 &&
+        aoe::render_component_animation_frame(6, 14, false) == 0 &&
+        !aoe::render_component_animation_frame(0, 14, true),
+        "each composite layer must bound elapsed phase to its own frames"
+    );
+
+    for (const aoe::BuildingCompositeSet& mapping :
+         aoe::canonical_building_composite_sets()) {
+        for (int raw_age = 0; raw_age < 4; ++raw_age) {
+            for (int family = 0; family < 5; ++family) {
+                state.object_kind =
+                    aoe::render_building_kind_name(mapping.kind);
+                state.age = static_cast<aoe::Age>(raw_age);
+                state.architecture_family = family;
+                state.upgrade_variant =
+                    mapping.kind == aoe::BuildingKind::watch_tower
+                    ? std::min(raw_age, 2)
+                    : 0;
+                const int variant =
+                    aoe::render_building_composite_variant(
+                        mapping.kind,
+                        state.age,
+                        state.upgrade_variant
+                    );
+                const auto resolution = aoe::resolve_building_asset(
+                    state, mapping.kind
+                );
+                const std::int16_t expected =
+                    mapping.graphic_roots[
+                        static_cast<std::size_t>(variant)
+                    ][static_cast<std::size_t>(family)];
+                require(
+                    expected < 0
+                        ? resolution.status ==
+                            aoe::AssetCoverageStatus::missing_mapping
+                        : resolution.request.graphic_id == expected,
+                    "catalog/runtime composite selection parity failed"
+                );
+            }
+        }
+    }
+
+    for (const aoe::BuildingDirectSlpSet& mapping :
+         aoe::canonical_building_direct_slp_sets()) {
+        for (int raw_age = 0; raw_age < 4; ++raw_age) {
+            for (int family = 0; family < 5; ++family) {
+                state.object_kind =
+                    aoe::render_building_kind_name(mapping.kind);
+                state.age = static_cast<aoe::Age>(raw_age);
+                state.architecture_family = family;
+                state.upgrade_variant = 0;
+                const auto visual_age =
+                    aoe::render_building_visual_age(
+                        mapping.kind, state.age
+                    );
+                const std::int32_t expected = mapping.slps[
+                    static_cast<std::size_t>(visual_age)
+                ][static_cast<std::size_t>(family)];
+                const auto resolution = aoe::resolve_building_asset(
+                    state, mapping.kind
+                );
+                require(
+                    expected < 0
+                        ? resolution.status ==
+                            aoe::AssetCoverageStatus::missing_mapping
+                        : resolution.request.slp_id == expected,
+                    "catalog/runtime direct-SLP selection parity failed"
+                );
+            }
+        }
+    }
     state.object_kind = "palisade_gate_x";
     state.building_state = aoe::RenderBuildingState::construction;
     state.civilization = aoe::Civilization::mayans;

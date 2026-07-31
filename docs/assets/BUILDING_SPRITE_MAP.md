@@ -152,6 +152,12 @@ Every edge is anchored at `(0,0)` with display angle `-1`; every node has
 order within a layer. The composite roots listed above are all present in
 `graphics.drs`, so they are the preferred complete images.
 
+Renderer invariant: draw a present complete root SLP once. DAT deltas remain
+composition evidence and are not expanded over that root. Delta traversal is
+used only for an explicitly classified SLP-less/container root. All children
+then come from that selected root, with accumulated offsets, lower layers
+first, and stable DAT order within equal layers.
+
 The dark-age DAG is:
 
 | Graphic | SLP | Layer | Archive |

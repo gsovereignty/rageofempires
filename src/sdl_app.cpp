@@ -644,20 +644,20 @@ struct LegacySprites {
     PlayerLegacySprites longboat_attack;
     PlayerLegacySprites longboat_idle;
     PlayerLegacySprites longboat_move;
-    std::array<std::array<LegacySprite, 4>, 4> house_blue;
-    std::array<std::array<LegacySprite, 4>, 4> house_red;
-    std::array<std::array<LegacySprite, 4>, 4> town_center_age_blue;
-    std::array<std::array<LegacySprite, 4>, 4> town_center_age_red;
-    std::array<std::array<LegacySprite, 4>, 2> blacksmith_blue;
-    std::array<std::array<LegacySprite, 4>, 2> blacksmith_red;
-    std::array<LegacySprite, 4> lumber_camp_blue;
-    std::array<LegacySprite, 4> lumber_camp_red;
-    std::array<LegacySprite, 4> mining_camp_blue;
-    std::array<LegacySprite, 4> mining_camp_red;
-    std::array<std::array<LegacySprite, 4>, 2> university_blue;
-    std::array<std::array<LegacySprite, 4>, 2> university_red;
-    std::array<std::array<LegacySprite, 4>, 3> market_age_blue;
-    std::array<std::array<LegacySprite, 4>, 3> market_age_red;
+    std::array<std::array<LegacySprite, 5>, 4> house_blue;
+    std::array<std::array<LegacySprite, 5>, 4> house_red;
+    std::array<std::array<LegacySprite, 5>, 4> town_center_age_blue;
+    std::array<std::array<LegacySprite, 5>, 4> town_center_age_red;
+    std::array<std::array<LegacySprite, 5>, 2> blacksmith_blue;
+    std::array<std::array<LegacySprite, 5>, 2> blacksmith_red;
+    std::array<LegacySprite, 5> lumber_camp_blue;
+    std::array<LegacySprite, 5> lumber_camp_red;
+    std::array<LegacySprite, 5> mining_camp_blue;
+    std::array<LegacySprite, 5> mining_camp_red;
+    std::array<std::array<LegacySprite, 5>, 2> university_blue;
+    std::array<std::array<LegacySprite, 5>, 2> university_red;
+    std::array<std::array<LegacySprite, 5>, 3> market_age_blue;
+    std::array<std::array<LegacySprite, 5>, 3> market_age_red;
     std::array<
         std::array<std::array<LegacySprite, 5>, 5>,
         8
@@ -676,7 +676,7 @@ struct LegacySprites {
         town_center_layers_red;
     std::map<
         BuildingKind,
-        std::array<std::array<PlayerLegacyComposite, 4>, 4>
+        std::array<std::array<PlayerLegacyComposite, 5>, 4>
     > building_composites;
     std::map<BuildingKind, PlayerLegacyAnimatedComposite>
         building_construction_composites;
@@ -4013,41 +4013,41 @@ LegacySprites load_local_legacy_sprites(
         );
         // Direct composite SLPs proved through strict unit upgrade links.
         // Family order: western, eastern, Mediterranean, far-eastern.
-        constexpr std::array<std::array<std::int32_t, 4>, 4>
+        constexpr std::array<std::array<std::int32_t, 5>, 4>
             house_slps{{
-                {{2223, 2223, 2223, 2223}},
-                {{2235, 2232, 2234, 2233}},
-                {{2247, 2244, 2246, 2245}},
-                {{2247, 2244, 2246, 2245}},
+                {{2223, 2223, 2223, 2223, 2223}},
+                {{2235, 2232, 2234, 2233, 5038}},
+                {{2247, 2244, 2246, 2245, 5041}},
+                {{2247, 2244, 2246, 2245, 5041}},
             }};
-        constexpr std::array<std::array<std::int32_t, 4>, 4>
+        constexpr std::array<std::array<std::int32_t, 5>, 4>
             town_center_age_slps{{
-                {{891, 891, 891, 891}},
-                {{903, 900, 902, 901}},
-                {{915, 912, 914, 913}},
-                {{927, 924, 926, 925}},
+                {{3596, 3596, 3596, 3596, 3596}},
+                {{3608, 3605, 3607, 3606, 5069}},
+                {{3620, 3617, 3619, 3618, 5078}},
+                {{3476, 3473, 3475, 3474, 5087}},
             }};
-        constexpr std::array<std::array<std::int32_t, 4>, 2>
+        constexpr std::array<std::array<std::int32_t, 5>, 2>
             blacksmith_slps{{
-                {{93, 90, 92, 91}},
-                {{105, 102, 104, 103}},
+                {{93, 90, 92, 91, 4931}},
+                {{105, 102, 104, 103, 4934}},
             }};
-        constexpr std::array<std::int32_t, 4> lumber_camp_slps{
-            3507, 3504, 3506, 3505
+        constexpr std::array<std::int32_t, 5> lumber_camp_slps{
+            3507, 3504, 3506, 3505, 5106
         };
-        constexpr std::array<std::int32_t, 4> mining_camp_slps{
-            3495, 3492, 3494, 3493
+        constexpr std::array<std::int32_t, 5> mining_camp_slps{
+            3495, 3492, 3494, 3493, 5055
         };
-        constexpr std::array<std::array<std::int32_t, 4>, 2>
+        constexpr std::array<std::array<std::int32_t, 5>, 2>
             university_slps{{
-                {{3835, 3832, 3834, 3833}},
-                {{3839, 3836, 3838, 3837}},
+                {{3835, 3832, 3834, 3833, 5119}},
+                {{3839, 3836, 3838, 3837, 5122}},
             }};
-        constexpr std::array<std::array<std::int32_t, 4>, 3>
+        constexpr std::array<std::array<std::int32_t, 5>, 3>
             market_age_slps{{
-                {{2278, 2275, 2277, 2276}},
-                {{820, 817, 819, 818}},
-                {{3797, 3794, 3796, 3795}},
+                {{2278, 2275, 2277, 2276, -1}},
+                {{820, 817, 819, 818, -1}},
+                {{3797, 3794, 3796, 3795, -1}},
             }};
         constexpr std::array<
             std::array<std::array<std::int32_t, 4>, 4>,
@@ -4102,23 +4102,27 @@ LegacySprites load_local_legacy_sprites(
                     town_center_age_slps[age][family],
                     2
                 );
-                for (std::size_t layer = 0; layer < 4; ++layer) {
-                    attempt(
-                        sprites
-                            .town_center_layers_blue[age][family][layer],
-                        town_center_layer_slps[age][family][layer],
-                        1
-                    );
-                    attempt(
-                        sprites
-                            .town_center_layers_red[age][family][layer],
-                        town_center_layer_slps[age][family][layer],
-                        2
-                    );
+                if (family < 4) {
+                    for (std::size_t layer = 0; layer < 4; ++layer) {
+                        attempt(
+                            sprites
+                                .town_center_layers_blue[age][family][layer],
+                            town_center_layer_slps[age][family][layer],
+                            1
+                        );
+                        attempt(
+                            sprites
+                                .town_center_layers_red[age][family][layer],
+                            town_center_layer_slps[age][family][layer],
+                            2
+                        );
+                    }
                 }
             }
         }
-        for (std::size_t family = 0; family < 4; ++family) {
+        for (std::size_t family = 0;
+             family < blacksmith_slps[0].size();
+             ++family) {
             for (std::size_t age = 0; age < 2; ++age) {
                 attempt_building_shadowed(
                     sprites.blacksmith_blue[age][family],
@@ -4394,7 +4398,8 @@ LegacySprites load_local_legacy_sprites(
                     attempt_composite(
                         composites[age][family],
                         roots[age][family],
-                        mapping->expand_deltas
+                        mapping->composition_policy ==
+                            CompositePolicy::delta_graph
                     );
                 }
             }
@@ -5224,15 +5229,16 @@ bool render_legacy_animated_composite(
                 angle %= static_cast<int>(stored_angles);
             }
         }
-        const std::size_t action_frame =
-            active && animation.frames_per_angle > 1
-            ? static_cast<std::size_t>(animation_tick / 2) %
-                animation.frames_per_angle
-            : 0U;
+        const auto action_frame = render_component_animation_frame(
+            animation.frames_per_angle,
+            animation_tick,
+            active
+        );
+        if (!action_frame) return false;
         const std::size_t frame_index =
             static_cast<std::size_t>(angle) *
                 animation.frames_per_angle +
-            action_frame;
+            *action_frame;
         if (frame_index >= animation.frames.size() ||
             !render_legacy_sprite(
                 renderer,
@@ -6570,19 +6576,11 @@ void render_building(
     if (exact_composite_kind && building.completed()) {
         const Civilization civilization =
             simulation.civilization(building.owner);
-        const std::size_t family =
-            civilization == Civilization::teutons ||
-            civilization == Civilization::goths ||
-            civilization == Civilization::vikings
-            ? 1U
-            : civilization == Civilization::byzantines ||
-              civilization == Civilization::persians ||
-              civilization == Civilization::saracens
-                ? 2U
-                : civilization == Civilization::japanese ||
-                  civilization == Civilization::chinese
-                    ? 3U
-                    : 0U;
+        const std::size_t family = static_cast<std::size_t>(
+            render_building_architecture_family(
+                building.kind, civilization
+            )
+        );
         const std::size_t age = static_cast<std::size_t>(
             render_building_composite_variant(
                 building.kind,
@@ -6702,19 +6700,11 @@ void render_building(
          building.kind == BuildingKind::university)) {
         const Civilization civilization =
             simulation.civilization(building.owner);
-        const std::size_t family =
-            civilization == Civilization::teutons ||
-            civilization == Civilization::goths ||
-            civilization == Civilization::vikings
-            ? 1U
-            : civilization == Civilization::byzantines ||
-              civilization == Civilization::persians ||
-              civilization == Civilization::saracens
-                ? 2U
-                : civilization == Civilization::japanese ||
-                  civilization == Civilization::chinese
-                    ? 3U
-                    : 0U;
+        const std::size_t family = static_cast<std::size_t>(
+            render_building_architecture_family(
+                building.kind, civilization
+            )
+        );
         const LegacySprite* sprite = nullptr;
         if (building.kind == BuildingKind::blacksmith) {
             const std::size_t style =
@@ -6772,19 +6762,11 @@ void render_building(
         building.completed()) {
         const Civilization civilization =
             simulation.civilization(building.owner);
-        const std::size_t family =
-            civilization == Civilization::teutons ||
-            civilization == Civilization::goths ||
-            civilization == Civilization::vikings
-            ? 1U
-            : civilization == Civilization::byzantines ||
-              civilization == Civilization::persians ||
-              civilization == Civilization::saracens
-                ? 2U
-                : civilization == Civilization::japanese ||
-                  civilization == Civilization::chinese
-                    ? 3U
-                    : 0U;
+        const std::size_t family = static_cast<std::size_t>(
+            render_building_architecture_family(
+                building.kind, civilization
+            )
+        );
         const std::size_t age = static_cast<std::size_t>(
             render_building_visual_age(
                 building.kind, simulation.age(building.owner)
@@ -6806,29 +6788,14 @@ void render_building(
                 building.owner == Player::blue
                 ? active_legacy_sprites.town_center_age_blue
                 : active_legacy_sprites.town_center_age_red;
-            const auto& layers =
-                building.owner == Player::blue
-                ? active_legacy_sprites.town_center_layers_blue
-                : active_legacy_sprites.town_center_layers_red;
             const SDL_FPoint ground{
                 top.x, top.y + half_tile_height
             };
-            // Supplied archives omit several documented Town Center
-            // component SLPs. A valid current-age base remains authoritative;
-            // draw only present current-age layers and never mix a
-            // procedural/future-age building over that partial composite.
+            // Each selected root SLP is complete. Its DAT deltas document
+            // composition but must not be drawn over the root again.
             rendered_original = render_legacy_sprite(
                 renderer, base[age][family], ground
             );
-            if (rendered_original) {
-                for (const LegacySprite& layer : layers[age][family]) {
-                    if (layer.texture != nullptr) {
-                        (void)render_legacy_sprite(
-                            renderer, layer, ground
-                        );
-                    }
-                }
-            }
         }
         if (rendered_original) {
             if (building.hit_points < maximum_hit_points ||

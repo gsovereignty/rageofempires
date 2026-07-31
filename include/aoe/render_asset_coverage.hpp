@@ -153,10 +153,18 @@ struct NavalCompositeSet {
     bool expand_deltas{true};
 };
 
+enum class CompositePolicy {
+    // Draw complete root SLP only. DAT deltas describe source composition and
+    // must not be drawn over an already-composed archive image.
+    complete_root,
+    // Root has no drawable SLP; draw its selected DAT delta graph.
+    delta_graph,
+};
+
 struct BuildingCompositeSet {
     BuildingKind kind{BuildingKind::town_center};
-    std::array<std::array<std::int16_t, 4>, 4> graphic_roots{};
-    bool expand_deltas{true};
+    std::array<std::array<std::int16_t, 5>, 4> graphic_roots{};
+    CompositePolicy composition_policy{CompositePolicy::complete_root};
 };
 
 struct BuildingStateRoot {
@@ -168,7 +176,7 @@ struct BuildingStateRoot {
 
 struct BuildingDirectSlpSet {
     BuildingKind kind{BuildingKind::house};
-    std::array<std::array<std::int32_t, 4>, 4> slps{};
+    std::array<std::array<std::int32_t, 5>, 4> slps{};
     bool static_shadow{};
 };
 
@@ -366,6 +374,12 @@ render_unit_elevation_endpoints(
     BuildingKind kind,
     Age current_age,
     int upgrade_variant
+);
+[[nodiscard]] std::optional<std::size_t>
+render_component_animation_frame(
+    std::size_t frames_per_angle,
+    std::uint64_t animation_tick,
+    bool active
 );
 [[nodiscard]] std::string render_unit_kind_name(UnitKind kind);
 [[nodiscard]] std::string render_building_kind_name(BuildingKind kind);

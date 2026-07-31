@@ -112,8 +112,9 @@ covered because one action succeeds.
   resolves to SLP `3623`, and that resource is absent from every supplied
   `graphics.drs`. Runtime loading preserves exact
   `missing_archive_resource` evidence. No supported replacement ID is known.
-- Town Center completed composites reference absent SLPs `890`, `896`, `897`,
-  `899`, `908`, `909`, `910`, and `911`.
+- Town Center delta graphs reference absent SLPs `890`, `896`, `897`, `899`,
+  `908`, `909`, `910`, and `911`. Completed rendering remains available
+  because every selected root SLP is present and complete.
 - Barracks composites reference absent main-body SLPs `122`–`125` and
   `134`–`137`.
 - Mill composites reference absent required SLPs `731`, `2516`, and `3481`.
@@ -151,19 +152,26 @@ foundation, all four construction stages, completed, all four damage stages
 with overlay roots, dying, and destroyed. State values use stable names rather
 than enum ordinals.
 
-Runtime loading retains exact composite failure reasons. Example: Town Center
-root `3241` records `missing_composite_part` with child graphic `434` and
-absent SLP `890`; runtime/static comparison rejects a broader
-`renderer_failure` classification. Player palettes, civilization-specific
-damage roots, and architecture families preload only when required by the
-scenario. Eight-owner scenarios still load every required palette.
+Completed-building selection now carries an explicit composition policy.
+`complete_root` draws only selected root SLP; `delta_graph` is reserved for a
+root such as Dock graphic `215`, whose DAT record has no SLP. Earlier Town
+Center loading drew a current-Age base, complete root, and available DAT
+children together. That root-plus-delta path duplicated one building graph
+and could resemble a larger shell around current body. Runtime now loads exact
+current-Age/civilization root SLP and draws it once.
 
-Town Center runtime composition treats its current-Age base as authoritative
-and draws only present layers from that same Age. Documented absent component
-SLPs no longer cause a partially rendered archive composite to fall through
-into a procedural building. Construction availability remains separate from
-visual Age: the starting Town Center uses Dark-Age art even though additional
-Town Center construction has a later prerequisite.
+Visual selection uses explicit replacement/minimum-Age rules and never scans
+forward until any family has art. Missing selected family returns
+`missing_mapping`. Mesoamerican House, Town Center, Barracks, Mill, Archery
+Range, Stable, Castle, Siege Workshop, and Watch Tower use proved fifth-family
+roots. Scenario-placed Stone Gates explicitly clamp to Castle visual Age;
+Watch/Guard/Keep remain technology variant slots independent of Age index.
+
+`building_age_graphics_sdl_smoke` captures Dark, Feudal, Castle, and Imperial
+tracked fixtures under SDL software rendering. Color-component, occupancy,
+extent, ROI, and outside-ROI checks reject oversized or nested fallback
+silhouettes. Exact root IDs and composition policies are asserted separately
+in `render_asset_coverage_tests`, so hermetic CI needs no proprietary graphics.
 
 The expanded runtime suite exposed and now guards two former disagreements:
 absent root SLP `2263` is allowed only when a naval DAT root has drawable

@@ -181,94 +181,94 @@ constexpr NavalCompositeSet naval_composite_sets[] = {
 
 constexpr BuildingCompositeSet building_composite_sets[] = {
     {BuildingKind::town_center, {{
-        {{3241, 3241, 3241, 3241}},
-        {{3253, 3250, 3252, 3251}},
-        {{3265, 3262, 3264, 3263}},
-        {{3041, 3038, 3040, 3039}},
+        {{3241, 3241, 3241, 3241, 3241}},
+        {{3253, 3250, 3252, 3251, 6986}},
+        {{3265, 3262, 3264, 3263, 7002}},
+        {{3041, 3038, 3040, 3039, 7018}},
     }}},
     {BuildingKind::barracks, {{
-        {{2575, 2575, 2575, 2575}},
-        {{93, 90, 92, 91}},
-        {{105, 102, 104, 103}},
-        {{105, 102, 104, 103}},
+        {{2575, 2575, 2575, 2575, 2575}},
+        {{93, 90, 92, 91, 6698}},
+        {{105, 102, 104, 103, 6706}},
+        {{105, 102, 104, 103, 6706}},
     }}},
     {BuildingKind::mill, {{
-        {{3124, 3124, 3124, 3124}},
-        {{368, 365, 367, 366}},
-        {{380, 377, 379, 378}},
-        {{380, 377, 379, 378}},
+        {{3124, 3124, 3124, 3124, 3124}},
+        {{368, 365, 367, 366, 6923}},
+        {{380, 377, 379, 378, 6930}},
+        {{380, 377, 379, 378, 6930}},
     }}},
     {BuildingKind::archery_range, {{
-        {{-1, -1, -1, -1}},
-        {{12, 9, 11, 10}},
-        {{24, 21, 23, 22}},
-        {{24, 21, 23, 22}},
-    }}, false},
+        {{-1, -1, -1, -1, -1}},
+        {{12, 9, 11, 10, 6658}},
+        {{24, 21, 23, 22, 6665}},
+        {{24, 21, 23, 22, 6665}},
+    }}},
     {BuildingKind::watch_tower, {{
-        {{4202, 4199, 4201, 4200}},
-        {{2532, 2529, 2531, 2530}},
-        {{2407, 2404, 2406, 2405}},
-        {{-1, -1, -1, -1}},
+        {{4202, 4199, 4201, 4200, 7116}},
+        {{2532, 2529, 2531, 2530, 7123}},
+        {{2407, 2404, 2406, 2405, 7131}},
+        {{-1, -1, -1, -1, -1}},
     }}},
     {BuildingKind::stable, {{
-        {{-1, -1, -1, -1}},
-        {{513, 510, 512, 511}},
-        {{525, 522, 524, 523}},
-        {{525, 522, 524, 523}},
-    }}, false},
-    {BuildingKind::castle, {{
-        {{-1, -1, -1, -1}},
-        {{-1, -1, -1, -1}},
-        {{174, 171, 173, 172}},
-        {{174, 171, 173, 172}},
-    }}, false},
-    {BuildingKind::siege_workshop, {{
-        {{-1, -1, -1, -1}},
-        {{-1, -1, -1, -1}},
-        {{489, 486, 488, 487}},
-        {{489, 486, 488, 487}},
-    }}, false},
-    {BuildingKind::dock, {{
-        {{215, 215, 215, 215}},
-        {{215, 215, 215, 215}},
-        {{215, 215, 215, 215}},
-        {{215, 215, 215, 215}},
+        {{-1, -1, -1, -1, -1}},
+        {{513, 510, 512, 511, 7061}},
+        {{525, 522, 524, 523, 7068}},
+        {{525, 522, 524, 523, 7068}},
     }}},
+    {BuildingKind::castle, {{
+        {{-1, -1, -1, -1, -1}},
+        {{-1, -1, -1, -1, -1}},
+        {{174, 171, 173, 172, 6747}},
+        {{174, 171, 173, 172, 6747}},
+    }}},
+    {BuildingKind::siege_workshop, {{
+        {{-1, -1, -1, -1, -1}},
+        {{-1, -1, -1, -1, -1}},
+        {{489, 486, 488, 487, 7042}},
+        {{489, 486, 488, 487, 7042}},
+    }}},
+    {BuildingKind::dock, {{
+        {{215, 215, 215, 215, 215}},
+        {{215, 215, 215, 215, 215}},
+        {{215, 215, 215, 215, 215}},
+        {{215, 215, 215, 215, 215}},
+    }}, CompositePolicy::delta_graph},
     {BuildingKind::outpost, {{
-        {{3223, 3223, 3223, 3223}},
-        {{3223, 3223, 3223, 3223}},
-        {{3223, 3223, 3223, 3223}},
-        {{3223, 3223, 3223, 3223}},
+        {{3223, 3223, 3223, 3223, 3223}},
+        {{3223, 3223, 3223, 3223, 3223}},
+        {{3223, 3223, 3223, 3223, 3223}},
+        {{3223, 3223, 3223, 3223, 3223}},
     }}},
     {BuildingKind::monastery, {{
-        {{-1, -1, -1, -1}},
-        {{-1, -1, -1, -1}},
-        {{150, 147, 149, 148}},
-        {{150, 147, 149, 148}},
-    }}, false},
+        {{-1, -1, -1, -1, -1}},
+        {{-1, -1, -1, -1, -1}},
+        {{150, 147, 149, 148, -1}},
+        {{150, 147, 149, 148, -1}},
+    }}},
     {BuildingKind::stone_gate_x, {{
-        {{-1, -1, -1, -1}},
-        {{-1, -1, -1, -1}},
-        {{6497, 6497, 6497, 6497}},
-        {{6497, 6497, 6497, 6497}},
-    }}, false},
+        {{-1, -1, -1, -1, -1}},
+        {{-1, -1, -1, -1, -1}},
+        {{6497, 6497, 6497, 6497, -1}},
+        {{6497, 6497, 6497, 6497, -1}},
+    }}},
     {BuildingKind::stone_gate_y, {{
-        {{-1, -1, -1, -1}},
-        {{-1, -1, -1, -1}},
-        {{6518, 6518, 6518, 6518}},
-        {{6518, 6518, 6518, 6518}},
-    }}, false},
+        {{-1, -1, -1, -1, -1}},
+        {{-1, -1, -1, -1, -1}},
+        {{6518, 6518, 6518, 6518, -1}},
+        {{6518, 6518, 6518, 6518, -1}},
+    }}},
     {BuildingKind::palisade_gate_x, {{
-        {{6512, 6512, 6512, 6512}},
-        {{6512, 6512, 6512, 6512}},
-        {{6512, 6512, 6512, 6512}},
-        {{6512, 6512, 6512, 6512}},
+        {{6512, 6512, 6512, 6512, 6512}},
+        {{6512, 6512, 6512, 6512, 6512}},
+        {{6512, 6512, 6512, 6512, 6512}},
+        {{6512, 6512, 6512, 6512, 6512}},
     }}},
     {BuildingKind::palisade_gate_y, {{
-        {{6533, 6533, 6533, 6533}},
-        {{6533, 6533, 6533, 6533}},
-        {{6533, 6533, 6533, 6533}},
-        {{6533, 6533, 6533, 6533}},
+        {{6533, 6533, 6533, 6533, 6533}},
+        {{6533, 6533, 6533, 6533, 6533}},
+        {{6533, 6533, 6533, 6533, 6533}},
+        {{6533, 6533, 6533, 6533, 6533}},
     }}},
 };
 
@@ -324,46 +324,46 @@ constexpr BuildingStateRoot building_state_roots[] = {
 
 constexpr BuildingDirectSlpSet building_direct_slp_sets[] = {
     {BuildingKind::bombard_tower, {{
-        {{2549, 2549, 2549, 2549}},
-        {{2549, 2549, 2549, 2549}},
-        {{2549, 2549, 2549, 2549}},
-        {{2549, 2549, 2549, 2549}},
+        {{2549, 2549, 2549, 2549, 2549}},
+        {{2549, 2549, 2549, 2549, 2549}},
+        {{2549, 2549, 2549, 2549, 2549}},
+        {{2549, 2549, 2549, 2549, 2549}},
     }}, true},
     {BuildingKind::house, {{
-        {{2223, 2223, 2223, 2223}},
-        {{2235, 2232, 2234, 2233}},
-        {{2247, 2244, 2246, 2245}},
-        {{2247, 2244, 2246, 2245}},
+        {{2223, 2223, 2223, 2223, 2223}},
+        {{2235, 2232, 2234, 2233, 5038}},
+        {{2247, 2244, 2246, 2245, 5041}},
+        {{2247, 2244, 2246, 2245, 5041}},
     }}, true},
     {BuildingKind::blacksmith, {{
-        {{93, 90, 92, 91}},
-        {{93, 90, 92, 91}},
-        {{105, 102, 104, 103}},
-        {{105, 102, 104, 103}},
+        {{93, 90, 92, 91, 4931}},
+        {{93, 90, 92, 91, 4931}},
+        {{105, 102, 104, 103, 4934}},
+        {{105, 102, 104, 103, 4934}},
     }}, true},
     {BuildingKind::lumber_camp, {{
-        {{3507, 3504, 3506, 3505}},
-        {{3507, 3504, 3506, 3505}},
-        {{3507, 3504, 3506, 3505}},
-        {{3507, 3504, 3506, 3505}},
+        {{3507, 3504, 3506, 3505, 5106}},
+        {{3507, 3504, 3506, 3505, 5106}},
+        {{3507, 3504, 3506, 3505, 5106}},
+        {{3507, 3504, 3506, 3505, 5106}},
     }}, true},
     {BuildingKind::mining_camp, {{
-        {{3495, 3492, 3494, 3493}},
-        {{3495, 3492, 3494, 3493}},
-        {{3495, 3492, 3494, 3493}},
-        {{3495, 3492, 3494, 3493}},
+        {{3495, 3492, 3494, 3493, 5055}},
+        {{3495, 3492, 3494, 3493, 5055}},
+        {{3495, 3492, 3494, 3493, 5055}},
+        {{3495, 3492, 3494, 3493, 5055}},
     }}, true},
     {BuildingKind::university, {{
-        {{3835, 3832, 3834, 3833}},
-        {{3835, 3832, 3834, 3833}},
-        {{3835, 3832, 3834, 3833}},
-        {{3839, 3836, 3838, 3837}},
+        {{3835, 3832, 3834, 3833, 5119}},
+        {{3835, 3832, 3834, 3833, 5119}},
+        {{3835, 3832, 3834, 3833, 5119}},
+        {{3839, 3836, 3838, 3837, 5122}},
     }}, true},
     {BuildingKind::market, {{
-        {{2278, 2275, 2277, 2276}},
-        {{2278, 2275, 2277, 2276}},
-        {{820, 817, 819, 818}},
-        {{3797, 3794, 3796, 3795}},
+        {{2278, 2275, 2277, 2276, -1}},
+        {{2278, 2275, 2277, 2276, -1}},
+        {{820, 817, 819, 818, -1}},
+        {{3797, 3794, 3796, 3795, -1}},
     }}, true},
 };
 
@@ -1183,7 +1183,8 @@ AssetResolution resolve_building_asset(
             );
             if (age >= direct->slps.size() ||
                 state.architecture_family < 0 ||
-                state.architecture_family >= 4) {
+                state.architecture_family >=
+                    static_cast<int>(direct->slps[age].size())) {
                 result.status =
                     AssetCoverageStatus::invalid_runtime_selection;
                 result.reason =
@@ -1193,6 +1194,13 @@ AssetResolution resolve_building_asset(
             result.request.slp_id = direct->slps[age][
                 static_cast<std::size_t>(state.architecture_family)
             ];
+            if (*result.request.slp_id < 0) {
+                result.request.slp_id.reset();
+                result.status = AssetCoverageStatus::missing_mapping;
+                result.reason =
+                    "building has no direct SLP for selected age/family";
+                return result;
+            }
             result.request.required_frame_count = 1;
             result.request.required_direction_count = 1;
             result.request.source_mapping =
@@ -1212,7 +1220,10 @@ AssetResolution resolve_building_asset(
             );
             if (age >= mapping->graphic_roots.size() ||
                 state.architecture_family < 0 ||
-                state.architecture_family >= 4) {
+                state.architecture_family >=
+                    static_cast<int>(
+                        mapping->graphic_roots[age].size()
+                    )) {
                 result.status =
                     AssetCoverageStatus::invalid_runtime_selection;
                 result.reason =
@@ -1233,8 +1244,10 @@ AssetResolution resolve_building_asset(
                 "canonical_building_composite_sets";
             result.state.composite = true;
             result.status = AssetCoverageStatus::renderable;
-            result.reason =
-                "canonical completed-building graphic root selected";
+            result.reason = mapping->composition_policy ==
+                    CompositePolicy::complete_root
+                ? "canonical complete root SLP selected without DAT deltas"
+                : "canonical delta-only graphic graph selected";
             return result;
         }
     }
@@ -1730,7 +1743,9 @@ int render_building_architecture_family(
     BuildingKind kind,
     Civilization civilization
 ) {
-    if (kind == BuildingKind::stone_wall &&
+    if ((building_composite_set(kind) != nullptr ||
+         building_direct_slp_set(kind) != nullptr ||
+         kind == BuildingKind::stone_wall) &&
         (civilization == Civilization::aztecs ||
          civilization == Civilization::mayans)) {
         return 4;
@@ -1779,6 +1794,14 @@ Age render_building_visual_age(
     if (kind == BuildingKind::town_center) {
         return current_age;
     }
+    // Scenario placement can bypass build prerequisites. These completed
+    // objects have no earlier replacement record; select their documented
+    // minimum visual variant explicitly rather than scanning later slots.
+    if ((kind == BuildingKind::stone_gate_x ||
+         kind == BuildingKind::stone_gate_y) &&
+        current_age < Age::castle) {
+        return Age::castle;
+    }
     return static_cast<int>(current_age) <
             static_cast<int>(rules_for(kind).minimum_age)
         ? rules_for(kind).minimum_age
@@ -1811,18 +1834,20 @@ int render_building_composite_variant(
     int age = static_cast<int>(
         render_building_visual_age(kind, current_age)
     );
-    const BuildingCompositeSet* mapping =
-        building_composite_set(kind);
-    if (mapping == nullptr) return std::clamp(age, 0, 3);
-    while (age < 3) {
-        const bool any_root = std::ranges::any_of(
-            mapping->graphic_roots[static_cast<std::size_t>(age)],
-            [](std::int16_t root) { return root >= 0; }
-        );
-        if (any_root) break;
-        ++age;
-    }
     return std::clamp(age, 0, 3);
+}
+
+std::optional<std::size_t> render_component_animation_frame(
+    std::size_t frames_per_angle,
+    std::uint64_t animation_tick,
+    bool active
+) {
+    if (frames_per_angle == 0) return std::nullopt;
+    return active && frames_per_angle > 1
+        ? std::optional<std::size_t>{
+              static_cast<std::size_t>(animation_tick / 2) %
+                  frames_per_angle}
+        : std::optional<std::size_t>{0};
 }
 
 std::string render_unit_kind_name(UnitKind kind) {

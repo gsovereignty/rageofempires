@@ -1,0 +1,14 @@
+# Hermetic building-age screenshot regression fixture.
+AOE-ARCHAEOLOGY-SCENARIO 31
+map 18 12
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue castle
+age red castle
+diplomacy enemy
+civilization blue britons
+civilization red mayans
+building town_center blue 1 2
+building house blue 7 3
+building barracks blue 10 2
+building town_center red 13 7

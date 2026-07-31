@@ -903,7 +903,8 @@ int main(int argc, char** argv) {
                                     const auto* mapping =
                                         aoe::building_composite_set(kind);
                                     expand = mapping == nullptr ||
-                                        mapping->expand_deltas;
+                                        mapping->composition_policy ==
+                                            aoe::CompositePolicy::delta_graph;
                                 }
                                 const auto key = std::tuple{
                                     static_cast<std::int16_t>(

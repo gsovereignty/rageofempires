@@ -3,6 +3,7 @@ CTEST ?= ctest
 BUILD_DIR ?= build
 BUILD_TYPE ?= Release
 JOBS ?= $(shell \
+	nproc 2>/dev/null || \
 	sysctl -n hw.logicalcpu 2>/dev/null || \
 	getconf _NPROCESSORS_ONLN 2>/dev/null || \
 	echo 1)

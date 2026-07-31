@@ -15983,17 +15983,20 @@ int SdlApp::run() {
     // The projection and the camera clamp read their extent from this map,
     // and the first camera placement happens before the first frame is
     // rendered, so adopt it now rather than in render_world.
-    active_render_map = &simulation.map();
-    center_camera_on(
-        camera,
-        initial_camera_tile(
-            simulation.buildings(),
-            simulation.units(),
-            active_view_player,
-            active_map_tiles_x(),
-            active_map_tiles_y()
-        )
-    );
+    const auto center_camera_on_local_start = [&] {
+        active_render_map = &simulation.map();
+        center_camera_on(
+            camera,
+            initial_camera_tile(
+                simulation.buildings(),
+                simulation.units(),
+                active_view_player,
+                simulation.map().width(),
+                simulation.map().height()
+            )
+        );
+    };
+    center_camera_on_local_start();
     // Modern choice: no original equivalent. Headless captures need to aim
     // at a named tile, because on a full-size map the start view covers a
     // small fraction of the world.
@@ -17009,6 +17012,7 @@ int SdlApp::run() {
                                 demo_scenario = *random_map_preview;
                                 simulation =
                                     create_simulation(demo_scenario);
+                                center_camera_on_local_start();
                                 computer = ComputerPlayer(
                                     Player::red,
                                     active_setup_difficulty
@@ -18232,6 +18236,7 @@ int SdlApp::run() {
                                     BrowserFileKind::save) {
                                     simulation =
                                         load_presentable_game(path);
+                                    center_camera_on_local_start();
                                     computer =
                                         ComputerPlayer(Player::red);
                                     replaying = false;
@@ -18244,6 +18249,7 @@ int SdlApp::run() {
                                     BrowserFileKind::replay) {
                                     replay = load_replay(path);
                                     simulation = new_game();
+                                    center_camera_on_local_start();
                                     replay.reset_playback();
                                     replaying = true;
                                     active_save_browser_status =
@@ -18282,9 +18288,7 @@ int SdlApp::run() {
                                event.key.key == SDLK_R) {
                         simulation = new_game();
                         computer = ComputerPlayer(Player::red);
-                        center_camera_on(
-                            camera, {active_map_tiles_x() / 2, active_map_tiles_y() / 2}
-                        );
+                        center_camera_on_local_start();
                         active_statistics_visible = false;
                         active_statistics_postgame = false;
                         outcome_statistics_seen = false;
@@ -18673,6 +18677,7 @@ int SdlApp::run() {
                                 demo_scenario = *random_map_preview;
                                 simulation =
                                     create_simulation(demo_scenario);
+                                center_camera_on_local_start();
                                 computer = ComputerPlayer(
                                     Player::red,
                                     active_setup_difficulty
@@ -20498,6 +20503,7 @@ int SdlApp::run() {
                         if (std::filesystem::exists(save_path)) {
                             simulation =
                                 load_presentable_game(save_path);
+                            center_camera_on_local_start();
                         }
                         break;
                     case SDLK_BACKSPACE:
@@ -21219,10 +21225,7 @@ int SdlApp::run() {
                         break;
                     case SDLK_R:
                         simulation = new_game();
-                        center_camera_on(
-                            camera,
-                            {active_map_tiles_x() / 2, active_map_tiles_y() / 2}
-                        );
+                        center_camera_on_local_start();
                         computer = ComputerPlayer(Player::red);
                         replay = Replay{};
                         replaying = false;
@@ -21269,10 +21272,7 @@ int SdlApp::run() {
                         break;
                     case SDLK_F8:
                         simulation = new_game();
-                        center_camera_on(
-                            camera,
-                            {active_map_tiles_x() / 2, active_map_tiles_y() / 2}
-                        );
+                        center_camera_on_local_start();
                         computer = ComputerPlayer(Player::red);
                         replay.reset_playback();
                         replaying = true;
@@ -21294,10 +21294,7 @@ int SdlApp::run() {
                     case SDLK_F7:
                         replay = load_replay(replay_path);
                         simulation = new_game();
-                        center_camera_on(
-                            camera,
-                            {active_map_tiles_x() / 2, active_map_tiles_y() / 2}
-                        );
+                        center_camera_on_local_start();
                         computer = ComputerPlayer(Player::red);
                         replay.reset_playback();
                         replaying = true;

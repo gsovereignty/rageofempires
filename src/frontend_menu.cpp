@@ -1,0 +1,252 @@
+#include "aoe/frontend_menu.hpp"
+
+#include <algorithm>
+
+namespace aoe {
+namespace {
+
+constexpr std::array main_items{
+    FrontendMenuItem{
+        "Learn to Play", {0, 4, 121, 37},
+        FrontendMenuCommand::learn_to_play, false,
+        "Learn the basics of commanding an empire.",
+    },
+    FrontendMenuItem{
+        "Single Player", {311, 12, 114, 38},
+        FrontendMenuCommand::open_single_player, true,
+        "Play a single-player game.",
+    },
+    FrontendMenuItem{
+        "History", {108, 166, 96, 26},
+        FrontendMenuCommand::open_history, true,
+        "Explore the history behind Age of Empires II.",
+    },
+    FrontendMenuItem{
+        "Multiplayer", {266, 220, 91, 25},
+        FrontendMenuCommand::open_multiplayer, true,
+        "Create or join a supported multiplayer game.",
+    },
+    FrontendMenuItem{
+        "Map Editor", {190, 273, 84, 25},
+        FrontendMenuCommand::open_map_editor, true,
+        "Create and edit a scenario.",
+    },
+    FrontendMenuItem{
+        "Options", {106, 347, 88, 25},
+        FrontendMenuCommand::open_options, true,
+        "Change game settings.",
+    },
+    FrontendMenuItem{
+        "Zone", {273, 367, 63, 22},
+        FrontendMenuCommand::show_zone_unavailable, true,
+        "MSN Gaming Zone service is no longer available.",
+    },
+    FrontendMenuItem{
+        "Exit", {45, 548, 91, 31},
+        FrontendMenuCommand::exit_game, true,
+        "Exit Age of Empires II.",
+    },
+};
+
+constexpr std::array single_player_items{
+    FrontendMenuItem{
+        "Campaigns", {476, 89, 260, 39},
+        FrontendMenuCommand::open_campaigns, true,
+        "Battle with Joan of Arc, Genghis Khan, King Saladin, or "
+        "Frederick Barbarossa in a series of related games.",
+    },
+    FrontendMenuItem{
+        "Random Map", {476, 153, 260, 39},
+        FrontendMenuCommand::open_random_map, true,
+        "Start a standard single-player random-map game.",
+    },
+    FrontendMenuItem{
+        "Regicide", {476, 204, 260, 39},
+        FrontendMenuCommand::open_regicide, false,
+        "Protect your king and defeat every enemy king.",
+    },
+    FrontendMenuItem{
+        "Death Match", {476, 254, 260, 39},
+        FrontendMenuCommand::open_death_match, false,
+        "Begin with high resources for a fast-start battle.",
+    },
+    FrontendMenuItem{
+        "Custom Campaign", {476, 319, 260, 39},
+        FrontendMenuCommand::open_custom_campaign, true,
+        "Select a supported installed custom campaign.",
+    },
+    FrontendMenuItem{
+        "Custom Scenario", {476, 369, 260, 39},
+        FrontendMenuCommand::open_custom_scenario, true,
+        "Select a supported standalone custom scenario.",
+    },
+    FrontendMenuItem{
+        "Saved Game", {476, 434, 260, 39},
+        FrontendMenuCommand::open_saved_game, true,
+        "Resume a saved single-player game.",
+    },
+};
+
+}  // namespace
+
+bool FrontendMenuRect::contains(float point_x, float point_y) const {
+    return point_x >= x && point_y >= y &&
+        point_x < x + width && point_y < y + height;
+}
+
+std::optional<std::array<float, 2>>
+FrontendLogicalTransform::window_to_logical(
+    float window_x,
+    float window_y
+) const {
+    if (scale <= 0.0F) return std::nullopt;
+    const float logical_x = (window_x - offset_x) / scale;
+    const float logical_y = (window_y - offset_y) / scale;
+    if (logical_x < 0.0F || logical_y < 0.0F ||
+        logical_x >= static_cast<float>(logical_width) ||
+        logical_y >= static_cast<float>(logical_height)) {
+        return std::nullopt;
+    }
+    return std::array{logical_x, logical_y};
+}
+
+FrontendLogicalTransform frontend_logical_transform(
+    int window_width,
+    int window_height
+) {
+    if (window_width <= 0 || window_height <= 0) {
+        return {0.0F, 0.0F, 0.0F};
+    }
+    const float scale = std::min(
+        static_cast<float>(window_width) /
+            static_cast<float>(frontend_logical_width),
+        static_cast<float>(window_height) /
+            static_cast<float>(frontend_logical_height)
+    );
+    return {
+        scale,
+        (static_cast<float>(window_width) -
+            static_cast<float>(frontend_logical_width) * scale) * 0.5F,
+        (static_cast<float>(window_height) -
+            static_cast<float>(frontend_logical_height) * scale) * 0.5F,
+    };
+}
+
+std::span<const FrontendMenuItem> main_menu_items() {
+    return main_items;
+}
+
+std::span<const FrontendMenuItem> single_player_menu_items() {
+    return single_player_items;
+}
+
+std::span<const FrontendMenuItem> frontend_menu_items(
+    FrontendMenuScreen screen
+) {
+    if (screen == FrontendMenuScreen::main_menu) {
+        return main_items;
+    }
+    if (screen == FrontendMenuScreen::single_player_menu) {
+        return single_player_items;
+    }
+    return {};
+}
+
+std::optional<std::size_t> frontend_menu_hit_test(
+    FrontendMenuScreen screen,
+    float logical_x,
+    float logical_y
+) {
+    const auto items = frontend_menu_items(screen);
+    for (std::size_t index = 0; index < items.size(); ++index) {
+        if (items[index].bounds.contains(logical_x, logical_y)) {
+            return index;
+        }
+    }
+    return std::nullopt;
+}
+
+std::size_t move_frontend_menu_focus(
+    FrontendMenuScreen screen,
+    std::size_t current,
+    int delta
+) {
+    const auto items = frontend_menu_items(screen);
+    if (items.empty()) return 0;
+    const int count = static_cast<int>(items.size());
+    int index = static_cast<int>(current % items.size());
+    const int direction = delta < 0 ? -1 : 1;
+    index = (index + direction + count) % count;
+    return static_cast<std::size_t>(index);
+}
+
+FrontendMenuActivation activate_frontend_menu_item(
+    FrontendMenuScreen screen,
+    std::size_t index
+) {
+    const auto items = frontend_menu_items(screen);
+    if (index >= items.size() || !items[index].enabled) {
+        return {screen, FrontendMenuCommand::none, false};
+    }
+    const FrontendMenuCommand command = items[index].command;
+    if (command == FrontendMenuCommand::open_single_player) {
+        return {
+            FrontendMenuScreen::single_player_menu,
+            command,
+            true,
+        };
+    }
+    if (command == FrontendMenuCommand::open_random_map ||
+        command == FrontendMenuCommand::open_regicide ||
+        command == FrontendMenuCommand::open_death_match) {
+        return {
+            FrontendMenuScreen::random_map_setup,
+            command,
+            true,
+        };
+    }
+    if (command == FrontendMenuCommand::open_campaigns) {
+        return {
+            FrontendMenuScreen::campaign_browser,
+            command,
+            true,
+        };
+    }
+    if (command == FrontendMenuCommand::open_custom_campaign) {
+        return {
+            FrontendMenuScreen::custom_campaign_browser,
+            command,
+            true,
+        };
+    }
+    if (command == FrontendMenuCommand::open_custom_scenario) {
+        return {
+            FrontendMenuScreen::custom_scenario_browser,
+            command,
+            true,
+        };
+    }
+    if (command == FrontendMenuCommand::open_saved_game) {
+        return {
+            FrontendMenuScreen::saved_game_browser,
+            command,
+            true,
+        };
+    }
+    return {screen, command, true};
+}
+
+FrontendMenuActivation close_frontend_menu(
+    FrontendMenuScreen screen
+) {
+    if (screen == FrontendMenuScreen::single_player_menu) {
+        return {
+            FrontendMenuScreen::main_menu,
+            FrontendMenuCommand::close_flyout,
+            true,
+        };
+    }
+    return {screen, FrontendMenuCommand::none, false};
+}
+
+}  // namespace aoe

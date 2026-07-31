@@ -24,6 +24,7 @@ Bounded findings about commercial formats and behavior:
 [fidelity/](fidelity/).
 
 - [Movement presentation timing](fidelity/MOVEMENT_PRESENTATION_FIDELITY.md)
+- [Main-menu fidelity](fidelity/MAIN_MENU_FIDELITY.md)
 
 ## Assets
 

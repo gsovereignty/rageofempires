@@ -30,6 +30,7 @@
 #include "aoe/command_panel.hpp"
 #include "aoe/cursor_contract.hpp"
 #include "aoe/frontend_audio.hpp"
+#include "aoe/frontend_menu.hpp"
 #include "aoe/frame_timing.hpp"
 #include "aoe/computer_player.hpp"
 #include "aoe/game_command.hpp"
@@ -231,9 +232,15 @@ std::string active_editor_status{"EDITOR READY"};
 std::size_t active_editor_focus{};
 TilePosition active_editor_cursor{1, 1};
 Player active_editor_player{Player::blue};
-enum class FrontendScreen { hidden, main_menu, single_player_setup };
+enum class FrontendScreen {
+    hidden,
+    main_menu,
+    single_player_menu,
+    single_player_setup,
+};
 FrontendScreen active_frontend_screen{FrontendScreen::main_menu};
 std::string active_frontend_status{"SELECT A MODE"};
+std::size_t active_frontend_focus{1};
 RandomMapSettings active_random_settings{
     RandomMapKind::arabia, RandomMapSize::maximum, 1
 };
@@ -620,6 +627,8 @@ struct LegacySprites {
     std::array<LegacySprite, 4> resource_icons;
     LegacySprite portrait_frame;
     SDL_Texture* frontend_background{};
+    LegacySprite original_frontend_background;
+    LegacySprite original_frontend_logo;
     SDL_Texture* scenario_background{};
     LegacySprite campaign_background;
     LegacySprite market_western_blue;
@@ -712,6 +721,8 @@ struct LegacySprites {
     void destroy() {
         SDL_DestroyTexture(frontend_background);
         frontend_background = nullptr;
+        original_frontend_background.destroy();
+        original_frontend_logo.destroy();
         SDL_DestroyTexture(scenario_background);
         scenario_background = nullptr;
         campaign_background.destroy();
@@ -3257,6 +3268,38 @@ LegacySprites load_local_legacy_sprites(
         const LegacyPalette palette = LegacyPalette::from_jasc(
             interface.read("bina", 50500)
         );
+        try {
+            const LegacyPalette menu_palette =
+                LegacyPalette::from_jasc(
+                    interface.read("bina", 50589)
+                );
+            sprites.original_frontend_background =
+                create_loose_legacy_sprite(
+                    renderer,
+                    data_root / "Slp" / "main_32.slp",
+                    menu_palette,
+                    0
+                );
+            sprites.original_frontend_logo =
+                create_loose_legacy_sprite(
+                    renderer,
+                    data_root / "Slp" / "main_32.slp",
+                    menu_palette,
+                    49
+                );
+            SDL_Log(
+                "using original menu SLP from %s",
+                (data_root / "Slp" / "main_32.slp")
+                    .string()
+                    .c_str()
+            );
+        } catch (const std::exception& error) {
+            SDL_LogWarn(
+                SDL_LOG_CATEGORY_APPLICATION,
+                "cannot load original menu SLP: %s",
+                error.what()
+            );
+        }
         try {
             const LegacyPalette game_palette =
                 LegacyPalette::from_jasc(
@@ -12404,6 +12447,223 @@ void render_editor_overlay(SDL_Renderer* renderer) {
 
 void render_frontend_overlay(SDL_Renderer* renderer) {
     if (active_frontend_screen == FrontendScreen::hidden) return;
+    const bool classic_menu =
+        active_frontend_screen == FrontendScreen::main_menu ||
+        active_frontend_screen == FrontendScreen::single_player_menu;
+    if (classic_menu) {
+        const FrontendLogicalTransform transform =
+            frontend_logical_transform(
+                view_pixel_width,
+                view_pixel_height + hud_height
+            );
+        set_color(renderer, {10, 9, 7, 255});
+        SDL_RenderClear(renderer);
+        const SDL_Rect viewport{
+            static_cast<int>(std::lround(
+                transform.offset_x / transform.scale
+            )),
+            static_cast<int>(std::lround(
+                transform.offset_y / transform.scale
+            )),
+            static_cast<int>(std::lround(
+                frontend_logical_width * transform.scale
+            )),
+            static_cast<int>(std::lround(
+                frontend_logical_height * transform.scale
+            )),
+        };
+        SDL_SetRenderViewport(renderer, &viewport);
+        SDL_SetRenderScale(
+            renderer, transform.scale, transform.scale
+        );
+        const SDL_FRect canvas{
+            0.0F, 0.0F,
+            static_cast<float>(frontend_logical_width),
+            static_cast<float>(frontend_logical_height),
+        };
+        if (active_legacy_sprites
+                .original_frontend_background.texture != nullptr) {
+            const SDL_FRect source{
+                342.0F, 0.0F, 1024.0F, 768.0F
+            };
+            SDL_RenderTexture(
+                renderer,
+                active_legacy_sprites
+                    .original_frontend_background.texture,
+                &source,
+                &canvas
+            );
+        } else if (active_legacy_sprites.frontend_background != nullptr) {
+            SDL_RenderTexture(
+                renderer,
+                active_legacy_sprites.frontend_background,
+                nullptr,
+                &canvas
+            );
+        } else {
+            set_color(renderer, {47, 38, 25, 255});
+            SDL_RenderFillRect(renderer, &canvas);
+            const SDL_FRect street{0, 0, 443, 600};
+            set_color(renderer, {61, 51, 34, 255});
+            SDL_RenderFillRect(renderer, &street);
+        }
+        if (active_legacy_sprites
+                .original_frontend_logo.texture != nullptr) {
+            const SDL_FRect logo{
+                -130.0F, 4.0F, 435.0F, 135.0F
+            };
+            SDL_RenderTexture(
+                renderer,
+                active_legacy_sprites.original_frontend_logo.texture,
+                nullptr,
+                &logo
+            );
+        }
+
+        const auto draw_centered = [renderer](
+            std::string_view text,
+            const FrontendMenuRect& bounds,
+            SDL_Color color
+        ) {
+            set_color(renderer, color);
+            const float text_width =
+                static_cast<float>(text.size() * 8);
+            SDL_RenderDebugText(
+                renderer,
+                bounds.x + (bounds.width - text_width) * 0.5F,
+                bounds.y + (bounds.height - 8.0F) * 0.5F,
+                std::string{text}.c_str()
+            );
+        };
+        const FrontendMenuScreen model_screen =
+            active_frontend_screen == FrontendScreen::main_menu
+            ? FrontendMenuScreen::main_menu
+            : FrontendMenuScreen::single_player_menu;
+        const auto items = frontend_menu_items(model_screen);
+
+        const bool has_original_background =
+            active_legacy_sprites
+                .original_frontend_background.texture != nullptr;
+        for (std::size_t index = 0; index < main_menu_items().size();
+             ++index) {
+            const FrontendMenuItem& item = main_menu_items()[index];
+            if (!has_original_background &&
+                active_legacy_sprites.frontend_background == nullptr) {
+                set_color(renderer, {72, 48, 28, 230});
+                const SDL_FRect plaque{
+                    item.bounds.x, item.bounds.y,
+                    item.bounds.width, item.bounds.height,
+                };
+                SDL_RenderFillRect(renderer, &plaque);
+                set_color(renderer, {196, 168, 138, 255});
+                SDL_RenderRect(renderer, &plaque);
+            }
+            draw_centered(
+                item.label,
+                item.bounds,
+                ((model_screen == FrontendMenuScreen::main_menu &&
+                  index == active_frontend_focus) ||
+                 (model_screen ==
+                      FrontendMenuScreen::single_player_menu &&
+                  index == 1))
+                    ? SDL_Color{202, 207, 1, 255}
+                    : item.enabled
+                        ? SDL_Color{217, 208, 176, 255}
+                        : SDL_Color{126, 120, 103, 255}
+            );
+        }
+
+        if (model_screen == FrontendMenuScreen::single_player_menu) {
+            const SDL_FRect right{443, 0, 357, 600};
+            set_color(renderer, {9, 8, 6, 126});
+            SDL_RenderFillRect(renderer, &right);
+            const SDL_FRect header{449, 0, 327, 57};
+            set_color(renderer, {102, 59, 22, 235});
+            SDL_RenderFillRect(renderer, &header);
+            set_color(renderer, {196, 168, 138, 255});
+            SDL_RenderRect(renderer, &header);
+            draw_centered(
+                "Single Player",
+                {449, 6, 327, 22},
+                {255, 255, 255, 255}
+            );
+            draw_centered(
+                "Epsi",
+                {449, 30, 327, 16},
+                {255, 255, 255, 255}
+            );
+            const SDL_FRect close{780, 4, 16, 16};
+            set_color(renderer, {55, 46, 29, 255});
+            SDL_RenderFillRect(renderer, &close);
+            set_color(renderer, {242, 232, 165, 255});
+            SDL_RenderRect(renderer, &close);
+            SDL_RenderDebugText(renderer, 784, 8, "X");
+
+            for (std::size_t index = 0; index < items.size(); ++index) {
+                const FrontendMenuItem& item = items[index];
+                const SDL_FRect button{
+                    item.bounds.x, item.bounds.y,
+                    item.bounds.width, item.bounds.height,
+                };
+                set_color(renderer, {8, 7, 5, 172});
+                SDL_RenderFillRect(renderer, &button);
+                set_color(renderer, {217, 208, 176, 255});
+                SDL_RenderRect(renderer, &button);
+                draw_centered(
+                    item.label,
+                    item.bounds,
+                    index == active_frontend_focus
+                        ? SDL_Color{202, 207, 1, 255}
+                        : SDL_Color{217, 208, 176, 255}
+                );
+            }
+            const SDL_FRect help{369, 491, 419, 109};
+            set_color(renderer, {181, 118, 58, 255});
+            SDL_RenderFillRect(renderer, &help);
+            set_color(renderer, {80, 48, 23, 255});
+            SDL_RenderRect(renderer, &help);
+            if (active_frontend_focus < items.size()) {
+                std::string help_text{items[active_frontend_focus].help};
+                constexpr std::size_t line_width = 46;
+                float y = 510.0F;
+                while (!help_text.empty() && y <= 566.0F) {
+                    std::size_t split = std::min(
+                        line_width, help_text.size()
+                    );
+                    if (split < help_text.size()) {
+                        const std::size_t space =
+                            help_text.rfind(' ', split);
+                        if (space != std::string::npos && space != 0) {
+                            split = space;
+                        }
+                    }
+                    const std::string line =
+                        help_text.substr(0, split);
+                    set_color(renderer, {42, 25, 15, 255});
+                    SDL_RenderDebugText(renderer, 391, y, line.c_str());
+                    help_text.erase(0, split);
+                    while (!help_text.empty() &&
+                           help_text.front() == ' ') {
+                        help_text.erase(help_text.begin());
+                    }
+                    y += 14.0F;
+                }
+            }
+        } else if ((has_original_background ||
+                    active_legacy_sprites.frontend_background != nullptr) &&
+                   active_frontend_focus < items.size()) {
+            const FrontendMenuItem& item = items[active_frontend_focus];
+            set_color(renderer, {202, 207, 1, 255});
+            const SDL_FRect focus{
+                item.bounds.x, item.bounds.y,
+                item.bounds.width, item.bounds.height,
+            };
+            SDL_RenderRect(renderer, &focus);
+        }
+        SDL_SetRenderScale(renderer, 1.0F, 1.0F);
+        SDL_SetRenderViewport(renderer, nullptr);
+        return;
+    }
     if (active_legacy_sprites.frontend_background != nullptr) {
         const SDL_FRect destination{
             0.0F, 0.0F,
@@ -12437,36 +12697,7 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
         "BOUNDED RECONSTRUCTION FRONT END"
     );
     set_color(renderer, {238, 230, 198, 255});
-    if (active_frontend_screen == FrontendScreen::main_menu) {
-        SDL_RenderDebugText(
-            renderer, panel.x + 70.0F, panel.y + 112.0F,
-            "1  SINGLE PLAYER SETUP"
-        );
-        SDL_RenderDebugText(
-            renderer, panel.x + 70.0F, panel.y + 158.0F,
-            "2  LOADED SCENARIO"
-        );
-        SDL_RenderDebugText(
-            renderer, panel.x + 70.0F, panel.y + 204.0F,
-            "3  CAMPAIGN BRIEFING"
-        );
-        SDL_RenderDebugText(
-            renderer, panel.x + 70.0F, panel.y + 250.0F,
-            "4  SCENARIO63 EDITOR"
-        );
-        SDL_RenderDebugText(
-            renderer, panel.x + 70.0F, panel.y + 296.0F,
-            "H / J  PRECONFIGURED HOST / JOIN"
-        );
-        SDL_RenderDebugText(
-            renderer, panel.x + 70.0F, panel.y + 342.0F,
-            "O  OPTIONS"
-        );
-        SDL_RenderDebugText(
-            renderer, panel.x + 70.0F, panel.y + 388.0F,
-            "L  SAVE / LOAD / REPLAY BROWSER"
-        );
-    } else {
+    {
         const char* map_kind =
             active_random_settings.kind == RandomMapKind::arabia
                 ? "ARABIA" :
@@ -14772,9 +15003,36 @@ int SdlApp::run() {
     }
     if (const char* menu = SDL_getenv("AOE_MAIN_MENU");
         menu != nullptr) {
-        active_frontend_screen = menu[0] == '0'
-            ? FrontendScreen::hidden
-            : FrontendScreen::main_menu;
+        active_frontend_screen =
+            std::string_view{menu} == "single-player"
+            ? FrontendScreen::single_player_menu
+            : menu[0] == '0'
+                ? FrontendScreen::hidden
+                : FrontendScreen::main_menu;
+        active_frontend_focus =
+            active_frontend_screen == FrontendScreen::single_player_menu
+            ? 0U : 1U;
+    }
+    if (const char* reference = SDL_getenv("AOE_MENU_REFERENCE");
+        reference != nullptr && reference[0] != '0') {
+        active_frontend_screen = FrontendScreen::single_player_menu;
+        active_frontend_focus = 0;
+        SDL_WarpMouseInWindow(window, 368.0F, 31.0F);
+    }
+    if (const char* focus = SDL_getenv("AOE_MENU_FOCUS");
+        focus != nullptr && focus[0] != '\0') {
+        const int requested = SDL_atoi(focus);
+        const auto items = active_frontend_screen ==
+                FrontendScreen::single_player_menu
+            ? single_player_menu_items()
+            : main_menu_items();
+        active_frontend_focus = static_cast<std::size_t>(
+            std::clamp(
+                requested,
+                0,
+                std::max(static_cast<int>(items.size()) - 1, 0)
+            )
+        );
     }
     if (const char* setup = SDL_getenv("AOE_RANDOM_MAP_SETUP");
         setup != nullptr && setup[0] != '0') {
@@ -15706,6 +15964,101 @@ int SdlApp::run() {
         return changed;
     };
 
+    const auto activate_frontend_command = [&](
+        FrontendMenuCommand command
+    ) {
+        switch (command) {
+            case FrontendMenuCommand::none:
+                return;
+            case FrontendMenuCommand::learn_to_play:
+                active_frontend_status =
+                    "LEARN TO PLAY IS NOT YET AVAILABLE";
+                return;
+            case FrontendMenuCommand::open_single_player:
+                active_frontend_screen =
+                    FrontendScreen::single_player_menu;
+                active_frontend_focus = 0;
+                return;
+            case FrontendMenuCommand::open_history:
+                active_frontend_status =
+                    "HISTORY SCREEN IS NOT YET AVAILABLE";
+                return;
+            case FrontendMenuCommand::open_multiplayer:
+                if (multiplayer_presentation) {
+                    multiplayer_presentation->visible = true;
+                    active_frontend_screen = FrontendScreen::hidden;
+                } else {
+                    active_frontend_status =
+                        "SET AOE_MULTIPLAYER=host OR join";
+                }
+                return;
+            case FrontendMenuCommand::open_map_editor:
+                if (!scenario_editor) {
+                    scenario_editor.emplace(demo_scenario);
+                }
+                active_editor_overlay = true;
+                active_frontend_screen = FrontendScreen::hidden;
+                return;
+            case FrontendMenuCommand::open_options:
+                draft_settings = active_settings;
+                active_options_visible = true;
+                return;
+            case FrontendMenuCommand::show_zone_unavailable:
+                active_frontend_status =
+                    "MSN GAMING ZONE SERVICE IS UNAVAILABLE";
+                return;
+            case FrontendMenuCommand::exit_game:
+                running = false;
+                return;
+            case FrontendMenuCommand::open_campaigns:
+                if (campaign_presentation) {
+                    campaign_presentation->screen =
+                        CampaignPresentation::Screen::briefing;
+                    campaign_presentation->visible = true;
+                    active_frontend_screen = FrontendScreen::hidden;
+                } else {
+                    active_frontend_status =
+                        "SET AOE_CAMPAIGN TO LAUNCH";
+                }
+                return;
+            case FrontendMenuCommand::open_random_map:
+                active_frontend_screen =
+                    FrontendScreen::single_player_setup;
+                refresh_random_map_preview();
+                return;
+            case FrontendMenuCommand::open_regicide:
+                active_frontend_status =
+                    "REGICIDE RULES ARE NOT YET AVAILABLE";
+                return;
+            case FrontendMenuCommand::open_death_match:
+                active_frontend_status =
+                    "DEATH MATCH RULES ARE NOT YET AVAILABLE";
+                return;
+            case FrontendMenuCommand::open_custom_campaign:
+                active_frontend_status =
+                    "NO SUPPORTED CUSTOM CAMPAIGN BROWSER";
+                return;
+            case FrontendMenuCommand::open_custom_scenario:
+                active_browser_entries =
+                    browse_user_data_files(active_browser_root);
+                active_browser_selection = 0;
+                active_save_browser_visible = true;
+                active_frontend_screen = FrontendScreen::hidden;
+                return;
+            case FrontendMenuCommand::open_saved_game:
+                active_browser_entries =
+                    browse_user_data_files(active_browser_root);
+                active_browser_selection = 0;
+                active_save_browser_visible = true;
+                active_frontend_screen = FrontendScreen::hidden;
+                return;
+            case FrontendMenuCommand::close_flyout:
+                active_frontend_screen = FrontendScreen::main_menu;
+                active_frontend_focus = 1;
+                return;
+        }
+    };
+
     std::optional<EntityId> sheep_click_proof_sheep;
     std::optional<EntityId> sheep_click_proof_villager;
     bool sheep_click_proof_gather{};
@@ -15845,6 +16198,34 @@ int SdlApp::run() {
                 active_technology_tree_visible
             ) {
                 active_tree_dragging = false;
+            } else if (
+                event.type == SDL_EVENT_MOUSE_MOTION &&
+                (active_frontend_screen == FrontendScreen::main_menu ||
+                 active_frontend_screen ==
+                    FrontendScreen::single_player_menu)
+            ) {
+                mouse_position = {event.motion.x, event.motion.y};
+                const auto logical =
+                    frontend_logical_transform(
+                        view_pixel_width,
+                        view_pixel_height + hud_height
+                    ).window_to_logical(
+                        event.motion.x, event.motion.y
+                    );
+                if (logical) {
+                    const FrontendMenuScreen screen =
+                        active_frontend_screen ==
+                                FrontendScreen::main_menu
+                        ? FrontendMenuScreen::main_menu
+                        : FrontendMenuScreen::single_player_menu;
+                    if (const auto hit = frontend_menu_hit_test(
+                            screen, (*logical)[0], (*logical)[1])) {
+                        active_frontend_focus = *hit;
+                        const auto items = frontend_menu_items(screen);
+                        active_frontend_status =
+                            std::string{items[*hit].help};
+                    }
+                }
             } else if (
                 event.type == SDL_EVENT_MOUSE_MOTION &&
                 event.motion.y >= static_cast<float>(view_pixel_height)
@@ -16263,31 +16644,48 @@ int SdlApp::run() {
                                     FrontendScreen::hidden;
                             }
                         } else {
-                            const float y = event.button.y;
-                            if (y >= 190.0F && y < 240.0F) {
-                                active_frontend_screen =
-                                    FrontendScreen::single_player_setup;
-                            } else if (y >= 240.0F && y < 290.0F) {
-                                active_frontend_screen =
-                                    FrontendScreen::hidden;
-                            } else if (y >= 290.0F && y < 340.0F) {
-                                if (campaign_presentation) {
-                                    campaign_presentation->screen =
-                                        CampaignPresentation::Screen::briefing;
-                                    campaign_presentation->visible = true;
-                                    active_frontend_screen =
-                                        FrontendScreen::hidden;
-                                } else {
-                                    active_frontend_status =
-                                        "SET AOE_CAMPAIGN TO LAUNCH";
+                            const auto logical =
+                                frontend_logical_transform(
+                                    view_pixel_width,
+                                    view_pixel_height + hud_height
+                                ).window_to_logical(
+                                    event.button.x, event.button.y
+                                );
+                            if (logical &&
+                                active_frontend_screen ==
+                                    FrontendScreen::single_player_menu &&
+                                FrontendMenuRect{
+                                    780, 4, 16, 16
+                                }.contains(
+                                    (*logical)[0], (*logical)[1])) {
+                                activate_frontend_command(
+                                    FrontendMenuCommand::close_flyout
+                                );
+                            } else if (logical) {
+                                const FrontendMenuScreen screen =
+                                    active_frontend_screen ==
+                                            FrontendScreen::main_menu
+                                    ? FrontendMenuScreen::main_menu
+                                    : FrontendMenuScreen::
+                                        single_player_menu;
+                                if (const auto hit =
+                                        frontend_menu_hit_test(
+                                            screen,
+                                            (*logical)[0],
+                                            (*logical)[1])) {
+                                    active_frontend_focus = *hit;
+                                    const auto items =
+                                        frontend_menu_items(screen);
+                                    const FrontendMenuActivation activation =
+                                        activate_frontend_menu_item(
+                                            screen, *hit
+                                        );
+                                    activate_frontend_command(
+                                        activation.activate
+                                        ? activation.command
+                                        : items[*hit].command
+                                    );
                                 }
-                            } else if (y >= 340.0F && y < 390.0F) {
-                                if (!scenario_editor) {
-                                    scenario_editor.emplace(demo_scenario);
-                                }
-                                active_editor_overlay = true;
-                                active_frontend_screen =
-                                    FrontendScreen::hidden;
                             }
                         }
                     }
@@ -17910,10 +18308,59 @@ int SdlApp::run() {
                                     FrontendScreen::hidden;
                             }
                         }
+                    } else if (
+                        event.key.key == SDLK_UP ||
+                        event.key.key == SDLK_DOWN
+                    ) {
+                        const FrontendMenuScreen screen =
+                            active_frontend_screen ==
+                                    FrontendScreen::main_menu
+                            ? FrontendMenuScreen::main_menu
+                            : FrontendMenuScreen::single_player_menu;
+                        active_frontend_focus =
+                            move_frontend_menu_focus(
+                                screen,
+                                active_frontend_focus,
+                                event.key.key == SDLK_UP ? -1 : 1
+                            );
+                    } else if (
+                        event.key.key == SDLK_RETURN ||
+                        event.key.key == SDLK_KP_ENTER ||
+                        event.key.key == SDLK_SPACE
+                    ) {
+                        const FrontendMenuScreen screen =
+                            active_frontend_screen ==
+                                    FrontendScreen::main_menu
+                            ? FrontendMenuScreen::main_menu
+                            : FrontendMenuScreen::single_player_menu;
+                        const auto items = frontend_menu_items(screen);
+                        const FrontendMenuActivation activation =
+                            activate_frontend_menu_item(
+                                screen, active_frontend_focus
+                            );
+                        if (activation.activate) {
+                            activate_frontend_command(
+                                activation.command
+                            );
+                        } else if (
+                            active_frontend_focus < items.size()
+                        ) {
+                            activate_frontend_command(
+                                items[active_frontend_focus].command
+                            );
+                        }
+                    } else if (
+                        event.key.key == SDLK_ESCAPE &&
+                        active_frontend_screen ==
+                            FrontendScreen::single_player_menu
+                    ) {
+                        activate_frontend_command(
+                            FrontendMenuCommand::close_flyout
+                        );
                     } else if (event.key.key == SDLK_1) {
                         active_frontend_screen =
-                            FrontendScreen::single_player_setup;
-                        refresh_random_map_preview();
+                            FrontendScreen::single_player_menu;
+                        active_frontend_focus = 0;
                     } else if (event.key.key == SDLK_2) {
                         active_frontend_screen = FrontendScreen::hidden;
                     } else if (event.key.key == SDLK_3) {

@@ -127,6 +127,7 @@ add_library(aoe_core
     src/technology_tree.cpp
     src/settings.cpp
     src/frame_timing.cpp
+    src/frontend_menu.cpp
     src/statistics_view.cpp
     src/save_browser.cpp
     src/command_panel.cpp
@@ -215,6 +216,13 @@ target_compile_options(
 )
 add_test(NAME initial_camera_tests COMMAND initial_camera_tests)
 
+add_executable(frontend_menu_tests tests/frontend_menu_tests.cpp)
+target_link_libraries(frontend_menu_tests PRIVATE aoe_core)
+target_compile_options(
+    frontend_menu_tests PRIVATE -Wall -Wextra -Wpedantic
+)
+add_test(NAME frontend_menu_tests COMMAND frontend_menu_tests)
+
 add_executable(world_tile_picker_tests tests/world_tile_picker_tests.cpp)
 target_link_libraries(world_tile_picker_tests PRIVATE aoe_core)
 target_compile_options(
@@ -256,6 +264,11 @@ add_executable(
 target_link_libraries(renderer_asset_coverage_audit PRIVATE aoe_core)
 target_compile_options(
     renderer_asset_coverage_audit PRIVATE -Wall -Wextra -Wpedantic
+)
+add_executable(slp_contact_sheet tools/slp_contact_sheet.cpp)
+target_link_libraries(slp_contact_sheet PRIVATE aoe_core)
+target_compile_options(
+    slp_contact_sheet PRIVATE -Wall -Wextra -Wpedantic
 )
 if(AOE_ASSET_AUDIT_DATA_ROOT)
     add_custom_target(
@@ -486,6 +499,13 @@ set_tests_properties(
     building_age_graphics_sdl_smoke
     PROPERTIES TIMEOUT 30
 )
+add_test(
+    NAME frontend_menu_sdl_smoke
+    COMMAND bash
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend_menu_sdl_smoke.sh
+        $<TARGET_FILE:aoe_reconstruction>
+)
+set_tests_properties(frontend_menu_sdl_smoke PROPERTIES TIMEOUT 30)
 add_test(
     NAME sheep_interaction_sdl_smoke
     COMMAND bash

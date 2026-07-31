@@ -33,10 +33,11 @@ ctest --test-dir build --output-on-failure
 ```
 
 Apple builds default to Universal 2 (`arm64` and `x86_64`) with a macOS 11.0
-deployment target. CMake fetches SDL3 3.4.12 from a locked upstream commit and
-compiles both slices under the same target, avoiding host-package
-deployment-version leakage. Set `AOE_BUILD_SDL3=OFF` and provide `SDL3_DIR`
-only for local development with a compatible prebuilt SDL.
+deployment target. CMake extracts vendored SDL3 3.4.12 source from
+`third_party/SDL-3.4.12-f87239e.tar.gz` and compiles both slices under the same
+target, avoiding network access and host-package deployment-version leakage.
+Set `AOE_BUILD_SDL3=OFF` and provide `SDL3_DIR` only for local development with
+a compatible prebuilt SDL.
 
 Finder-compatible app bundle:
 

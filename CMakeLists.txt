@@ -67,10 +67,14 @@ if(AOE_BUILD_SDL3)
     set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
     set(SDL_TESTS OFF CACHE BOOL "" FORCE)
     set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(SDL_REVISION "SDL-3.4.12-release-3.4.12" CACHE STRING "" FORCE)
     FetchContent_Declare(
         SDL3
-        GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-        GIT_TAG f87239e71e42da91ca317a12eefb82cfbf3393eb
+        URL
+            "${CMAKE_CURRENT_SOURCE_DIR}/third_party/SDL-3.4.12-f87239e.tar.gz"
+        URL_HASH
+            SHA256=4b16b11925b65e9a967b0bfa71319716a052e0f9e49aa3be01cb2777305b8597
+        DOWNLOAD_EXTRACT_TIMESTAMP FALSE
     )
     FetchContent_MakeAvailable(SDL3)
 else()

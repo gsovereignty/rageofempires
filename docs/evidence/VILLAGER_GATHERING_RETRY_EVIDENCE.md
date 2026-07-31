@@ -71,13 +71,16 @@ from the reproduced failure.
 `tests/simulation_tests.cpp` now covers:
 
 - recovery after a temporary corridor obstruction;
+- save/load of the stationary obstructed order followed by identical recovery;
 - waiting for a compatible drop-off that appears later;
 - four villagers sharing one resource and drop-off through repeated deposit
   cycles.
 - late-arriving shared-resource workers retaining resource kind and retargeting
   after depletion.
+- native land-gather command replay producing identical resource, economy, and
+  active-order state.
 
 Adjacent existing coverage verifies all four land resource types, specialized
 drop-offs, depleted-resource retargeting, destroyed-drop-off rerouting,
-explicit stop and replacement commands, farms and animal gathering, save/load,
-replay, and command delivery.
+explicit stop and replacement commands, farms and animal gathering, and
+command delivery.

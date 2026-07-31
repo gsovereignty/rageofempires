@@ -12596,6 +12596,166 @@ void sheep_supply_food_without_using_population() {
     ));
 }
 
+void owned_sheep_accepts_player_move_command() {
+    aoe::Simulation simulation(aoe::GameMap(12, 8));
+    const aoe::EntityId sheep = simulation.add_unit(
+        aoe::UnitKind::sheep,
+        aoe::Player::blue,
+        {2, 3}
+    );
+    simulation.add_unit(
+        aoe::UnitKind::villager,
+        aoe::Player::blue,
+        {0, 7}
+    );
+    simulation.add_unit(
+        aoe::UnitKind::villager,
+        aoe::Player::red,
+        {11, 7}
+    );
+
+    require(simulation.select_unit_at({2, 3}, aoe::Player::blue));
+    require(simulation.selected_unit() == sheep);
+    require(simulation.command_selected({7, 3}));
+
+    const auto commanded = std::ranges::find(
+        simulation.units(), sheep, &aoe::Unit::id
+    );
+    require(commanded != simulation.units().end());
+    require(commanded->moving);
+    require(commanded->destination == aoe::TilePosition{7, 3});
+    require(!commanded->path.empty());
+
+    for (int tick = 0; tick < 30; ++tick) {
+        simulation.update();
+    }
+    const auto arrived = std::ranges::find(
+        simulation.units(), sheep, &aoe::Unit::id
+    );
+    require(arrived != simulation.units().end());
+    require(arrived->position == aoe::TilePosition{7, 3});
+    require(!arrived->moving);
+}
+
+void sheep_player_movement_groups_are_deterministic_and_persistent() {
+    const auto make_simulation = [] {
+        aoe::Simulation simulation(aoe::GameMap(16, 10));
+        simulation.add_unit(
+            aoe::UnitKind::villager,
+            aoe::Player::blue,
+            {0, 9}
+        );
+        simulation.add_unit(
+            aoe::UnitKind::villager,
+            aoe::Player::red,
+            {15, 9}
+        );
+        simulation.add_unit(
+            aoe::UnitKind::sheep,
+            aoe::Player::blue,
+            {2, 2}
+        );
+        simulation.add_unit(
+            aoe::UnitKind::sheep,
+            aoe::Player::blue,
+            {3, 2}
+        );
+        simulation.add_unit(
+            aoe::UnitKind::sheep,
+            aoe::Player::red,
+            {14, 8}
+        );
+        return simulation;
+    };
+
+    aoe::Simulation group = make_simulation();
+    const std::vector<aoe::EntityId> sheep{3, 4};
+    require(group.select_units(sheep, aoe::Player::blue));
+    require(group.selected_units() == sheep);
+    require(group.command_selected({9, 4}));
+    const std::vector<aoe::TilePosition> expected =
+        group.formation_destinations(sheep, {9, 4});
+    for (int tick = 0; tick < 100; ++tick) group.update();
+    for (std::size_t index = 0; index < sheep.size(); ++index) {
+        const auto unit = std::ranges::find(
+            group.units(), sheep[index], &aoe::Unit::id
+        );
+        require(unit != group.units().end());
+        require(unit->position == expected[index]);
+        require(!unit->moving);
+    }
+
+    aoe::Simulation mixed = make_simulation();
+    require(mixed.select_units({1, 3}, aoe::Player::blue));
+    require(mixed.command_selected({8, 5}));
+    for (int tick = 0; tick < 100; ++tick) mixed.update();
+    require(std::ranges::all_of(
+        std::array<aoe::EntityId, 2>{1, 3},
+        [&mixed](aoe::EntityId id) {
+            const auto unit = std::ranges::find(
+                mixed.units(), id, &aoe::Unit::id
+            );
+            return unit != mixed.units().end() && !unit->moving &&
+                unit->position.x >= 7 && unit->position.x <= 9 &&
+                unit->position.y >= 4 && unit->position.y <= 6;
+        }
+    ));
+
+    aoe::Simulation ownership = make_simulation();
+    require(!ownership.select_units({5}, aoe::Player::blue));
+    require(ownership.selected_units().empty());
+    require(ownership.select_units({3, 5}, aoe::Player::blue));
+    require(ownership.selected_units() == std::vector<aoe::EntityId>{3});
+
+    aoe::Simulation replacement = make_simulation();
+    require(replacement.command_unit(3, {10, 2}));
+    replacement.update();
+    require(replacement.command_unit(3, {5, 6}));
+    const auto replaced = std::ranges::find(
+        replacement.units(), 3, &aoe::Unit::id
+    );
+    require(replaced != replacement.units().end());
+    require(replaced->destination == aoe::TilePosition{5, 6});
+    require(!replacement.command_unit(3, {-1, 6}));
+    require(replaced->destination == aoe::TilePosition{5, 6});
+    replacement.update();
+    require(replaced->moving);
+
+    const auto save_path =
+        std::filesystem::temp_directory_path() /
+        "aoe-sheep-movement.save";
+    aoe::save_game(replacement, save_path);
+    aoe::Simulation loaded = aoe::load_game(save_path);
+    std::filesystem::remove(save_path);
+    const auto loaded_sheep = std::ranges::find(
+        loaded.units(), 3, &aoe::Unit::id
+    );
+    require(loaded_sheep != loaded.units().end());
+    require(loaded_sheep->destination == aoe::TilePosition{5, 6});
+    require(loaded_sheep->moving);
+    for (int tick = 0; tick < 100; ++tick) loaded.update();
+    const auto arrived_after_load = std::ranges::find(
+        loaded.units(), 3, &aoe::Unit::id
+    );
+    require(arrived_after_load != loaded.units().end());
+    require(arrived_after_load->position == aoe::TilePosition{5, 6});
+    require(!arrived_after_load->moving);
+
+    aoe::Simulation replayed = make_simulation();
+    aoe::Replay replay;
+    replay.record(0, aoe::MoveUnitCommand{3, {7, 7}});
+    for (int tick = 0; tick < 100; ++tick) {
+        replay.apply_current_tick(replayed);
+        replayed.update();
+    }
+    const auto replayed_sheep = std::ranges::find(
+        replayed.units(), 3, &aoe::Unit::id
+    );
+    require(replayed_sheep != replayed.units().end());
+    require(replayed_sheep->position == aoe::TilePosition{7, 7});
+    require(!replayed_sheep->moving);
+}
+
 void neutral_sheep_select_and_contextual_gather() {
     aoe::Simulation simulation(aoe::GameMap(12, 8));
     simulation.add_building(
@@ -23143,6 +23303,14 @@ int main() {
         multiple_builders_use_original_diminishing_returns_and_persist
     );
     run("sheep food", sheep_supply_food_without_using_population);
+    run(
+        "owned sheep player movement",
+        owned_sheep_accepts_player_move_command
+    );
+    run(
+        "sheep movement groups replay and save",
+        sheep_player_movement_groups_are_deterministic_and_persistent
+    );
     run(
         "neutral sheep selection and gather",
         neutral_sheep_select_and_contextual_gather

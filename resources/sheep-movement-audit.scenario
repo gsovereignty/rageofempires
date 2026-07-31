@@ -1,0 +1,11 @@
+# Focused owned-sheep movement audit. Select 3,3 and command 5,3.
+AOE-ARCHAEOLOGY-SCENARIO 27
+map 10 7
+economy blue 250 200 100 200
+economy red 250 200 100 200
+age blue dark
+age red dark
+
+unit villager blue 1 5 stance passive
+unit sheep blue 3 3 stance passive
+unit villager red 9 6 stance passive

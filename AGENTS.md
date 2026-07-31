@@ -9,6 +9,12 @@ mandatory build/runtime isolation. Rules here supplement those parent rules.
 Preserve unrelated working-tree changes. Do not edit generated or build output
 unless the task specifically requires regenerating it.
 
+After solving any user-requested problem that changes tracked files, create a
+focused Git commit before reporting completion. Stage only current-task files;
+preserve and exclude unrelated user or agent changes. If no tracked files
+changed, or a commit is genuinely impossible, report that explicitly instead
+of creating an empty or mixed commit.
+
 ## Reconstruction repository structure
 
 ```text

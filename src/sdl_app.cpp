@@ -61,6 +61,7 @@
 #include "aoe/ui_icon_contract.hpp"
 #include "aoe/ui_perspective.hpp"
 #include "aoe/world_tile_picker.hpp"
+#include "aoe/window_mode.hpp"
 
 namespace aoe {
 namespace {
@@ -12885,7 +12886,7 @@ void render_options_overlay(SDL_Renderer* renderer) {
     set_color(renderer, {232, 225, 196, 255});
     if (active_options_hotkeys) {
         const std::array<const char*, 10> lines{{
-            "ESC OPTIONS / CLOSE OVERLAY     F11 FULLSCREEN",
+            "ESC OPTIONS / CLOSE     F11 / ALT+ENTER FULLSCREEN",
             "ARROWS CAMERA     WHEEL ZOOM     DRAG SELECT",
             "F5 SAVE GAME      F6 CHECKPOINT/REPLAY",
             "F7 PAUSE/REPLAY    F8 SPEED (MULTIPLAYER HOST)",
@@ -14850,6 +14851,17 @@ int SdlApp::run() {
         throw std::runtime_error(SDL_GetError());
     }
     auto audio = AudioSystem::start_from_environment();
+    const std::filesystem::path user_data = user_data_directory();
+    active_settings_path = user_data / "reconstruction-settings.txt";
+    const SettingsLoadResult loaded_settings =
+        load_settings(active_settings_path);
+    if (loaded_settings.status == SettingsLoadStatus::current ||
+        loaded_settings.status == SettingsLoadStatus::migrated) {
+        active_settings = loaded_settings.settings;
+    } else {
+        active_settings = {};
+    }
+    draft_settings = active_settings;
 
     if (const char* requested_size = SDL_getenv("AOE_WINDOW_SIZE")) {
         int width{};
@@ -14871,17 +14883,45 @@ int SdlApp::run() {
     }
     SDL_Window* window = nullptr;
     SDL_Renderer* renderer = nullptr;
+    const int initial_windowed_width =
+        view_pixel_width * requested_output_scale;
+    const int initial_windowed_height =
+        (view_pixel_height + hud_height) * requested_output_scale;
+    SDL_WindowFlags window_flags =
+        SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
+    if (active_settings.fullscreen) {
+        window_flags |= SDL_WINDOW_FULLSCREEN;
+    }
     if (!SDL_CreateWindowAndRenderer(
             "AoE II HD Archaeology Reconstruction",
-            view_pixel_width * requested_output_scale,
-            (view_pixel_height + hud_height) * requested_output_scale,
-            SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY,
+            initial_windowed_width,
+            initial_windowed_height,
+            window_flags,
             &window,
             &renderer
         )) {
-        SDL_Quit();
-        throw std::runtime_error(SDL_GetError());
+        const std::string fullscreen_error = SDL_GetError();
+        if (!active_settings.fullscreen ||
+            !SDL_CreateWindowAndRenderer(
+                "AoE II HD Archaeology Reconstruction",
+                initial_windowed_width,
+                initial_windowed_height,
+                SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY,
+                &window,
+                &renderer
+            )) {
+            SDL_Quit();
+            throw std::runtime_error(SDL_GetError());
+        }
+        SDL_Log(
+            "Fullscreen startup failed; using windowed mode: %s",
+            fullscreen_error.c_str()
+        );
+        active_settings.fullscreen = false;
+        draft_settings.fullscreen = false;
+        active_options_status = "FULLSCREEN STARTUP FAILED";
     }
+    SDL_SetWindowMinimumSize(window, 640, 360);
     int renderer_output_width{};
     int renderer_output_height{};
     SDL_GetCurrentRenderOutputSize(
@@ -14889,6 +14929,18 @@ int SdlApp::run() {
         &renderer_output_width,
         &renderer_output_height
     );
+    const auto initial_extent = render_extent_for_drawable(
+        renderer_output_width, renderer_output_height, hud_height
+    );
+    if (!initial_extent) {
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        throw std::runtime_error("window has no usable drawable extent");
+    }
+    view_pixel_width = initial_extent->width;
+    logical_screen_height = initial_extent->screen_height;
+    view_pixel_height = initial_extent->world_height;
     const auto logged_resource_layout =
         hud_layout::resource_status_layout(view_pixel_width, true);
     SDL_Log(
@@ -14899,7 +14951,7 @@ int SdlApp::run() {
         renderer_output_width,
         renderer_output_height,
         view_pixel_width,
-        view_pixel_height + hud_height,
+        logical_screen_height,
         requested_output_scale,
         logged_resource_layout.row.x,
         logged_resource_layout.row.y,
@@ -14909,7 +14961,7 @@ int SdlApp::run() {
     if (!SDL_SetRenderLogicalPresentation(
             renderer,
             view_pixel_width,
-            view_pixel_height + hud_height,
+            logical_screen_height,
             SDL_LOGICAL_PRESENTATION_LETTERBOX
         )) {
         SDL_DestroyRenderer(renderer);
@@ -15657,7 +15709,6 @@ int SdlApp::run() {
     }
     Replay replay;
     bool replaying = false;
-    const std::filesystem::path user_data = user_data_directory();
     active_browser_root = user_data;
     active_browser_entries = browse_user_data_files(active_browser_root);
     active_browser_selection = 0;
@@ -15704,15 +15755,6 @@ int SdlApp::run() {
         observer != nullptr && observer[0] != '0') {
         simulation.resign(active_view_player);
     }
-    active_settings_path = user_data / "reconstruction-settings.txt";
-    const SettingsLoadResult loaded_settings =
-        load_settings(active_settings_path);
-    if (loaded_settings.status == SettingsLoadStatus::current ||
-        loaded_settings.status == SettingsLoadStatus::migrated) {
-        active_settings = loaded_settings.settings;
-    } else {
-        active_settings = {};
-    }
     // Modern choice: no original equivalent. The fog display toggle already
     // exists in the options panel; this exposes it to headless captures,
     // which otherwise only ever see the explored disc around a start.
@@ -15720,7 +15762,6 @@ int SdlApp::run() {
         requested != nullptr && requested[0] != '\0') {
         active_settings.fog = requested[0] != '0';
     }
-    draft_settings = active_settings;
     if (audio) {
         audio->apply_mix(AudioMix::from_settings(active_settings));
     }
@@ -15767,26 +15808,108 @@ int SdlApp::run() {
     bool outcome_statistics_seen =
         simulation.outcome() != MatchOutcome::ongoing;
     bool paused = false;
-    bool fullscreen = active_settings.fullscreen;
-    if (fullscreen && !SDL_SetWindowFullscreen(window, true)) {
-        fullscreen = false;
-        active_settings.fullscreen = false;
-        draft_settings.fullscreen = false;
-        active_options_status = "FULLSCREEN REQUEST FAILED";
+    WindowGeometry windowed_geometry{};
+    SDL_GetWindowPosition(
+        window, &windowed_geometry.x, &windowed_geometry.y
+    );
+    SDL_GetWindowSize(
+        window, &windowed_geometry.width, &windowed_geometry.height
+    );
+    bool fullscreen =
+        (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN) != 0;
+    if (fullscreen) {
+        windowed_geometry.width = initial_windowed_width;
+        windowed_geometry.height = initial_windowed_height;
     }
+    active_settings.fullscreen = fullscreen;
+    draft_settings.fullscreen = fullscreen;
+    auto refresh_render_extent = [&]() {
+        int width{};
+        int height{};
+        if (!SDL_GetCurrentRenderOutputSize(renderer, &width, &height)) {
+            SDL_Log("Could not query drawable size: %s", SDL_GetError());
+            return false;
+        }
+        const auto extent =
+            render_extent_for_drawable(width, height, hud_height);
+        if (!extent) return false;
+        view_pixel_width = extent->width;
+        logical_screen_height = extent->screen_height;
+        view_pixel_height = extent->world_height;
+        if (!SDL_SetRenderLogicalPresentation(
+                renderer,
+                view_pixel_width,
+                logical_screen_height,
+                SDL_LOGICAL_PRESENTATION_LETTERBOX
+            )) {
+            SDL_Log(
+                "Could not refresh render extent: %s", SDL_GetError()
+            );
+            return false;
+        }
+        SDL_Log(
+            "Live render extent %dx%d world-height=%d",
+            view_pixel_width,
+            logical_screen_height,
+            view_pixel_height
+        );
+        return true;
+    };
+    auto set_fullscreen = [&](bool requested, const char* source) {
+        WindowModeState before{
+            fullscreen,
+            active_settings.fullscreen,
+            draft_settings.fullscreen,
+            windowed_geometry,
+        };
+        std::optional<WindowGeometry> captured;
+        if (requested && !fullscreen) {
+            WindowGeometry geometry{};
+            SDL_GetWindowPosition(window, &geometry.x, &geometry.y);
+            SDL_GetWindowSize(window, &geometry.width, &geometry.height);
+            captured = geometry;
+        }
+        const bool call_succeeded =
+            SDL_SetWindowFullscreen(window, requested);
+        if (call_succeeded) SDL_SyncWindow(window);
+        const bool observed =
+            (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN) != 0;
+        WindowModeState after = window_mode_result(
+            before, requested, call_succeeded, observed, captured
+        );
+        const bool succeeded =
+            call_succeeded && observed == requested;
+        fullscreen = after.live_fullscreen;
+        active_settings.fullscreen = after.active_fullscreen;
+        draft_settings.fullscreen = after.draft_fullscreen;
+        windowed_geometry = after.windowed_geometry;
+        if (succeeded && !fullscreen) {
+            SDL_SetWindowPosition(
+                window, windowed_geometry.x, windowed_geometry.y
+            );
+            SDL_SetWindowSize(
+                window,
+                std::max(640, windowed_geometry.width),
+                std::max(360, windowed_geometry.height)
+            );
+        }
+        if (!succeeded) {
+            active_options_status =
+                std::string{"FULLSCREEN "} + source + " FAILED";
+            SDL_Log(
+                "Fullscreen %s failed: %s", source, SDL_GetError()
+            );
+        }
+        refresh_render_extent();
+        return succeeded;
+    };
     auto apply_options = [&]() {
         active_settings = draft_settings;
         if (audio) {
             audio->apply_mix(AudioMix::from_settings(active_settings));
         }
         if (fullscreen != active_settings.fullscreen) {
-            if (SDL_SetWindowFullscreen(
-                    window, active_settings.fullscreen)) {
-                fullscreen = active_settings.fullscreen;
-            } else {
-                active_settings.fullscreen = fullscreen;
-                draft_settings.fullscreen = fullscreen;
-                active_options_status = "FULLSCREEN APPLY FAILED";
+            if (!set_fullscreen(active_settings.fullscreen, "APPLY")) {
                 return false;
             }
         }
@@ -16237,24 +16360,110 @@ int SdlApp::run() {
         }
     }
 
+    if (const char* resize_proof = SDL_getenv("AOE_WINDOW_RESIZE_PROOF")) {
+        int width{};
+        int height{};
+        if (SDL_sscanf(resize_proof, "%dx%d", &width, &height) == 2 &&
+            width >= 640 && height >= 360) {
+            SDL_SetWindowSize(window, width, height);
+            SDL_SyncWindow(window);
+            refresh_render_extent();
+            clamp_camera(camera);
+            SDL_Log(
+                "Resize proof window=%dx%d drawable=%dx%d",
+                width,
+                height,
+                view_pixel_width,
+                logical_screen_height
+            );
+        }
+    }
+    if (const char* mode_proof =
+            SDL_getenv("AOE_FULLSCREEN_ROUNDTRIP_PROOF");
+        mode_proof != nullptr && mode_proof[0] != '0') {
+        const bool entered = set_fullscreen(true, "PROOF ENTER");
+        const bool left = entered && set_fullscreen(false, "PROOF LEAVE");
+        SDL_Log(
+            "Fullscreen roundtrip entered=%d left=%d live=%d window=%dx%d",
+            entered,
+            left,
+            fullscreen,
+            windowed_geometry.width,
+            windowed_geometry.height
+        );
+    }
+
     while (running) {
         const auto frame_started = std::chrono::steady_clock::now();
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
-            if (!SDL_ConvertEventToRenderCoordinates(renderer, &event)) {
+            if (event.type == SDL_EVENT_QUIT) {
+                running = false;
+                continue;
+            }
+            if (event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED ||
+                event.type == SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED ||
+                event.type == SDL_EVENT_WINDOW_RESIZED ||
+                event.type == SDL_EVENT_WINDOW_ENTER_FULLSCREEN ||
+                event.type == SDL_EVENT_WINDOW_LEAVE_FULLSCREEN) {
+                if (event.type == SDL_EVENT_WINDOW_ENTER_FULLSCREEN ||
+                    event.type == SDL_EVENT_WINDOW_LEAVE_FULLSCREEN) {
+                    const bool observed =
+                        event.type == SDL_EVENT_WINDOW_ENTER_FULLSCREEN;
+                    const WindowModeState synchronized = window_mode_result(
+                        {
+                            fullscreen,
+                            active_settings.fullscreen,
+                            draft_settings.fullscreen,
+                            windowed_geometry,
+                        },
+                        observed,
+                        true,
+                        observed
+                    );
+                    fullscreen = synchronized.live_fullscreen;
+                    active_settings.fullscreen =
+                        synchronized.active_fullscreen;
+                    draft_settings.fullscreen =
+                        synchronized.draft_fullscreen;
+                }
+                if (refresh_render_extent()) clamp_camera(camera);
+                continue;
+            }
+            if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
+                if (audio) audio->set_focused(false);
+                continue;
+            }
+            if (event.type == SDL_EVENT_WINDOW_FOCUS_GAINED) {
+                if (audio) audio->set_focused(true);
+                continue;
+            }
+            const bool fullscreen_shortcut =
+                event.type == SDL_EVENT_KEY_DOWN &&
+                !event.key.repeat &&
+                (event.key.key == SDLK_F11 ||
+                 ((event.key.key == SDLK_RETURN ||
+                   event.key.key == SDLK_KP_ENTER) &&
+                  (event.key.mod & SDL_KMOD_ALT) != 0));
+            if (fullscreen_shortcut) {
+                set_fullscreen(!fullscreen, "SHORTCUT");
+                clamp_camera(camera);
+                continue;
+            }
+            const bool pointer_event =
+                event.type == SDL_EVENT_MOUSE_MOTION ||
+                event.type == SDL_EVENT_MOUSE_BUTTON_DOWN ||
+                event.type == SDL_EVENT_MOUSE_BUTTON_UP ||
+                event.type == SDL_EVENT_MOUSE_WHEEL;
+            if (pointer_event &&
+                !SDL_ConvertEventToRenderCoordinates(renderer, &event)) {
                 SDL_Log(
                     "Could not convert input coordinates: %s",
                     SDL_GetError()
                 );
                 continue;
             }
-            if (event.type == SDL_EVENT_QUIT) {
-                running = false;
-            } else if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
-                if (audio) audio->set_focused(false);
-            } else if (event.type == SDL_EVENT_WINDOW_FOCUS_GAINED) {
-                if (audio) audio->set_focused(true);
-            } else if (
+            if (
                 event.type == SDL_EVENT_MOUSE_WHEEL &&
                 active_technology_tree_visible
             ) {
@@ -20092,19 +20301,6 @@ int SdlApp::run() {
                     case SDLK_ESCAPE:
                         draft_settings = active_settings;
                         active_options_visible = true;
-                        break;
-                    case SDLK_F11:
-                        if (SDL_SetWindowFullscreen(
-                                window,
-                                !fullscreen
-                            )) {
-                            fullscreen = !fullscreen;
-                        } else {
-                            SDL_Log(
-                                "Could not toggle fullscreen: %s",
-                                SDL_GetError()
-                            );
-                        }
                         break;
                     case SDLK_F5:
                         save_game(simulation, save_path);

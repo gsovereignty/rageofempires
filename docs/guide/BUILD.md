@@ -469,8 +469,12 @@ Controls:
 - F8: restart and replay current command history.
 - F6: save replay to `archaeology-replay.txt`.
 - F7: load and play saved replay.
-- F11: toggle macOS fullscreen. Resizing preserves the 16:9 logical canvas and
-  mouse hit-testing through letterboxing.
+- F11 or Alt+Enter: toggle desktop fullscreen. The saved choice is applied at
+  startup. Leaving fullscreen restores the prior usable windowed geometry.
+- Drag any window edge or corner to resize down to 640x360. Drawable-size and
+  high-DPI scale changes update the world viewport, bottom HUD, camera bounds,
+  edge scrolling, and pointer coordinate space; the game does not retain a
+  fixed 16:9 canvas.
 - Escape: quit.
 
 Save and replay files live in the per-user SDL preference directory

@@ -207,6 +207,13 @@ target_compile_options(
     terrain_transition_tests PRIVATE -Wall -Wextra -Wpedantic
 )
 add_test(NAME terrain_transition_tests COMMAND terrain_transition_tests)
+
+add_executable(initial_camera_tests tests/initial_camera_tests.cpp)
+target_link_libraries(initial_camera_tests PRIVATE aoe_core)
+target_compile_options(
+    initial_camera_tests PRIVATE -Wall -Wextra -Wpedantic
+)
+add_test(NAME initial_camera_tests COMMAND initial_camera_tests)
 add_test(
     NAME terrain_edge_sdl_smoke
     COMMAND bash
@@ -929,6 +936,25 @@ add_test(
 set_tests_properties(
     aoe_packaged_audio_sdl_smoke PROPERTIES TIMEOUT 120
 )
+if(APPLE)
+    set(AOE_PACKAGED_STARTUP_EXECUTABLE
+        $<TARGET_FILE:aoe_reconstruction_app>
+    )
+else()
+    set(AOE_PACKAGED_STARTUP_EXECUTABLE
+        $<TARGET_FILE:aoe_reconstruction>
+    )
+endif()
+add_test(
+    NAME aoe_packaged_startup_sdl_smoke
+    COMMAND
+        bash
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/packaged_startup_sdl_smoke.sh
+        ${AOE_PACKAGED_STARTUP_EXECUTABLE}
+)
+set_tests_properties(
+    aoe_packaged_startup_sdl_smoke PROPERTIES TIMEOUT 120
+)
 add_test(
     NAME aoe_markdown_link_guard
     COMMAND
@@ -1110,10 +1136,16 @@ endif()
 get_property(AOE_ALL_TESTS DIRECTORY PROPERTY TESTS)
 set_tests_properties(
     ${AOE_ALL_TESTS}
-    PROPERTIES ENVIRONMENT "AOE_DISABLE_LEGACY_ASSETS=1"
+    PROPERTIES ENVIRONMENT
+        "AOE_DISABLE_LEGACY_ASSETS=1;AOE_MAIN_MENU=0"
 )
 set_tests_properties(
     aoe_packaged_sprites_sdl_smoke
     aoe_packaged_audio_sdl_smoke
+    PROPERTIES ENVIRONMENT
+        "AOE_DISABLE_LEGACY_ASSETS=0;AOE_MAIN_MENU=0"
+)
+set_tests_properties(
+    aoe_packaged_startup_sdl_smoke
     PROPERTIES ENVIRONMENT "AOE_DISABLE_LEGACY_ASSETS=0"
 )

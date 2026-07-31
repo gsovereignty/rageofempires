@@ -26,7 +26,7 @@ env \
     "$app_path" >"$smoke_dir/audio.log" 2>&1
 
 test -s "$smoke_dir/audio.bmp"
-grep -q '^Audio music xopen.mp3$' "$smoke_dir/audio.log"
+grep -q '^Audio music open.mp3$' "$smoke_dir/audio.log"
 grep -q '^Audio music xmusic1.mp3$' "$smoke_dir/audio.log"
 grep -q '^Audio ambience ' "$smoke_dir/audio.log"
 grep -q '^Audio loose effect 01 Yes.mp3$' "$smoke_dir/audio.log"

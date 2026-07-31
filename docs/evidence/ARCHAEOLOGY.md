@@ -191,3 +191,56 @@ Every future reconstructed subsystem should record:
 
 This prevents readable modernization from being mistaken for recovered original
 source architecture.
+
+## Frontend startup music and entry path
+
+Observed evidence:
+
+- Supplied executable SHA-256
+  `e23272e21014fb281f71a21ef96a6437ab8b322f4978fd4998be835be219edcc`.
+- `FUN_00601290` at `0x00601290` loads `stream\xopen.mp3` into the opening
+  slot and `stream\xtown.mp3` into a separate town slot. Guard
+  `DAT_00929a98` starts the opening slot once.
+- `FUN_00602a60` at `0x00602a60` calls `FUN_00601290` while entering the
+  frontend path. Recovered `Main Menu` strings and the call from the main-menu
+  construction path at `0x00605a31` independently tie that routine to
+  frontend entry.
+- Supplied classic files `Sound/stream/open.mp3` and `town.mp3` hash exactly
+  to their tracked reconstruction copies.
+
+Interpretation: original frontend treats introduction and looping town music
+as an ordered pair, not interchangeable menu tracks. Confidence: high.
+
+Modern choice: normal packaged startup opens the reconstruction main menu
+without an environment flag. Classic `open.mp3` plays once, then a repeated
+menu-context request queues classic `town.mp3` until introduction playback
+finishes. Explicit `AOE_MAIN_MENU=0` remains a hermetic test override for
+direct gameplay captures.
+
+Known incompatibility: reconstruction implements classic/base-game startup
+policy requested by this project. Expansion executable evidence names
+`xopen.mp3` and `xtown.mp3`.
+
+## Initial gameplay camera
+
+Observed evidence:
+
+- Original runtime behavior supplied with the report presents the local
+  player's starting Town Center on match entry.
+- Decompiled game-screen construction was reviewed before changing camera
+  policy, but recovered anonymous structures do not provide a trustworthy,
+  bounded Town Center-to-view call chain. No exact internal camera aggregate
+  or fallback ordering is claimed.
+- Reconstruction previously selected the first owned unit after initially
+  centering the map. Entity iteration order therefore displaced the starting
+  base whenever a unit preceded its Town Center.
+
+Interpretation: Town Center-first placement is behaviorally established;
+original fallback policy for custom maps without one remains unproved.
+Confidence: high for ordinary starts, low for original fallback semantics.
+
+Modern choice: select first local Town Center in deterministic building order.
+If absent, select first ungarrisoned local unit; if no such unit exists, use
+integer map center. `AOE_CAMERA_TILE` remains an explicit capture override.
+
+Known incompatibility: fallback order is reconstruction-native.

@@ -6,9 +6,13 @@ script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 smoke_dir=$(mktemp -d "${TMPDIR:-/tmp}/aoe-sheep-click.XXXXXX")
 trap 'rm -rf "$smoke_dir"' EXIT
 
-for mode in select gather move; do
+for mode in select gather move capture-move; do
     frame="$smoke_dir/$mode.bmp"
     log="$smoke_dir/$mode.log"
+    scenario=sheep-gather-audit.scenario
+    if test "$mode" = move; then
+        scenario=sheep-movement-audit.scenario
+    fi
     env \
         SDL_VIDEODRIVER=dummy \
         SDL_AUDIODRIVER=dummy \
@@ -17,7 +21,7 @@ for mode in select gather move; do
         AOE_AUDIT_ANY_MAP_SIZE=1 \
         AOE_MAIN_MENU=0 \
         AOE_WINDOW_SIZE=800x600 \
-        "AOE_SCENARIO_PATH=$script_dir/../resources/sheep-$([ "$mode" = move ] && printf movement || printf gather)-audit.scenario" \
+        "AOE_SCENARIO_PATH=$script_dir/../resources/$scenario" \
         "AOE_SHEEP_CLICK_PROOF=$mode" \
         AOE_EXIT_AFTER_SCREENSHOT=1 \
         "AOE_SCREENSHOT_PATH=$frame" \

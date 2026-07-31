@@ -12637,6 +12637,67 @@ void owned_sheep_accepts_player_move_command() {
     require(!arrived->moving);
 }
 
+void visible_neutral_sheep_becomes_owned_alive_and_moves() {
+    aoe::Simulation simulation(aoe::GameMap(14, 8));
+    simulation.add_unit(
+        aoe::UnitKind::villager,
+        aoe::Player::blue,
+        {2, 3}
+    );
+    const aoe::EntityId sheep = simulation.add_unit(
+        aoe::UnitKind::sheep,
+        aoe::Player::neutral,
+        {5, 3}
+    );
+    simulation.add_unit(
+        aoe::UnitKind::villager,
+        aoe::Player::red,
+        {13, 7}
+    );
+
+    require(simulation.select_unit_at({5, 3}, aoe::Player::blue));
+    require(!aoe::execute(
+        simulation,
+        aoe::GameCommand{aoe::MoveUnitCommand{sheep, {8, 3}}}
+    ));
+    simulation.update();
+
+    const auto captured = std::ranges::find(
+        simulation.units(), sheep, &aoe::Unit::id
+    );
+    require(captured != simulation.units().end());
+    require(captured->owner == aoe::Player::blue);
+    require(captured->hit_points == 7);
+    require(aoe::execute(
+        simulation,
+        aoe::GameCommand{aoe::MoveUnitCommand{sheep, {8, 3}}}
+    ));
+    for (int tick = 0; tick < 30; ++tick) simulation.update();
+    const auto arrived = std::ranges::find(
+        simulation.units(), sheep, &aoe::Unit::id
+    );
+    require(arrived != simulation.units().end());
+    require(arrived->position == aoe::TilePosition{8, 3});
+    require(!arrived->moving);
+
+    aoe::Simulation contested(aoe::GameMap(10, 6));
+    contested.add_unit(
+        aoe::UnitKind::villager, aoe::Player::blue, {2, 3}
+    );
+    const aoe::EntityId contested_sheep = contested.add_unit(
+        aoe::UnitKind::sheep, aoe::Player::neutral, {5, 3}
+    );
+    contested.add_unit(
+        aoe::UnitKind::villager, aoe::Player::red, {8, 3}
+    );
+    contested.update();
+    const auto still_neutral = std::ranges::find(
+        contested.units(), contested_sheep, &aoe::Unit::id
+    );
+    require(still_neutral != contested.units().end());
+    require(still_neutral->owner == aoe::Player::neutral);
+}
+
 void sheep_player_movement_groups_are_deterministic_and_persistent() {
     const auto make_simulation = [] {
         aoe::Simulation simulation(aoe::GameMap(16, 10));
@@ -23306,6 +23367,10 @@ int main() {
     run(
         "owned sheep player movement",
         owned_sheep_accepts_player_move_command
+    );
+    run(
+        "visible neutral sheep capture and movement",
+        visible_neutral_sheep_becomes_owned_alive_and_moves
     );
     run(
         "sheep movement groups replay and save",

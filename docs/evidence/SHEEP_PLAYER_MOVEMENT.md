@@ -2,10 +2,15 @@
 
 ## Investigation result
 
-The reported failure was not reproducible from reconstruction commit
-`39ddf901`. No product-logic change was required: an owned, living sheep can
-already be selected, receives a ground `MoveUnitCommand`, retains its path
-through simulation updates, and reaches a passable destination.
+The failure was reproduced through a menu-generated random map. Built-in RMS
+marks Sheep with `set_gaia_object_only`, so they enter simulation as neutral.
+Reconstruction permitted visible neutral Sheep inspection-selection, but had
+no passive herdable-capture transition. `command_player` therefore identified
+Gaia as command owner and rejected the local player's `MoveUnitCommand`.
+
+Owned, living Sheep movement logic itself was already correct: after ownership
+is established, Sheep receives a ground command, retains its path through
+simulation updates, and reaches a passable destination.
 
 The investigation traced the production path through:
 
@@ -21,15 +26,21 @@ rejects Deer and Boar, while Sheep is classified separately by `is_herdable`.
 Sheep uses normal land passability and collision with a movement interval of
 three simulation ticks.
 
-Two superficially similar states are intentionally not commandable:
+The fix captures a living neutral herdable when its tile enters exactly one
+player's existing deterministic line of sight. Capture keeps Sheep alive and
+anchors its passive stance at the capture tile. If both players discover the
+same Sheep simultaneously, it remains neutral because recovered evidence does
+not prove original contested-capture priority.
 
-- a neutral sheep can be selected for inspection but fails command ownership
-  validation until controlled by a player;
+Two states remain intentionally not commandable:
+
+- a still-neutral sheep can be selected for inspection but fails command
+  ownership validation until controlled by exactly one player's visibility;
 - movement commands are rejected after the match has ended. Sheep does not
   keep an otherwise defeated player alive.
 
-Neither state proves the reported owned-sheep defect. Tests therefore keep a
-living blue Villager present when exercising blue sheep movement.
+Tests keep a living blue Villager present when exercising blue sheep movement,
+both to establish ownership and to keep the match active.
 
 ## Original evidence boundary
 
@@ -49,6 +60,8 @@ as exact original behavior.
 
 `simulation_tests.cpp` now proves:
 
+- a visible neutral sheep becomes owned, remains alive, and then moves;
+- a simultaneously visible contested sheep remains neutral;
 - one owned sheep accepts a selected-unit move and arrives;
 - two selected sheep move in formation;
 - a mixed Villager/Sheep selection moves consistently;
@@ -61,9 +74,10 @@ as exact original behavior.
   in the same full simulation suite.
 
 `sheep_interaction_sdl_smoke.sh` drives real SDL left-click and right-click
-events against `sheep-movement-audit.scenario`, then proves that the owned
-sheep received a non-empty path to the requested ground tile. Diagnostics are
-enabled only through `AOE_SHEEP_CLICK_PROOF`.
+events against both neutral and owned Sheep fixtures. Its `capture-move` mode
+advances normal simulation capture, selects the newly owned Sheep, issues a
+ground command, and proves receipt of a non-empty path. Diagnostics are enabled
+only through `AOE_SHEEP_CLICK_PROOF`.
 
 ## Human validation
 

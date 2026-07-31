@@ -6,22 +6,19 @@ the represented roster. Exact source evidence remains recorded in
 Backlog snapshots live outside product repository and must be revalidated
 against current code before implementation.
 
-## Recent issue closure: human verification pending
+## Recent issue closure: human verified
 
-Six reported issues are addressed in code and covered by automated checks.
-Most have not yet been tested by a human in an interactive desktop session.
-Initial fullscreen/resize testing exposed a high-DPI sizing defect; its fix
-awaits human retesting. Treat each item as **implemented, awaiting human
-verification**, not as fully verified or accepted:
+Six reported issues are addressed in code, covered by automated checks, and
+accepted after human interactive verification on 2026-07-31:
 
-| Addressed issue | Implemented behavior | Automated evidence | Human verification still required |
+| Addressed issue | Implemented behavior | Automated evidence | Human verification result |
 |---|---|---|---|
-| Building graphics ignored current age | Completed buildings choose graphics from selected/current age without leaking later-age layers. | Age-selection unit coverage and `building_age_graphics_sdl_smoke`. | Inspect representative buildings in Dark, Feudal, Castle, and Imperial Age with original assets. |
-| Initial gameplay camera missed starting Town Center | Startup centers first on local Town Center, then deterministic unit/map fallbacks. | Initial-camera unit tests and startup smoke coverage. | Start normal and unusual scenarios; confirm useful framing and no visual jump. |
-| Main menu did not reproduce original entry flow | Packaged startup opens classic 800x600 menu flow, measured flyout, setup routes, and explicit fallback when original art is unavailable. | Frontend-menu unit and SDL smoke coverage. | Exercise mouse and keyboard navigation on real desktop; compare appearance and flow with reference build. |
-| Resource top bar overflowed or overlapped | Responsive five-field row bounds text and icons at supported widths and drawable scales. | HUD layout contract tests and `aoe_hud_layout_sdl_smoke`. | Inspect normal/high-DPI displays, long values, fallback art, and original icons. |
-| Terrain boundaries rendered as hard seams | Transition masks now blend neighboring terrain with zoom-aware sampling and bounded fallbacks. | Terrain-transition unit tests and `terrain_edge_sdl_smoke`. | Pan and zoom across varied coast, forest, elevation, and multi-terrain junctions using original assets. |
-| Fullscreen and resize state was inconsistent | Saved fullscreen applies at startup; `F11` and `Alt+Enter` share synchronized state; resize updates drawable, HUD, camera, and input extents; windowed geometry restores after fullscreen. UI extent now remains in window-coordinate units so Retina pixels do not shrink content. | `window_mode_tests`, including 2x-density policy; `window_mode_sdl_smoke`; settings tests; HUD smoke coverage. | Retest readable UI scale, then verify drag-resize, minimum size, fullscreen round trip, Options Apply/Cancel/Save, startup fullscreen, mouse targets, and high-DPI behavior on real desktop. |
+| Building graphics ignored current age | Completed buildings choose graphics from selected/current age without leaking later-age layers. | Age-selection unit coverage and `building_age_graphics_sdl_smoke`. | Approved across representative Ages with original assets. |
+| Initial gameplay camera missed starting Town Center | Startup centers first on local Town Center, then deterministic unit/map fallbacks. | Initial-camera unit tests and startup smoke coverage. | Approved in normal and unusual scenarios. |
+| Main menu did not reproduce original entry flow | Packaged startup opens classic 800x600 menu flow, measured flyout, setup routes, and explicit fallback when original art is unavailable. | Frontend-menu unit and SDL smoke coverage. | Approved for real-desktop mouse/keyboard flow and reference comparison. |
+| Resource top bar overflowed or overlapped | Responsive five-field row bounds text and icons at supported widths and drawable scales. | HUD layout contract tests and `aoe_hud_layout_sdl_smoke`. | Approved across display, value, and art variants. |
+| Terrain boundaries rendered as hard seams | Transition masks now blend neighboring terrain with zoom-aware sampling and bounded fallbacks. | Terrain-transition unit tests and `terrain_edge_sdl_smoke`. | Approved across varied terrain and zoom views. |
+| Fullscreen and resize state was inconsistent | Saved fullscreen applies at startup; `F11` and `Alt+Enter` share synchronized state; resize updates drawable, HUD, camera, and input extents; windowed geometry restores after fullscreen. UI extent now remains in window-coordinate units so Retina pixels do not shrink content. | `window_mode_tests`, including 2x-density policy; `window_mode_sdl_smoke`; settings tests; HUD smoke coverage. | Approved for real-desktop resize, fullscreen, Options, input, and high-DPI behavior. |
 
 Automated checks prove defined policies and deterministic smoke paths only.
 They do not replace subjective visual review, real window-manager behavior,

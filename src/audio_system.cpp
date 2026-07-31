@@ -814,7 +814,7 @@ std::unique_ptr<AudioSystem> AudioSystem::start_from_environment() {
             root,
             AudioMusicContext::opening,
             Civilization::generic,
-            true
+            false
         );
     const std::filesystem::path dat_path =
         root / "Data" / "empires2_x1_p1.dat";
@@ -846,6 +846,7 @@ std::unique_ptr<AudioSystem> AudioSystem::start_from_environment() {
 
     auto impl = std::make_unique<Impl>();
     impl->root = root;
+    impl->expansion_content = false;
     const float gain = requested_gain();
     impl->environment_gain = gain;
     impl->trace = enabled_value(SDL_getenv("AOE_AUDIO_TRACE"));
@@ -934,8 +935,10 @@ void AudioSystem::set_music_context(
         impl_->music.stream == nullptr ||
         (impl_->music.cursor >= impl_->music.samples.size() &&
          SDL_GetAudioStreamQueued(impl_->music.stream) <= 0);
-    if (impl_->music_context == AudioMusicContext::civilization &&
-        context == AudioMusicContext::gameplay &&
+    if (((impl_->music_context == AudioMusicContext::civilization &&
+          context == AudioMusicContext::gameplay) ||
+         (impl_->music_context == AudioMusicContext::opening &&
+          context == AudioMusicContext::menu)) &&
         !current_finished) {
         impl_->queued_music = std::pair{context, expansion_content};
         return;

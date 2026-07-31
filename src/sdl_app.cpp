@@ -35,6 +35,7 @@
 #include "aoe/game_command.hpp"
 #include "aoe/game_rules.hpp"
 #include "aoe/hud_layout_contract.hpp"
+#include "aoe/initial_camera.hpp"
 #include "aoe/legacy_assets.hpp"
 #include "aoe/legacy_dat.hpp"
 #include "aoe/localization.hpp"
@@ -230,7 +231,7 @@ std::size_t active_editor_focus{};
 TilePosition active_editor_cursor{1, 1};
 Player active_editor_player{Player::blue};
 enum class FrontendScreen { hidden, main_menu, single_player_setup };
-FrontendScreen active_frontend_screen{FrontendScreen::hidden};
+FrontendScreen active_frontend_screen{FrontendScreen::main_menu};
 std::string active_frontend_status{"SELECT A MODE"};
 RandomMapSettings active_random_settings{
     RandomMapKind::arabia, RandomMapSize::maximum, 1
@@ -14804,8 +14805,10 @@ int SdlApp::run() {
         }
     }
     if (const char* menu = SDL_getenv("AOE_MAIN_MENU");
-        menu != nullptr && menu[0] != '0') {
-        active_frontend_screen = FrontendScreen::main_menu;
+        menu != nullptr) {
+        active_frontend_screen = menu[0] == '0'
+            ? FrontendScreen::hidden
+            : FrontendScreen::main_menu;
     }
     if (const char* setup = SDL_getenv("AOE_RANDOM_MAP_SETUP");
         setup != nullptr && setup[0] != '0') {
@@ -15477,17 +15480,14 @@ int SdlApp::run() {
     active_render_map = &simulation.map();
     center_camera_on(
         camera,
-        {active_map_tiles_x() / 2, active_map_tiles_y() / 2}
+        initial_camera_tile(
+            simulation.buildings(),
+            simulation.units(),
+            active_view_player,
+            active_map_tiles_x(),
+            active_map_tiles_y()
+        )
     );
-    const auto local_start = std::ranges::find_if(
-        simulation.units(),
-        [](const Unit& candidate) {
-            return candidate.owner == active_view_player;
-        }
-    );
-    if (local_start != simulation.units().end()) {
-        center_camera_on(camera, local_start->position);
-    }
     // Modern choice: no original equivalent. Headless captures need to aim
     // at a named tile, because on a full-size map the start view covers a
     // small fraction of the world.

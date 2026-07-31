@@ -48,6 +48,26 @@
       "sha256": "78a7294c27fe0f049e5b6ba9a022de608d99ff95220e7d91b05eb0a4317356b4"
     },
     {
+      "path": "resources/building-age-castle.scenario",
+      "size": 359,
+      "sha256": "e2f870931feadd7206651ef7b3b184d1aab97cf5ac23abd64d67d547521b3edb"
+    },
+    {
+      "path": "resources/building-age-dark.scenario",
+      "size": 355,
+      "sha256": "9608126f2c391528783a62b90cd97d952c56fa04912cd2de4b162b2e80b0c046"
+    },
+    {
+      "path": "resources/building-age-feudal.scenario",
+      "size": 359,
+      "sha256": "8200cf75c7764fcb7a31a32f44e7792a070a931bc7a74a09fdfb5ed7fdfd3591"
+    },
+    {
+      "path": "resources/building-age-imperial.scenario",
+      "size": 363,
+      "sha256": "8529e8b3e7bfa5f356ce898c4703949fffa0257f50a09e90619d5d8117811ff2"
+    },
+    {
       "path": "resources/cannon-dock-technologies-audit.scenario",
       "size": 1093,
       "sha256": "6190377b6631566dcb73d7c27c40f2460e8be1a56439849aa17f0e0734d28898"

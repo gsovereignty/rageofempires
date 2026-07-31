@@ -680,9 +680,9 @@ struct LegacySprites {
     std::array<std::array<LegacySprite, 5>, 8>
         palisade_wall_by_owner;
     PlayerLegacySprites palisade_wall_flags;
-    std::array<std::array<std::array<LegacySprite, 4>, 4>, 4>
+    std::array<std::array<std::array<LegacySprite, 4>, 5>, 4>
         town_center_layers_blue;
-    std::array<std::array<std::array<LegacySprite, 4>, 4>, 4>
+    std::array<std::array<std::array<LegacySprite, 4>, 5>, 4>
         town_center_layers_red;
     std::map<
         BuildingKind,
@@ -3404,15 +3404,20 @@ LegacySprites load_local_legacy_sprites(
         }
         const LegacyDatFile dat =
             LegacyDatFile::load(data_root / "empires2_x1_p1.dat");
-        std::array<bool, 4> required_architecture_families{};
+        std::array<bool, 5> required_architecture_families{};
         for (std::size_t civilization = 0;
              civilization < required_civilizations.size();
              ++civilization) {
             if (!required_civilizations[civilization]) continue;
+            const Civilization selected =
+                static_cast<Civilization>(civilization);
             required_architecture_families[
-                static_cast<std::size_t>(render_architecture_family(
-                    static_cast<Civilization>(civilization)
-                ))
+                selected == Civilization::aztecs ||
+                    selected == Civilization::mayans
+                ? 4U
+                : static_cast<std::size_t>(
+                      render_architecture_family(selected)
+                  )
             ] = true;
         }
         const auto attempt = [&](LegacySprite& target,

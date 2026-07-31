@@ -29,7 +29,7 @@ int main() {
         {140, 100, 60}, {70, 170, 200}
     );
     expect(
-        band.front() == aoe::TerrainTransitionColor{110, 130, 120} &&
+        band.front() == aoe::TerrainTransitionColor{105, 135, 130} &&
             band.back() == aoe::TerrainTransitionColor{140, 100, 60},
         "procedural band blends boundary and converges to center"
     );
@@ -42,6 +42,12 @@ int main() {
         );
     }
     std::array<std::optional<Terrain>, 8> neighbors;
+    expect(
+        aoe::select_terrain_transition_masks(
+            Terrain::grass, neighbors, aoe::TilePosition{5, 6}
+        ).empty(),
+        "unknown fogged neighbors cannot influence transition"
+    );
     neighbors[2] = Terrain::grass;
     neighbors[6] = Terrain::grass;
     auto selected = aoe::select_terrain_transition_masks(

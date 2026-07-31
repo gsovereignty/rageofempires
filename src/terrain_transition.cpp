@@ -127,10 +127,11 @@ procedural_transition_band(
 ) {
     std::array<TerrainTransitionColor, 7> result{};
     for (std::size_t index = 0; index < result.size(); ++index) {
-        // Neighbor influence falls from 3/7 at boundary to zero inward.
+        // Both sides produce the same 1/2 boundary color; neighbor influence
+        // then falls monotonically to zero toward the tile center.
         const unsigned neighbor_weight =
             static_cast<unsigned>(result.size() - 1 - index);
-        constexpr unsigned denominator = 14;
+        constexpr unsigned denominator = 12;
         const unsigned center_weight = denominator - neighbor_weight;
         const auto mix = [=](std::uint8_t center_channel,
                              std::uint8_t neighbor_channel) {

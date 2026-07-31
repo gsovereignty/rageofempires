@@ -2362,6 +2362,25 @@ void render_elevation_faces(
     );
 }
 
+bool configure_terrain_sampling(SDL_Texture* texture) {
+    constexpr SDL_ScaleMode expected = SDL_SCALEMODE_LINEAR;
+    if (!SDL_SetTextureScaleMode(texture, expected)) return false;
+    SDL_ScaleMode actual = SDL_SCALEMODE_INVALID;
+    if (!SDL_GetTextureScaleMode(texture, &actual) ||
+        actual != expected) {
+        return false;
+    }
+    static bool reported{};
+    if (!reported) {
+        SDL_Log(
+            "terrain texture sampling=%s",
+            actual == SDL_SCALEMODE_LINEAR ? "linear" : "nearest"
+        );
+        reported = true;
+    }
+    return true;
+}
+
 SDL_Texture* load_local_terrain_texture(
     SDL_Renderer* renderer,
     const std::filesystem::path& path
@@ -2396,7 +2415,16 @@ SDL_Texture* load_local_terrain_texture(
         );
         return nullptr;
     }
-    SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_LINEAR);
+    if (!configure_terrain_sampling(texture)) {
+        SDL_LogWarn(
+            SDL_LOG_CATEGORY_APPLICATION,
+            "cannot enable linear terrain sampling for %s: %s",
+            path.string().c_str(),
+            SDL_GetError()
+        );
+        SDL_DestroyTexture(texture);
+        return nullptr;
+    }
     return texture;
 }
 
@@ -2440,7 +2468,13 @@ std::vector<SDL_Texture*> load_terrain_archive_frames(
             // Terrain is continuously scaled by camera zoom. Linear sampling
             // preserves Blendomatic edge gradients instead of magnifying
             // individual transition pixels into blocky map boundaries.
-            SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_LINEAR);
+            if (!configure_terrain_sampling(texture)) {
+                const std::string error = SDL_GetError();
+                SDL_DestroyTexture(texture);
+                throw LegacyAssetError{
+                    "cannot enable linear terrain sampling: " + error
+                };
+            }
             frames.push_back(texture);
             if (rgba_frames != nullptr) {
                 rgba_frames->push_back(std::move(decoded));
@@ -2462,30 +2496,36 @@ TerrainTextures load_local_terrain_textures(SDL_Renderer* renderer) {
     }
     const std::filesystem::path texture_root =
         *requested_root / "Terrain" / "Textures";
-    textures.grass = load_local_terrain_texture(
-        renderer,
-        texture_root / "g_grs_00_COLOR.png"
-    );
-    textures.water = load_local_terrain_texture(
-        renderer,
-        texture_root / "g_wtr_00_COLOR.png"
-    );
-    textures.beach = load_local_terrain_texture(
-        renderer,
-        texture_root / "g_bch_00_COLOR.png"
-    );
-    textures.shallows = load_local_terrain_texture(
-        renderer,
-        texture_root / "g_sha_00_COLOR.png"
-    );
-    textures.farm_growing = load_local_terrain_texture(
-        renderer,
-        texture_root / "g_fm1_00_COLOR.png"
-    );
-    textures.farm_harvested = load_local_terrain_texture(
-        renderer,
-        texture_root / "g_fm2_00_COLOR.png"
-    );
+    const bool archive_only =
+        SDL_getenv("AOE_TERRAIN_ARCHIVE_ONLY") != nullptr;
+    if (!archive_only) {
+        textures.grass = load_local_terrain_texture(
+            renderer,
+            texture_root / "g_grs_00_COLOR.png"
+        );
+        textures.water = load_local_terrain_texture(
+            renderer,
+            texture_root / "g_wtr_00_COLOR.png"
+        );
+        textures.beach = load_local_terrain_texture(
+            renderer,
+            texture_root / "g_bch_00_COLOR.png"
+        );
+        textures.shallows = load_local_terrain_texture(
+            renderer,
+            texture_root / "g_sha_00_COLOR.png"
+        );
+        textures.farm_growing = load_local_terrain_texture(
+            renderer,
+            texture_root / "g_fm1_00_COLOR.png"
+        );
+        textures.farm_harvested = load_local_terrain_texture(
+            renderer,
+            texture_root / "g_fm2_00_COLOR.png"
+        );
+    } else {
+        SDL_Log("terrain audit forcing archive/Blendomatic path");
+    }
     if (textures.grass == nullptr || textures.water == nullptr ||
         textures.beach == nullptr || textures.shallows == nullptr) {
         const std::filesystem::path data_root =
@@ -2541,18 +2581,36 @@ TerrainTextures load_local_terrain_textures(SDL_Renderer* renderer) {
                 );
             }
             const std::array blend_paths{
+                data_root / "blendomatic_x1.dat",
+                data_root / "Blendomatic_x1.dat",
                 data_root / "blendomatic.dat",
                 data_root / "Blendomatic.dat",
             };
+            const bool disable_blendomatic =
+                SDL_getenv("AOE_DISABLE_BLENDOMATIC_AUDIT") != nullptr;
             for (const auto& path : blend_paths) {
-                if (std::filesystem::is_regular_file(path)) {
-                    textures.blendomatic = load_blendomatic(path);
+                if (disable_blendomatic) break;
+                if (!std::filesystem::is_regular_file(path)) continue;
+                try {
+                    textures.blendomatic =
+                        load_blendomatic(path);
                     SDL_Log(
-                        "using original blendomatic.dat: %zu modes",
+                        "using original %s: %zu modes",
+                        path.filename().string().c_str(),
                         textures.blendomatic->modes.size()
                     );
                     break;
+                } catch (const std::exception& error) {
+                    SDL_LogWarn(
+                        SDL_LOG_CATEGORY_APPLICATION,
+                        "cannot use terrain blend candidate %s: %s",
+                        path.string().c_str(),
+                        error.what()
+                    );
                 }
+            }
+            if (disable_blendomatic) {
+                SDL_Log("terrain audit disabled Blendomatic composition");
             }
         } catch (const std::exception& error) {
             SDL_LogWarn(
@@ -2678,7 +2736,15 @@ SDL_Texture* terrain_transition_texture(
         SDL_CreateTextureFromSurface(renderer, surface);
     SDL_DestroySurface(surface);
     if (texture == nullptr) return nullptr;
-    SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_LINEAR);
+    if (!configure_terrain_sampling(texture)) {
+        SDL_LogWarn(
+            SDL_LOG_CATEGORY_APPLICATION,
+            "cannot enable linear transition sampling: %s",
+            SDL_GetError()
+        );
+        SDL_DestroyTexture(texture);
+        return nullptr;
+    }
     textures.transition_cache.emplace(key.str(), texture);
     return texture;
 }
@@ -5659,6 +5725,7 @@ void render_water_detail(
     SDL_FPoint top,
     float animation_tick
 ) {
+    static_cast<void>(simulation);
     const float phase = animation_tick * 0.55F +
         static_cast<float>(position.x * 3 + position.y * 5);
     const float drift = std::sin(phase) * 4.0F;
@@ -5679,48 +5746,6 @@ void render_water_detail(
         top.y + 22.0F
     );
 
-    struct ShoreEdge {
-        TilePosition neighbor;
-        SDL_FPoint first;
-        SDL_FPoint second;
-    };
-    const std::array<ShoreEdge, 4> edges{{
-        {{position.x - 1, position.y},
-         {top.x, top.y}, {top.x - half_tile_width, top.y + half_tile_height}},
-        {{position.x + 1, position.y},
-         {top.x + half_tile_width, top.y + half_tile_height},
-         {top.x, top.y + tile_height}},
-        {{position.x, position.y - 1},
-         {top.x, top.y}, {top.x + half_tile_width, top.y + half_tile_height}},
-        {{position.x, position.y + 1},
-         {top.x - half_tile_width, top.y + half_tile_height},
-         {top.x, top.y + tile_height}},
-    }};
-    for (const ShoreEdge& edge : edges) {
-        if (!simulation.map().contains(edge.neighbor) ||
-            !simulation.is_explored_to_controller(active_view_player, edge.neighbor) ||
-            is_water_surface(
-                simulation.map().terrain_at(edge.neighbor)
-            )) {
-            continue;
-        }
-        set_color(renderer, {194, 183, 128, 255});
-        SDL_RenderLine(
-            renderer,
-            edge.first.x,
-            edge.first.y,
-            edge.second.x,
-            edge.second.y
-        );
-        set_color(renderer, {174, 210, 222, 255});
-        SDL_RenderLine(
-            renderer,
-            edge.first.x,
-            edge.first.y + 1.0F,
-            edge.second.x,
-            edge.second.y + 1.0F
-        );
-    }
 }
 
 void fill_triangle(
@@ -5826,28 +5851,44 @@ void render_procedural_terrain_transitions(
             {center_color.r, center_color.g, center_color.b},
             {neighbor_color.r, neighbor_color.g, neighbor_color.b}
         );
-        for (std::size_t index = 0; index < band.size(); ++index) {
-            const float inset =
-                static_cast<float>(index) /
-                static_cast<float>(band.size() * 5);
-            const auto toward_center = [center, inset](SDL_FPoint point) {
-                return SDL_FPoint{
-                    point.x + (center.x - point.x) * inset,
-                    point.y + (center.y - point.y) * inset,
-                };
+        constexpr float transition_depth = 0.22F;
+        const auto toward_center = [center](SDL_FPoint point) {
+            return SDL_FPoint{
+                point.x +
+                    (center.x - point.x) * transition_depth,
+                point.y +
+                    (center.y - point.y) * transition_depth,
             };
-            const SDL_FPoint first = toward_center(edge.first);
-            const SDL_FPoint second = toward_center(edge.second);
-            set_color(renderer, {
-                band[index].red,
-                band[index].green,
-                band[index].blue,
-                255,
-            });
-            SDL_RenderLine(
-                renderer, first.x, first.y, second.x, second.y
-            );
-        }
+        };
+        const SDL_FPoint inner_first = toward_center(edge.first);
+        const SDL_FPoint inner_second = toward_center(edge.second);
+        const SDL_FColor boundary_color{
+            band.front().red / 255.0F,
+            band.front().green / 255.0F,
+            band.front().blue / 255.0F,
+            1.0F,
+        };
+        const SDL_FColor inner_color{
+            band.back().red / 255.0F,
+            band.back().green / 255.0F,
+            band.back().blue / 255.0F,
+            1.0F,
+        };
+        const std::array<SDL_Vertex, 4> vertices{{
+            {edge.first, boundary_color, {}},
+            {edge.second, boundary_color, {}},
+            {inner_first, inner_color, {}},
+            {inner_second, inner_color, {}},
+        }};
+        constexpr std::array<int, 6> indices{{0, 1, 2, 1, 3, 2}};
+        SDL_RenderGeometry(
+            renderer,
+            nullptr,
+            vertices.data(),
+            static_cast<int>(vertices.size()),
+            indices.data(),
+            static_cast<int>(indices.size())
+        );
     }
 }
 
@@ -15753,6 +15794,24 @@ int SdlApp::run() {
         return true;
     };
     CameraView camera;
+    if (const char* requested_zoom = SDL_getenv("AOE_CAMERA_ZOOM");
+        requested_zoom != nullptr && requested_zoom[0] != '\0') {
+        float zoom{};
+        char trailing{};
+        if (std::sscanf(
+                requested_zoom, "%f%c", &zoom, &trailing
+            ) == 1 &&
+            std::isfinite(zoom) &&
+            zoom >= minimum_camera_zoom &&
+            zoom <= maximum_camera_zoom) {
+            camera.zoom = zoom;
+        } else {
+            SDL_Log(
+                "Ignoring malformed AOE_CAMERA_ZOOM: %s",
+                requested_zoom
+            );
+        }
+    }
     // The projection and the camera clamp read their extent from this map,
     // and the first camera placement happens before the first frame is
     // rendered, so adopt it now rather than in render_world.

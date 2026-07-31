@@ -30,8 +30,8 @@ The selector and decoder are bounded to openage commit
   Shallows 15014. Pinned openage's terrain inventory gives their priorities
   102, 139, 110, and 60. Stored modes are 0, 3, 2, and 4.
 
-The implementation does not bundle `blendomatic.dat`, palette data, or SLPs.
-It reads them only from the user's `AOE_ASSET_ROOT`.
+Normal runtime resolves only packaged reconstruction-local `game_data`.
+Research copies outside the repository are never runtime inputs.
 
 ## Bounded implementation
 
@@ -50,17 +50,32 @@ It reads them only from the user's `AOE_ASSET_ROOT`.
 - 128-denominator RGBA composition.
 
 The SDL renderer retains decoded terrain RGBA frames beside its textures,
-loads Blendomatic only when the exact user-owned file exists, and caches
-composed transition textures. It does not inspect unexplored neighbors, so
-shore shape cannot leak fogged map information. Missing/malformed assets,
-unsupported dimensions, incomplete SLP sets, or calls lacking destination
-position preserve archive tiles without invented mask selection. When no
-archive terrain exists, the self-contained procedural renderer draws a
-deterministic seven-line transition band across each represented cardinal
-terrain boundary. Its boundary mix converges monotonically to the center
-terrain color; it never consults an unexplored neighbor. Archive and composed
-terrain textures use linear camera sampling so valid Blendomatic gradients
-remain smooth at non-integer zoom.
+loads the first valid classic candidate beginning with
+`blendomatic_x1.dat`, and caches composed transition textures. Incompatible
+HD `blendomatic.dat` no longer prevents the valid classic candidate from
+loading. Cache identity includes base terrain/frame plus every overlay,
+blend mode, and mask ID.
+
+It does not inspect unexplored neighbors, so transition shape cannot leak
+fogged map information. Missing/malformed assets, unsupported dimensions,
+incomplete SLP sets, or calls lacking destination position preserve archive
+tiles without invented mask selection.
+
+When archive terrain is absent, the procedural renderer now draws one filled
+four-vertex strip per represented cardinal edge. Vertex-color interpolation
+provides a continuous world-space gradient over 22 percent of the tile
+edge-to-center distance. Both adjacent tiles use the same 50/50 boundary
+color, then converge monotonically to their own center colors. Shared corner
+rays use identical inset geometry, avoiding gaps and spikes. Former seven
+one-pixel lines and two hard shoreline lines were reconstruction artifacts;
+at 1.25× zoom they became visibly stepped and are removed.
+
+Local PNG, archive SLP, and cached Blendomatic textures all require linear
+sampling after upload. Runtime checks both `SDL_SetTextureScaleMode` and
+`SDL_GetTextureScaleMode`; failed configuration destroys the texture instead
+of caching it. This sampling policy is inferred from non-integer reconstructed
+camera scaling. Original evidence proves separate tile/blend texture sampling,
+not a specific filter mode.
 
 ## Proved cardinal variants
 
@@ -91,23 +106,26 @@ Blendomatic byte fixture and covers:
 - 0, half, and full 128-based alpha composition.
 - procedural transition endpoint and monotonic-channel convergence.
 
-`terrain_edge_sdl_smoke` captures the pond audit through the asset-disabled
-self-contained path, providing focused visual regression coverage for the
-procedural boundary renderer.
+`terrain_edge_sdl_smoke` captures the fixed pond at zoom 1.0, 1.25, and 1.5
+through the asset-disabled path. A bounded ROI must contain at least 1,500
+intermediate pixels, 150 distinct blended colors, and no horizontal
+intermediate-color plateau longer than three pixels. Removing the filled
+mesh or restoring seven discrete lines fails these checks. The pond notch
+covers a corner junction.
 
-## Capture plan
+The same smoke forces packaged archive terrain and
+`blendomatic_x1.dat`, compares it with an audit-only unblended capture, and
+requires at least 1,000 changed ROI pixels. Its log assertion confirms
+classic 9-mode loading and queried linear texture sampling. These controls
+affect test selection only: `AOE_CAMERA_ZOOM` accepts finite values in the
+normal 1.0–2.0 range, `AOE_TERRAIN_ARCHIVE_ONLY=1` skips loose HD PNGs, and
+`AOE_DISABLE_BLENDOMATIC_AUDIT=1` supplies the negative comparison.
 
-After build recovery, use a small checkerboard scenario containing all pairwise
-boundaries among Grass, Beach, Water, and Shallows.
+## Remaining fidelity uncertainty
 
-1. Capture without legacy assets: procedural transition control.
-2. Capture with valid terrain DRS/palette but no Blendomatic: archive tile
-   control.
-3. Capture with the same assets plus exact `Data/blendomatic.dat`: fixed-mask
-   transitions should appear only at proved junctions.
-4. Cover masks 0–30 individually, including all four coordinate variants for
-   every one-cardinal direction.
-5. Repeat with fog hiding one neighbor and confirm the hidden terrain does not
-   affect the explored tile silhouette.
-6. Compare against original-runtime capture of identical scenario/map
-   coordinates to visually validate proved static-analysis mapping.
+HD `FUN_0051e080` proves nine named blend textures, and `FUN_0051e1a0` proves
+separate `g_TileTexture` and `g_BlendTexture` shader bindings. Classic loader
+evidence proves packed 9×31 alpha maps. Neither proves reconstruction filter
+choice, procedural strip width, or vertex interpolation. Those are explicit
+readability choices. Original-runtime comparison and exhaustive visual
+captures for all masks 0–30 remain future evidence work.

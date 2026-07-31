@@ -32,6 +32,11 @@ canvas. The fixed-height HUD remains attached to the current bottom edge.
 Renderer-coordinate conversion keeps high-DPI pointer input in that same
 adaptive pixel space.
 
+Verification status: implementation and automated SDL/policy checks pass, but
+fullscreen, live dragging, geometry restoration, high-DPI input, and Options
+state synchronization have not yet been tested by a human. Manual desktop
+acceptance remains required before calling this behavior fully verified.
+
 Proof:
 
 - `settings_tests`: round trip, atomic replacement residue, v1 migration, and

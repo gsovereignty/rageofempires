@@ -475,7 +475,13 @@ Controls:
   high-DPI scale changes update the world viewport, bottom HUD, camera bounds,
   edge scrolling, and pointer coordinate space; the game does not retain a
   fixed 16:9 canvas.
+
 - Escape: quit.
+
+These fullscreen and resize behaviors have automated coverage only so far.
+Human desktop verification remains required, especially for continuous drag,
+high-DPI pointer alignment, startup fullscreen, failure rollback, and restored
+window geometry.
 
 Save and replay files live in the per-user SDL preference directory
 (`~/Library/Application Support/Software Archaeology/AoE Archaeology/` on

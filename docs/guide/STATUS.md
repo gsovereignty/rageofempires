@@ -4,6 +4,13 @@ Readable, clean-room C++ reconstruction informed by static analysis of the
 supplied Age of Empires II HD binary. This is new source code, not mechanically
 cleaned Ghidra output and not a claim of source compatibility.
 
+Recent camera, menu, building-age graphics, resource-bar, terrain-boundary,
+and fullscreen/resize issues are implemented and automated checks pass, but
+none has yet received human interactive verification. See
+[`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md#recent-issue-closure-human-verification-pending)
+for per-issue evidence and required manual checks. Do not describe these six
+items as human-verified or accepted yet.
+
 ## Scope and non-requirements
 
 Commercial scenario, campaign, saved-game, and recorded-game compatibility is

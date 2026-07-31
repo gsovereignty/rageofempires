@@ -232,9 +232,10 @@ whole-kind fallback.
 
 `mapped_asset_gap` means one or more directly named action or layer SLPs are
 absent. It does not mean the whole kind always falls back. For example, sheep
-standing and movement assets remain available, while Town Center rendering is
-multi-layered and retains other present current-Age layers. Missing layers do
-not authorize a future-Age or procedural overlay.
+standing and movement assets remain available. Town Center rendering uses its
+coherent age/family base SLP without also drawing displaced component SLPs;
+those components otherwise add unrelated poles and fragments around the
+building. Missing layers do not authorize a future-Age or procedural overlay.
 
 The report's DAT-wide absent-SLP list is broader evidence about unresolved DAT
 links. It is not a list of represented renderer failures. Per-kind findings are

@@ -480,10 +480,10 @@ Controls:
 
 - Escape: quit.
 
-These fullscreen and resize behaviors have automated coverage only so far.
-Human desktop verification remains required, especially for continuous drag,
-high-DPI pointer alignment, startup fullscreen, failure rollback, and restored
-window geometry.
+These fullscreen and resize behaviors have automated coverage. Human desktop
+verification of continuous drag, high-DPI pointer alignment, startup
+fullscreen, failure rollback, and restored window geometry was accepted on
+2026-07-31.
 
 Save and replay files live in the per-user SDL preference directory
 (`~/Library/Application Support/Software Archaeology/AoE Archaeology/` on

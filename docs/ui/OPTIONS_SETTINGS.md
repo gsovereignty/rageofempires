@@ -38,8 +38,7 @@ Verification status: initial human testing found Retina drawable pixels were
 incorrectly used as UI coordinates, making everything too small. Canonical UI
 sizing now uses window-coordinate units; automated SDL/policy checks pass.
 Human retesting of sizing, fullscreen, live dragging, geometry restoration,
-high-DPI input, and Options synchronization remains required before calling
-this behavior fully verified.
+high-DPI input, and Options synchronization was accepted on 2026-07-31.
 
 Proof:
 

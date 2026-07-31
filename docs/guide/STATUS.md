@@ -5,12 +5,10 @@ supplied Age of Empires II HD binary. This is new source code, not mechanically
 cleaned Ghidra output and not a claim of source compatibility.
 
 Recent camera, menu, building-age graphics, resource-bar, terrain-boundary,
-and fullscreen/resize issues are implemented and automated checks pass, but
-none has completed human interactive verification. Initial high-DPI testing
-found undersized UI; correction now awaits human retest. See
-[`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md#recent-issue-closure-human-verification-pending)
-for per-issue evidence and required manual checks. Do not describe these six
-items as human-verified or accepted yet.
+and fullscreen/resize issues are implemented, automated checks pass, and
+human interactive verification was accepted on 2026-07-31. See
+[`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md#recent-issue-closure-human-verified)
+for per-issue automated and human evidence.
 
 ## Scope and non-requirements
 

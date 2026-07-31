@@ -244,3 +244,29 @@ If absent, select first ungarrisoned local unit; if no such unit exists, use
 integer map center. `AOE_CAMERA_TILE` remains an explicit capture override.
 
 Known incompatibility: fallback order is reconstruction-native.
+
+## World-pointer tile lookup
+
+Observed evidence:
+
+- Supplied executable cursor path `FUN_004dc8b0` at `0x004dc8b0` obtains
+  client coordinates, dispatches them through one view-transform virtual call
+  at vtable offset `0x8c`, then performs bounded coordinate and viewport
+  arithmetic. `FUN_004ed6b0` at `0x004ed6b0` uses the same one-transform
+  pattern for direct cursor queries.
+- No map-area traversal occurs in either recovered pointer-coordinate path.
+- Reconstruction `mouse_tile` traversed every map tile for every world click.
+  Maximum 480×480 startup maps therefore performed 230,400 projections before
+  dispatching one selection or command.
+
+Interpretation: original input conversion is coordinate-local. Reconstruction
+full-map traversal was neither original behavior nor needed for elevation
+selection. Confidence: high.
+
+Modern choice: inverse-project once, then inspect a fixed neighborhood large
+enough for every legal elevation 0 through 7, diamond width, and rounding.
+Lookup cost is bounded independently of map dimensions while retaining the
+frontmost-tile rule.
+
+Known incompatibility: recovered anonymous view structures do not prove exact
+original elevated-tile tie breaking. Reconstruction keeps its prior tie rule.

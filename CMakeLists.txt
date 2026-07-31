@@ -214,6 +214,13 @@ target_compile_options(
     initial_camera_tests PRIVATE -Wall -Wextra -Wpedantic
 )
 add_test(NAME initial_camera_tests COMMAND initial_camera_tests)
+
+add_executable(world_tile_picker_tests tests/world_tile_picker_tests.cpp)
+target_link_libraries(world_tile_picker_tests PRIVATE aoe_core)
+target_compile_options(
+    world_tile_picker_tests PRIVATE -Wall -Wextra -Wpedantic
+)
+add_test(NAME world_tile_picker_tests COMMAND world_tile_picker_tests)
 add_test(
     NAME terrain_edge_sdl_smoke
     COMMAND bash
@@ -1097,6 +1104,19 @@ add_test(
 )
 set_tests_properties(
     aoe_gameplay_performance_sdl
+    PROPERTIES
+        TIMEOUT 30
+        LABELS "performance;sdl"
+)
+add_test(
+    NAME aoe_frontend_performance_sdl
+    COMMAND
+        bash
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend_performance_sdl_test.sh
+        $<TARGET_FILE:aoe_reconstruction>
+)
+set_tests_properties(
+    aoe_frontend_performance_sdl
     PROPERTIES
         TIMEOUT 30
         LABELS "performance;sdl"

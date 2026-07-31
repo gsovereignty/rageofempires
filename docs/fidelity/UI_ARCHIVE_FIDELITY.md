@@ -18,6 +18,7 @@ The following metadata was decoded directly from that supplied archive:
 | Action sheet | 50721 | 69 | 0 | 36×36 | Archive metadata and command/action role executable-proved; frame 0 meaning unproved |
 | Portrait frames | 50713 | 4 | 0 | 54×54 | Archive metadata proved; semantic role inferred |
 | Cursor sheet | 51000 | 19 | 0 | 24×32 | Archive metadata proved; frame 0 visibly decodes as normal pointer |
+| Main-menu palette | 50589 (`bina`) | — | — | JASC palette used to decode packaged loose `main_32.slp`; see `MAIN_MENU_FIDELITY.md` |
 
 Resource-icon frames 18–21 of 50721 and use of portrait frame 0 remain
 reference-informed approximations. Exact historical selection rules by game
@@ -31,6 +32,9 @@ state, resolution, civilization, and screen are not proved.
 - Without the archive, malformed resources, or metadata mismatch, the app
   keeps its procedural beveled HUD and platform default cursor.
 - UI archive failure never changes simulation state.
+- Packaged `main_32.slp` frame 0 supplies optional original Age of Kings menu
+  background art. Menu labels, flyout framing, and typography remain bounded
+  reconstruction choices.
 
 The legacy approximate HUD path takes the bottom portion of unlinked
 1280×1024 SLP 51141 and scales it into the reconstruction's 1280×80 logical

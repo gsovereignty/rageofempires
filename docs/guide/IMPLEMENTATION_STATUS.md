@@ -55,17 +55,21 @@ capture. No proprietary editor format, layout, or compatibility is claimed;
 the panel is reconstruction-native because the supplied archive proves no
 editor-specific panel art.
 
-`AOE_MAIN_MENU=1` opens the bounded reconstruction front end before simulation
-advances. Keyboard and mouse choices cover Single Player setup, the loaded
+`AOE_MAIN_MENU=1` opens the fixed-800×600 classic main screen before simulation
+advances. Packaged `main_32.slp` frame 0 supplies optional original Age of
+Kings background art; missing or malformed art uses an explicitly
+non-equivalent procedural fallback. Keyboard and mouse choices cover Single Player setup, the loaded
 Scenario66, configured campaign briefing, Scenario66 editor, and
 preconfigured localhost Host/Join. The Single Player setup confirms player,
 scenario civilization, computer difficulty source, and loaded map/rules
 before `Enter` starts; `Escape` returns. Campaign and multiplayer choices
 report the required `AOE_CAMPAIGN` or `AOE_MULTIPLAYER` configuration instead
-of inventing file browsers or Internet discovery. `/tmp/aoe-main-menu.png` is
-the current 1280x720 capture. The dark beveled framing is
-reconstruction-native: archive evidence proves the existing HUD background
-and cursor, not a commercial main-menu screen.
+of inventing Internet discovery. Single Player opens a measured flyout with
+seven ordered entries, contextual help, wrapping keyboard focus, pointer
+focus, and shared activation routing. See
+[`MAIN_MENU_FIDELITY.md`](../fidelity/MAIN_MENU_FIDELITY.md) for asset and
+layout evidence. Flyout framing, English text, and debug-glyph typography are
+reconstruction-native and do not claim pixel parity.
 
 Single Player setup drives the deterministic reconstruction random-map
 generator. `M` cycles Arabia/Black Forest/Islands/Rivers, `Z` cycles

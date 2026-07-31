@@ -1,3 +1,15 @@
+## Main menu
+
+Set `AOE_MAIN_MENU=1` to open main menu, or
+`AOE_MENU_REFERENCE=1` to open Single Player flyout with Campaigns focused.
+Mouse motion changes focus; left click activates. Up/Down wraps focus,
+Enter/Space activates, and Escape or flyout `X` returns to main menu.
+
+Main choices retain supported Campaign, Random Map, multiplayer, editor,
+Options, Custom Scenario, and Saved Game routes. Learn to Play, Regicide, and
+Death Match remain disabled until native behavior exists. Zone displays an
+offline-service notice and makes no network request.
+
 ## Scenario editing
 
 The bundled match is [demo.scenario](../../resources/demo.scenario). Records describe

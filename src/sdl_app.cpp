@@ -4132,10 +4132,10 @@ LegacySprites load_local_legacy_sprites(
             }};
         constexpr std::array<std::array<std::int32_t, 5>, 4>
             town_center_age_slps{{
-                {{3596, 3596, 3596, 3596, 3596}},
-                {{3608, 3605, 3607, 3606, 5069}},
-                {{3620, 3617, 3619, 3618, 5078}},
-                {{3476, 3473, 3475, 3474, 5087}},
+                {{891, 891, 891, 891, 891}},
+                {{903, 900, 902, 901, 903}},
+                {{915, 912, 914, 913, 915}},
+                {{927, 924, 926, 925, 927}},
             }};
         constexpr std::array<std::array<std::int32_t, 5>, 2>
             blacksmith_slps{{
@@ -4212,21 +4212,23 @@ LegacySprites load_local_legacy_sprites(
                     town_center_age_slps[age][family],
                     2
                 );
-                if (family < 4) {
-                    for (std::size_t layer = 0; layer < 4; ++layer) {
-                        attempt(
-                            sprites
-                                .town_center_layers_blue[age][family][layer],
-                            town_center_layer_slps[age][family][layer],
-                            1
-                        );
-                        attempt(
-                            sprites
-                                .town_center_layers_red[age][family][layer],
-                            town_center_layer_slps[age][family][layer],
-                            2
-                        );
-                    }
+                for (std::size_t layer = 0; layer < 4; ++layer) {
+                    const std::size_t layer_family =
+                        family < town_center_layer_slps[age].size()
+                        ? family
+                        : 0U;
+                    attempt(
+                        sprites
+                            .town_center_layers_blue[age][family][layer],
+                        town_center_layer_slps[age][layer_family][layer],
+                        1
+                    );
+                    attempt(
+                        sprites
+                            .town_center_layers_red[age][family][layer],
+                        town_center_layer_slps[age][layer_family][layer],
+                        2
+                    );
                 }
             }
         }
@@ -6873,14 +6875,28 @@ void render_building(
                 building.owner == Player::blue
                 ? active_legacy_sprites.town_center_age_blue
                 : active_legacy_sprites.town_center_age_red;
+            const auto& layers =
+                building.owner == Player::blue
+                ? active_legacy_sprites.town_center_layers_blue
+                : active_legacy_sprites.town_center_layers_red;
             const SDL_FPoint ground{
                 top.x, top.y + half_tile_height
             };
-            // Each selected root SLP is complete. Its DAT deltas document
-            // composition but must not be drawn over the root again.
+            // Supplied Town Center root SLPs are not standalone rendered
+            // images. Keep the known base authoritative and add every
+            // available component; missing optional layers remain harmless.
             rendered_original = render_legacy_sprite(
                 renderer, base[age][family], ground
             );
+            if (rendered_original) {
+                for (const LegacySprite& layer : layers[age][family]) {
+                    if (layer.texture != nullptr) {
+                        (void)render_legacy_sprite(
+                            renderer, layer, ground
+                        );
+                    }
+                }
+            }
         }
         if (rendered_original) {
             if (building.hit_points < maximum_hit_points ||

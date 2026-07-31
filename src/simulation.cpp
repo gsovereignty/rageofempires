@@ -5649,6 +5649,25 @@ void Simulation::update() {
         return;
     }
     for (Unit& unit : units_) {
+        if (!is_herdable(unit.kind) || !unit.owner.is_neutral() ||
+            unit.hit_points <= 0 || unit.garrisoned_in != 0) {
+            continue;
+        }
+        const bool visible_to_blue = is_visible(Player::blue, unit.position);
+        const bool visible_to_red = is_visible(Player::red, unit.position);
+        // Original runtime contains distinct Sheep/Gaia capture feedback and
+        // DAT identifies Sheep as herdable, but recovered source does not
+        // prove contested-capture priority. Use existing deterministic LOS
+        // as capture boundary; leave simultaneous discovery neutral rather
+        // than invent a player-order advantage.
+        if (visible_to_blue != visible_to_red) {
+            unit.owner = visible_to_blue
+                ? EntityOwner{Player::blue}
+                : EntityOwner{Player::red};
+            unit.stance_anchor = unit.position;
+        }
+    }
+    for (Unit& unit : units_) {
         if (!is_animal(unit.kind) || unit.hit_points > 0 ||
             unit.food_remaining <= 0) {
             continue;

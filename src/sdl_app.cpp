@@ -16273,14 +16273,21 @@ int SdlApp::run() {
     std::optional<TilePosition> sheep_click_proof_destination;
     bool sheep_click_proof_gather{};
     bool sheep_click_proof_move{};
+    bool sheep_click_proof_capture_move{};
     bool sheep_click_proof_logged{};
     if (const char* proof = SDL_getenv("AOE_SHEEP_CLICK_PROOF");
         proof != nullptr && proof[0] != '\0') {
         sheep_click_proof_gather = std::string_view{proof} == "gather";
         sheep_click_proof_move = std::string_view{proof} == "move";
+        sheep_click_proof_capture_move =
+            std::string_view{proof} == "capture-move";
+        if (sheep_click_proof_capture_move) {
+            simulation.update();
+        }
         const auto sheep = std::ranges::find_if(
             simulation.units(),
-            [move = sheep_click_proof_move](const Unit& unit) {
+            [move = sheep_click_proof_move ||
+                    sheep_click_proof_capture_move](const Unit& unit) {
                 return unit.kind == UnitKind::sheep &&
                     unit.garrisoned_in == 0 &&
                     (!move || unit.owner == active_view_player);
@@ -16338,7 +16345,8 @@ int SdlApp::run() {
                 sheep_click_proof_gather
                     ? SDL_BUTTON_RIGHT : SDL_BUTTON_LEFT
             );
-            if (sheep_click_proof_move) {
+            if (sheep_click_proof_move ||
+                sheep_click_proof_capture_move) {
                 const TilePosition destination{
                     sheep->position.x + 2,
                     sheep->position.y
@@ -21280,7 +21288,8 @@ int SdlApp::run() {
                     villager->resource_unit_id ==
                         *sheep_click_proof_sheep &&
                     sheep->owner == active_view_player;
-            } else if (sheep_click_proof_move &&
+            } else if ((sheep_click_proof_move ||
+                        sheep_click_proof_capture_move) &&
                        sheep_click_proof_destination) {
                 const auto sheep = std::ranges::find(
                     simulation.units(),
@@ -21295,6 +21304,7 @@ int SdlApp::run() {
                 SDL_Log(
                     "sheep click proof passed: %s",
                     sheep_click_proof_gather ? "gather" :
+                    sheep_click_proof_capture_move ? "capture-move" :
                     sheep_click_proof_move ? "move" : "select"
                 );
                 sheep_click_proof_logged = true;

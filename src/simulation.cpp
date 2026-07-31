@@ -7063,6 +7063,36 @@ void Simulation::refresh_unit_render_subtile(Unit& unit) {
         unit.position.y * render_scale,
     };
     unit_render_elevations_.at(unit.id).current = unit.position;
+
+    const int movement_interval =
+        rules_for(unit.kind).movement_interval_ticks;
+    const bool ordinary_paced_movement =
+        unit.moving &&
+        unit.formation_move_interval == 0 &&
+        movement_interval > 1 &&
+        unit.previous_position != unit.position &&
+        unit.movement_cooldown > 0;
+    if (ordinary_paced_movement) {
+        // Original RGE moving objects retain floating-point coordinates and
+        // are serviced from the timeGetTime()-driven game loop. Preserve our
+        // integer authoritative tiles, but spread a paced logical step across
+        // its full presentation interval.
+        const int elapsed_ticks = std::clamp(
+            movement_interval - unit.movement_cooldown,
+            1,
+            movement_interval
+        );
+        unit.render_current_subtile = {
+            unit.previous_position.x * render_scale +
+                (unit.position.x - unit.previous_position.x) *
+                    elapsed_ticks * render_scale / movement_interval,
+            unit.previous_position.y * render_scale +
+                (unit.position.y - unit.previous_position.y) *
+                    elapsed_ticks * render_scale / movement_interval,
+        };
+        return;
+    }
+
     if (!unit.moving || unit.next_path_step >= unit.path.size()) {
         return;
     }

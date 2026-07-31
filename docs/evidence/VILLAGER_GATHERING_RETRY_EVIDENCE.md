@@ -21,6 +21,11 @@ Two simulation cases reproduced permanent work loss before the fix:
 3. A distant villager reached a resource after another villager depleted it.
    With no carried amount, `gather` discarded the order before same-type
    retargeting could run.
+4. Interactive berry gathering with three villagers and nearby sheep, knights,
+   and villagers still produced idle workers and route oscillation. A valid
+   gather command could fail its first path search before durable order state
+   was assigned. Land-resource paths also targeted the resource tile instead
+   of an interaction-range tile, increasing contention.
 
 The first case distinguishes cancellation from a stalled active order: target
 state survived, but movement did not. The second case was genuine unintended
@@ -35,8 +40,11 @@ reachable transitions:
 - transition from full carry to a drop-off;
 - replacement of an unavailable or destroyed drop-off;
 - return to a remembered resource after depositing;
-- same-type retargeting when all candidates were temporarily occupied.
-- late arrival after another worker depleted the shared target.
+- same-type retargeting when all candidates were temporarily occupied;
+- late arrival after another worker depleted the shared target;
+- initial command delivery while every route is temporarily blocked;
+- land-resource routing to the resource tile rather than an adjacent
+  interaction tile.
 
 The corrected contract keeps `has_resource_target` as the durable work order.
 `returning_resource` selects its delivery leg. A failed route makes the unit
@@ -46,6 +54,11 @@ retargeting remembers the nearest candidate even when no path is currently
 available. Explicit stop, movement, combat, repair, construction, garrison,
 and other replacement commands continue using their existing deliberate state
 clears.
+
+Land-resource commands now assign durable order state even when their first
+path search fails. Routing selects a deterministic reachable cardinal tile
+within gather range. Workers already in range stop moving and work; they no
+longer compete to occupy the berry, tree, gold, or stone tile itself.
 
 ## Decompiled evidence
 
@@ -71,12 +84,14 @@ from the reproduced failure.
 `tests/simulation_tests.cpp` now covers:
 
 - recovery after a temporary corridor obstruction;
+- acceptance and later recovery when a knight blocks the route at command
+  creation time;
 - save/load of the stationary obstructed order followed by identical recovery;
 - waiting for a compatible drop-off that appears later;
 - four villagers sharing one resource and drop-off through repeated deposit
-  cycles.
+  cycles;
 - late-arriving shared-resource workers retaining resource kind and retargeting
-  after depletion.
+  after depletion;
 - native land-gather command replay producing identical resource, economy, and
   active-order state.
 

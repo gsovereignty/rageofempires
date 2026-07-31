@@ -1130,6 +1130,47 @@ void gathering_retries_after_temporary_route_obstruction() {
     );
 }
 
+void gathering_order_survives_initial_route_blockage() {
+    aoe::GameMap map(9, 3);
+    for (int x = 0; x < map.width(); ++x) {
+        map.set_terrain({x, 0}, aoe::Terrain::water);
+        map.set_terrain({x, 2}, aoe::Terrain::water);
+    }
+    map.set_terrain({3, 0}, aoe::Terrain::grass);
+    map.set_terrain({6, 1}, aoe::Terrain::berry_bush);
+    map.set_resource_amount({6, 1}, 100);
+    aoe::Simulation simulation(std::move(map));
+    const aoe::EntityId worker = simulation.add_unit(
+        aoe::UnitKind::villager,
+        aoe::Player::blue,
+        {1, 1}
+    );
+    const aoe::EntityId blocker = simulation.add_unit(
+        aoe::UnitKind::knight,
+        aoe::Player::blue,
+        {3, 1}
+    );
+    simulation.add_unit(
+        aoe::UnitKind::villager,
+        aoe::Player::red,
+        {8, 1}
+    );
+
+    require(simulation.command_unit(worker, {6, 1}));
+    require(simulation.units().front().has_resource_target);
+    require(!simulation.units().front().moving);
+
+    require(simulation.command_unit(blocker, {3, 0}));
+    for (int tick = 0; tick < 20; ++tick) {
+        simulation.update();
+    }
+    require(simulation.units().front().has_resource_target);
+    require(simulation.units().front().carried_amount > 0);
+    require(
+        simulation.units().front().position != aoe::TilePosition(6, 1)
+    );
+}
+
 void gathering_waits_for_a_temporarily_unavailable_drop_off() {
     aoe::GameMap map(12, 6);
     map.set_terrain({2, 2}, aoe::Terrain::forest);
@@ -22929,6 +22970,10 @@ int main() {
     run(
         "temporary gathering route obstruction",
         gathering_retries_after_temporary_route_obstruction
+    );
+    run(
+        "initial gathering route blockage",
+        gathering_order_survives_initial_route_blockage
     );
     run(
         "temporarily unavailable gathering drop off",

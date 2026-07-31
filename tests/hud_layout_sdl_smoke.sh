@@ -111,12 +111,13 @@ for logical_width, logical_height, assets, scale in cases:
         raise SystemExit(
             f"{name}: output {(width, height)} != {expected}"
         )
-    row_width, fields = layout(logical_width, assets == "icons")
+    canonical_width = logical_width * scale
+    row_width, fields = layout(canonical_width, assets == "icons")
     for index, (x, field_width, text_x, text_width) in enumerate(fields):
         text_pixels = sum(
             pixel(px, py) == foreground
-            for py in range(8 * scale, 16 * scale)
-            for px in range(text_x * scale, (text_x + text_width) * scale)
+            for py in range(8, 16)
+            for px in range(text_x, text_x + text_width)
         )
         if text_pixels == 0:
             raise SystemExit(f"{name}: field {index} has no text pixels")
@@ -124,17 +125,17 @@ for logical_width, logical_height, assets, scale in cases:
             previous_end = fields[index - 1][0] + fields[index - 1][1]
             gap_pixels = sum(
                 pixel(px, py) == foreground
-                for py in range(3 * scale, 21 * scale)
-                for px in range(previous_end * scale, x * scale)
+                for py in range(3, 21)
+                for px in range(previous_end, x)
             )
             if gap_pixels:
                 raise SystemExit(
                     f"{name}: field {index - 1} crossed guard band"
                 )
-    row_end = (10 + row_width) * scale
+    row_end = 10 + row_width
     leaked_right = sum(
         pixel(px, py) == foreground
-        for py in range(3 * scale, 21 * scale)
+        for py in range(3, 21)
         for px in range(row_end, width)
     )
     if leaked_right:

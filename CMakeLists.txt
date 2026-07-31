@@ -134,6 +134,7 @@ add_library(aoe_core
     src/selection_controls.cpp
     src/building_placement.cpp
     src/terrain_transition.cpp
+    src/window_mode.cpp
     src/shadow_catalog.cpp
     src/projectile_catalog.cpp
     src/render_asset_coverage.cpp
@@ -160,6 +161,11 @@ add_executable(settings_tests tests/settings_tests.cpp)
 target_link_libraries(settings_tests PRIVATE aoe_core)
 target_compile_options(settings_tests PRIVATE -Wall -Wextra -Wpedantic)
 add_test(NAME settings_tests COMMAND settings_tests)
+
+add_executable(window_mode_tests tests/window_mode_tests.cpp)
+target_link_libraries(window_mode_tests PRIVATE aoe_core)
+target_compile_options(window_mode_tests PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME window_mode_tests COMMAND window_mode_tests)
 
 add_executable(frame_timing_tests tests/frame_timing_tests.cpp)
 target_link_libraries(frame_timing_tests PRIVATE aoe_core)
@@ -947,6 +953,14 @@ add_test(
         $<TARGET_FILE:aoe_reconstruction>
 )
 set_tests_properties(aoe_hud_layout_sdl_smoke PROPERTIES TIMEOUT 60)
+add_test(
+    NAME window_mode_sdl_smoke
+    COMMAND
+        bash
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/window_mode_sdl_smoke.sh
+        $<TARGET_FILE:aoe_reconstruction>
+)
+set_tests_properties(window_mode_sdl_smoke PROPERTIES TIMEOUT 60)
 add_test(
     NAME aoe_self_containment_guard
     COMMAND

@@ -19,9 +19,26 @@ audio startup and panel labels this limit. Only windowed/fullscreen modes are
 offered. Panel is procedural because no matching archive options artwork has
 been proven.
 
+The saved fullscreen choice is applied when the SDL window is created.
+`F11` and `Alt+Enter` change the live, active, and draft fullscreen value
+together; a later `S` persists the actual live value. `A` still applies
+without writing. Failed fullscreen transitions remain windowed and roll the
+panel values back.
+
+The window is resizable down to 640x360 window-coordinate units. Each drawable
+pixel-size or display-scale change replaces the canonical render extent, so a
+wider or taller window exposes more world rather than scaling a fixed 16:9
+canvas. The fixed-height HUD remains attached to the current bottom edge.
+Renderer-coordinate conversion keeps high-DPI pointer input in that same
+adaptive pixel space.
+
 Proof:
 
 - `settings_tests`: round trip, atomic replacement residue, v1 migration, and
   invalid-file rejection.
+- `window_mode_tests`: drawable validation and fullscreen state/geometry
+  synchronization.
+- `window_mode_sdl_smoke`: live resize capture and fullscreen round-trip or
+  documented dummy-driver rollback.
 - `/tmp/aoe-options-panel.png`: deterministic panel capture using
   `AOE_OPTIONS_PANEL=1`.

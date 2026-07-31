@@ -946,6 +946,7 @@ add_test(
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/hud_layout_sdl_smoke.sh
         $<TARGET_FILE:aoe_reconstruction>
 )
+set_tests_properties(aoe_hud_layout_sdl_smoke PROPERTIES TIMEOUT 60)
 add_test(
     NAME aoe_self_containment_guard
     COMMAND

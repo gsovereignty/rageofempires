@@ -141,12 +141,37 @@ These are exact relative operands. The recovered frame-1 height now also
 proves the absolute bottom split. Semantic roles for several child pointers
 remain unproved.
 
-The runtime resource row uses five disjoint width-derived fields for Wood,
-Food, Gold, Stone, and Population/Idle status. Each icon and truncated label
-is clipped conceptually to its field, with six logical pixels between fields.
-Contract tests cover 640, 1024, 1280, and 1920 logical widths; SDL screenshot
-smoke covers supported resolution classes. This responsive spacing is a
-reconstruction-native readability rule, not an exact recovered field map.
+Exact Wood/Food/Gold/Stone/Population field coordinates remain unproved. The
+runtime therefore uses a reconstruction-native readability contract:
+
+- one ordered field per Wood, Food, Gold, Stone, and Population;
+- 10 logical pixels of safe left/right margin and 6-pixel guard bands;
+- row width capped at 780 pixels, left-anchored, so wide screens retain one
+  compact original-style status group;
+- deterministic left-to-right distribution of integer remainder pixels;
+- 16×16 resource icons, 4-pixel icon/text padding, fixed 8-pixel debug-font
+  cells, and one renderer clip rectangle per field;
+- same five bounded fields when icon assets are absent;
+- Population always keeps `POP current/capacity`; `PAUSED` has priority over
+  optional `IDLE villagers/military` when narrow width cannot fit both.
+
+Dark field backing makes the text readable over native `game_b%d.slp` top
+ornaments. Truncation only handles large values or long localization after
+geometry and renderer clips enforce separation. Field clips are cleared before
+the existing information-panel clip is restored.
+
+Contract tests cover logical widths 640, 800, 1024, 1280, and 1920 with normal,
+nine-digit, paused, large-population, long-label, icon, and no-icon cases.
+`aoe_hud_layout_sdl_smoke` captures all five widths with both asset paths,
+plus 640×480 at deterministic 1× and 2× renderer output. Its pixel validator
+requires text in every field, exact foreground-free inter-field guard bands,
+and no resource foreground beyond the row. `AOE_HUD_STRESS_VALUES=1` affects
+display values only; `AOE_HUD_OUTPUT_SCALE=1|2` creates physical-output test
+variants while production layout remains logical-coordinate based.
+
+This responsive policy is not an exact recovered field map. Exact evidence
+remains limited to the surrounding status strip and screen-relative controls
+listed above.
 
 Runtime frame inspection proves 50721 frames 36 and 37 contain action artwork,
 not reusable button chrome. Command slots use procedural normal, pressed,

@@ -40,7 +40,28 @@ int main() {
            Rect{944, 855, 326, 164}));
     assert((anchored_large_panel(1024, 768) ==
            Rect{688, 599, 326, 164}));
-    assert((top_status_strip() == Rect{8, 4, 404, 14}));
+    assert((top_status_strip() == Rect{2, 2, 420, 16}));
+    for (const int width : {640, 1024, 1280, 1920}) {
+        const auto fields = resource_status_fields(width);
+        assert(fields.front().x == 10);
+        assert(fields.back().x + fields.back().width <= width - 10);
+        for (std::size_t index = 1; index < fields.size(); ++index) {
+            assert(
+                fields[index - 1].x + fields[index - 1].width <
+                fields[index].x
+            );
+        }
+        for (const Rect field : fields) {
+            assert(field.width >= 100);
+            const int text_width = std::max(0, field.width - 20);
+            const std::string text = truncate_debug_text(
+                "STONE 999999999", text_width
+            );
+            assert(
+                static_cast<int>(text.size()) * 8 <= text_width
+            );
+        }
+    }
     assert((inset(Rect{0, 0, 100, 40}, 6) == Rect{6, 6, 88, 28}));
     assert((inset(Rect{0, 0, 8, 8}, 6) == Rect{6, 6, 0, 0}));
     assert(truncate_debug_text("VILLAGER", 64) == "VILLAGER");

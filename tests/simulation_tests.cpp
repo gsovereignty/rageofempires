@@ -12596,6 +12596,52 @@ void sheep_supply_food_without_using_population() {
     ));
 }
 
+void neutral_sheep_select_and_contextual_gather() {
+    aoe::Simulation simulation(aoe::GameMap(12, 8));
+    simulation.add_building(
+        aoe::BuildingKind::town_center,
+        aoe::Player::blue,
+        {0, 0}
+    );
+    const aoe::EntityId villager = simulation.add_unit(
+        aoe::UnitKind::villager,
+        aoe::Player::blue,
+        {4, 2}
+    );
+    const aoe::EntityId sheep = simulation.add_unit(
+        aoe::UnitKind::sheep,
+        aoe::Player::neutral,
+        {5, 2}
+    );
+    simulation.add_unit(
+        aoe::UnitKind::villager,
+        aoe::Player::red,
+        {11, 7}
+    );
+
+    require(simulation.select_unit_at({5, 2}, aoe::Player::blue));
+    require(simulation.selected_unit() == sheep);
+    require(simulation.formation_kind(aoe::Player::neutral) ==
+        aoe::FormationKind::compact);
+    require(simulation.formation_destinations({sheep}, {5, 2}) ==
+        std::vector<aoe::TilePosition>{{5, 2}});
+    require(simulation.select_unit_at({4, 2}, aoe::Player::blue));
+    require(simulation.selected_unit() == villager);
+    require(simulation.command_unit(villager, {5, 2}));
+
+    const auto claimed = std::ranges::find(
+        simulation.units(), sheep, &aoe::Unit::id
+    );
+    require(claimed != simulation.units().end());
+    require(claimed->owner == aoe::Player::blue);
+    require(claimed->hit_points == 0);
+    const auto gatherer = std::ranges::find(
+        simulation.units(), villager, &aoe::Unit::id
+    );
+    require(gatherer != simulation.units().end());
+    require(gatherer->resource_unit_id == sheep);
+}
+
 void sheep_state_round_trips_through_save_and_scenario() {
     aoe::Simulation simulation(aoe::GameMap(10, 6));
     simulation.add_building(
@@ -23097,6 +23143,10 @@ int main() {
         multiple_builders_use_original_diminishing_returns_and_persist
     );
     run("sheep food", sheep_supply_food_without_using_population);
+    run(
+        "neutral sheep selection and gather",
+        neutral_sheep_select_and_contextual_gather
+    );
     run(
         "sheep persistence",
         sheep_state_round_trips_through_save_and_scenario

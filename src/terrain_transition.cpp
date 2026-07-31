@@ -120,6 +120,36 @@ void append_mask_ids(
 
 }  // namespace
 
+std::array<TerrainTransitionColor, 7>
+procedural_transition_band(
+    TerrainTransitionColor center,
+    TerrainTransitionColor neighbor
+) {
+    std::array<TerrainTransitionColor, 7> result{};
+    for (std::size_t index = 0; index < result.size(); ++index) {
+        // Neighbor influence falls from 3/7 at boundary to zero inward.
+        const unsigned neighbor_weight =
+            static_cast<unsigned>(result.size() - 1 - index);
+        constexpr unsigned denominator = 14;
+        const unsigned center_weight = denominator - neighbor_weight;
+        const auto mix = [=](std::uint8_t center_channel,
+                             std::uint8_t neighbor_channel) {
+            return static_cast<std::uint8_t>(
+                (static_cast<unsigned>(center_channel) * center_weight +
+                 static_cast<unsigned>(neighbor_channel) * neighbor_weight +
+                 denominator / 2) /
+                denominator
+            );
+        };
+        result[index] = {
+            mix(center.red, neighbor.red),
+            mix(center.green, neighbor.green),
+            mix(center.blue, neighbor.blue),
+        };
+    }
+    return result;
+}
+
 std::optional<TerrainBlendEvidence>
 terrain_blend_evidence(Terrain terrain) {
     if (terrain == Terrain::fish) terrain = Terrain::water;

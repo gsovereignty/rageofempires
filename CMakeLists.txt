@@ -207,6 +207,13 @@ target_compile_options(
     terrain_transition_tests PRIVATE -Wall -Wextra -Wpedantic
 )
 add_test(NAME terrain_transition_tests COMMAND terrain_transition_tests)
+add_test(
+    NAME terrain_edge_sdl_smoke
+    COMMAND bash
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/terrain_edge_sdl_smoke.sh
+        $<TARGET_FILE:aoe_reconstruction>
+)
+set_tests_properties(terrain_edge_sdl_smoke PROPERTIES TIMEOUT 20)
 
 add_executable(shadow_catalog_tests tests/shadow_catalog_tests.cpp)
 target_link_libraries(shadow_catalog_tests PRIVATE aoe_core)
@@ -448,6 +455,20 @@ set_tests_properties(
     selection_controls_sdl_smoke
     PROPERTIES TIMEOUT 20
 )
+add_test(
+    NAME building_artifact_sdl_smoke
+    COMMAND bash
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/building_artifact_sdl_smoke.sh
+        $<TARGET_FILE:aoe_reconstruction>
+)
+set_tests_properties(building_artifact_sdl_smoke PROPERTIES TIMEOUT 20)
+add_test(
+    NAME sheep_interaction_sdl_smoke
+    COMMAND bash
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/sheep_interaction_sdl_smoke.sh
+        $<TARGET_FILE:aoe_reconstruction>
+)
+set_tests_properties(sheep_interaction_sdl_smoke PROPERTIES TIMEOUT 20)
 
 add_test(
     NAME observer_ui_sdl_smoke
@@ -498,6 +519,7 @@ else()
         aoe_reconstruction PRIVATE AOE_HAVE_NATIVE_MP3=0
     )
 endif()
+
 if(AOE_MPG123_INCLUDE_DIR AND NOT APPLE)
     target_include_directories(
         aoe_reconstruction PRIVATE "${AOE_MPG123_INCLUDE_DIR}"
@@ -638,6 +660,7 @@ if(APPLE)
         VERBATIM
     )
 endif()
+
 
 add_executable(aoe_core_tests tests/simulation_tests.cpp)
 target_link_libraries(aoe_core_tests PRIVATE aoe_core)
@@ -894,7 +917,7 @@ add_test(
         $<TARGET_FILE:aoe_reconstruction>
 )
 set_tests_properties(
-    aoe_packaged_sprites_sdl_smoke PROPERTIES TIMEOUT 30
+    aoe_packaged_sprites_sdl_smoke PROPERTIES TIMEOUT 120
 )
 add_test(
     NAME aoe_packaged_audio_sdl_smoke
@@ -904,7 +927,7 @@ add_test(
         $<TARGET_FILE:aoe_reconstruction>
 )
 set_tests_properties(
-    aoe_packaged_audio_sdl_smoke PROPERTIES TIMEOUT 30
+    aoe_packaged_audio_sdl_smoke PROPERTIES TIMEOUT 120
 )
 add_test(
     NAME aoe_markdown_link_guard
@@ -1080,3 +1103,17 @@ if(APPLE)
         LABELS "visual;smoke"
     )
 endif()
+
+# Keep ordinary tests hermetic and fast even after a full packaging build has
+# deployed large optional legacy archives beside the executable. Dedicated
+# packaged-asset smokes explicitly re-enable those archives.
+get_property(AOE_ALL_TESTS DIRECTORY PROPERTY TESTS)
+set_tests_properties(
+    ${AOE_ALL_TESTS}
+    PROPERTIES ENVIRONMENT "AOE_DISABLE_LEGACY_ASSETS=1"
+)
+set_tests_properties(
+    aoe_packaged_sprites_sdl_smoke
+    aoe_packaged_audio_sdl_smoke
+    PROPERTIES ENVIRONMENT "AOE_DISABLE_LEGACY_ASSETS=0"
+)

@@ -1977,7 +1977,8 @@ bool Simulation::command_gather_unit(
         villager->garrisoned_in != 0 ||
         !is_animal(herdable->kind) ||
         (is_herdable(herdable->kind) &&
-         herdable->owner != villager->owner) ||
+         herdable->owner != villager->owner &&
+         !herdable->owner.is_neutral()) ||
         (is_huntable(herdable->kind) &&
          herdable->hit_points > 0) ||
         herdable->food_remaining <= 0) {
@@ -2023,6 +2024,9 @@ bool Simulation::command_gather_unit(
         return false;
     }
     if (is_herdable(herdable->kind)) {
+        // Neutral herdables become controlled when a player interacts with
+        // them. This keeps capture and the subsequent gather order atomic.
+        herdable->owner = villager->owner;
         herdable->hit_points = 0;
     }
     villager->attack_target_id = 0;
@@ -2101,9 +2105,13 @@ bool Simulation::select_unit_at(TilePosition position, Player player) {
     const auto found = std::find_if(
         units_.begin(),
         units_.end(),
-        [position, player](const Unit& unit) {
+        [this, position, player](const Unit& unit) {
             return unit.garrisoned_in == 0 &&
-                unit.position == position && unit.owner == player;
+                unit.position == position &&
+                (unit.owner == player ||
+                 (unit.kind == UnitKind::sheep &&
+                  unit.owner.is_neutral() &&
+                  is_visible(player, unit.position)));
         }
     );
     if (found == units_.end()) {
@@ -2526,7 +2534,9 @@ bool Simulation::set_formation_kind(
 FormationKind Simulation::formation_kind(Player player) const {
     const auto slot = player_slot_from_legacy(player);
     if (!slot || slot->is_neutral()) {
-        throw std::invalid_argument("neutral has no formation");
+        // Gaia units can be inspected and selected, but Gaia has no mutable
+        // player state. Use the same compact fallback as formation placement.
+        return FormationKind::compact;
     }
     return formation_kind(*slot);
 }
@@ -2864,7 +2874,8 @@ bool Simulation::command_unit(
         return false;
     }
     if (unit->kind == UnitKind::villager && target != nullptr) {
-        if (target->owner == unit->owner &&
+        if ((target->owner == unit->owner ||
+             target->owner.is_neutral()) &&
             is_herdable(target->kind)) {
             return command_gather_unit(unit_id, target->id);
         }

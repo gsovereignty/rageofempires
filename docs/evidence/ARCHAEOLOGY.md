@@ -59,6 +59,32 @@ civilization records precede generic `-1` records; highest probability and
 then DAT order provide a bounded deterministic choice. This is not a claim
 that original weighted-random playback used the same selection policy.
 
+## Sheep interaction
+
+Observed executable evidence:
+
+- Binary SHA-256:
+  `e23272e21014fb281f71a21ef96a6437ab8b322f4978fd4998be835be219edcc`.
+- `FUN_005290b0` at recovered address `0x005290b0` loads
+  `capsheep.wav` immediately beside `capgaia.wav`, proving distinct sheep and
+  general neutral-capture feedback in original runtime.
+- Supplied DAT record 594 identifies Sheep, 100 food, and its herdable
+  graphics/tasks; see `ECONOMY_ASSET_MAP.md`.
+
+Interpretation: sheep are player-interactable herdables, and neutral sheep can
+cross into player control. Confidence: high for capture capability and Sheep
+identity; exact original click priority and capture radius remain unrecovered.
+
+Modern choice: a visible neutral sheep can be single-click selected for
+inspection. Villager contextual right-click claims and begins gathering it in
+one deterministic command, so replay cannot observe an intermediate claimed
+but unordered state. Focused SDL input coverage drives real left/right mouse
+events through projection and command routing.
+
+Known incompatibility: reconstruction captures on explicit villager
+interaction, not passive proximity. Exact original passive capture radius and
+timing remain unproved.
+
 ## Time and determinism
 
 Observed evidence:

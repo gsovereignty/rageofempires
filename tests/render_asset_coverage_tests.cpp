@@ -817,6 +817,19 @@ void building_resolver_selects_age_family_and_reviewed_farm() {
         ) == 2,
         "early scenario Stone Gate must select first available Castle root"
     );
+    for (const aoe::Age age : {
+             aoe::Age::dark,
+             aoe::Age::feudal,
+             aoe::Age::castle,
+             aoe::Age::imperial,
+         }) {
+        require(
+            aoe::render_building_visual_age(
+                aoe::BuildingKind::town_center, age
+            ) == age,
+            "Town Center renderer must isolate requested current Age"
+        );
+    }
     state.object_kind = "palisade_gate_x";
     state.building_state = aoe::RenderBuildingState::construction;
     state.civilization = aoe::Civilization::mayans;

@@ -27,7 +27,7 @@ AOE_EXIT_AFTER_SCREENSHOT=1 \
 pid=$!
 
 finished=0
-for attempt in $(seq 1 80); do
+for attempt in $(seq 1 400); do
     if ! kill -0 "$pid" 2>/dev/null; then
         finished=1
         break

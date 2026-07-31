@@ -1773,6 +1773,12 @@ Age render_building_visual_age(
     BuildingKind kind,
     Age current_age
 ) {
+    // Town Centers exist from Dark Age even though constructing additional
+    // ones has a later gameplay prerequisite. Visual selection follows
+    // current player Age, not construction availability.
+    if (kind == BuildingKind::town_center) {
+        return current_age;
+    }
     return static_cast<int>(current_age) <
             static_cast<int>(rules_for(kind).minimum_age)
         ? rules_for(kind).minimum_age

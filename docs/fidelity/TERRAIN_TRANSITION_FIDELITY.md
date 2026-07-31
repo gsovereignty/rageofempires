@@ -54,7 +54,13 @@ loads Blendomatic only when the exact user-owned file exists, and caches
 composed transition textures. It does not inspect unexplored neighbors, so
 shore shape cannot leak fogged map information. Missing/malformed assets,
 unsupported dimensions, incomplete SLP sets, or calls lacking destination
-position preserve existing unblended archive/procedural fallback.
+position preserve archive tiles without invented mask selection. When no
+archive terrain exists, the self-contained procedural renderer draws a
+deterministic seven-line transition band across each represented cardinal
+terrain boundary. Its boundary mix converges monotonically to the center
+terrain color; it never consults an unexplored neighbor. Archive and composed
+terrain textures use linear camera sampling so valid Blendomatic gradients
+remain smooth at non-integer zoom.
 
 ## Proved cardinal variants
 
@@ -83,13 +89,18 @@ Blendomatic byte fixture and covers:
 - all four cardinal orientations and their `x + y` variant;
 - position-less unresolved cardinal-family fallback;
 - 0, half, and full 128-based alpha composition.
+- procedural transition endpoint and monotonic-channel convergence.
+
+`terrain_edge_sdl_smoke` captures the pond audit through the asset-disabled
+self-contained path, providing focused visual regression coverage for the
+procedural boundary renderer.
 
 ## Capture plan
 
 After build recovery, use a small checkerboard scenario containing all pairwise
 boundaries among Grass, Beach, Water, and Shallows.
 
-1. Capture without `AOE_ASSET_ROOT`: procedural/unblended control.
+1. Capture without legacy assets: procedural transition control.
 2. Capture with valid terrain DRS/palette but no Blendomatic: archive tile
    control.
 3. Capture with the same assets plus exact `Data/blendomatic.dat`: fixed-mask

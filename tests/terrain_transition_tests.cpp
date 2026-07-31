@@ -25,6 +25,22 @@ void append_u32(
 
 int main() {
     using aoe::Terrain;
+    const auto band = aoe::procedural_transition_band(
+        {140, 100, 60}, {70, 170, 200}
+    );
+    expect(
+        band.front() == aoe::TerrainTransitionColor{110, 130, 120} &&
+            band.back() == aoe::TerrainTransitionColor{140, 100, 60},
+        "procedural band blends boundary and converges to center"
+    );
+    for (std::size_t index = 1; index < band.size(); ++index) {
+        expect(
+            band[index].red >= band[index - 1].red &&
+                band[index].green <= band[index - 1].green &&
+                band[index].blue <= band[index - 1].blue,
+            "procedural band channels converge monotonically"
+        );
+    }
     std::array<std::optional<Terrain>, 8> neighbors;
     neighbors[2] = Terrain::grass;
     neighbors[6] = Terrain::grass;

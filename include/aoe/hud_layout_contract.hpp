@@ -197,7 +197,28 @@ inline constexpr int game_background_frame_count = 8;
 }
 
 [[nodiscard]] constexpr Rect top_status_strip() {
-    return {8, 4, 404, 14};
+    return {2, 2, 420, 16};
+}
+
+// Native resource sprites and debug text share one logical top row. Divide
+// all available width into independent fields so icons and text cannot enter
+// an adjacent field at any supported logical resolution.
+[[nodiscard]] constexpr std::array<Rect, 5> resource_status_fields(
+    int screen_width
+) {
+    std::array<Rect, 5> result{};
+    constexpr int margin = 10;
+    constexpr int gap = 6;
+    const int available = std::max(
+        0, screen_width - margin * 2 - gap * 4
+    );
+    const int field_width = available / 5;
+    int x = margin;
+    for (Rect& field : result) {
+        field = {x, 3, field_width, 18};
+        x += field_width + gap;
+    }
+    return result;
 }
 
 [[nodiscard]] constexpr Rect inset(Rect rect, int margin) {

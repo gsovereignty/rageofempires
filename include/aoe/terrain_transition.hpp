@@ -38,6 +38,23 @@ struct BlendomaticData {
     std::vector<std::vector<BlendomaticMask>> modes;
 };
 
+struct TerrainTransitionColor {
+    std::uint8_t red{};
+    std::uint8_t green{};
+    std::uint8_t blue{};
+
+    auto operator<=>(const TerrainTransitionColor&) const = default;
+};
+
+// Procedural fallback used only when original terrain/Blendomatic assets are
+// unavailable. Outer band begins at an even boundary mix and converges to the
+// center terrain without a hard single-pixel color step.
+[[nodiscard]] std::array<TerrainTransitionColor, 7>
+procedural_transition_band(
+    TerrainTransitionColor center,
+    TerrainTransitionColor neighbor
+);
+
 [[nodiscard]] std::optional<TerrainBlendEvidence>
 terrain_blend_evidence(Terrain terrain);
 

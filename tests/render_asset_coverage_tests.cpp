@@ -219,6 +219,63 @@ void cavalry_accumulator_wait_does_not_animate_in_place() {
     );
 }
 
+void villager_paced_step_advances_through_subtile_space() {
+    aoe::Simulation simulation{aoe::GameMap{8, 4}};
+    const aoe::EntityId villager = simulation.add_unit(
+        aoe::UnitKind::villager,
+        aoe::Player::blue,
+        {1, 1}
+    );
+    simulation.add_unit(
+        aoe::UnitKind::villager,
+        aoe::Player::red,
+        {7, 3}
+    );
+    require(
+        simulation.command_unit(villager, {5, 1}),
+        "villager movement command must route"
+    );
+
+    simulation.update();
+    const aoe::Unit& half_step = simulation.units().front();
+    require(
+        half_step.position == aoe::TilePosition(2, 1) &&
+        half_step.movement_cooldown == 1 &&
+        half_step.render_previous_subtile == aoe::TilePosition(320, 320) &&
+        half_step.render_current_subtile == aoe::TilePosition(480, 320) &&
+        aoe::render_unit_is_interpolating(simulation, half_step) &&
+        aoe::render_action_for(simulation, half_step) ==
+            aoe::RenderAction::moving,
+        "paced villager step must expose first half-tile displacement"
+    );
+
+    simulation.update();
+    const aoe::Unit& completed_step = simulation.units().front();
+    require(
+        completed_step.position == aoe::TilePosition(2, 1) &&
+        completed_step.movement_cooldown == 0 &&
+        completed_step.render_previous_subtile ==
+            aoe::TilePosition(480, 320) &&
+        completed_step.render_current_subtile ==
+            aoe::TilePosition(640, 320) &&
+        aoe::render_unit_is_interpolating(simulation, completed_step) &&
+        aoe::render_action_for(simulation, completed_step) ==
+            aoe::RenderAction::moving,
+        "villager cooldown tick must complete presentation movement"
+    );
+
+    simulation.update();
+    const aoe::Unit& next_half_step = simulation.units().front();
+    require(
+        next_half_step.position == aoe::TilePosition(3, 1) &&
+        next_half_step.render_previous_subtile ==
+            aoe::TilePosition(640, 320) &&
+        next_half_step.render_current_subtile ==
+            aoe::TilePosition(800, 320),
+        "next villager step must continue without tile-center hold"
+    );
+}
+
 void telemetry_deduplicates_and_sorts() {
     const auto path = std::filesystem::temp_directory_path() /
         "aoe-render-fallback-telemetry-test.json";
@@ -787,6 +844,7 @@ int main() {
         state_derivation_is_deterministic();
         simulation_command_reaches_sheep_attack_mapping();
         cavalry_accumulator_wait_does_not_animate_in_place();
+        villager_paced_step_advances_through_subtile_space();
         telemetry_deduplicates_and_sorts();
         canonical_resolver_selects_exact_actions();
         canonical_unit_states_cover_runtime_special_actions();

@@ -30,6 +30,11 @@ sub-tile coordinates, so an accumulator tick advances through the next tile
 instead of cycling moving art at one integer position. Cooldown, regroup, and
 blockage waits with no presentation displacement use standing art.
 
+Ordinary units whose relative speed uses a multi-tick movement interval also
+advance through 1/320-tile presentation coordinates. A villager step spans
+both ticks of its interval rather than crossing during the first tick and
+holding at the tile center during the second.
+
 Blocked fixed-point movement restores the accumulator value from before the
 blocked tick. Cavalry, ships, unique units, and paced formation members cannot
 bank movement credit against an occupied or newly invalid path and later
@@ -43,7 +48,9 @@ idle path calls the game service repeatedly (`FUN_004f1fe0`), uses
 `timeGetTime()` throughout that path, and stores object coordinates as
 floating-point values. This supports decoupling visual cadence from coarse
 logical turns, but does not prove exact original frame durations or movement
-integration mathematics.
+integration mathematics. The reconstruction therefore keeps authoritative
+integer-tile movement and uses these observations only to justify continuous
+presentation between logical positions.
 
 ## Remaining parity gaps
 

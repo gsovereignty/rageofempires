@@ -539,6 +539,10 @@ private:
         const Building& second
     ) const;
     Building* nearest_drop_off(const Unit& unit);
+    bool route_to_resource_interaction(
+        Unit& unit,
+        TilePosition resource_target
+    );
     bool route_to_nearest_resource(
         Unit& unit,
         ResourceKind resource

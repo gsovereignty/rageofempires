@@ -59,6 +59,7 @@
 #include "aoe/ui_assets.hpp"
 #include "aoe/ui_icon_contract.hpp"
 #include "aoe/ui_perspective.hpp"
+#include "aoe/world_tile_picker.hpp"
 
 namespace aoe {
 namespace {
@@ -13269,6 +13270,19 @@ std::size_t render(
     );
     set_color(renderer, {22, 24, 20, 255});
     SDL_RenderClear(renderer);
+    if (active_frontend_screen != FrontendScreen::hidden) {
+        // Frontend background is opaque. Rendering full simulation behind it
+        // delays event polling on large maps without producing visible pixels.
+        SDL_SetRenderScale(renderer, 1.0F, 1.0F);
+        SDL_SetRenderViewport(renderer, nullptr);
+        render_frontend_overlay(renderer);
+        render_options_overlay(renderer);
+        render_save_browser_overlay(renderer);
+        report_map_dimensions(simulation);
+        capture_requested_frame(renderer, simulation, movement_alpha);
+        SDL_RenderPresent(renderer);
+        return 0;
+    }
     const SDL_Rect world_viewport{
         0,
         0,
@@ -14266,37 +14280,22 @@ TilePosition mouse_tile(
     float mouse_y,
     const CameraView& camera
 ) {
-    const float projected_x =
-        (mouse_x / camera.zoom + camera.x -
-         static_cast<float>(map_origin_x())) / half_tile_width;
-    const float projected_y =
-        (mouse_y / camera.zoom + camera.y -
-         static_cast<float>(map_origin_y)) / half_tile_height;
-    TilePosition flat{
-        static_cast<int>(std::floor((projected_y + projected_x) / 2.0F)),
-        static_cast<int>(std::floor((projected_y - projected_x) / 2.0F)),
-    };
-    if (active_render_map == nullptr) return flat;
-    std::optional<TilePosition> elevated;
-    float frontmost = -std::numeric_limits<float>::infinity();
-    for (int y = 0; y < active_render_map->height(); ++y) {
-        for (int x = 0; x < active_render_map->width(); ++x) {
-            const TilePosition candidate{x, y};
-            const SDL_FPoint top = tile_screen_top(candidate);
-            const float center_y =
-                top.y + half_tile_height * camera.zoom;
-            const float normalized =
-                std::abs(mouse_x - top.x) /
-                    (half_tile_width * camera.zoom) +
-                std::abs(mouse_y - center_y) /
-                    (half_tile_height * camera.zoom);
-            if (normalized <= 1.0F && center_y >= frontmost) {
-                elevated = candidate;
-                frontmost = center_y;
-            }
+    if (active_render_map == nullptr) return {};
+    return pick_world_tile(
+        *active_render_map,
+        mouse_x,
+        mouse_y,
+        {
+            camera.x,
+            camera.y,
+            camera.zoom,
+            map_origin_x(),
+            map_origin_y,
+            half_tile_width,
+            half_tile_height,
+            elevation_pixel_step,
         }
-    }
-    return elevated.value_or(flat);
+    );
 }
 
 TilePosition mouse_tile(

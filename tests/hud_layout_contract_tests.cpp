@@ -41,32 +41,95 @@ int main() {
     assert((anchored_large_panel(1024, 768) ==
            Rect{688, 599, 326, 164}));
     assert((top_status_strip() == Rect{2, 2, 420, 16}));
-    for (const int width : {640, 1024, 1280, 1920}) {
-        const auto fields = resource_status_fields(width);
-        assert(fields.front().x == 10);
-        assert(fields.back().x + fields.back().width <= width - 10);
-        for (std::size_t index = 1; index < fields.size(); ++index) {
-            assert(
-                fields[index - 1].x + fields[index - 1].width <
-                fields[index].x
-            );
-        }
-        for (const Rect field : fields) {
-            assert(field.width >= 100);
-            const int text_width = std::max(0, field.width - 20);
-            const std::string text = truncate_debug_text(
-                "STONE 999999999", text_width
-            );
-            assert(
-                static_cast<int>(text.size()) * 8 <= text_width
-            );
+    for (const int width : {640, 800, 1024, 1280, 1920}) {
+        for (const bool icons : {false, true}) {
+            const ResourceStatusLayout layout =
+                resource_status_layout(width, icons);
+            assert(layout.row.x == 10);
+            assert(layout.row.width <= 780);
+            assert(layout.row.x >= 0);
+            assert(layout.row.x + layout.row.width <= width);
+            assert(layout.left_safe_margin >= 10);
+            assert(layout.right_safe_margin >= 10);
+            assert(layout.text_baseline == 8);
+            for (std::size_t index = 0;
+                 index < layout.fields.size();
+                 ++index) {
+                const ResourceFieldLayout& field =
+                    layout.fields[index];
+                assert(field.bounds.width >= 0);
+                assert(field.bounds.height >= 0);
+                assert(field.bounds.x >= layout.row.x);
+                assert(field.bounds.x + field.bounds.width <=
+                       layout.row.x + layout.row.width);
+                assert(field.text.x >= field.bounds.x);
+                assert(field.text.x + field.text.width <=
+                       field.bounds.x + field.bounds.width);
+                if (index > 0) {
+                    const Rect& previous =
+                        layout.fields[index - 1].bounds;
+                    assert(previous.x + previous.width +
+                               layout.gap ==
+                           field.bounds.x);
+                    assert(previous.x + previous.width <
+                           field.bounds.x);
+                }
+                if (field.icon) {
+                    assert(index < 4);
+                    assert(field.icon->width == 16);
+                    assert(field.icon->height == 16);
+                    assert(field.icon->x >= field.bounds.x);
+                    assert(field.icon->x + field.icon->width <=
+                           field.bounds.x + field.bounds.width);
+                    assert(field.text.x ==
+                           field.icon->x + field.icon->width + 4);
+                } else {
+                    assert(field.text.x == field.bounds.x);
+                }
+                for (const std::string source : {
+                         "WOOD 200",
+                         "FOOD 999999999",
+                         "RESSOURCEENBOIS 999999999",
+                     }) {
+                    const std::string text =
+                        truncate_debug_text(
+                            source, field.text.width
+                        );
+                    assert(
+                        static_cast<int>(text.size()) *
+                            debug_glyph_width <=
+                        field.text.width
+                    );
+                }
+            }
+            const Rect& stone = layout.fields[3].bounds;
+            const Rect& population = layout.fields[4].bounds;
+            assert(stone.x + stone.width < population.x);
+            assert(population.x + population.width <= width - 10);
+            if (width >= 1024) {
+                assert(layout.row.width == 780);
+            }
         }
     }
+    const ResourceStatusLayout remainder =
+        resource_status_layout(641, true);
+    assert(remainder.fields.front().bounds.width ==
+           remainder.fields[2].bounds.width + 1);
+    assert(remainder.fields.back().bounds.x +
+               remainder.fields.back().bounds.width ==
+           remainder.row.x + remainder.row.width);
     assert((inset(Rect{0, 0, 100, 40}, 6) == Rect{6, 6, 88, 28}));
     assert((inset(Rect{0, 0, 8, 8}, 6) == Rect{6, 6, 0, 0}));
     assert(truncate_debug_text("VILLAGER", 64) == "VILLAGER");
     assert(truncate_debug_text("VILLAGER", 56) == "VILL...");
     assert(truncate_debug_text("VILLAGER", 16).empty());
+    assert(population_status_text(3, 5, 1, 0, false, 160) ==
+           "POP 3/5 IDLE 1/0");
+    assert(population_status_text(3, 5, 1, 0, true, 112) ==
+           "POP 3/5 PAUSED");
+    assert(population_status_text(
+               999999, 999999, 9999, 9999, true, 120
+           ).size() * debug_glyph_width <= 120);
     constexpr std::array screen_widths{640, 1024, 1280};
     for (const int screen_width : screen_widths) {
         constexpr int left_margin = 10;

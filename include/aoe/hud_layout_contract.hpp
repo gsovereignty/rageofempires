@@ -55,7 +55,27 @@ struct BackgroundDraw {
     auto operator<=>(const BackgroundDraw&) const = default;
 };
 
+struct ResourceFieldLayout {
+    Rect bounds{};
+    std::optional<Rect> icon{};
+    Rect text{};
+
+    auto operator<=>(const ResourceFieldLayout&) const = default;
+};
+
+struct ResourceStatusLayout {
+    Rect row{};
+    std::array<ResourceFieldLayout, 5> fields{};
+    int gap{};
+    int left_safe_margin{};
+    int right_safe_margin{};
+    int text_baseline{};
+
+    auto operator<=>(const ResourceStatusLayout&) const = default;
+};
+
 inline constexpr int game_background_frame_count = 8;
+inline constexpr int debug_glyph_width = 8;
 
 [[nodiscard]] constexpr int civilization_file_index(
     Civilization civilization
@@ -200,23 +220,54 @@ inline constexpr int game_background_frame_count = 8;
     return {2, 2, 420, 16};
 }
 
-// Native resource sprites and debug text share one logical top row. Divide
-// all available width into independent fields so icons and text cannot enter
-// an adjacent field at any supported logical resolution.
-[[nodiscard]] constexpr std::array<Rect, 5> resource_status_fields(
-    int screen_width
+// Reconstruction-native responsive resource row. Exact commercial field
+// positions are unproved. Width is capped so wide screens retain one compact
+// status group; integer remainder pixels are assigned from left to right.
+[[nodiscard]] constexpr ResourceStatusLayout resource_status_layout(
+    int screen_width,
+    bool icons_available
 ) {
-    std::array<Rect, 5> result{};
     constexpr int margin = 10;
     constexpr int gap = 6;
-    const int available = std::max(
-        0, screen_width - margin * 2 - gap * 4
+    constexpr int maximum_row_width = 780;
+    constexpr int row_y = 3;
+    constexpr int row_height = 18;
+    constexpr int icon_size = 16;
+    constexpr int icon_text_gap = 4;
+    ResourceStatusLayout result{};
+    const int row_width = std::min(
+        maximum_row_width,
+        std::max(0, screen_width - margin * 2)
     );
+    result.row = {margin, row_y, row_width, row_height};
+    result.gap = gap;
+    result.left_safe_margin = margin;
+    result.right_safe_margin =
+        std::max(margin, screen_width - margin - row_width);
+    result.text_baseline = 8;
+    const int available = std::max(0, row_width - gap * 4);
     const int field_width = available / 5;
+    const int remainder = available % 5;
     int x = margin;
-    for (Rect& field : result) {
-        field = {x, 3, field_width, 18};
-        x += field_width + gap;
+    for (std::size_t index = 0; index < result.fields.size(); ++index) {
+        ResourceFieldLayout& field = result.fields[index];
+        const int width =
+            field_width + (static_cast<int>(index) < remainder ? 1 : 0);
+        field.bounds = {x, row_y, width, row_height};
+        const bool has_icon =
+            icons_available && index < 4 && width >= icon_size;
+        if (has_icon) {
+            field.icon = Rect{x, row_y, icon_size, icon_size};
+        }
+        const int text_x =
+            x + (has_icon ? icon_size + icon_text_gap : 0);
+        field.text = {
+            text_x,
+            result.text_baseline,
+            std::max(0, x + width - text_x),
+            debug_glyph_width,
+        };
+        x += width + gap;
     }
     return result;
 }
@@ -235,13 +286,45 @@ inline constexpr int game_background_frame_count = 8;
     std::string_view text,
     int pixel_width
 ) {
-    constexpr int glyph_width = 8;
     const std::size_t capacity = pixel_width > 0
-        ? static_cast<std::size_t>(pixel_width / glyph_width)
+        ? static_cast<std::size_t>(pixel_width / debug_glyph_width)
         : 0U;
     if (text.size() <= capacity) return std::string{text};
     if (capacity < 4U) return {};
     return std::string{text.substr(0, capacity - 3U)} + "...";
+}
+
+[[nodiscard]] inline std::string population_status_text(
+    int population,
+    int capacity,
+    int idle_villagers,
+    int idle_military,
+    bool paused,
+    int pixel_width
+) {
+    const std::string primary =
+        "POP " + std::to_string(population) + "/" +
+        std::to_string(capacity);
+    if (static_cast<int>(primary.size()) * debug_glyph_width >
+        pixel_width) {
+        return truncate_debug_text(primary, pixel_width);
+    }
+    std::string result = primary;
+    const auto append_if_fits = [&result, pixel_width](
+        const std::string& optional
+    ) {
+        if (static_cast<int>(result.size() + optional.size()) *
+                debug_glyph_width <=
+            pixel_width) {
+            result += optional;
+        }
+    };
+    if (paused) append_if_fits(" PAUSED");
+    append_if_fits(
+        " IDLE " + std::to_string(idle_villagers) + "/" +
+        std::to_string(idle_military)
+    );
+    return result;
 }
 
 [[nodiscard]] constexpr FloatRect contain(

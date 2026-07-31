@@ -10328,26 +10328,6 @@ void render_hud(
     };
     SDL_SetRenderClipRect(renderer, &information_clip);
 
-    std::ostringstream economy;
-    economy << ui_text("hud.wood") << ' '
-            << simulation.economy(active_view_player).wood
-            << "   " << ui_text("hud.food") << ' '
-            << simulation.economy(active_view_player).food
-            << "   " << ui_text("hud.gold") << ' '
-            << simulation.economy(active_view_player).gold
-            << "   " << ui_text("hud.stone") << ' '
-            << simulation.economy(active_view_player).stone
-            << "   " << ui_text("hud.population") << ' '
-            << simulation.population(active_view_player)
-            << '/' << simulation.population_capacity(active_view_player)
-            << "   " << ui_text("hud.idle") << ' '
-            << simulation.idle_villagers(active_view_player).size()
-            << '/' << simulation.idle_military(active_view_player).size()
-            << "   FARM QUEUE "
-            << simulation.farm_reseed_queue(active_view_player);
-    if (paused && simulation.outcome() == MatchOutcome::ongoing) {
-        economy << "   PAUSED";
-    }
     const bool complete_resource_icons = std::ranges::all_of(
         active_legacy_sprites.resource_icons,
         [](const LegacySprite& icon) {
@@ -10355,23 +10335,56 @@ void render_hud(
         }
     );
     SDL_SetRenderClipRect(renderer, nullptr);
-    if (complete_resource_icons) {
-        const auto fields =
-            hud_layout::resource_status_fields(view_pixel_width);
-        const Economy& blue = simulation.economy(active_view_player);
-        const std::array<int, 4> amounts{
-            blue.wood, blue.food, blue.gold, blue.stone
+    const bool stress_resource_values =
+        SDL_getenv("AOE_HUD_STRESS_VALUES") != nullptr;
+    const Economy& economy = simulation.economy(active_view_player);
+    const std::array<int, 4> amounts = stress_resource_values
+        ? std::array<int, 4>{
+              999999999, 888888888, 777777777, 666666666
+          }
+        : std::array<int, 4>{
+              economy.wood, economy.food, economy.gold, economy.stone
+          };
+    const std::array<std::string, 4> labels{
+        std::string{ui_text("hud.wood")},
+        std::string{ui_text("hud.food")},
+        std::string{ui_text("hud.gold")},
+        std::string{ui_text("hud.stone")},
+    };
+    const hud_layout::ResourceStatusLayout resource_layout =
+        hud_layout::resource_status_layout(
+            view_pixel_width,
+            complete_resource_icons
+        );
+    for (std::size_t index = 0;
+         index < resource_layout.fields.size();
+         ++index) {
+        const hud_layout::ResourceFieldLayout& field =
+            resource_layout.fields[index];
+        const SDL_Rect clip{
+            field.bounds.x,
+            field.bounds.y,
+            field.bounds.width,
+            field.bounds.height,
         };
-        const std::array<const char*, 4> labels{
-            "WOOD", "FOOD", "GOLD", "STONE"
+        SDL_SetRenderClipRect(renderer, &clip);
+        const SDL_FRect field_background{
+            static_cast<float>(field.bounds.x),
+            static_cast<float>(field.bounds.y),
+            static_cast<float>(field.bounds.width),
+            static_cast<float>(field.bounds.height),
         };
-        for (std::size_t index = 0; index < amounts.size(); ++index) {
-            const hud_layout::Rect field = fields[index];
+        set_color(renderer, {12, 10, 7, 235});
+        SDL_RenderFillRect(renderer, &field_background);
+        set_color(renderer, {239, 226, 185, 255});
+        if (index < amounts.size()) {
+            if (field.icon) {
+                const hud_layout::Rect& icon_bounds = *field.icon;
             const SDL_FRect icon{
-                static_cast<float>(field.x),
-                static_cast<float>(field.y),
-                16.0F,
-                16.0F,
+                    static_cast<float>(icon_bounds.x),
+                    static_cast<float>(icon_bounds.y),
+                    static_cast<float>(icon_bounds.width),
+                    static_cast<float>(icon_bounds.height),
             };
             SDL_RenderTexture(
                 renderer,
@@ -10379,47 +10392,55 @@ void render_hud(
                 nullptr,
                 &icon
             );
+            }
             std::ostringstream amount;
             amount << labels[index] << ' ' << amounts[index];
             const std::string amount_text =
                 hud_layout::truncate_debug_text(
-                    amount.str(), std::max(0, field.width - 20)
+                    amount.str(), field.text.width
                 );
             SDL_RenderDebugText(
                 renderer,
-                static_cast<float>(field.x + 20),
-                8.0F,
+                static_cast<float>(field.text.x),
+                static_cast<float>(field.text.y),
                 amount_text.c_str()
             );
-        }
-        std::ostringstream population;
-        population << "POP " << simulation.population(active_view_player)
-                   << '/' << simulation.population_capacity(active_view_player)
-                   << "  IDLE "
-                   << simulation.idle_villagers(active_view_player).size()
-                   << '/' << simulation.idle_military(active_view_player).size();
-        if (paused && simulation.outcome() == MatchOutcome::ongoing) {
-            population << " PAUSED";
-        }
-        const hud_layout::Rect population_field = fields.back();
-        const std::string population_text =
-            hud_layout::truncate_debug_text(
-                population.str(), population_field.width
+        } else {
+            const bool show_paused =
+                paused && simulation.outcome() == MatchOutcome::ongoing;
+            const std::string population_text =
+                hud_layout::population_status_text(
+                    stress_resource_values
+                        ? 999999
+                        : simulation.population(active_view_player),
+                    stress_resource_values
+                        ? 999999
+                        : simulation.population_capacity(active_view_player),
+                    stress_resource_values
+                        ? 9999
+                        : static_cast<int>(
+                              simulation
+                                  .idle_villagers(active_view_player)
+                                  .size()
+                          ),
+                    stress_resource_values
+                        ? 9999
+                        : static_cast<int>(
+                              simulation
+                                  .idle_military(active_view_player)
+                                  .size()
+                          ),
+                    show_paused || stress_resource_values,
+                    field.text.width
+                );
+            SDL_RenderDebugText(
+                renderer,
+                static_cast<float>(field.text.x),
+                static_cast<float>(field.text.y),
+                population_text.c_str()
             );
-        SDL_RenderDebugText(
-            renderer,
-            static_cast<float>(population_field.x),
-            8.0F,
-            population_text.c_str()
-        );
-    } else {
-        const std::string economy_text =
-            hud_layout::truncate_debug_text(
-                economy.str(), view_pixel_width - 20
-            );
-        SDL_RenderDebugText(
-            renderer, 10.0F, 8.0F, economy_text.c_str()
-        );
+        }
+        SDL_SetRenderClipRect(renderer, nullptr);
     }
     SDL_SetRenderClipRect(renderer, &information_clip);
     set_color(
@@ -14799,12 +14820,20 @@ int SdlApp::run() {
             view_pixel_height = height - hud_height;
         }
     }
+    int requested_output_scale = 1;
+    if (const char* requested_scale =
+            SDL_getenv("AOE_HUD_OUTPUT_SCALE")) {
+        const int value = SDL_atoi(requested_scale);
+        if (value == 1 || value == 2) {
+            requested_output_scale = value;
+        }
+    }
     SDL_Window* window = nullptr;
     SDL_Renderer* renderer = nullptr;
     if (!SDL_CreateWindowAndRenderer(
             "AoE II HD Archaeology Reconstruction",
-            view_pixel_width,
-            view_pixel_height + hud_height,
+            view_pixel_width * requested_output_scale,
+            (view_pixel_height + hud_height) * requested_output_scale,
             SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY,
             &window,
             &renderer
@@ -14812,6 +14841,30 @@ int SdlApp::run() {
         SDL_Quit();
         throw std::runtime_error(SDL_GetError());
     }
+    int renderer_output_width{};
+    int renderer_output_height{};
+    SDL_GetCurrentRenderOutputSize(
+        renderer,
+        &renderer_output_width,
+        &renderer_output_height
+    );
+    const auto logged_resource_layout =
+        hud_layout::resource_status_layout(view_pixel_width, true);
+    SDL_Log(
+        "HUD presentation requested=%dx%d output=%dx%d logical=%dx%d "
+        "output-scale=%d row=%d,%d,%d,%d",
+        view_pixel_width * requested_output_scale,
+        (view_pixel_height + hud_height) * requested_output_scale,
+        renderer_output_width,
+        renderer_output_height,
+        view_pixel_width,
+        view_pixel_height + hud_height,
+        requested_output_scale,
+        logged_resource_layout.row.x,
+        logged_resource_layout.row.y,
+        logged_resource_layout.row.width,
+        logged_resource_layout.row.height
+    );
     if (!SDL_SetRenderLogicalPresentation(
             renderer,
             view_pixel_width,

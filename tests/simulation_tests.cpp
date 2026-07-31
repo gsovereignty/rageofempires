@@ -1069,6 +1069,175 @@ void villager_gathers_wood() {
     require(simulation.units().front().carried_amount == 0);
 }
 
+void gathering_retries_after_temporary_route_obstruction() {
+    aoe::GameMap map(8, 3);
+    for (int x = 0; x < map.width(); ++x) {
+        map.set_terrain({x, 0}, aoe::Terrain::water);
+        map.set_terrain({x, 2}, aoe::Terrain::water);
+    }
+    map.set_terrain({3, 0}, aoe::Terrain::grass);
+    map.set_terrain({6, 1}, aoe::Terrain::forest);
+    map.set_resource_amount({6, 1}, 100);
+    aoe::Simulation simulation(std::move(map));
+    const aoe::EntityId worker = simulation.add_unit(
+        aoe::UnitKind::villager,
+        aoe::Player::blue,
+        {1, 1}
+    );
+    simulation.add_unit(
+        aoe::UnitKind::villager,
+        aoe::Player::red,
+        {7, 1}
+    );
+    require(simulation.command_unit(worker, {6, 1}));
+
+    const aoe::EntityId blocker = simulation.add_unit(
+        aoe::UnitKind::villager,
+        aoe::Player::blue,
+        {3, 1}
+    );
+    for (int tick = 0;
+         tick < 10 && simulation.units().front().moving;
+         ++tick) {
+        simulation.update();
+    }
+    const aoe::Unit& stopped = simulation.units().front();
+    require(stopped.has_resource_target);
+    require(!stopped.moving);
+    require(stopped.position == aoe::TilePosition(2, 1));
+
+    require(simulation.command_unit(blocker, {3, 0}));
+    for (int tick = 0; tick < 12; ++tick) {
+        simulation.update();
+    }
+    require(simulation.units().front().has_resource_target);
+    require(simulation.units().front().carried_amount > 0);
+}
+
+void gathering_waits_for_a_temporarily_unavailable_drop_off() {
+    aoe::GameMap map(12, 6);
+    map.set_terrain({2, 2}, aoe::Terrain::forest);
+    map.set_resource_amount({2, 2}, 100);
+    aoe::Simulation simulation(std::move(map));
+    const aoe::EntityId worker = simulation.add_unit(
+        aoe::UnitKind::villager,
+        aoe::Player::blue,
+        {1, 2}
+    );
+    simulation.add_unit(
+        aoe::UnitKind::villager,
+        aoe::Player::red,
+        {11, 5}
+    );
+    require(simulation.command_unit(worker, {2, 2}));
+
+    for (int tick = 0; tick < 20; ++tick) {
+        simulation.update();
+    }
+    const aoe::Unit& waiting = simulation.units().front();
+    require(waiting.carried_amount == 10);
+    require(waiting.has_resource_target);
+    require(waiting.returning_resource);
+    require(!waiting.moving);
+
+    simulation.add_building(
+        aoe::BuildingKind::town_center,
+        aoe::Player::blue,
+        {6, 1}
+    );
+    const int wood_before = simulation.economy(aoe::Player::blue).wood;
+    for (int tick = 0;
+         tick < 30 &&
+         simulation.economy(aoe::Player::blue).wood == wood_before;
+         ++tick) {
+        simulation.update();
+    }
+    require(simulation.economy(aoe::Player::blue).wood == wood_before + 10);
+    require(simulation.units().front().has_resource_target);
+}
+
+void villagers_share_resource_through_repeated_deposit_cycles() {
+    aoe::GameMap map(14, 9);
+    map.set_terrain({7, 3}, aoe::Terrain::forest);
+    map.set_resource_amount({7, 3}, 300);
+    aoe::Simulation simulation(std::move(map));
+    simulation.add_building(
+        aoe::BuildingKind::town_center,
+        aoe::Player::blue,
+        {0, 1}
+    );
+    constexpr std::array<aoe::TilePosition, 4> starts{{
+        {6, 2}, {6, 3}, {6, 4}, {7, 5},
+    }};
+    for (aoe::TilePosition start : starts) {
+        const aoe::EntityId worker = simulation.add_unit(
+            aoe::UnitKind::villager,
+            aoe::Player::blue,
+            start
+        );
+        require(simulation.command_unit(worker, {7, 3}));
+    }
+    simulation.add_unit(
+        aoe::UnitKind::villager,
+        aoe::Player::red,
+        {13, 8}
+    );
+    const int wood_before = simulation.economy(aoe::Player::blue).wood;
+    for (int tick = 0;
+         tick < 200 &&
+         simulation.economy(aoe::Player::blue).wood < wood_before + 80;
+         ++tick) {
+        simulation.update();
+    }
+    require(simulation.economy(aoe::Player::blue).wood >= wood_before + 80);
+    for (std::size_t index = 0; index < starts.size(); ++index) {
+        require(simulation.units()[index].has_resource_target);
+    }
+}
+
+void late_arriving_villager_retargets_after_shared_depletion() {
+    aoe::GameMap map(14, 7);
+    map.set_terrain({4, 3}, aoe::Terrain::forest);
+    map.set_resource_amount({4, 3}, 1);
+    map.set_terrain({8, 3}, aoe::Terrain::forest);
+    map.set_resource_amount({8, 3}, 100);
+    aoe::Simulation simulation(std::move(map));
+    const aoe::EntityId near_worker = simulation.add_unit(
+        aoe::UnitKind::villager,
+        aoe::Player::blue,
+        {3, 3}
+    );
+    const aoe::EntityId far_worker = simulation.add_unit(
+        aoe::UnitKind::villager,
+        aoe::Player::blue,
+        {0, 3}
+    );
+    simulation.add_building(
+        aoe::BuildingKind::town_center,
+        aoe::Player::blue,
+        {10, 0}
+    );
+    simulation.add_unit(
+        aoe::UnitKind::villager,
+        aoe::Player::red,
+        {13, 6}
+    );
+    require(simulation.command_unit(near_worker, {4, 3}));
+    require(simulation.command_unit(far_worker, {4, 3}));
+
+    bool retargeted = false;
+    for (int tick = 0; tick < 30; ++tick) {
+        simulation.update();
+        const aoe::Unit& worker = simulation.units()[1];
+        if (worker.resource_target == aoe::TilePosition(8, 3)) {
+            retargeted = true;
+            break;
+        }
+    }
+    require(retargeted);
+    require(simulation.units()[1].has_resource_target);
+}
+
 void double_bit_axe_adds_exact_persisted_wood_rate() {
     const aoe::TechnologyRules& rules =
         aoe::rules_for(aoe::Technology::double_bit_axe);
@@ -22690,6 +22859,22 @@ int main() {
         building_los_is_radial_from_nearest_footprint_and_persists
     );
     run("wood gathering", villager_gathers_wood);
+    run(
+        "temporary gathering route obstruction",
+        gathering_retries_after_temporary_route_obstruction
+    );
+    run(
+        "temporarily unavailable gathering drop off",
+        gathering_waits_for_a_temporarily_unavailable_drop_off
+    );
+    run(
+        "shared gathering through repeated deposits",
+        villagers_share_resource_through_repeated_deposit_cycles
+    );
+    run(
+        "late shared-resource depletion retarget",
+        late_arriving_villager_retargets_after_shared_depletion
+    );
     run(
         "double-bit axe wood rate",
         double_bit_axe_adds_exact_persisted_wood_rate

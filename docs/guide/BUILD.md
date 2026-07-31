@@ -474,7 +474,9 @@ Controls:
 - Drag any window edge or corner to resize down to 640x360. Drawable-size and
   high-DPI scale changes update the world viewport, bottom HUD, camera bounds,
   edge scrolling, and pointer coordinate space; the game does not retain a
-  fixed 16:9 canvas.
+  fixed 16:9 canvas. UI sizing uses window-coordinate units, then SDL scales
+  to Retina/high-DPI drawable pixels, so higher pixel density does not make
+  controls and text smaller.
 
 - Escape: quit.
 

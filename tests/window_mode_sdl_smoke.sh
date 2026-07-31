@@ -36,10 +36,18 @@ if (width, height) == (800, 600) or width < 640 or height < 360:
 
 log = pathlib.Path(sys.argv[2]).read_text(errors="replace")
 match = re.search(
-    r"Resize proof window=960x540 drawable=(\d+)x(\d+)", log
+    r"Resize proof window=960x540 logical=(\d+)x(\d+) output=(\d+)x(\d+)",
+    log,
 )
-if not match or tuple(map(int, match.groups())) != (width, height):
+if not match:
     raise SystemExit("live resize did not update canonical drawable extent")
+logical_width, logical_height, output_width, output_height = map(
+    int, match.groups()
+)
+if (logical_width, logical_height) != (960, 540):
+    raise SystemExit("live resize kept stale logical extent")
+if (output_width, output_height) != (width, height):
+    raise SystemExit("captured BMP does not match renderer output")
 if "Fullscreen roundtrip " not in log:
     raise SystemExit("fullscreen round-trip/rollback path was not exercised")
 if not (

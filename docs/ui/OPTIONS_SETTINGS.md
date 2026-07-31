@@ -25,17 +25,21 @@ together; a later `S` persists the actual live value. `A` still applies
 without writing. Failed fullscreen transitions remain windowed and roll the
 panel values back.
 
-The window is resizable down to 640x360 window-coordinate units. Each drawable
-pixel-size or display-scale change replaces the canonical render extent, so a
+The window is resizable down to 640x360 window-coordinate units. Each window
+size or display-scale change refreshes the canonical render extent, so a
 wider or taller window exposes more world rather than scaling a fixed 16:9
 canvas. The fixed-height HUD remains attached to the current bottom edge.
-Renderer-coordinate conversion keeps high-DPI pointer input in that same
-adaptive pixel space.
+Canonical UI dimensions stay in window-coordinate units while SDL scales them
+to the drawable. This prevents Retina/high-DPI output pixels from shrinking
+menus and HUD text. Renderer-coordinate conversion keeps pointer input in that
+same adaptive coordinate space.
 
-Verification status: implementation and automated SDL/policy checks pass, but
-fullscreen, live dragging, geometry restoration, high-DPI input, and Options
-state synchronization have not yet been tested by a human. Manual desktop
-acceptance remains required before calling this behavior fully verified.
+Verification status: initial human testing found Retina drawable pixels were
+incorrectly used as UI coordinates, making everything too small. Canonical UI
+sizing now uses window-coordinate units; automated SDL/policy checks pass.
+Human retesting of sizing, fullscreen, live dragging, geometry restoration,
+high-DPI input, and Options synchronization remains required before calling
+this behavior fully verified.
 
 Proof:
 

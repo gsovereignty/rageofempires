@@ -15,6 +15,11 @@ preserve and exclude unrelated user or agent changes. If no tracked files
 changed, or a commit is genuinely impossible, report that explicitly instead
 of creating an empty or mixed commit.
 
+Before every completion commit, run `make` from this repository root and
+require it to finish without build errors. Fix in-scope failures before
+committing. If `make` fails because of unrelated existing work that must not be
+changed, do not commit; report the exact blocker and preserve that work.
+
 ## Reconstruction repository structure
 
 ```text

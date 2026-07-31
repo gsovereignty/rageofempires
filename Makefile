@@ -8,6 +8,9 @@ JOBS ?= $(shell \
 	getconf _NPROCESSORS_ONLN 2>/dev/null || \
 	echo 1)
 CMAKE_ARGS ?=
+ifeq ($(shell uname -s),Darwin)
+PLATFORM_CMAKE_ARGS := -DAOE_BUILD_SDL3=ON
+endif
 
 .DEFAULT_GOAL := build
 
@@ -25,7 +28,7 @@ configure:
 		fi; \
 	fi
 	$(CMAKE) -S . -B "$(BUILD_DIR)" \
-		-DCMAKE_BUILD_TYPE="$(BUILD_TYPE)" $(CMAKE_ARGS)
+		-DCMAKE_BUILD_TYPE="$(BUILD_TYPE)" $(PLATFORM_CMAKE_ARGS) $(CMAKE_ARGS)
 
 build: configure
 	$(CMAKE) --build "$(BUILD_DIR)" --parallel "$(JOBS)"

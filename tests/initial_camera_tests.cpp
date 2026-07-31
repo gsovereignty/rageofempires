@@ -28,10 +28,15 @@ int main() {
     blue_unit.owner = Player::blue;
     blue_unit.position = {12, 13};
 
+    Unit garrisoned_blue_unit;
+    garrisoned_blue_unit.owner = Player::blue;
+    garrisoned_blue_unit.position = {2, 3};
+    garrisoned_blue_unit.garrisoned_in = 99;
+
     const std::vector buildings{
         red_town_center, blue_house, blue_town_center
     };
-    const std::vector units{blue_unit};
+    const std::vector units{garrisoned_blue_unit, blue_unit};
     assert((
         initial_camera_tile(buildings, units, Player::blue, 120, 100) ==
         TilePosition{40, 41}
@@ -48,6 +53,11 @@ int main() {
     ));
 
     assert((
+        initial_camera_tile(buildings, units, Player::red, 120, 100) ==
+        TilePosition{70, 71}
+    ));
+
+    assert((
         initial_camera_tile(
             std::span<const Building>{},
             std::span<const Unit>{},
@@ -55,5 +65,15 @@ int main() {
             121,
             99
         ) == TilePosition{60, 49}
+    ));
+
+    assert((
+        initial_camera_tile(
+            std::span<const Building>{},
+            std::span<const Unit>{},
+            Player::blue,
+            0,
+            -1
+        ) == TilePosition{0, 0}
     ));
 }

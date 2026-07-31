@@ -15313,11 +15313,13 @@ int SdlApp::run() {
             proof_context != nullptr &&
             std::string_view{proof_context} == "gameplay") {
             audio->set_music_context(AudioMusicContext::gameplay, true);
-        } else {
+        } else if (active_frontend_screen == FrontendScreen::hidden) {
             audio->set_music_context(
                 AudioMusicContext::civilization,
                 true
             );
+        } else {
+            audio->set_music_context(AudioMusicContext::menu, false);
         }
         if (const char* requested =
                 SDL_getenv("AOE_AUDIO_PROOF_SOUND")) {

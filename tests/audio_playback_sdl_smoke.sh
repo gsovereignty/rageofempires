@@ -34,3 +34,17 @@ grep -q '^Audio loose effect A1AA.mp3$' "$smoke_dir/audio.log"
 ! grep -Eq '^Audio music (Countdwn|lost|won1|won2|credits|xcredits)\\.mp3$' \
     "$smoke_dir/audio.log"
 ! grep -q '^Music unavailable:' "$smoke_dir/audio.log"
+
+env \
+    SDL_VIDEODRIVER=dummy \
+    SDL_AUDIODRIVER=dummy \
+    SDL_RENDER_DRIVER=software \
+    AOE_AUDIO_TRACE=1 \
+    AOE_EXIT_AFTER_SCREENSHOT=1 \
+    "AOE_SCREENSHOT_PATH=$smoke_dir/main-menu.bmp" \
+    "$app_path" >"$smoke_dir/main-menu-audio.log" 2>&1
+
+test -s "$smoke_dir/main-menu.bmp"
+grep -q '^Audio music open.mp3$' "$smoke_dir/main-menu-audio.log"
+! grep -Eq '^Audio music (Random|xtown)\\.mp3$' \
+    "$smoke_dir/main-menu-audio.log"

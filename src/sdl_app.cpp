@@ -16270,15 +16270,20 @@ int SdlApp::run() {
 
     std::optional<EntityId> sheep_click_proof_sheep;
     std::optional<EntityId> sheep_click_proof_villager;
+    std::optional<TilePosition> sheep_click_proof_destination;
     bool sheep_click_proof_gather{};
+    bool sheep_click_proof_move{};
     bool sheep_click_proof_logged{};
     if (const char* proof = SDL_getenv("AOE_SHEEP_CLICK_PROOF");
         proof != nullptr && proof[0] != '\0') {
+        sheep_click_proof_gather = std::string_view{proof} == "gather";
+        sheep_click_proof_move = std::string_view{proof} == "move";
         const auto sheep = std::ranges::find_if(
             simulation.units(),
-            [](const Unit& unit) {
+            [move = sheep_click_proof_move](const Unit& unit) {
                 return unit.kind == UnitKind::sheep &&
-                    unit.garrisoned_in == 0;
+                    unit.garrisoned_in == 0 &&
+                    (!move || unit.owner == active_view_player);
             }
         );
         const auto villager = std::ranges::find_if(
@@ -16293,43 +16298,56 @@ int SdlApp::run() {
             villager != simulation.units().end()) {
             sheep_click_proof_sheep = sheep->id;
             sheep_click_proof_villager = villager->id;
-            sheep_click_proof_gather =
-                std::string_view{proof} == "gather";
             if (sheep_click_proof_gather) {
                 simulation.select_units(
                     {villager->id}, active_view_player
                 );
             }
-            const int elevation =
-                simulation.map().elevation_at(sheep->position);
-            const float click_x = (
-                static_cast<float>(
-                    map_origin_x() +
-                    (sheep->position.x - sheep->position.y) *
-                        half_tile_width
-                ) - camera.x
-            ) * camera.zoom;
-            const float click_y = (
-                static_cast<float>(
-                    map_origin_y +
-                    (sheep->position.x + sheep->position.y) *
-                        half_tile_height -
-                    elevation * elevation_pixel_step +
-                    half_tile_height
-                ) - camera.y
-            ) * camera.zoom;
-            SDL_Event down{};
-            down.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
-            down.button.button = sheep_click_proof_gather
-                ? SDL_BUTTON_RIGHT : SDL_BUTTON_LEFT;
-            down.button.clicks = 1;
-            down.button.x = click_x;
-            down.button.y = click_y;
-            SDL_PushEvent(&down);
-            if (!sheep_click_proof_gather) {
-                SDL_Event up = down;
-                up.type = SDL_EVENT_MOUSE_BUTTON_UP;
-                SDL_PushEvent(&up);
+            const auto push_click = [&simulation, &camera](
+                TilePosition position, Uint8 button
+            ) {
+                const int elevation =
+                    simulation.map().elevation_at(position);
+                SDL_Event down{};
+                down.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
+                down.button.button = button;
+                down.button.clicks = 1;
+                down.button.x = (
+                    static_cast<float>(
+                        map_origin_x() +
+                        (position.x - position.y) * half_tile_width
+                    ) - camera.x
+                ) * camera.zoom;
+                down.button.y = (
+                    static_cast<float>(
+                        map_origin_y +
+                        (position.x + position.y) * half_tile_height -
+                        elevation * elevation_pixel_step +
+                        half_tile_height
+                    ) - camera.y
+                ) * camera.zoom;
+                SDL_PushEvent(&down);
+                if (button == SDL_BUTTON_LEFT) {
+                    SDL_Event up = down;
+                    up.type = SDL_EVENT_MOUSE_BUTTON_UP;
+                    SDL_PushEvent(&up);
+                }
+            };
+            push_click(
+                sheep->position,
+                sheep_click_proof_gather
+                    ? SDL_BUTTON_RIGHT : SDL_BUTTON_LEFT
+            );
+            if (sheep_click_proof_move) {
+                const TilePosition destination{
+                    sheep->position.x + 2,
+                    sheep->position.y
+                };
+                if (simulation.map().contains(destination) &&
+                    simulation.map().walkable(destination)) {
+                    sheep_click_proof_destination = destination;
+                    push_click(destination, SDL_BUTTON_RIGHT);
+                }
             }
         }
     }
@@ -21262,11 +21280,22 @@ int SdlApp::run() {
                     villager->resource_unit_id ==
                         *sheep_click_proof_sheep &&
                     sheep->owner == active_view_player;
+            } else if (sheep_click_proof_move &&
+                       sheep_click_proof_destination) {
+                const auto sheep = std::ranges::find(
+                    simulation.units(),
+                    *sheep_click_proof_sheep,
+                    &Unit::id
+                );
+                proved = sheep != simulation.units().end() &&
+                    sheep->destination == *sheep_click_proof_destination &&
+                    sheep->moving && !sheep->path.empty();
             }
             if (proved) {
                 SDL_Log(
                     "sheep click proof passed: %s",
-                    sheep_click_proof_gather ? "gather" : "select"
+                    sheep_click_proof_gather ? "gather" :
+                    sheep_click_proof_move ? "move" : "select"
                 );
                 sheep_click_proof_logged = true;
             }

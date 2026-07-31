@@ -313,6 +313,11 @@
       "sha256": "e9ae3bde779f1ca46919bae4c672378936b883e2b119603ee93a9f9ffb1b4d39"
     },
     {
+      "path": "resources/sheep-movement-audit.scenario",
+      "size": 298,
+      "sha256": "1dd61968dedc209fa4a791b60639bdca5c3959947acfe98a26539cb8347f0931"
+    },
+    {
       "path": "resources/stone-gate-render-audit.scenario",
       "size": 443,
       "sha256": "3e5f8f34e571fe1c9b3d0236131182a132ce9dfac679ad6c09dfb0de3378c773"

@@ -33,6 +33,9 @@ Sprite, technology, civilization, renderer, and asset-coverage mappings:
 
 ## Evidence
 
+- [Sheep player movement](evidence/SHEEP_PLAYER_MOVEMENT.md) records command,
+  pathing, replay/save, SDL, and original-evidence findings.
+
 Pinned static-analysis and observed-runtime evidence:
 [evidence/](evidence/).
 

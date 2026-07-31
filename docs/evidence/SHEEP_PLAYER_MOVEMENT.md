@@ -81,6 +81,5 @@ only through `AOE_SHEEP_CLICK_PROOF`.
 
 ## Human validation
 
-Automated proof cannot satisfy the interactive acceptance gate. Final approval
-still requires a user to select and move one owned sheep and a group of owned
-sheep in the built game.
+Interactive acceptance passed on 2026-07-31. The user approved movement of
+both one sheep and a selected group in the menu-launched built game.

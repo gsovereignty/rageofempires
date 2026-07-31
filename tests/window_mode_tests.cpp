@@ -12,14 +12,23 @@ void require(bool condition) {
 
 int main() {
     using namespace aoe;
-    require((render_extent_for_drawable(1280, 720, 175) ==
+    require((render_extent_for_window(1280, 720, 1280, 720, 175) ==
              RenderExtent{1280, 720, 545}));
-    require((render_extent_for_drawable(640, 360, 175) ==
+    require((render_extent_for_window(640, 360, 640, 360, 175) ==
              RenderExtent{640, 360, 185}));
-    require(!render_extent_for_drawable(0, 720, 175));
-    require(!render_extent_for_drawable(640, 175, 175));
-    require(render_extent_for_drawable(1920, 720, 175)->width == 1920);
-    require(render_extent_for_drawable(640, 1080, 175)->world_height == 905);
+    require(!render_extent_for_window(0, 720, 1280, 720, 175));
+    require(!render_extent_for_window(640, 175, 640, 175, 175));
+    require(!render_extent_for_window(640, 360, 0, 0, 175));
+    require(
+        render_extent_for_window(1920, 720, 3840, 1440, 175)->width ==
+        1920
+    );
+    require(
+        render_extent_for_window(640, 1080, 1280, 2160, 175)
+            ->world_height == 905
+    );
+    require((render_extent_for_window(1280, 720, 2560, 1440, 175) ==
+             RenderExtent{1280, 720, 545}));
 
     const WindowGeometry geometry{20, 30, 800, 600};
     const WindowModeState windowed{false, false, false, geometry};

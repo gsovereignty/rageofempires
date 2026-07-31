@@ -12,9 +12,11 @@ struct RenderExtent {
     bool operator==(const RenderExtent&) const = default;
 };
 
-std::optional<RenderExtent> render_extent_for_drawable(
-    int width,
-    int height,
+std::optional<RenderExtent> render_extent_for_window(
+    int window_width,
+    int window_height,
+    int drawable_width,
+    int drawable_height,
     int hud_height
 );
 

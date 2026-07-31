@@ -2,15 +2,22 @@
 
 namespace aoe {
 
-std::optional<RenderExtent> render_extent_for_drawable(
-    int width,
-    int height,
+std::optional<RenderExtent> render_extent_for_window(
+    int window_width,
+    int window_height,
+    int drawable_width,
+    int drawable_height,
     int hud_height
 ) {
-    if (width <= 0 || height <= hud_height || hud_height < 0) {
+    if (window_width <= 0 || window_height <= hud_height ||
+        drawable_width <= 0 || drawable_height <= 0 || hud_height < 0) {
         return std::nullopt;
     }
-    return RenderExtent{width, height, height - hud_height};
+    return RenderExtent{
+        window_width,
+        window_height,
+        window_height - hud_height,
+    };
 }
 
 WindowModeState window_mode_result(

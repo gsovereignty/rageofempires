@@ -14924,13 +14924,20 @@ int SdlApp::run() {
     SDL_SetWindowMinimumSize(window, 640, 360);
     int renderer_output_width{};
     int renderer_output_height{};
+    int window_width{};
+    int window_height{};
+    SDL_GetWindowSize(window, &window_width, &window_height);
     SDL_GetCurrentRenderOutputSize(
         renderer,
         &renderer_output_width,
         &renderer_output_height
     );
-    const auto initial_extent = render_extent_for_drawable(
-        renderer_output_width, renderer_output_height, hud_height
+    const auto initial_extent = render_extent_for_window(
+        window_width,
+        window_height,
+        renderer_output_width,
+        renderer_output_height,
+        hud_height
     );
     if (!initial_extent) {
         SDL_DestroyRenderer(renderer);
@@ -14946,8 +14953,8 @@ int SdlApp::run() {
     SDL_Log(
         "HUD presentation requested=%dx%d output=%dx%d logical=%dx%d "
         "output-scale=%d row=%d,%d,%d,%d",
-        view_pixel_width * requested_output_scale,
-        (view_pixel_height + hud_height) * requested_output_scale,
+        initial_windowed_width,
+        initial_windowed_height,
         renderer_output_width,
         renderer_output_height,
         view_pixel_width,
@@ -15824,14 +15831,27 @@ int SdlApp::run() {
     active_settings.fullscreen = fullscreen;
     draft_settings.fullscreen = fullscreen;
     auto refresh_render_extent = [&]() {
-        int width{};
-        int height{};
-        if (!SDL_GetCurrentRenderOutputSize(renderer, &width, &height)) {
+        int current_window_width{};
+        int current_window_height{};
+        int output_width{};
+        int output_height{};
+        if (!SDL_GetWindowSize(
+                window, &current_window_width, &current_window_height
+            ) ||
+            !SDL_GetCurrentRenderOutputSize(
+                renderer, &output_width, &output_height
+            )) {
             SDL_Log("Could not query drawable size: %s", SDL_GetError());
             return false;
         }
         const auto extent =
-            render_extent_for_drawable(width, height, hud_height);
+            render_extent_for_window(
+                current_window_width,
+                current_window_height,
+                output_width,
+                output_height,
+                hud_height
+            );
         if (!extent) return false;
         view_pixel_width = extent->width;
         logical_screen_height = extent->screen_height;
@@ -15848,9 +15868,13 @@ int SdlApp::run() {
             return false;
         }
         SDL_Log(
-            "Live render extent %dx%d world-height=%d",
+            "Live render extent logical=%dx%d output=%dx%d "
+            "density=%.2f world-height=%d",
             view_pixel_width,
             logical_screen_height,
+            output_width,
+            output_height,
+            SDL_GetWindowPixelDensity(window),
             view_pixel_height
         );
         return true;
@@ -16369,12 +16393,19 @@ int SdlApp::run() {
             SDL_SyncWindow(window);
             refresh_render_extent();
             clamp_camera(camera);
+            int output_width{};
+            int output_height{};
+            SDL_GetCurrentRenderOutputSize(
+                renderer, &output_width, &output_height
+            );
             SDL_Log(
-                "Resize proof window=%dx%d drawable=%dx%d",
+                "Resize proof window=%dx%d logical=%dx%d output=%dx%d",
                 width,
                 height,
                 view_pixel_width,
-                logical_screen_height
+                logical_screen_height,
+                output_width,
+                output_height
             );
         }
     }

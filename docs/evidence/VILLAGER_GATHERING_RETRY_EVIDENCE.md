@@ -26,6 +26,13 @@ Two simulation cases reproduced permanent work loss before the fix:
    gather command could fail its first path search before durable order state
    was assigned. Land-resource paths also targeted the resource tile instead
    of an interaction-range tile, increasing contention.
+5. An `AOE_GATHER_TRACE=1` interactive run captured the reported three-worker
+   berry scene through tick 785. All three orders remained active. Two workers
+   repeatedly replanned one-tile paths while standing diagonally beside their
+   berry target; Manhattan-only interaction rejected those diagonal positions.
+   This proved a stalled active order, not cancellation. The top-bar `IDLE
+   0/0` in the supplied screenshot was the idle-worker counter while no unit
+   was selected, not an individual worker activity label.
 
 The first case distinguishes cancellation from a stalled active order: target
 state survived, but movement did not. The second case was genuine unintended
@@ -56,9 +63,14 @@ and other replacement commands continue using their existing deliberate state
 clears.
 
 Land-resource commands now assign durable order state even when their first
-path search fails. Routing selects a deterministic reachable cardinal tile
+path search fails. Routing selects a deterministic reachable adjacent tile
 within gather range. Workers already in range stop moving and work; they no
 longer compete to occupy the berry, tree, gold, or stone tile itself.
+
+Interactive trace evidence expanded land-resource interaction to all eight
+adjacent tiles. Diagonal workers now gather immediately instead of repeatedly
+replanning through occupied cardinal tiles. Set `AOE_GATHER_TRACE=1` to emit
+command and one-second state samples; normal runs remain silent.
 
 ## Decompiled evidence
 
@@ -86,6 +98,8 @@ from the reproduced failure.
 - recovery after a temporary corridor obstruction;
 - acceptance and later recovery when a knight blocks the route at command
   creation time;
+- three cardinal/diagonal berry workers gathering in place without route
+  churn;
 - save/load of the stationary obstructed order followed by identical recovery;
 - waiting for a compatible drop-off that appears later;
 - four villagers sharing one resource and drop-off through repeated deposit

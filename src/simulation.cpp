@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <cstdlib>
+#include <iostream>
 #include <stdexcept>
 #include <vector>
 
@@ -19,6 +20,11 @@ bool represented_player(Player player) {
 }
 
 bool is_wall(BuildingKind kind);
+
+bool gather_trace_enabled() {
+    static const bool enabled = std::getenv("AOE_GATHER_TRACE") != nullptr;
+    return enabled;
+}
 
 }
 
@@ -2813,6 +2819,15 @@ bool Simulation::command_unit(
     if (unit->garrisoned_in != 0) {
         return false;
     }
+    if (gather_trace_enabled() && unit->kind == UnitKind::villager) {
+        std::cerr << "GATHER_COMMAND tick=" << tick_number_
+                  << " id=" << unit->id
+                  << " destination=" << destination.x << ','
+                  << destination.y
+                  << " active_before=" << unit->has_resource_target
+                  << " returning_before=" << unit->returning_resource
+                  << " carried_before=" << unit->carried_amount << '\n';
+    }
     const bool leaving_formation_movement =
         unit->formation_move_interval > 0;
     unit->formation_move_interval = 0;
@@ -4358,6 +4373,13 @@ bool Simulation::stop_unit(EntityId unit_id) {
     Unit* unit = find_unit(unit_id);
     if (unit == nullptr || unit->garrisoned_in != 0) {
         return false;
+    }
+    if (gather_trace_enabled() && unit->kind == UnitKind::villager) {
+        std::cerr << "GATHER_STOP tick=" << tick_number_
+                  << " id=" << unit->id
+                  << " active_before=" << unit->has_resource_target
+                  << " returning_before=" << unit->returning_resource
+                  << " carried_before=" << unit->carried_amount << '\n';
     }
     const bool leaving_formation_movement =
         unit->formation_move_interval > 0;
@@ -6616,9 +6638,14 @@ void Simulation::update() {
                     continue;
                 }
             } else {
-                const int distance =
-                    std::abs(unit.resource_target.x - unit.position.x) +
-                    std::abs(unit.resource_target.y - unit.position.y);
+                const int distance = std::max(
+                    std::abs(
+                        unit.resource_target.x - unit.position.x
+                    ),
+                    std::abs(
+                        unit.resource_target.y - unit.position.y
+                    )
+                );
                 if (distance <= 1) {
                     gather(unit);
                     continue;
@@ -6854,6 +6881,32 @@ void Simulation::update() {
 
     for (Unit& unit : units_) {
         refresh_unit_render_subtile(unit);
+    }
+
+    if (gather_trace_enabled() && tick_number_ % 5 == 0) {
+        for (const Unit& unit : units_) {
+            if (unit.kind != UnitKind::villager ||
+                (!unit.has_resource_target && unit.carried_amount == 0)) {
+                continue;
+            }
+            std::cerr << "GATHER_STATE tick=" << tick_number_
+                      << " id=" << unit.id
+                      << " position=" << unit.position.x << ','
+                      << unit.position.y
+                      << " moving=" << unit.moving
+                      << " active=" << unit.has_resource_target
+                      << " returning=" << unit.returning_resource
+                      << " carried_kind="
+                      << static_cast<int>(unit.carried_resource)
+                      << " carried=" << unit.carried_amount
+                      << " target=" << unit.resource_target.x << ','
+                      << unit.resource_target.y
+                      << " target_amount=" << work_resource_amount(unit)
+                      << " destination=" << unit.destination.x << ','
+                      << unit.destination.y
+                      << " path_step=" << unit.next_path_step << '/'
+                      << unit.path.size() << '\n';
+        }
     }
 
     std::vector<std::uint64_t> formation_groups;
@@ -7836,9 +7889,10 @@ bool Simulation::route_to_resource_interaction(
     Unit& unit,
     TilePosition resource_target
 ) {
-    const int current_distance =
-        std::abs(resource_target.x - unit.position.x) +
-        std::abs(resource_target.y - unit.position.y);
+    const int current_distance = std::max(
+        std::abs(resource_target.x - unit.position.x),
+        std::abs(resource_target.y - unit.position.y)
+    );
     if (current_distance <= 1) {
         unit.path.clear();
         unit.next_path_step = 0;
@@ -7847,11 +7901,15 @@ bool Simulation::route_to_resource_interaction(
         return true;
     }
 
-    std::array<TilePosition, 4> candidates{{
+    std::array<TilePosition, 8> candidates{{
+        {resource_target.x - 1, resource_target.y - 1},
         {resource_target.x - 1, resource_target.y},
+        {resource_target.x - 1, resource_target.y + 1},
         {resource_target.x, resource_target.y - 1},
         {resource_target.x, resource_target.y + 1},
+        {resource_target.x + 1, resource_target.y - 1},
         {resource_target.x + 1, resource_target.y},
+        {resource_target.x + 1, resource_target.y + 1},
     }};
     std::ranges::sort(
         candidates,

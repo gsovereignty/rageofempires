@@ -1171,6 +1171,43 @@ void gathering_order_survives_initial_route_blockage() {
     );
 }
 
+void diagonal_berry_workers_gather_without_route_churn() {
+    aoe::GameMap map(10, 8);
+    map.set_terrain({5, 4}, aoe::Terrain::berry_bush);
+    map.set_resource_amount({5, 4}, 100);
+    aoe::Simulation simulation(std::move(map));
+    constexpr std::array<aoe::TilePosition, 3> starts{{
+        {4, 3}, {5, 3}, {6, 3},
+    }};
+    for (aoe::TilePosition start : starts) {
+        const aoe::EntityId worker = simulation.add_unit(
+            aoe::UnitKind::villager,
+            aoe::Player::blue,
+            start
+        );
+        require(simulation.command_unit(worker, {5, 4}));
+    }
+    simulation.add_building(
+        aoe::BuildingKind::town_center,
+        aoe::Player::blue,
+        {0, 0}
+    );
+    simulation.add_unit(
+        aoe::UnitKind::villager,
+        aoe::Player::red,
+        {9, 7}
+    );
+
+    simulation.update();
+    for (std::size_t index = 0; index < starts.size(); ++index) {
+        const aoe::Unit& worker = simulation.units()[index];
+        require(worker.position == starts[index]);
+        require(worker.has_resource_target);
+        require(!worker.moving);
+        require(worker.carried_amount == 1);
+    }
+}
+
 void gathering_waits_for_a_temporarily_unavailable_drop_off() {
     aoe::GameMap map(12, 6);
     map.set_terrain({2, 2}, aoe::Terrain::forest);
@@ -22974,6 +23011,10 @@ int main() {
     run(
         "initial gathering route blockage",
         gathering_order_survives_initial_route_blockage
+    );
+    run(
+        "diagonal berry gathering",
+        diagonal_berry_workers_gather_without_route_churn
     );
     run(
         "temporarily unavailable gathering drop off",

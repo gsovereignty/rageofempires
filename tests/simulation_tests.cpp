@@ -1106,12 +1106,28 @@ void gathering_retries_after_temporary_route_obstruction() {
     require(!stopped.moving);
     require(stopped.position == aoe::TilePosition(2, 1));
 
+    const auto save_path =
+        std::filesystem::temp_directory_path() /
+        "aoe-gathering-obstruction.save";
+    aoe::save_game(simulation, save_path);
+    aoe::Simulation loaded = aoe::load_game(save_path);
+    std::filesystem::remove(save_path);
+    require(loaded.units().front().has_resource_target);
+    require(!loaded.units().front().moving);
+
     require(simulation.command_unit(blocker, {3, 0}));
+    require(loaded.command_unit(blocker, {3, 0}));
     for (int tick = 0; tick < 12; ++tick) {
         simulation.update();
+        loaded.update();
     }
     require(simulation.units().front().has_resource_target);
     require(simulation.units().front().carried_amount > 0);
+    require(loaded.units().front().has_resource_target);
+    require(
+        loaded.units().front().carried_amount ==
+        simulation.units().front().carried_amount
+    );
 }
 
 void gathering_waits_for_a_temporarily_unavailable_drop_off() {
@@ -1236,6 +1252,57 @@ void late_arriving_villager_retargets_after_shared_depletion() {
     }
     require(retargeted);
     require(simulation.units()[1].has_resource_target);
+}
+
+void land_gathering_command_is_deterministic_through_replay() {
+    aoe::GameMap map(12, 7);
+    map.set_terrain({6, 3}, aoe::Terrain::forest);
+    map.set_resource_amount({6, 3}, 100);
+    const auto make_simulation = [&map]() {
+        aoe::Simulation simulation(map);
+        simulation.add_building(
+            aoe::BuildingKind::town_center,
+            aoe::Player::blue,
+            {0, 1}
+        );
+        simulation.add_unit(
+            aoe::UnitKind::villager,
+            aoe::Player::blue,
+            {5, 3}
+        );
+        simulation.add_unit(
+            aoe::UnitKind::villager,
+            aoe::Player::red,
+            {11, 6}
+        );
+        return simulation;
+    };
+    aoe::Simulation first = make_simulation();
+    aoe::Simulation second = make_simulation();
+    const aoe::EntityId worker = first.units().front().id;
+
+    aoe::Replay replay;
+    replay.record(0, aoe::MoveUnitCommand{worker, {6, 3}});
+    const auto replay_path =
+        std::filesystem::temp_directory_path() /
+        "aoe-land-gathering.replay";
+    aoe::save_replay(replay, replay_path);
+    aoe::Replay loaded_replay = aoe::load_replay(replay_path);
+    std::filesystem::remove(replay_path);
+
+    for (int tick = 0; tick < 80; ++tick) {
+        replay.apply_current_tick(first);
+        loaded_replay.apply_current_tick(second);
+        first.update();
+        second.update();
+    }
+    require(first.economy(aoe::Player::blue).wood > 0);
+    require(first.economy(aoe::Player::blue).wood ==
+        second.economy(aoe::Player::blue).wood);
+    require(first.map().resource_amount_at({6, 3}) ==
+        second.map().resource_amount_at({6, 3}));
+    require(first.units().front().has_resource_target);
+    require(second.units().front().has_resource_target);
 }
 
 void double_bit_axe_adds_exact_persisted_wood_rate() {
@@ -22874,6 +22941,10 @@ int main() {
     run(
         "late shared-resource depletion retarget",
         late_arriving_villager_retargets_after_shared_depletion
+    );
+    run(
+        "land gathering replay determinism",
+        land_gathering_command_is_deterministic_through_replay
     );
     run(
         "double-bit axe wood rate",

@@ -42,7 +42,7 @@ test: build
 		--output-on-failure
 
 clean:
-	$(CMAKE) --build "$(BUILD_DIR)" --target clean
+	$(CMAKE) -E remove_directory "$(BUILD_DIR)"
 
 help:
 	@echo "make                 Configure and build"

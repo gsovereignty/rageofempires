@@ -2037,17 +2037,19 @@ bool Simulation::command_gather_unit(
     villager->resource_building_id = 0;
     villager->resource_unit_id = herdable_id;
     villager->returning_resource = false;
+    if (villager->carried_amount == 0) {
+        villager->carried_resource = ResourceKind::food;
+    }
     villager->garrison_target_id = 0;
     if (villager->carried_amount > 0 &&
         villager->carried_resource != ResourceKind::food) {
         Building* drop_off = nearest_drop_off(*villager);
-        if (drop_off == nullptr ||
-            !route_unit(*villager, drop_off->position)) {
-            villager->has_resource_target = false;
-            villager->resource_unit_id = 0;
-            return false;
-        }
         villager->returning_resource = true;
+        if (drop_off != nullptr) {
+            route_unit(*villager, drop_off->position);
+        } else {
+            villager->moving = false;
+        }
     }
     detach_builder(villager->id);
     return true;
@@ -2946,15 +2948,18 @@ bool Simulation::command_unit(
             unit->resource_building_id = building_target->id;
             unit->resource_unit_id = 0;
             unit->returning_resource = false;
+            if (unit->carried_amount == 0) {
+                unit->carried_resource = ResourceKind::food;
+            }
             if (unit->carried_amount > 0 &&
                 unit->carried_resource != ResourceKind::food) {
                 Building* drop_off = nearest_drop_off(*unit);
-                if (drop_off == nullptr ||
-                    !route_unit(*unit, drop_off->position)) {
-                    unit->has_resource_target = false;
-                    return false;
-                }
                 unit->returning_resource = true;
+                if (drop_off != nullptr) {
+                    route_unit(*unit, drop_off->position);
+                } else {
+                    unit->moving = false;
+                }
             }
             detach_builder(unit->id);
             clear_attack_move();
@@ -3026,15 +3031,18 @@ bool Simulation::command_unit(
     unit->resource_unit_id = 0;
     unit->returning_resource = false;
     unit->garrison_target_id = 0;
+    if (gathering && unit->carried_amount == 0) {
+        unit->carried_resource = target_resource;
+    }
     if (gathering && unit->carried_amount > 0 &&
         unit->carried_resource != target_resource) {
         Building* drop_off = nearest_drop_off(*unit);
-        if (drop_off == nullptr ||
-            !route_unit(*unit, drop_off->position)) {
-            unit->has_resource_target = false;
-            return false;
-        }
         unit->returning_resource = true;
+        if (drop_off != nullptr) {
+            route_unit(*unit, drop_off->position);
+        } else {
+            unit->moving = false;
+        }
     }
     detach_builder(unit->id);
     clear_attack_move();
@@ -6540,11 +6548,10 @@ void Simulation::update() {
                         unit.carried_resource
                     )) {
                     drop_off = nearest_drop_off(unit);
-                    if (drop_off == nullptr ||
-                        !route_unit(unit, drop_off->position)) {
-                        unit.has_resource_target = false;
-                        unit.returning_resource = false;
+                    if (drop_off == nullptr) {
                         unit.moving = false;
+                    } else {
+                        route_unit(unit, drop_off->position);
                     }
                     continue;
                 }
@@ -6581,7 +6588,6 @@ void Simulation::update() {
                     const ResourceKind completed_resource =
                         unit.carried_resource;
                     unit.carried_amount = 0;
-                    unit.carried_resource = ResourceKind::none;
                     unit.returning_resource = false;
                     if (work_resource_amount(unit) > 0) {
                         route_unit(unit, unit.resource_target);
@@ -6595,6 +6601,7 @@ void Simulation::update() {
                         unit.has_resource_target = true;
                     } else {
                         unit.has_resource_target = false;
+                        unit.carried_resource = ResourceKind::none;
                         unit.moving = false;
                     }
                     continue;
@@ -6606,6 +6613,9 @@ void Simulation::update() {
                 if (distance <= 1) {
                     gather(unit);
                     continue;
+                }
+                if (!unit.moving) {
+                    route_unit(unit, unit.resource_target);
                 }
             }
         }
@@ -7847,6 +7857,14 @@ bool Simulation::route_to_nearest_resource(
             return true;
         }
     }
+    if (!candidates.empty()) {
+        unit.resource_target = candidates.front();
+        unit.resource_building_id = 0;
+        unit.resource_unit_id = 0;
+        unit.returning_resource = false;
+        unit.moving = false;
+        return true;
+    }
     return false;
 }
 
@@ -9041,7 +9059,14 @@ void Simulation::gather(Unit& unit) {
     const int capacity = carry_capacity(unit);
     const ResourceKind resource = work_resource(unit);
     if (resource == ResourceKind::none && unit.carried_amount == 0) {
+        if (unit.resource_building_id == 0 &&
+            unit.resource_unit_id == 0 &&
+            unit.carried_resource != ResourceKind::none &&
+            route_to_nearest_resource(unit, unit.carried_resource)) {
+            return;
+        }
         unit.has_resource_target = false;
+        unit.carried_resource = ResourceKind::none;
         unit.moving = false;
         return;
     }
@@ -9178,16 +9203,12 @@ void Simulation::gather(Unit& unit) {
     }
 
     Building* drop_off = nearest_drop_off(unit);
+    unit.returning_resource = true;
     if (drop_off == nullptr) {
-        unit.has_resource_target = false;
         unit.moving = false;
         return;
     }
-    unit.returning_resource = true;
-    if (!route_unit(unit, drop_off->position)) {
-        unit.returning_resource = false;
-        unit.has_resource_target = false;
-    }
+    route_unit(unit, drop_off->position);
 }
 
 std::pair<int, int> Simulation::finite_resource_yield(

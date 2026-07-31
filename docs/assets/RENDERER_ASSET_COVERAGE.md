@@ -158,6 +158,13 @@ absent SLP `890`; runtime/static comparison rejects a broader
 damage roots, and architecture families preload only when required by the
 scenario. Eight-owner scenarios still load every required palette.
 
+Town Center runtime composition treats its current-Age base as authoritative
+and draws only present layers from that same Age. Documented absent component
+SLPs no longer cause a partially rendered archive composite to fall through
+into a procedural building. Construction availability remains separate from
+visual Age: the starting Town Center uses Dark-Age art even though additional
+Town Center construction has a later prerequisite.
+
 The expanded runtime suite exposed and now guards two former disagreements:
 absent root SLP `2263` is allowed only when a naval DAT root has drawable
 deltas, and construction HP never masquerades as a completed-building damage
@@ -218,7 +225,8 @@ whole-kind fallback.
 `mapped_asset_gap` means one or more directly named action or layer SLPs are
 absent. It does not mean the whole kind always falls back. For example, sheep
 standing and movement assets remain available, while Town Center rendering is
-multi-layered and retains other present layers.
+multi-layered and retains other present current-Age layers. Missing layers do
+not authorize a future-Age or procedural overlay.
 
 The report's DAT-wide absent-SLP list is broader evidence about unresolved DAT
 links. It is not a list of represented renderer failures. Per-kind findings are

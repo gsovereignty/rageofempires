@@ -141,6 +141,13 @@ These are exact relative operands. The recovered frame-1 height now also
 proves the absolute bottom split. Semantic roles for several child pointers
 remain unproved.
 
+The runtime resource row uses five disjoint width-derived fields for Wood,
+Food, Gold, Stone, and Population/Idle status. Each icon and truncated label
+is clipped conceptually to its field, with six logical pixels between fields.
+Contract tests cover 640, 1024, 1280, and 1920 logical widths; SDL screenshot
+smoke covers supported resolution classes. This responsive spacing is a
+reconstruction-native readability rule, not an exact recovered field map.
+
 Runtime frame inspection proves 50721 frames 36 and 37 contain action artwork,
 not reusable button chrome. Command slots use procedural normal, pressed,
 selected, and disabled chrome. Bounded candidate frames render for mapped

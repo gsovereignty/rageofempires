@@ -2424,7 +2424,10 @@ std::vector<SDL_Texture*> load_terrain_archive_frames(
             if (texture == nullptr) {
                 throw LegacyAssetError{SDL_GetError()};
             }
-            SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST);
+            // Terrain is continuously scaled by camera zoom. Linear sampling
+            // preserves Blendomatic edge gradients instead of magnifying
+            // individual transition pixels into blocky map boundaries.
+            SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_LINEAR);
             frames.push_back(texture);
             if (rgba_frames != nullptr) {
                 rgba_frames->push_back(std::move(decoded));
@@ -2662,7 +2665,7 @@ SDL_Texture* terrain_transition_texture(
         SDL_CreateTextureFromSurface(renderer, surface);
     SDL_DestroySurface(surface);
     if (texture == nullptr) return nullptr;
-    SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST);
+    SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_LINEAR);
     textures.transition_cache.emplace(key.str(), texture);
     return texture;
 }
@@ -5714,6 +5717,89 @@ void outline_diamond(
     SDL_RenderLines(renderer, points.data(), static_cast<int>(points.size()));
 }
 
+void render_procedural_terrain_transitions(
+    SDL_Renderer* renderer,
+    const Simulation& simulation,
+    TilePosition position,
+    SDL_FPoint top,
+    SDL_Color center_color
+) {
+    struct Edge {
+        TilePosition offset;
+        SDL_FPoint first;
+        SDL_FPoint second;
+    };
+    const std::array<Edge, 4> edges{{
+        {{0, -1}, {top.x, top.y},
+         {top.x + half_tile_width, top.y + half_tile_height}},
+        {{1, 0}, {top.x + half_tile_width, top.y + half_tile_height},
+         {top.x, top.y + tile_height}},
+        {{0, 1}, {top.x - half_tile_width, top.y + half_tile_height},
+         {top.x, top.y + tile_height}},
+        {{-1, 0}, {top.x, top.y},
+         {top.x - half_tile_width, top.y + half_tile_height}},
+    }};
+    const auto center_evidence = terrain_blend_evidence(
+        simulation.map().terrain_at(position)
+    );
+    if (!center_evidence) return;
+    const SDL_FPoint center{
+        top.x, top.y + half_tile_height
+    };
+    for (const Edge& edge : edges) {
+        const TilePosition neighbor{
+            position.x + edge.offset.x,
+            position.y + edge.offset.y,
+        };
+        if (!simulation.map().contains(neighbor) ||
+            (active_settings.fog &&
+             !simulation.is_explored_to_controller(
+                 active_view_player, neighbor
+             ))) {
+            continue;
+        }
+        const auto neighbor_evidence = terrain_blend_evidence(
+            simulation.map().terrain_at(neighbor)
+        );
+        if (!neighbor_evidence ||
+            neighbor_evidence->terrain == center_evidence->terrain) {
+            continue;
+        }
+        SDL_Color neighbor_color = terrain_color(
+            simulation.map().terrain_at(neighbor)
+        );
+        const int variation =
+            (neighbor.x * 17 + neighbor.y * 31) % 7 - 3;
+        neighbor_color = shade_color(neighbor_color, variation);
+        const auto band = procedural_transition_band(
+            {center_color.r, center_color.g, center_color.b},
+            {neighbor_color.r, neighbor_color.g, neighbor_color.b}
+        );
+        for (std::size_t index = 0; index < band.size(); ++index) {
+            const float inset =
+                static_cast<float>(index) /
+                static_cast<float>(band.size() * 5);
+            const auto toward_center = [center, inset](SDL_FPoint point) {
+                return SDL_FPoint{
+                    point.x + (center.x - point.x) * inset,
+                    point.y + (center.y - point.y) * inset,
+                };
+            };
+            const SDL_FPoint first = toward_center(edge.first);
+            const SDL_FPoint second = toward_center(edge.second);
+            set_color(renderer, {
+                band[index].red,
+                band[index].green,
+                band[index].blue,
+                255,
+            });
+            SDL_RenderLine(
+                renderer, first.x, first.y, second.x, second.y
+            );
+        }
+    }
+}
+
 void render_beveled_panel(
     SDL_Renderer* renderer,
     const SDL_FRect& rect,
@@ -6464,22 +6550,6 @@ void render_building(
             return;
         }
     }
-    if (rules.footprint_width > 1 || rules.footprint_height > 1) {
-        for (int y = 0; y < rules.footprint_height; ++y) {
-            for (int x = 0; x < rules.footprint_width; ++x) {
-                const SDL_FPoint footprint_top = tile_top({
-                    building.position.x + x,
-                    building.position.y + y,
-                });
-                fill_diamond(renderer, footprint_top, {77, 78, 68, 255});
-                outline_diamond(
-                    renderer,
-                    footprint_top,
-                    {48, 49, 43, 255}
-                );
-            }
-        }
-    }
     const bool exact_composite_kind =
         building.kind == BuildingKind::barracks ||
         building.kind == BuildingKind::mill ||
@@ -6714,7 +6784,9 @@ void render_building(
                     ? 3U
                     : 0U;
         const std::size_t age = static_cast<std::size_t>(
-            simulation.age(building.owner)
+            render_building_visual_age(
+                building.kind, simulation.age(building.owner)
+            )
         );
         bool rendered_original = false;
         if (building.kind == BuildingKind::house) {
@@ -6736,17 +6808,24 @@ void render_building(
                 building.owner == Player::blue
                 ? active_legacy_sprites.town_center_layers_blue
                 : active_legacy_sprites.town_center_layers_red;
+            const SDL_FPoint ground{
+                top.x, top.y + half_tile_height
+            };
+            // Supplied archives omit several documented Town Center
+            // component SLPs. A valid current-age base remains authoritative;
+            // draw only present current-age layers and never mix a
+            // procedural/future-age building over that partial composite.
             rendered_original = render_legacy_sprite(
-                renderer,
-                base[age][family],
-                {top.x, top.y + half_tile_height}
+                renderer, base[age][family], ground
             );
-            for (const LegacySprite& layer : layers[age][family]) {
-                rendered_original = render_legacy_sprite(
-                    renderer,
-                    layer,
-                    {top.x, top.y + half_tile_height}
-                ) && rendered_original;
+            if (rendered_original) {
+                for (const LegacySprite& layer : layers[age][family]) {
+                    if (layer.texture != nullptr) {
+                        (void)render_legacy_sprite(
+                            renderer, layer, ground
+                        );
+                    }
+                }
             }
         }
         if (rendered_original) {
@@ -7029,16 +7108,19 @@ void render_building(
         !palisade_gate &&
         building.kind != BuildingKind::watch_tower &&
         building.kind != BuildingKind::stone_wall) {
-        const SDL_Color roof = building.owner == Player::blue
-            ? SDL_Color{52, 76, 135, 255}
-            : SDL_Color{130, 55, 45, 255};
-        fill_triangle(
-            renderer,
-            {body.x - 3.0F, body.y + 2.0F},
-            {body.x + body.w / 2.0F, body.y - 15.0F},
-            {body.x + body.w + 3.0F, body.y + 2.0F},
-            roof
-        );
+        // Procedural fallback must not imitate an SLP player-color mask with
+        // a large opaque owner-colored polygon. Exact archive sprites retain
+        // their decoded player pixels; fallback uses neutral roof material.
+        const SDL_FRect roof{
+            body.x - 3.0F,
+            body.y - 6.0F,
+            body.w + 6.0F,
+            9.0F,
+        };
+        set_color(renderer, {91, 63, 39, 255});
+        SDL_RenderFillRect(renderer, &roof);
+        set_color(renderer, {54, 38, 25, 255});
+        SDL_RenderRect(renderer, &roof);
         const SDL_FRect door{
             top.x - 5.0F,
             body.y + body.h - 14.0F,
@@ -10262,9 +10344,8 @@ void render_hud(
     );
     SDL_SetRenderClipRect(renderer, nullptr);
     if (complete_resource_icons) {
-        constexpr std::array<float, 4> icon_x{
-            10.0F, 94.0F, 178.0F, 262.0F
-        };
+        const auto fields =
+            hud_layout::resource_status_fields(view_pixel_width);
         const Economy& blue = simulation.economy(active_view_player);
         const std::array<int, 4> amounts{
             blue.wood, blue.food, blue.gold, blue.stone
@@ -10272,10 +10353,11 @@ void render_hud(
         const std::array<const char*, 4> labels{
             "WOOD", "FOOD", "GOLD", "STONE"
         };
-        for (std::size_t index = 0; index < icon_x.size(); ++index) {
+        for (std::size_t index = 0; index < amounts.size(); ++index) {
+            const hud_layout::Rect field = fields[index];
             const SDL_FRect icon{
-                icon_x[index],
-                4.0F,
+                static_cast<float>(field.x),
+                static_cast<float>(field.y),
                 16.0F,
                 16.0F,
             };
@@ -10288,10 +10370,12 @@ void render_hud(
             std::ostringstream amount;
             amount << labels[index] << ' ' << amounts[index];
             const std::string amount_text =
-                hud_layout::truncate_debug_text(amount.str(), 64);
+                hud_layout::truncate_debug_text(
+                    amount.str(), std::max(0, field.width - 20)
+                );
             SDL_RenderDebugText(
                 renderer,
-                icon_x[index] + 19.0F,
+                static_cast<float>(field.x + 20),
                 8.0F,
                 amount_text.c_str()
             );
@@ -10305,12 +10389,16 @@ void render_hud(
         if (paused && simulation.outcome() == MatchOutcome::ongoing) {
             population << " PAUSED";
         }
+        const hud_layout::Rect population_field = fields.back();
         const std::string population_text =
             hud_layout::truncate_debug_text(
-                population.str(), view_pixel_width - 370
+                population.str(), population_field.width
             );
         SDL_RenderDebugText(
-            renderer, 362.0F, 8.0F, population_text.c_str()
+            renderer,
+            static_cast<float>(population_field.x),
+            8.0F,
+            population_text.c_str()
         );
     } else {
         const std::string economy_text =
@@ -13295,6 +13383,11 @@ std::size_t render(
                 position,
                 full_texture_diamond
             );
+            if (visible && texture == nullptr) {
+                render_procedural_terrain_transitions(
+                    renderer, simulation, position, top, color
+                );
+            }
             if (visible && is_water_surface(terrain)) {
                 render_water_detail(
                     renderer,
@@ -14289,6 +14382,21 @@ bool contextual_group_target(
         }
     );
     if (farm != simulation.buildings().end()) {
+        return true;
+    }
+    const auto sheep = std::ranges::find_if(
+        simulation.units(),
+        [&simulation, target](const Unit& unit) {
+            return unit.kind == UnitKind::sheep &&
+                   unit.hit_points > 0 &&
+                   unit.garrisoned_in == 0 &&
+                   unit.position == target &&
+                   simulation.is_visible_to_controller(
+                       active_view_player, target
+                   );
+        }
+    );
+    if (sheep != simulation.units().end()) {
         return true;
     }
     const auto enemy_unit = std::ranges::find_if(
@@ -15629,6 +15737,72 @@ int SdlApp::run() {
         }
         return changed;
     };
+
+    std::optional<EntityId> sheep_click_proof_sheep;
+    std::optional<EntityId> sheep_click_proof_villager;
+    bool sheep_click_proof_gather{};
+    bool sheep_click_proof_logged{};
+    if (const char* proof = SDL_getenv("AOE_SHEEP_CLICK_PROOF");
+        proof != nullptr && proof[0] != '\0') {
+        const auto sheep = std::ranges::find_if(
+            simulation.units(),
+            [](const Unit& unit) {
+                return unit.kind == UnitKind::sheep &&
+                    unit.garrisoned_in == 0;
+            }
+        );
+        const auto villager = std::ranges::find_if(
+            simulation.units(),
+            [](const Unit& unit) {
+                return unit.kind == UnitKind::villager &&
+                    unit.owner == active_view_player &&
+                    unit.garrisoned_in == 0;
+            }
+        );
+        if (sheep != simulation.units().end() &&
+            villager != simulation.units().end()) {
+            sheep_click_proof_sheep = sheep->id;
+            sheep_click_proof_villager = villager->id;
+            sheep_click_proof_gather =
+                std::string_view{proof} == "gather";
+            if (sheep_click_proof_gather) {
+                simulation.select_units(
+                    {villager->id}, active_view_player
+                );
+            }
+            const int elevation =
+                simulation.map().elevation_at(sheep->position);
+            const float click_x = (
+                static_cast<float>(
+                    map_origin_x() +
+                    (sheep->position.x - sheep->position.y) *
+                        half_tile_width
+                ) - camera.x
+            ) * camera.zoom;
+            const float click_y = (
+                static_cast<float>(
+                    map_origin_y +
+                    (sheep->position.x + sheep->position.y) *
+                        half_tile_height -
+                    elevation * elevation_pixel_step +
+                    half_tile_height
+                ) - camera.y
+            ) * camera.zoom;
+            SDL_Event down{};
+            down.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
+            down.button.button = sheep_click_proof_gather
+                ? SDL_BUTTON_RIGHT : SDL_BUTTON_LEFT;
+            down.button.clicks = 1;
+            down.button.x = click_x;
+            down.button.y = click_y;
+            SDL_PushEvent(&down);
+            if (!sheep_click_proof_gather) {
+                SDL_Event up = down;
+                up.type = SDL_EVENT_MOUSE_BUTTON_UP;
+                SDL_PushEvent(&up);
+            }
+        }
+    }
 
     while (running) {
         const auto frame_started = std::chrono::steady_clock::now();
@@ -20367,6 +20541,36 @@ int SdlApp::run() {
                     default:
                         break;
                 }
+            }
+        }
+        if (!sheep_click_proof_logged && sheep_click_proof_sheep) {
+            bool proved = simulation.selected_unit() ==
+                sheep_click_proof_sheep;
+            if (sheep_click_proof_gather &&
+                sheep_click_proof_villager) {
+                const auto villager = std::ranges::find(
+                    simulation.units(),
+                    *sheep_click_proof_villager,
+                    &Unit::id
+                );
+                const auto sheep = std::ranges::find(
+                    simulation.units(),
+                    *sheep_click_proof_sheep,
+                    &Unit::id
+                );
+                proved =
+                    villager != simulation.units().end() &&
+                    sheep != simulation.units().end() &&
+                    villager->resource_unit_id ==
+                        *sheep_click_proof_sheep &&
+                    sheep->owner == active_view_player;
+            }
+            if (proved) {
+                SDL_Log(
+                    "sheep click proof passed: %s",
+                    sheep_click_proof_gather ? "gather" : "select"
+                );
+                sheep_click_proof_logged = true;
             }
         }
 

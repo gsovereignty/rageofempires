@@ -198,3 +198,54 @@ keyboard input. They can therefore drive long gameplay checks while the Mac is
 used normally. Use window-level screenshot automation for occasional visual
 verification; reserve foreground mouse automation for UI flows that must prove
 real pointer handling.
+
+## Testing actual UI
+
+Semantic commands prove simulation behavior. They do not prove that a visible
+button, hotkey, pointer target, tooltip, selection box, or command panel works.
+When UI behavior is test subject, use semantic API only for fixture setup,
+waiting, observation, and independent verification.
+
+Use four explicit test layers:
+
+1. **Semantic gameplay test:** proves rules, state transitions, and fast full
+   playthrough without claiming UI coverage.
+2. **UI contract test:** proves labels, layout, enabled state, cursor, tooltip,
+   and rendering from non-activating window screenshots.
+3. **UI interaction test:** uses real pointer or keyboard input and proves that
+   visible interaction issues expected gameplay command.
+4. **Hybrid full playthrough:** uses real UI at selected checkpoints while
+   semantic commands handle repetitive observation and safe waiting.
+
+For one real UI interaction:
+
+1. Use `observe` to record before-state and prepare required resources, units,
+   buildings, age, and selection context.
+2. Capture fresh logical window image with `screenshot_window` and activation
+   disabled. Do not reuse coordinates after resolution, window, panel, or
+   selection changes.
+3. Use one short `batch_actions` or `click_and_observe` foreground interval for
+   interaction under test. Use window-relative logical coordinates.
+4. Capture visual after-state: button state, panel transition, selection,
+   placement preview, tooltip, cursor, or rendered result.
+5. Call `observe` again and verify authoritative state change independently.
+6. Return immediately to background semantic control.
+
+Never use `train`, `construct`, `research`, `advance_age`, `move_group`, or
+`attack_move_group` to claim corresponding UI interaction passed. Those
+commands may create fixture or continue playthrough after UI checkpoint, but
+report their coverage as semantic.
+
+Record evidence source for every assertion:
+
+```text
+PASS UI: clicking Archery Range train button queued one archer.
+PASS simulation: production queue changed from 0 to 1.
+UNTESTED UI: later archers were queued through semantic batch.
+```
+
+Recommended hybrid checkpoints are menu setup, first building placement, first
+unit training, age advancement, one technology, attack-move, minimap command,
+and terminal presentation. Keep rest of long playthrough in background. This
+tests representative UI paths without making every production cycle consume
+foreground input.

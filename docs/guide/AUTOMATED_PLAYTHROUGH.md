@@ -245,6 +245,31 @@ A full automated run should prove all of these, not victory alone:
 - background-safe operation except documented short UI action batches;
 - screenshots and structured logs sufficient to reproduce failure from seed.
 
+## Hybrid UI coverage
+
+Full-match victory through semantic commands proves gameplay, not visible
+controls. When run also targets UI, declare chosen UI checkpoints before play.
+At each checkpoint, capture semantic before-state, use fresh logical window
+screenshot, perform actual window-relative pointer or keyboard action, capture
+visual after-state, then confirm authoritative result with `observe`.
+
+Recommended real-UI checkpoints:
+
+- menu navigation and deterministic match setup;
+- first House placement;
+- first villager or military-unit queue;
+- one age advancement and one technology;
+- army selection plus attack-move;
+- minimap navigation or command;
+- victory presentation and statistics transition.
+
+Semantic commands may prepare each checkpoint and control waiting afterward.
+They must not be cited as proof that corresponding visible control worked.
+Tag logged assertions `UI`, `simulation`, or `UNTESTED UI` so later reviewers
+cannot mistake fast semantic coverage for pointer, keyboard, or rendering
+coverage. Detailed procedure lives in
+[Gameplay automation](GAMEPLAY_AUTOMATION.md#testing-actual-ui).
+
 Commercial decompiled evidence contains named Standard, Conquest, Time Limit,
 Score, and Custom victory modes plus campaign/victory presentation paths. It
 does not prove this reconstruction's exact thresholds or automation strategy.

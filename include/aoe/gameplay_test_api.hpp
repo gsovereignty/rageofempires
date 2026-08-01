@@ -2,6 +2,8 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <functional>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -14,9 +16,17 @@ namespace aoe {
 // packaged runtime behavior unchanged unless AOE_GAMEPLAY_TEST_API_DIR is set.
 class GameplayTestApi {
 public:
+    using HostCommand = std::function<std::optional<std::string>(
+        std::string_view
+    )>;
+
     explicit GameplayTestApi(std::filesystem::path directory);
 
-    void poll(Simulation& simulation, Player player);
+    void poll(
+        Simulation& simulation,
+        Player player,
+        const HostCommand& host_command = {}
+    );
 
     [[nodiscard]] static std::string execute(
         Simulation& simulation,

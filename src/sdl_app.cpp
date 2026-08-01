@@ -14784,6 +14784,13 @@ std::filesystem::path user_data_directory() {
 
 int SdlApp::run() {
     active_view_player = Player::blue;
+    const bool gameplay_automation =
+        SDL_getenv("AOE_GAMEPLAY_TEST_API_DIR") != nullptr &&
+        SDL_getenv("AOE_GAMEPLAY_TEST_API_DIR")[0] != '\0';
+    if (gameplay_automation) {
+        SDL_SetHint(SDL_HINT_WINDOW_ACTIVATE_WHEN_SHOWN, "0");
+        SDL_SetHint(SDL_HINT_WINDOW_ACTIVATE_WHEN_RAISED, "0");
+    }
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         throw std::runtime_error(SDL_GetError());
     }
@@ -16398,7 +16405,45 @@ int SdlApp::run() {
     while (running) {
         const auto frame_started = std::chrono::steady_clock::now();
         if (gameplay_test_api) {
-            gameplay_test_api->poll(simulation, active_view_player);
+            gameplay_test_api->poll(
+                simulation,
+                active_view_player,
+                [&](std::string_view command)
+                    -> std::optional<std::string> {
+                    std::istringstream input{std::string{command}};
+                    std::string operation;
+                    input >> operation;
+                    if (operation != "start_random_map") {
+                        return std::nullopt;
+                    }
+                    std::uint64_t seed = active_random_settings.seed;
+                    if (input >> seed) active_random_settings.seed = seed;
+                    refresh_random_map_preview();
+                    if (!random_map_preview) {
+                        return std::string{
+                            "{\"ok\":false,\"error\":"
+                            "\"random map generation failed\"}"
+                        };
+                    }
+                    random_map_preview->blue_civilization =
+                        active_setup_civilization;
+                    MatchRules& rules = random_map_preview->match_rules;
+                    rules.conquest_enabled = active_setup_victory == 0;
+                    rules.wonder_enabled = active_setup_victory == 1;
+                    rules.relic_enabled = active_setup_victory == 2;
+                    demo_scenario = *random_map_preview;
+                    simulation = create_simulation(demo_scenario);
+                    center_camera_on_local_start();
+                    computer = ComputerPlayer(
+                        Player::red,
+                        active_setup_difficulty
+                    );
+                    active_frontend_screen = FrontendScreen::hidden;
+                    return GameplayTestApi::execute(
+                        simulation, active_view_player, "state"
+                    );
+                }
+            );
         }
         SDL_Event event;
         while (SDL_PollEvent(&event)) {

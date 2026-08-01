@@ -27,6 +27,7 @@ request-11	train 12 villager
 request-12	advance_age 12
 request-13	construct 1 house 20 15
 request-14	research 14 fletching
+request-15	start_random_map 42
 ```
 
 Responses contain the same ID and a structured `result`. State reports tick,
@@ -57,8 +58,15 @@ This
 API is intended for local testing, agents, and CI. It is not a network service
 and is inactive unless explicitly enabled.
 
+`start_random_map` creates and enters a Random Map match without keyboard or
+pointer input. Its optional argument is a deterministic seed. It uses current
+setup choices (Arabia, Maximum, Britons, Easiest, and Conquest by default).
+Because this command replaces live simulation and frontend state, SDL
+application host handles it; direct `GameplayTestApi::execute` calls do not.
+
 Semantic commands do not focus the game window, move the pointer, or consume
 keyboard input. They can therefore drive long gameplay checks while the Mac is
-used normally. Use window-level screenshot automation for occasional visual
-verification; reserve foreground mouse automation for UI flows that must prove
-real pointer handling.
+used normally. Automation-enabled SDL startup also suppresses activation when
+showing or raising its window. Use window-level screenshot automation for
+occasional visual verification; reserve foreground mouse automation for UI
+flows that must prove real pointer handling.

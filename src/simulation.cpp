@@ -5213,6 +5213,11 @@ bool Simulation::ungarrison_at(EntityId building_id) {
         }
         const std::optional<TilePosition> position = spawn_position(*building);
         if (!position) {
+            if (building->hit_points <= 0) {
+                unit.hit_points = 0;
+                unit.garrisoned_in = 0;
+                unit.garrison_target_id = 0;
+            }
             continue;
         }
         unit.position = *position;
@@ -7082,6 +7087,15 @@ void Simulation::update() {
     update_building_defenses();
     update_projectiles();
 
+    // Destroyed shelters must release occupants before dead-unit cleanup. If
+    // every exit tile is blocked, ungarrison_at kills the trapped occupant so
+    // a removed building cannot leave an unreachable entity in the match.
+    for (const Building& building : buildings_) {
+        if (building.hit_points <= 0) {
+            ungarrison_at(building.id);
+        }
+    }
+
     for (const Unit& transport : units_) {
         if (transport.kind == UnitKind::transport_ship &&
             transport.hit_points <= 0) {
@@ -7139,7 +7153,6 @@ void Simulation::update() {
                 rubble_effect_ticks,
                 building.id,
             });
-            ungarrison_at(building.id);
         }
     }
 

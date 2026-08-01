@@ -17,7 +17,7 @@ rsync -a \
 
 cmake -S "$isolated_source" -B "$isolated_source/build"
 cmake --build "$isolated_source/build" -j4 \
-    --target aoe_deploy_demo_scenario
+    --target aoe_deploy_runtime_resources
 
 frame="$isolation_root/frame.bmp"
 log="$isolation_root/runtime.log"

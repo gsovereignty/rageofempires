@@ -9,7 +9,6 @@ fi
 
 executable="$app/Contents/MacOS/AoE Archaeology"
 framework="$app/Contents/Frameworks/libSDL3.0.dylib"
-scenario="$app/Contents/Resources/demo.scenario"
 resource_manifest="$app/Contents/Resources/resource-manifest.json"
 resource_tree="$app/Contents/Resources/resources"
 game_data="$app/Contents/Resources/game_data/Data"
@@ -47,7 +46,6 @@ require_macos_11_per_slice() {
 
 test -x "$executable"
 test -f "$framework"
-test -f "$scenario"
 test -f "$resource_manifest"
 test -d "$resource_tree"
 test -f "$game_data/graphics.drs"

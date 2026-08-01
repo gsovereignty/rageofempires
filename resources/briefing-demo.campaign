@@ -3,5 +3,5 @@ id "briefing-demo"
 name "The Archaeology Campaign"
 description "A bounded reconstruction campaign demonstrating ordered mission briefing, objectives, persistent victory unlocks, and debrief presentation."
 human-player blue
-scenario 10 "demo.scenario" "Foundations"
+scenario 10 "foundations.scenario" "Foundations"
 scenario 20 "elevation-demo.scenario" "The High Ground"

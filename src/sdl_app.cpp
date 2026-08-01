@@ -14675,7 +14675,7 @@ Simulation load_presentable_game(
     return simulation;
 }
 
-ScenarioStartup load_bundled_scenario() {
+ScenarioStartup load_startup_scenario() {
     if (const char* requested = SDL_getenv("AOE_CAMPAIGN")) {
         if (requested[0] != '\0') {
             Campaign campaign = load_campaign(requested);
@@ -14717,19 +14717,7 @@ ScenarioStartup load_bundled_scenario() {
             };
         }
     }
-    const std::filesystem::path base = SDL_GetBasePath();
-    const std::filesystem::path candidates[] = {
-        base / "resources/demo.scenario",
-        base / "../Resources/demo.scenario",
-    };
-    for (const auto& candidate : candidates) {
-        if (std::filesystem::exists(candidate)) {
-            return {
-                load_presentable_scenario(candidate), std::nullopt
-            };
-        }
-    }
-    throw std::runtime_error("bundled demo.scenario not found");
+    return {generate_random_map(active_random_settings), std::nullopt};
 }
 
 std::array<bool, 8> required_legacy_owner_slots(
@@ -14968,7 +14956,7 @@ int SdlApp::run() {
         }
     }
     active_string_table = &localization.table;
-    ScenarioStartup startup = load_bundled_scenario();
+    ScenarioStartup startup = load_startup_scenario();
     Scenario demo_scenario = std::move(startup.scenario);
     std::optional<CampaignPresentation> campaign_presentation =
         std::move(startup.campaign);

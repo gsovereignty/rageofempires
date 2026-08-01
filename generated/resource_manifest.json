@@ -44,8 +44,8 @@
     },
     {
       "path": "resources/briefing-demo.campaign",
-      "size": 336,
-      "sha256": "78a7294c27fe0f049e5b6ba9a022de608d99ff95220e7d91b05eb0a4317356b4"
+      "size": 343,
+      "sha256": "ac3f52ed31674a08d4d6030c37404fd4cf3a1d9393e67022bc6a39717d6e7eff"
     },
     {
       "path": "resources/building-age-castle.scenario",
@@ -118,11 +118,6 @@
       "sha256": "89b6152e4d0bdc68588b02933b2f00a7a4d8679f57c3a98b81e7bb545d602a48"
     },
     {
-      "path": "resources/demo.scenario",
-      "size": 828,
-      "sha256": "1012a3550264cd4e4c8fc7f6fa3a230da50332af48a2e86faedf0c2082fab853"
-    },
-    {
       "path": "resources/double-bit-axe-audit.scenario",
       "size": 339,
       "sha256": "7116d96bcaf1510e4a4d7204094da376243f8ebdbeee20a1ad89f84eea0954d0"
@@ -139,8 +134,8 @@
     },
     {
       "path": "resources/elevation-demo.scenario",
-      "size": 79880,
-      "sha256": "921dbe2dd0af57912047f216910cb115736094eb621e1fc728eb0b4f5891f118"
+      "size": 79885,
+      "sha256": "d533e96dfdf2de913365efabd29e70a81298d258f348397a0b1d507d00d5e46d"
     },
     {
       "path": "resources/elevation-transition-matrix.scenario",
@@ -181,6 +176,11 @@
       "path": "resources/fortified-wall-render-audit.scenario",
       "size": 479,
       "sha256": "166369202e14369b84bb82afaf1960b069d32408d30ea8f6ff7dfb89e899daed"
+    },
+    {
+      "path": "resources/foundations.scenario",
+      "size": 833,
+      "sha256": "7a50cf3c9580fb23b64527906cccedacdf76287c1d8374f8ecbcf333a6be9de0"
     },
     {
       "path": "resources/guard-tower-render-audit.scenario",

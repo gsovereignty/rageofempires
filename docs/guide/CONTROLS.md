@@ -12,7 +12,8 @@ offline-service notice and makes no network request.
 
 ## Scenario editing
 
-The bundled match is [demo.scenario](../../resources/demo.scenario). Records describe
+Direct gameplay starts on a deterministic generated random map. Campaign mission
+"Foundations" is [foundations.scenario](../../resources/foundations.scenario). Records describe
 map size, economy, terrain rectangles, individual terrain overrides, units, and
 buildings. Lines beginning with `#` are comments. Edit file, rebuild, and app
 bundle receives updated scenario under `Contents/Resources`.

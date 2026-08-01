@@ -332,16 +332,16 @@ add_custom_target(
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/compare_runtime_static_coverage.py"
         "${CMAKE_CURRENT_SOURCE_DIR}/generated/renderer_asset_coverage_v2.json"
         "${CMAKE_CURRENT_BINARY_DIR}/renderer_runtime_coverage.json"
-    DEPENDS aoe_deploy_demo_scenario
+    DEPENDS aoe_deploy_runtime_resources
     COMMENT "Checking runtime renderer asset selections against static audit"
     VERBATIM
 )
-# The bundled scenarios are generator output, so a hand edit has to fail.
+# Campaign scenarios are generator output, so a hand edit has to fail.
 add_test(
-    NAME bundled_scenario_generator_tests
+    NAME campaign_scenario_generator_tests
     COMMAND
         "${Python3_EXECUTABLE}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/tools/generate_demo_scenario.py"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/generate_campaign_scenarios.py"
         --resources "${CMAKE_CURRENT_SOURCE_DIR}/resources"
         --check
 )
@@ -605,7 +605,7 @@ file(
 )
 # Track every runtime resource, not just executable relinks.
 add_custom_command(
-    OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/deployed-demo-scenario.stamp"
+    OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/deployed-runtime-resources.stamp"
     COMMAND ${CMAKE_COMMAND} -E rm -rf
         "$<TARGET_FILE_DIR:aoe_reconstruction>/resources"
         "$<TARGET_FILE_DIR:aoe_reconstruction>/game_data"
@@ -621,7 +621,7 @@ add_custom_command(
         "${CMAKE_CURRENT_SOURCE_DIR}/generated/resource_manifest.json"
         "$<TARGET_FILE_DIR:aoe_reconstruction>/resource-manifest.json"
     COMMAND ${CMAKE_COMMAND} -E touch
-        "${CMAKE_CURRENT_BINARY_DIR}/deployed-demo-scenario.stamp"
+        "${CMAKE_CURRENT_BINARY_DIR}/deployed-runtime-resources.stamp"
     DEPENDS
         ${AOE_RUNTIME_RESOURCE_FILES}
         ${AOE_GAME_DATA_FILES}
@@ -629,21 +629,16 @@ add_custom_command(
     COMMENT "Deploying tracked runtime resources"
     VERBATIM
 )
-add_custom_target(aoe_deploy_demo_scenario ALL
-    DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/deployed-demo-scenario.stamp"
+add_custom_target(aoe_deploy_runtime_resources ALL
+    DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/deployed-runtime-resources.stamp"
 )
-add_dependencies(aoe_deploy_demo_scenario aoe_reconstruction)
+add_dependencies(aoe_deploy_runtime_resources aoe_reconstruction)
 
 if(APPLE)
-    set(DEMO_SCENARIO resources/demo.scenario)
-    set_source_files_properties(
-        ${DEMO_SCENARIO} PROPERTIES MACOSX_PACKAGE_LOCATION Resources
-    )
     add_executable(aoe_reconstruction_app MACOSX_BUNDLE
         src/main.cpp
         src/sdl_app.cpp
         src/audio_system.cpp
-        ${DEMO_SCENARIO}
     )
     add_custom_command(
         TARGET aoe_reconstruction_app POST_BUILD
@@ -1199,7 +1194,7 @@ if(APPLE)
             "${Python3_EXECUTABLE}"
             "${CMAKE_CURRENT_SOURCE_DIR}/scripts/visual_smoke_test.py"
             "$<TARGET_FILE:aoe_reconstruction>"
-            "${CMAKE_CURRENT_SOURCE_DIR}/resources/demo.scenario"
+            "${CMAKE_CURRENT_SOURCE_DIR}/resources/visual-audit.scenario"
     )
     set_tests_properties(
         aoe_visual_smoke PROPERTIES

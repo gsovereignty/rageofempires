@@ -12,7 +12,6 @@ import tempfile
 
 
 CASES = (
-    ("demo.scenario", 0),
     ("visual-audit.scenario", 0),
     ("combat-pose-audit.scenario", 0),
     ("combat-pose-audit.scenario", 8),

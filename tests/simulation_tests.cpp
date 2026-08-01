@@ -20,6 +20,7 @@
 #include "aoe/multiplayer_transport.hpp"
 #include "aoe/save_game.hpp"
 #include "aoe/scenario.hpp"
+#include "aoe/random_map.hpp"
 #if !defined(_WIN32)
 #include <sys/wait.h>
 #include <unistd.h>
@@ -10504,36 +10505,18 @@ void technology_replay_command_reproduces_research() {
 }
 
 void scenario_resource_round_trip() {
-    const auto source =
-        std::filesystem::path(__FILE__).parent_path().parent_path() /
-        "resources/demo.scenario";
-    const aoe::Scenario scenario = aoe::load_scenario(source);
-    // The bundled startup map is generated at the engine maximum by
-    // tools/generate_demo_scenario.py; landmark tiles below are the scaled
-    // positions of the original 24x16 layout.
+    const aoe::Scenario scenario = aoe::generate_random_map({
+        aoe::RandomMapKind::rivers,
+        aoe::RandomMapSize::maximum,
+        9173,
+    });
     require(scenario.map.width() == 255);
     require(scenario.map.height() == 255);
-    require(scenario.units.size() == 8);
-    require(std::ranges::count_if(
-        scenario.units,
-        [](const aoe::UnitPlacement& unit) {
-            return unit.kind == aoe::UnitKind::sheep &&
-                unit.owner == aoe::Player::blue;
-        }
-    ) == 2);
-    require(scenario.buildings.size() == 2);
-    require(scenario.map.terrain_at({117, 100}) == aoe::Terrain::water);
-    require(scenario.map.terrain_at({127, 254}) == aoe::Terrain::water);
-    require(scenario.map.terrain_at({117, 112}) == aoe::Terrain::grass);
-    require(scenario.map.terrain_at({127, 142}) == aoe::Terrain::grass);
-    require(scenario.map.terrain_at({74, 48}) == aoe::Terrain::berry_bush);
-    require(scenario.map.terrain_at({85, 175}) == aoe::Terrain::gold_mine);
-    require(scenario.map.terrain_at({149, 48}) == aoe::Terrain::stone_mine);
-    require(scenario.map.terrain_at({32, 32}) == aoe::Terrain::forest);
-    require(scenario.map.terrain_at({222, 222}) == aoe::Terrain::forest);
-    require(scenario.blue_economy.gold == 100);
-    require(scenario.blue_economy.stone == 200);
-
+    require(!scenario.units.empty());
+    require(!scenario.buildings.empty());
+    require(aoe::validate_random_map(
+        scenario, aoe::RandomMapKind::rivers
+    ).valid);
     aoe::Scenario extended = scenario;
     extended.strict_trigger_syntax = false;
     extended.blue_age = aoe::Age::castle;
@@ -10692,14 +10675,10 @@ void scenario_resource_round_trip() {
     require(corrupt_rejected);
 }
 
-void bundled_startup_map_is_engine_maximum_and_ticks() {
-    // The startup map the app loads must be the maximum dimension the
-    // original size switch produces (255 tiles square, index 6 of the
-    // switch at AoK-HD-patched.c:356938-356960) and must still simulate.
-    const auto source =
-        std::filesystem::path(__FILE__).parent_path().parent_path() /
-        "resources/demo.scenario";
-    const aoe::Scenario scenario = aoe::load_scenario(source);
+void generated_startup_map_is_engine_maximum_and_ticks() {
+    // Default settings use the maximum dimension recovered from the original
+    // size switch (255 tiles square, index 6) and must still simulate.
+    const aoe::Scenario scenario = aoe::generate_random_map({});
     require(scenario.map.width() == 255);
     require(scenario.map.height() == 255);
     require(
@@ -10727,10 +10706,26 @@ void bundled_startup_map_is_engine_maximum_and_ticks() {
     require(simulation.tick_number() == before + 8);
     require(simulation.units().size() == scenario.units.size());
     require(simulation.buildings().size() == scenario.buildings.size());
-    // Both starts must be revealed on a map this large, which only holds
-    // if exploration still runs over the whole map.
-    require(simulation.is_explored(aoe::Player::blue, {1, 160}));
-    require(simulation.is_explored(aoe::Player::red, {214, 1}));
+    const auto blue_start = std::ranges::find_if(
+        scenario.units,
+        [](const aoe::UnitPlacement& unit) {
+            return unit.owner == aoe::Player::blue;
+        }
+    );
+    const auto red_start = std::ranges::find_if(
+        scenario.units,
+        [](const aoe::UnitPlacement& unit) {
+            return unit.owner == aoe::Player::red;
+        }
+    );
+    require(blue_start != scenario.units.end());
+    require(red_start != scenario.units.end());
+    require(simulation.is_explored(
+        aoe::Player::blue, blue_start->position
+    ));
+    require(simulation.is_explored(
+        aoe::Player::red, red_start->position
+    ));
 }
 
 void town_center_garrison_shelters_fires_and_persists() {
@@ -14682,7 +14677,7 @@ void fire_and_demolition_ship_lines_are_dat_backed_and_persist() {
         aoe::Technology::fast_fire_ship
     );
     const auto scenario_path =
-        std::filesystem::temp_directory_path() / "aoe-fire-demo.scenario";
+        std::filesystem::temp_directory_path() / "aoe-fire-test.scenario";
     aoe::save_scenario(scenario, scenario_path);
     const aoe::Scenario loaded = aoe::load_scenario(scenario_path);
     std::filesystem::remove(scenario_path);
@@ -23296,8 +23291,8 @@ int main() {
     );
     run("scenario round trip", scenario_resource_round_trip);
     run(
-        "bundled startup map maximum",
-        bundled_startup_map_is_engine_maximum_and_ticks
+        "generated startup map maximum",
+        generated_startup_map_is_engine_maximum_and_ticks
     );
     run(
         "town center garrison",

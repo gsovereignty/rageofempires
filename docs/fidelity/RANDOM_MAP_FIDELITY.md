@@ -70,17 +70,17 @@ startup paths use one observable map extent. RMS scripts with no
 behaviour where a script without the directive uses the lobby-selected size.
 An `override_map_size` above 240 snaps to `maximum`.
 
-Modern choice: the bundled native scenarios are generated from their
-original 24x16 demonstration layouts at 255x255 by
-`tools/generate_demo_scenario.py`. Terrain rectangles and elevation tiles
+Modern choice: bundled campaign scenarios are generated from their compact
+source layouts at 255x255 by
+`tools/generate_campaign_scenarios.py`. Terrain rectangles and elevation tiles
 scale as areas, placements scale as points, and generation rejects invalid
-footprints. Both bundled campaign missions (`demo.scenario` and
+footprints. Both bundled campaign missions (`foundations.scenario` and
 `elevation-demo.scenario`, referenced by `briefing-demo.campaign`) are
-generated, because the campaign path loads through the same playable-map
-guard as launch. No original bundled scenario exists. CMake tracks and
-deploys the generated startup scenario independently of executable
-relinking so source and app copies do not diverge, and
-`bundled_scenario_generator_tests` fails if a checked-in file stops
+generated, because campaign paths load through the playable-map guard.
+No original bundled scenario exists. Normal startup instead creates a
+deterministic random map. CMake tracks and deploys runtime resources so source
+and app copies do not diverge, and `campaign_scenario_generator_tests` fails
+if a checked-in campaign file stops
 matching the generator.
 
 Modern choice: the deliberately small renderer audit fixtures under

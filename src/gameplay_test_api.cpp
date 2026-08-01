@@ -284,6 +284,24 @@ std::string GameplayTestApi::execute(
         }
         return snapshot(simulation, player, false);
     }
+    if (operation == "attack_move") {
+        EntityId id{};
+        TilePosition destination{};
+        if (!(input >> id >> destination.x >> destination.y)) {
+            return error_response(
+                "attack_move requires unit id, x, and y"
+            );
+        }
+        const Unit* unit = unit_by_id(simulation, id);
+        if (unit == nullptr || unit->owner != player ||
+            !aoe::execute(
+                simulation,
+                AttackMoveCommand{id, destination}
+            )) {
+            return error_response("attack_move command rejected");
+        }
+        return snapshot(simulation, player, false);
+    }
     if (operation == "select_building") {
         EntityId id{};
         if (!(input >> id)) {

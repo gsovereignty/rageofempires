@@ -377,6 +377,48 @@ int main() {
                 "semantic move to enemy must enter attack context");
     }
 
+    {
+        aoe::Simulation attack_move_simulation(aoe::GameMap(30, 10));
+        const aoe::EntityId archer = attack_move_simulation.add_unit(
+            aoe::UnitKind::archer,
+            aoe::Player::blue,
+            {1, 2}
+        );
+        const aoe::EntityId enemy = attack_move_simulation.add_unit(
+            aoe::UnitKind::villager,
+            aoe::Player::red,
+            {6, 2}
+        );
+
+        const std::string ordered = aoe::GameplayTestApi::execute(
+            attack_move_simulation,
+            aoe::Player::blue,
+            "attack_move " + std::to_string(archer) + " 14 2"
+        );
+        require(ordered.find("\"ok\":true") != std::string::npos,
+                "attack_move must accept owned combat unit");
+        require(attack_move_simulation.units().front().attack_moving,
+                "attack_move must use normal attack-move state");
+        require(attack_move_simulation.units().front().
+                    attack_move_destination == aoe::TilePosition(14, 2),
+                "attack_move must retain requested destination");
+        attack_move_simulation.update();
+        require(attack_move_simulation.units().front().attack_target_id ==
+                    enemy,
+                "attack_move must acquire visible hostile unit");
+        attack_move_simulation.update();
+        require(attack_move_simulation.units().front().attack_target_id ==
+                    enemy &&
+                attack_move_simulation.units().front().attack_moving,
+                "attack_move must continue hostile target engagement");
+        require(aoe::GameplayTestApi::execute(
+                    attack_move_simulation,
+                    aoe::Player::blue,
+                    "attack_move " + std::to_string(enemy) + " 1 2"
+                ).find("\"ok\":false") != std::string::npos,
+                "attack_move must reject enemy unit ownership");
+    }
+
     const std::filesystem::path directory =
         std::filesystem::temp_directory_path() /
         "aoe-gameplay-test-api-tests";

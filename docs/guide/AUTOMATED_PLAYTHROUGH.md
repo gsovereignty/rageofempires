@@ -107,10 +107,10 @@ controller reacts.
    blue sheep IDs.
 2. Send villagers to different sheep with `issue_gather`. If fewer animals than
    villagers exist, share targets.
-3. Select Town Center through one brief UI action. Queue villagers continuously
-   while food is at least the shown cost and population has room.
-4. Before population reaches capacity, select a villager, open its economy build
-   page, choose House, and place it on clear ground near Town Center.
+3. Read Town Center ID from `observe`. Use `train ID villager` continuously
+   while food and population room permit.
+4. Before population reaches capacity, use
+   `construct VILLAGER_ID house X Y` on clear ground near Town Center.
 5. Keep at least half of villagers gathering food. Redirect idle villagers
    immediately; `idle_units > 0` is a decision trigger.
 
@@ -123,14 +123,14 @@ recovers after each villager queue, and first house completed.
    commands only after prior destination is reached. Record enemy positions from
    sightings. `list_units` is a test oracle and may expose entities beyond human
    fog; do not confuse that with a fog-of-war UI assertion.
-2. Move roughly one third of villagers to forest. Use normal context clicks for
-   trees because semantic `gather` targets animals only.
-3. Build Lumber Camp near forest and Mill near berries. Add houses before each
-   capacity limit.
+2. Move roughly one third of villagers onto forest tiles with `move`; normal
+   context semantics begin tree gathering.
+3. Build Lumber Camp near forest and Mill near berries with `construct`. Add
+   houses before each capacity limit.
 4. Keep creating villagers until economy has about 18-24 workers.
-5. Select Town Center and use its enabled age button when its resource and
-   prerequisite labels allow it. Advance to Feudal, then Castle Age. Do not send
-   every villager to construction; keep food and wood income running.
+5. Use `advance_age TOWN_CENTER_ID` when normal resource and prerequisite rules
+   allow it. Advance to Feudal, then Castle Age. Do not send every villager to
+   construction; keep food and wood income running.
 
 Pass checkpoint: Castle Age reached, at least 20 population capacity exists,
 food/wood trend upward between purchases, and scout or another unit has found
@@ -150,20 +150,20 @@ Britons provide a simple ranged plan:
    gold; retain enough food for units and upgrades.
 6. Set military rally points just behind the army, not inside enemy base.
 
-Use command-panel labels as source of truth. Availability and hotkeys vary by
-selected building, civilization, age, and prerequisites. Disabled button means
-wait or satisfy displayed cost/prerequisite; repeated blind clicks are test
-failure noise.
+Use command responses and `observe` as source of truth. Availability varies by
+building, civilization, age, resources, and prerequisites. Rejected command
+means refresh observation and satisfy missing game rule; repeated blind commands
+are test failure noise.
 
 Pass checkpoint: at least 12 combat units, positive food/wood/gold income,
 population below cap, and army grouped outside enemy weapon range.
 
 ### 4. Attack and preserve production
 
-1. Select army with window-relative drag or control group.
-2. Use command-panel **Attack Move**, then click a walkable tile at edge of red
-   base. Attack-move is safer than plain movement because units engage visible
-   threats en route.
+1. Derive owned army IDs from `observe`.
+2. Use `attack_move_group X Y ID...` toward a walkable tile at edge of red base.
+   Attack-move is safer than plain movement because units engage visible threats
+   en route.
 3. Focus exposed military units first, then Town Center and production
    buildings. Keep ranged units behind melee screen and avoid fighting under
    Town Center with a very small army.

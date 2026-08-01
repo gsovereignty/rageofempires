@@ -6637,7 +6637,17 @@ void Simulation::update() {
                     }
                     continue;
                 }
+                if (drop_off != nullptr && distance > 1 &&
+                    !unit.moving) {
+                    route_unit(unit, drop_off->position);
+                }
             } else {
+                if (unit.resource_building_id == 0 &&
+                    unit.resource_unit_id == 0 &&
+                    work_resource_amount(unit) == 0) {
+                    gather(unit);
+                    continue;
+                }
                 const int distance = std::max(
                     std::abs(
                         unit.resource_target.x - unit.position.x
@@ -6875,7 +6885,13 @@ void Simulation::update() {
                 unit.movement_speed_remainder =
                     movement_speed_remainder_before;
             }
-            route_unit(unit, unit.destination);
+            if (unit.has_resource_target) {
+                unit.path.clear();
+                unit.next_path_step = 0;
+                unit.moving = false;
+            } else {
+                route_unit(unit, unit.destination);
+            }
         }
     }
 

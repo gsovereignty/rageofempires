@@ -6391,7 +6391,8 @@ void Simulation::update() {
                 ordered_building != nullptr &&
                 is_enemy(ordered_building->owner, unit.owner) &&
                 ordered_building->hit_points > 0 &&
-                is_building_visible(unit.owner, *ordered_building);
+                (!unit.attack_target_auto ||
+                 is_building_visible(unit.owner, *ordered_building));
             if (!valid_unit && !valid_building) {
                 const bool return_to_anchor =
                     unit.attack_target_auto &&

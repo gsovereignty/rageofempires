@@ -8564,6 +8564,35 @@ void castle_footprint_drives_range_vision_and_projectile_edges() {
     require(arrow->destination == aoe::TilePosition(7, 5));
 }
 
+void explicit_building_attack_persists_until_target_enters_vision() {
+    aoe::Simulation simulation(aoe::GameMap(30, 12));
+    const aoe::EntityId archer = simulation.add_unit(
+        aoe::UnitKind::archer,
+        aoe::Player::blue,
+        {2, 5}
+    );
+    simulation.add_building(
+        aoe::BuildingKind::house,
+        aoe::Player::red,
+        {22, 4}
+    );
+    const int initial_hit_points = simulation.buildings()[0].hit_points;
+    require(!simulation.is_building_visible(
+        aoe::Player::blue,
+        simulation.buildings()[0]
+    ));
+    require(simulation.command_unit(archer, {22, 4}));
+
+    simulation.update();
+    require(simulation.units()[0].attack_target_id ==
+            simulation.buildings()[0].id);
+    require(simulation.units()[0].attack_target_is_building);
+    require(!simulation.units()[0].attack_target_auto);
+    for (int tick = 0; tick < 100; ++tick) simulation.update();
+
+    require(simulation.buildings()[0].hit_points < initial_hit_points);
+}
+
 void houses_raise_population_cap_only_after_completion() {
     aoe::Simulation simulation(aoe::GameMap(8, 8));
     const aoe::EntityId town_center = simulation.add_building(
@@ -23810,6 +23839,10 @@ int main() {
     run(
         "castle footprint combat geometry",
         castle_footprint_drives_range_vision_and_projectile_edges
+    );
+    run(
+        "explicit building target persistence",
+        explicit_building_attack_persists_until_target_enters_vision
     );
     run("population houses", houses_raise_population_cap_only_after_completion);
     run("housing loss", housing_loss_stalls_completed_production);

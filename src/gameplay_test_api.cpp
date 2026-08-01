@@ -99,6 +99,13 @@ std::optional<Technology> parse_technology(std::string_view value) {
     return std::nullopt;
 }
 
+std::optional<MarketResource> parse_market_resource(std::string_view value) {
+    if (value == "food") return MarketResource::food;
+    if (value == "wood") return MarketResource::wood;
+    if (value == "stone") return MarketResource::stone;
+    return std::nullopt;
+}
+
 bool idle(const Unit& unit) {
     return unit.garrisoned_in == 0 && !unit.moving && unit.path.empty() &&
         !unit.has_resource_target && unit.attack_target_id == 0 &&
@@ -386,6 +393,30 @@ std::string GameplayTestApi::execute(
         if (building == nullptr || building->owner != player ||
             !simulation.advance_age_at(building_id)) {
             return error_response("advance_age command rejected");
+        }
+        return snapshot(simulation, player, false);
+    }
+    if (operation == "market_buy" || operation == "market_sell") {
+        EntityId market_id{};
+        std::string resource_name;
+        if (!(input >> market_id >> resource_name)) {
+            return error_response(
+                operation + " requires market id and resource"
+            );
+        }
+        const Building* market = building_by_id(simulation, market_id);
+        const auto resource = parse_market_resource(resource_name);
+        if (!resource) return error_response("unknown market resource");
+        if (market == nullptr || market->owner != player ||
+            market->kind != BuildingKind::market || !market->completed() ||
+            market->hit_points <= 0) {
+            return error_response("market cannot be used");
+        }
+        const bool accepted = operation == "market_buy"
+            ? simulation.buy_resource(player, *resource)
+            : simulation.sell_resource(player, *resource);
+        if (!accepted) {
+            return error_response(operation + " command rejected");
         }
         return snapshot(simulation, player, false);
     }

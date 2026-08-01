@@ -81,6 +81,12 @@ int main() {
         production_scenario.buildings.push_back({
             aoe::BuildingKind::town_center, aoe::Player::red, {15, 0}
         });
+        production_scenario.buildings.push_back({
+            aoe::BuildingKind::market, aoe::Player::blue, {0, 5}
+        });
+        production_scenario.buildings.push_back({
+            aoe::BuildingKind::market, aoe::Player::red, {15, 5}
+        });
         aoe::Simulation production =
             aoe::create_simulation(production_scenario);
         const aoe::EntityId blue_town_center =
@@ -91,6 +97,8 @@ int main() {
             production.buildings()[2].id;
         const aoe::EntityId red_town_center =
             production.buildings()[4].id;
+        const aoe::EntityId blue_market = production.buildings()[5].id;
+        const aoe::EntityId red_market = production.buildings()[6].id;
 
         const std::string buildings = aoe::GameplayTestApi::execute(
             production, aoe::Player::blue, "list_buildings"
@@ -149,6 +157,61 @@ int main() {
                     "train " + std::to_string(red_town_center) + " villager"
                 ).find("\"ok\":false") != std::string::npos,
                 "training must reject enemy ownership");
+
+        const aoe::Economy before_buy =
+            production.economy(aoe::Player::blue);
+        const int food_buy_price = production.market_buy_price(
+            aoe::Player::blue, aoe::MarketResource::food
+        );
+        const std::string bought = aoe::GameplayTestApi::execute(
+            production,
+            aoe::Player::blue,
+            "market_buy " + std::to_string(blue_market) + " food"
+        );
+        require(bought.find("\"ok\":true") != std::string::npos,
+                "market_buy must use an owned completed market");
+        require(production.economy(aoe::Player::blue).food ==
+                    before_buy.food + 100 &&
+                production.economy(aoe::Player::blue).gold ==
+                    before_buy.gold - food_buy_price,
+                "market_buy must preserve normal quantity and price");
+
+        const aoe::Economy before_sell =
+            production.economy(aoe::Player::blue);
+        const int stone_sell_price = production.market_sell_price(
+            aoe::Player::blue, aoe::MarketResource::stone
+        );
+        const std::string sold = aoe::GameplayTestApi::execute(
+            production,
+            aoe::Player::blue,
+            "market_sell " + std::to_string(blue_market) + " stone"
+        );
+        require(sold.find("\"ok\":true") != std::string::npos,
+                "market_sell must use an owned completed market");
+        require(production.economy(aoe::Player::blue).stone ==
+                    before_sell.stone - 100 &&
+                production.economy(aoe::Player::blue).gold ==
+                    before_sell.gold + stone_sell_price,
+                "market_sell must preserve normal quantity and price");
+        require(aoe::GameplayTestApi::execute(
+                    production,
+                    aoe::Player::blue,
+                    "market_buy " + std::to_string(blue_town_center) +
+                        " food"
+                ).find("market cannot be used") != std::string::npos,
+                "market exchange must reject non-market buildings");
+        require(aoe::GameplayTestApi::execute(
+                    production,
+                    aoe::Player::blue,
+                    "market_sell " + std::to_string(red_market) + " wood"
+                ).find("market cannot be used") != std::string::npos,
+                "market exchange must reject enemy markets");
+        require(aoe::GameplayTestApi::execute(
+                    production,
+                    aoe::Player::blue,
+                    "market_buy " + std::to_string(blue_market) + " gold"
+                ).find("unknown market resource") != std::string::npos,
+                "market exchange must reject unsupported resources");
 
         const std::string advanced_age = aoe::GameplayTestApi::execute(
             production,

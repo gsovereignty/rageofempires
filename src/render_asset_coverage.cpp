@@ -1330,8 +1330,7 @@ AssetResolution resolve_unit_asset(
         int frames = 0;
         if (kind == UnitKind::villager &&
             state.action == RenderAction::gathering &&
-            state.action_detail ==
-                RenderActionDetail::animal_resource) {
+            !state.moving) {
             slp = 1528;
             frames = 15;
         } else if (kind == UnitKind::monk &&

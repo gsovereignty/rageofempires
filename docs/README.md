@@ -42,6 +42,8 @@ Sprite, technology, civilization, renderer, and asset-coverage mappings:
 Pinned static-analysis and observed-runtime evidence:
 [evidence/](evidence/).
 
+- [Villager gathering retry evidence](evidence/VILLAGER_GATHERING_RETRY_EVIDENCE.md)
+
 ## UI
 
 Focused interaction and presentation contracts:

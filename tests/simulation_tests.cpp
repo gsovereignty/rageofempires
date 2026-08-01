@@ -1755,6 +1755,64 @@ void villagers_continue_to_nearest_same_resource_after_depletion() {
     }
 }
 
+void sheep_retask_after_gold_deposit_carries_food() {
+    aoe::GameMap map(16, 9);
+    map.set_terrain({6, 4}, aoe::Terrain::gold_mine);
+    map.set_resource_amount({6, 4}, 100);
+    aoe::Simulation simulation(std::move(map));
+    simulation.add_building(
+        aoe::BuildingKind::town_center,
+        aoe::Player::blue,
+        {0, 0}
+    );
+    const aoe::EntityId worker = simulation.add_unit(
+        aoe::UnitKind::villager,
+        aoe::Player::blue,
+        {5, 4}
+    );
+    const aoe::EntityId sheep = simulation.add_unit(
+        aoe::UnitKind::sheep,
+        aoe::Player::blue,
+        {9, 4}
+    );
+    simulation.add_unit(
+        aoe::UnitKind::villager,
+        aoe::Player::red,
+        {15, 8}
+    );
+    require(simulation.command_unit(worker, {6, 4}));
+    for (int tick = 0; tick < 4; ++tick) {
+        simulation.update();
+    }
+    const int carried_gold = simulation.units().front().carried_amount;
+    require(carried_gold > 0 && carried_gold < 10);
+    const int gold_before = simulation.economy(aoe::Player::blue).gold;
+    require(simulation.command_unit(worker, {9, 4}));
+
+    for (int tick = 0;
+         tick < 40 &&
+         simulation.economy(aoe::Player::blue).gold == gold_before;
+         ++tick) {
+        simulation.update();
+    }
+    require(
+        simulation.economy(aoe::Player::blue).gold ==
+        gold_before + carried_gold
+    );
+    const int deposited_gold =
+        simulation.economy(aoe::Player::blue).gold;
+    const int food_before = simulation.economy(aoe::Player::blue).food;
+    for (int tick = 0;
+         tick < 60 &&
+         simulation.economy(aoe::Player::blue).food == food_before;
+         ++tick) {
+        simulation.update();
+    }
+    require(simulation.economy(aoe::Player::blue).food > food_before);
+    require(simulation.economy(aoe::Player::blue).gold == deposited_gold);
+    require(simulation.units()[1].id == sheep);
+}
+
 void villagers_deliver_all_resource_types() {
     constexpr std::array<std::pair<aoe::Terrain, aoe::ResourceKind>, 4>
         resources{{
@@ -23252,6 +23310,10 @@ int main() {
     run(
         "resource retasking",
         villagers_continue_to_nearest_same_resource_after_depletion
+    );
+    run(
+        "sheep retask after gold",
+        sheep_retask_after_gold_deposit_carries_food
     );
     run("four resource gathering", villagers_deliver_all_resource_types);
     run(

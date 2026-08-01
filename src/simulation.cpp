@@ -9215,7 +9215,7 @@ void Simulation::gather(Unit& unit) {
         unit.moving = false;
         return;
     }
-    if (unit.carried_resource == ResourceKind::none) {
+    if (unit.carried_amount == 0) {
         unit.carried_resource = resource;
     }
     const Unit* animal = unit.resource_unit_id == 0

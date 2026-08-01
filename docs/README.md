@@ -8,6 +8,7 @@ Reader-facing setup, controls, architecture, content, and status:
 [guide/](guide/).
 
 - [Gameplay automation](guide/GAMEPLAY_AUTOMATION.md)
+- [Automated full-match playthrough](guide/AUTOMATED_PLAYTHROUGH.md)
 
 ## Contracts
 

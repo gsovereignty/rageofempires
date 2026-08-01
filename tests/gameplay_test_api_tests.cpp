@@ -439,6 +439,33 @@ int main() {
     require(response.find("\"id\":\"request-1\"") !=
                 std::string::npos,
             "file boundary must correlate response id");
+    {
+        std::ofstream commands(
+            directory / "commands.jsonl", std::ios::app
+        );
+        commands << "request-2\tstart_random_map 42\n";
+    }
+    bool host_command_called = false;
+    api.poll(
+        simulation,
+        aoe::Player::blue,
+        [&](std::string_view command) -> std::optional<std::string> {
+            host_command_called = command == "start_random_map 42";
+            return std::string{"{\"ok\":true,\"started\":true}"};
+        }
+    );
+    std::ifstream host_responses(directory / "responses.jsonl");
+    const std::string host_response{
+        std::istreambuf_iterator<char>{host_responses},
+        std::istreambuf_iterator<char>{}
+    };
+    require(host_command_called,
+            "file boundary must dispatch host-level commands");
+    require(host_response.find(
+                "\"id\":\"request-2\",\"result\":{\"ok\":true,"
+                "\"started\":true}"
+            ) != std::string::npos,
+            "host command response must remain correlated");
     std::filesystem::remove_all(directory);
     return 0;
 }

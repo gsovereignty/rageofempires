@@ -30,7 +30,8 @@ than random-map coverage.
 ## Automation boundary
 
 Launch through `launch_game` with background mode enabled. It starts the game
-with an isolated `AOE_GAMEPLAY_TEST_API_DIR`. Reuse the returned
+without activating its window and with an isolated
+`AOE_GAMEPLAY_TEST_API_DIR`. Reuse the returned
 `automation_dir` in every semantic command.
 
 Prefer these background-safe operations:
@@ -47,13 +48,12 @@ Prefer these background-safe operations:
 - `screenshot_window` with activation disabled: visual checkpoint without
   taking focus.
 
-Semantic control currently has no commands for constructing buildings,
-training units, researching technologies, attack-move, or selecting buildings.
-Those actions require short visible command-panel interactions. Use
-`screenshot_window` to locate labeled buttons, then a single `batch_actions`
-call for the necessary clicks or hotkeys. Return to semantic commands
-immediately. Never derive global pointer coordinates from Retina pixels;
-screenshots and clicks must use logical, window-relative coordinates.
+`gameplay_macro` also accepts `start_random_map`, `list_buildings`,
+`select_building`, `select_building_at`, `select_building_kind`, `train`,
+`construct`, `research`, `advance_age`, `market_buy`, `market_sell`, and
+`attack_move`. These cover full match setup, economy, production, technology,
+and combat without visible command-panel interaction. Use foreground UI tools
+only when specifically testing real pointer or keyboard handling.
 
 The file protocol behind the tools accepts:
 
@@ -64,6 +64,7 @@ request-3	select 1
 request-4	move 1 20 15
 request-5	gather 1 7
 request-6	advance 250
+request-7	start_random_map 42
 ```
 
 `advance` accepts 0 through 10,000 ticks. Responses echo the request ID. Treat
@@ -72,23 +73,19 @@ request-6	advance 250
 ## Stable test setup
 
 1. Launch at main menu in background mode.
-2. Open **Single Player**, then **Random Map**. Menu focus wraps with Up/Down;
-   Enter or Space activates; Escape returns.
-3. On setup screen choose:
+2. Send `start_random_map <seed>` through `gameplay_macro`. Default setup is:
    - map: **Arabia**;
-   - size: smallest available;
+   - size: **Maximum**;
    - civilization: **Britons**;
    - AI: **Easiest**;
    - victory: **Conquest**;
    - fixed seed recorded in test log.
-4. Setup hotkeys are `M` map, `Z` size, `C` civilization, `D` difficulty,
-   `V` victory, `-`/`+` seed, and Enter generate/start.
-5. Wait for semantic `state` response. Assert tick advances, outcome is
+3. Wait for semantic `state` response. Assert tick advances, outcome is
    `ongoing`, blue has at least one villager and one Town Center is visible in
    the window, and population does not exceed capacity.
 
-Fixed seed makes failures reproducible. Small Arabia avoids water transport and
-long searches. Easiest AI reduces strategy variance while still exercises red
+Fixed seed makes failures reproducible. Arabia avoids water transport. Easiest
+AI reduces strategy variance while still exercising red
 gathering, construction, production, scouting, attacks, and rebuilding.
 
 ## Playthrough policy

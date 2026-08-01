@@ -1,4 +1,5 @@
 #include "aoe/gameplay_test_api.hpp"
+#include "aoe/scenario.hpp"
 
 #include <cstdlib>
 #include <filesystem>
@@ -52,6 +53,114 @@ int main() {
                 simulation, aoe::Player::blue, "advance 10001"
             ).find("\"ok\":false") != std::string::npos,
             "advance must enforce bounded work");
+
+    {
+        aoe::Scenario production_scenario(20, 12);
+        production_scenario.blue_economy = {1000, 1000, 1000, 1000};
+        production_scenario.red_economy = {1000, 1000, 1000, 1000};
+        production_scenario.blue_age = aoe::Age::feudal;
+        production_scenario.red_age = aoe::Age::feudal;
+        production_scenario.units.push_back({
+            aoe::UnitKind::villager, aoe::Player::blue, {8, 8}
+        });
+        production_scenario.units.push_back({
+            aoe::UnitKind::villager, aoe::Player::red, {18, 10}
+        });
+        production_scenario.buildings.push_back({
+            aoe::BuildingKind::town_center, aoe::Player::blue, {0, 0}
+        });
+        production_scenario.buildings.push_back({
+            aoe::BuildingKind::archery_range, aoe::Player::blue, {5, 0}
+        });
+        production_scenario.buildings.push_back({
+            aoe::BuildingKind::blacksmith, aoe::Player::blue, {10, 0}
+        });
+        production_scenario.buildings.push_back({
+            aoe::BuildingKind::house, aoe::Player::blue, {10, 5}
+        });
+        production_scenario.buildings.push_back({
+            aoe::BuildingKind::town_center, aoe::Player::red, {15, 0}
+        });
+        aoe::Simulation production =
+            aoe::create_simulation(production_scenario);
+        const aoe::EntityId blue_town_center =
+            production.buildings()[0].id;
+        const aoe::EntityId blue_archery_range =
+            production.buildings()[1].id;
+        const aoe::EntityId red_town_center =
+            production.buildings()[4].id;
+
+        const std::string buildings = aoe::GameplayTestApi::execute(
+            production, aoe::Player::blue, "list_buildings"
+        );
+        require(buildings.find("\"kind\":\"town_center\"") !=
+                    std::string::npos,
+                "list_buildings must expose semantic building kinds");
+        require(buildings.find("\"production_queue_size\":0") !=
+                    std::string::npos,
+                "list_buildings must expose production state");
+
+        const std::string selected_by_id = aoe::GameplayTestApi::execute(
+            production,
+            aoe::Player::blue,
+            "select_building " + std::to_string(blue_archery_range)
+        );
+        require(selected_by_id.find("\"selected_building\":" +
+                    std::to_string(blue_archery_range)) != std::string::npos,
+                "owned building should be selectable by id");
+
+        const std::string selected_by_tile = aoe::GameplayTestApi::execute(
+            production, aoe::Player::blue, "select_building_at 0 0"
+        );
+        require(selected_by_tile.find("\"selected_building\":" +
+                    std::to_string(blue_town_center)) != std::string::npos,
+                "owned building should be selectable by tile");
+
+        const std::string selected_by_kind = aoe::GameplayTestApi::execute(
+            production,
+            aoe::Player::blue,
+            "select_building_kind archery_range"
+        );
+        require(selected_by_kind.find("\"selected_building\":" +
+                    std::to_string(blue_archery_range)) != std::string::npos,
+                "owned building should be selectable by kind");
+
+        const std::string trained = aoe::GameplayTestApi::execute(
+            production,
+            aoe::Player::blue,
+            "train " + std::to_string(blue_archery_range) + " archer"
+        );
+        require(trained.find("\"ok\":true") != std::string::npos,
+                "train must queue through normal production rules");
+        require(production.buildings()[1].production_queue.size() == 1,
+                "train must update live building production queue");
+
+        require(aoe::GameplayTestApi::execute(
+                    production,
+                    aoe::Player::blue,
+                    "select_building " + std::to_string(red_town_center)
+                ).find("\"ok\":false") != std::string::npos,
+                "building selection must reject enemy ownership");
+        require(aoe::GameplayTestApi::execute(
+                    production,
+                    aoe::Player::blue,
+                    "train " + std::to_string(red_town_center) + " villager"
+                ).find("\"ok\":false") != std::string::npos,
+                "training must reject enemy ownership");
+
+        const std::string advanced_age = aoe::GameplayTestApi::execute(
+            production,
+            aoe::Player::blue,
+            "advance_age " + std::to_string(blue_town_center)
+        );
+        require(advanced_age.find("\"ok\":true") != std::string::npos,
+                "advance_age must start normal town-center research");
+        require(production.buildings()[0].age_research_target ==
+                    aoe::Age::castle,
+                "advance_age must target next age");
+        require(production.buildings()[0].age_research_ticks_remaining > 0,
+                "advance_age must preserve normal research timing");
+    }
 
     {
         aoe::GameMap map(8, 5);

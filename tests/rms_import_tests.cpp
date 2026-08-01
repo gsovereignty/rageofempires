@@ -281,6 +281,72 @@ std::size_t count_terrain(
     return count;
 }
 
+void rms_resource_terrain_retains_gatherable_amounts() {
+    aoe::RandomMapSettings settings;
+    settings.kind = aoe::RandomMapKind::arabia;
+    settings.size = aoe::RandomMapSize::maximum;
+    settings.seed = 1;
+    settings.blue_civilization = aoe::Civilization::britons;
+    const aoe::RmsMapResult generated = aoe::generate_rms_map(settings);
+    require(generated.scenario.has_value(), generated.error);
+
+    const aoe::TilePosition live_regression_tree{51, 125};
+    require(
+        generated.scenario->map.terrain_at(live_regression_tree) ==
+            aoe::Terrain::forest,
+        "seed-1 live regression tile stopped being forest"
+    );
+    require(
+        generated.scenario->map.resource_amount_at(live_regression_tree) ==
+            100,
+        "RMS forest terrain must retain default gatherable wood"
+    );
+
+    for (int y = 0; y < generated.scenario->map.height(); ++y) {
+        for (int x = 0; x < generated.scenario->map.width(); ++x) {
+            const aoe::TilePosition tile{x, y};
+            const aoe::Terrain terrain =
+                generated.scenario->map.terrain_at(tile);
+            if (terrain == aoe::Terrain::forest ||
+                terrain == aoe::Terrain::berry_bush ||
+                terrain == aoe::Terrain::gold_mine ||
+                terrain == aoe::Terrain::stone_mine ||
+                terrain == aoe::Terrain::fish) {
+                require(
+                    generated.scenario->map.resource_amount_at(tile) > 0,
+                    "RMS resource terrain contains no gatherable amount"
+                );
+            }
+        }
+    }
+
+    aoe::Simulation simulation =
+        aoe::create_simulation(*generated.scenario);
+    const aoe::EntityId worker = simulation.add_unit(
+        aoe::UnitKind::villager,
+        aoe::Player::blue,
+        {63, 126}
+    );
+    const int starting_wood =
+        simulation.economy(aoe::Player::blue).wood;
+    require(
+        simulation.command_unit(worker, live_regression_tree),
+        "live RMS forest gathering command was rejected"
+    );
+    for (int tick = 0; tick < 500; ++tick) simulation.update();
+    const auto worker_state = std::ranges::find_if(
+        simulation.units(),
+        [worker](const aoe::Unit& unit) { return unit.id == worker; }
+    );
+    require(worker_state != simulation.units().end(), "worker disappeared");
+    require(
+        worker_state->position != aoe::TilePosition(63, 126) &&
+        (worker_state->carried_amount > 0 ||
+         simulation.economy(aoe::Player::blue).wood > starting_wood),
+        "worker did not move and gather from live RMS forest"
+    );
+}
+
 std::size_t count_elevated(const aoe::Scenario& scenario) {
     std::size_t count{};
     for (int y = 0; y < scenario.map.height(); ++y) {
@@ -882,6 +948,8 @@ int main() {
         run("scenario round trip", evaluation_writes_current_scenario);
         run("section-driven generation",
             sections_drive_map_instead_of_recipe_selection);
+        run("resource terrain amounts",
+            rms_resource_terrain_retains_gatherable_amounts);
         run("scoped terrain and land origins",
             block_base_terrain_and_land_origin_connections_are_scoped);
         run("classic section order", generation_uses_classic_section_order);

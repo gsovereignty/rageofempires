@@ -27,12 +27,24 @@ request-11	train 12 villager
 request-12	advance_age 12
 request-13	construct 1 house 20 15
 request-14	research 14 fletching
+request-15	observe
+request-16	quiet move 1 22 18
+request-17	batch train 12 villager; construct 1 house 20 15
+request-18	move_group 30 20 1 2 3
+request-19	attack_move_group 45 25 21 22 23
+request-20	advance_until_idle 12 1000
 ```
 
 Responses contain the same ID and a structured `result`. State reports tick,
 outcome, resources, population, idle-unit count, and selected IDs. Unit reports
 also expose stable entity IDs, owner, tile position, destination, health,
 movement, gathering, and carried-resource state.
+
+`observe` returns state, units, and buildings together. Prefix a mutating
+command with `quiet` to return only success or failure, avoiding repeated state
+serialization inside controller-side macros. `batch` accepts semicolon-separated
+commands, executes them in order, stops on first failure, and returns one final
+state with `completed_commands`.
 
 Building reports expose stable IDs, kind, owner, origin tile, health,
 completion, production-queue size, age-research progress, and technology-
@@ -53,6 +65,10 @@ returned by `list_buildings`, such as `archery_range` and `fletching`.
 `advance` accepts 0 through 10,000 deterministic simulation ticks. Selection,
 movement, gathering, construction, building selection, production, age
 research, and technology research are restricted to active player's entities.
+`move_group` and `attack_move_group` accept a destination followed by owned unit
+IDs. `advance_until_idle` accepts an owned building ID and maximum tick count;
+it stops when production, age research, and technology research are all idle,
+the match ends, or the bound is reached.
 This
 API is intended for local testing, agents, and CI. It is not a network service
 and is inactive unless explicitly enabled.

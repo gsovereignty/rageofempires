@@ -44,15 +44,17 @@ Prefer these background-safe operations:
 - `issue_move`: issue the normal context command to one owned unit and tile;
 - `advance_simulation`: run a bounded number of deterministic ticks;
 - `gameplay_macro`: batch several semantic commands;
+- raw macro commands `observe`, `batch`, `quiet`, `list_buildings`, `train`,
+  `construct`, `research`, `advance_age`, `attack_move_group`, `move_group`,
+  market exchange, and `advance_until_idle` cover economy and combat without
+  foreground input;
 - `screenshot_window` with activation disabled: visual checkpoint without
   taking focus.
 
-Semantic control currently has no commands for constructing buildings,
-training units, researching technologies, attack-move, or selecting buildings.
-Those actions require short visible command-panel interactions. Use
-`screenshot_window` to locate labeled buttons, then a single `batch_actions`
-call for the necessary clicks or hotkeys. Return to semantic commands
-immediately. Never derive global pointer coordinates from Retina pixels;
+Use `gameplay_macro` raw commands for construction, training, research,
+attack-move, building selection, and market exchange. Foreground input remains
+useful only when test coverage specifically requires real menu or command-panel
+interaction. Never derive global pointer coordinates from Retina pixels;
 screenshots and clicks must use logical, window-relative coordinates.
 
 The file protocol behind the tools accepts:
@@ -93,10 +95,11 @@ gathering, construction, production, scouting, attacks, and rebuilding.
 
 ## Playthrough policy
 
-Run in short decision cycles. After each action batch, advance 25-100 ticks,
-poll state, and inspect units. Use 250-1,000 tick jumps only while queues or
-construction are known to be safe. Large blind advances let the AI attack before
-the controller can react.
+Run in event-bounded decision cycles. Use `observe` once per cycle, `batch` for
+independent actions, and `advance_until_idle` for known production or research.
+Use 25-100 tick advances during combat. Use 250-1,000 tick jumps while queues or
+construction are known safe. Large blind advances can let AI attack before
+controller reacts.
 
 ### 1. Stabilize food and population
 

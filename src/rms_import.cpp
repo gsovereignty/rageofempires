@@ -1607,7 +1607,6 @@ std::optional<Scenario> evaluate_rms(
                         continue;
                     }
                     scenario.map.set_terrain(tile, terrain.terrain);
-                    scenario.map.set_resource_amount(tile, 0);
                 }
             }
         }

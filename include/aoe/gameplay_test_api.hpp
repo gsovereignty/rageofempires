@@ -25,6 +25,7 @@ public:
     void poll(
         Simulation& simulation,
         Player player,
+        bool match_active,
         const HostCommand& host_command = {}
     );
 

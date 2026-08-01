@@ -242,9 +242,49 @@ std::string GameplayTestApi::execute(
     std::istringstream input{std::string{command}};
     std::string operation;
     input >> operation;
+    bool quiet = false;
+    if (operation == "quiet") {
+        quiet = true;
+        std::string remainder;
+        std::getline(input >> std::ws, remainder);
+        input = std::istringstream{remainder};
+        input >> operation;
+    }
+    const auto success = [&] {
+        return quiet ? std::string{"{\"ok\":true}"}
+                     : snapshot(simulation, player, false);
+    };
+    if (operation == "batch") {
+        std::string commands;
+        std::getline(input >> std::ws, commands);
+        if (commands.empty()) {
+            return error_response("batch requires semicolon-separated commands");
+        }
+        std::istringstream command_stream{commands};
+        std::string item;
+        int completed = 0;
+        while (std::getline(command_stream, item, ';')) {
+            const std::size_t first = item.find_first_not_of(" \t");
+            if (first == std::string::npos) continue;
+            const std::string result = execute(
+                simulation, player, "quiet " + item.substr(first)
+            );
+            if (result.find("\"ok\":false") != std::string::npos) {
+                return result;
+            }
+            ++completed;
+        }
+        if (completed == 0) {
+            return error_response("batch contains no commands");
+        }
+        std::string result = snapshot(simulation, player, false);
+        result.pop_back();
+        return result + ",\"completed_commands\":" +
+            std::to_string(completed) + "}";
+    }
     if (operation == "state" || operation == "resources" ||
         operation == "idle_units") {
-        return snapshot(simulation, player, false);
+        return success();
     }
     if (operation == "list_units") {
         return snapshot(simulation, player, true);
@@ -261,6 +301,20 @@ std::string GameplayTestApi::execute(
         output << "]}";
         return output.str();
     }
+    if (operation == "observe") {
+        std::string result = snapshot(simulation, player, true);
+        result.pop_back();
+        std::ostringstream buildings;
+        buildings << ",\"buildings\":[";
+        bool first = true;
+        for (const Building& building : simulation.buildings()) {
+            if (!first) buildings << ',';
+            append_building(buildings, building);
+            first = false;
+        }
+        buildings << "]}";
+        return result + buildings.str();
+    }
     if (operation == "select") {
         EntityId id{};
         if (!(input >> id)) return error_response("select requires unit id");
@@ -269,7 +323,7 @@ std::string GameplayTestApi::execute(
             !simulation.select_units({id}, player)) {
             return error_response("unit cannot be selected");
         }
-        return snapshot(simulation, player, false);
+        return success();
     }
     if (operation == "move") {
         EntityId id{};
@@ -282,7 +336,7 @@ std::string GameplayTestApi::execute(
             !simulation.command_unit(id, destination)) {
             return error_response("move command rejected");
         }
-        return snapshot(simulation, player, false);
+        return success();
     }
     if (operation == "attack_move") {
         EntityId id{};
@@ -300,7 +354,7 @@ std::string GameplayTestApi::execute(
             )) {
             return error_response("attack_move command rejected");
         }
-        return snapshot(simulation, player, false);
+        return success();
     }
     if (operation == "select_building") {
         EntityId id{};
@@ -312,7 +366,7 @@ std::string GameplayTestApi::execute(
             !simulation.select_building_at(building->position, player)) {
             return error_response("building cannot be selected");
         }
-        return snapshot(simulation, player, false);
+        return success();
     }
     if (operation == "select_building_at") {
         TilePosition position{};
@@ -322,7 +376,7 @@ std::string GameplayTestApi::execute(
         if (!simulation.select_building_at(position, player)) {
             return error_response("building cannot be selected");
         }
-        return snapshot(simulation, player, false);
+        return success();
     }
     if (operation == "select_building_kind") {
         std::string kind_name;
@@ -343,7 +397,7 @@ std::string GameplayTestApi::execute(
             !simulation.select_building_at(found->position, player)) {
             return error_response("building cannot be selected");
         }
-        return snapshot(simulation, player, false);
+        return success();
     }
     if (operation == "train") {
         EntityId building_id{};
@@ -358,7 +412,7 @@ std::string GameplayTestApi::execute(
             !simulation.queue_unit_at(building_id, *kind)) {
             return error_response("train command rejected");
         }
-        return snapshot(simulation, player, false);
+        return success();
     }
     if (operation == "construct") {
         EntityId villager_id{};
@@ -380,7 +434,7 @@ std::string GameplayTestApi::execute(
             )) {
             return error_response("construct command rejected");
         }
-        return snapshot(simulation, player, false);
+        return success();
     }
     if (operation == "research") {
         EntityId building_id{};
@@ -400,7 +454,7 @@ std::string GameplayTestApi::execute(
             )) {
             return error_response("research command rejected");
         }
-        return snapshot(simulation, player, false);
+        return success();
     }
     if (operation == "advance_age") {
         EntityId building_id{};
@@ -412,7 +466,7 @@ std::string GameplayTestApi::execute(
             !simulation.advance_age_at(building_id)) {
             return error_response("advance_age command rejected");
         }
-        return snapshot(simulation, player, false);
+        return success();
     }
     if (operation == "market_buy" || operation == "market_sell") {
         EntityId market_id{};
@@ -436,7 +490,7 @@ std::string GameplayTestApi::execute(
         if (!accepted) {
             return error_response(operation + " command rejected");
         }
-        return snapshot(simulation, player, false);
+        return success();
     }
     if (operation == "gather") {
         EntityId villager{};
@@ -449,7 +503,37 @@ std::string GameplayTestApi::execute(
             !simulation.command_gather_unit(villager, target)) {
             return error_response("gather command rejected");
         }
-        return snapshot(simulation, player, false);
+        return success();
+    }
+    if (operation == "move_group" || operation == "attack_move_group") {
+        TilePosition destination{};
+        if (!(input >> destination.x >> destination.y)) {
+            return error_response(
+                operation + " requires x, y, and one or more unit ids"
+            );
+        }
+        std::vector<EntityId> ids;
+        EntityId id{};
+        while (input >> id) ids.push_back(id);
+        if (ids.empty()) {
+            return error_response(operation + " requires unit ids");
+        }
+        for (const EntityId unit_id : ids) {
+            const Unit* unit = unit_by_id(simulation, unit_id);
+            const bool accepted = unit != nullptr && unit->owner == player &&
+                (operation == "move_group"
+                     ? simulation.command_unit(unit_id, destination)
+                     : aoe::execute(
+                           simulation,
+                           AttackMoveCommand{unit_id, destination}
+                       ));
+            if (!accepted) {
+                return error_response(
+                    operation + " rejected unit " + std::to_string(unit_id)
+                );
+            }
+        }
+        return success();
     }
     if (operation == "advance") {
         int ticks{};
@@ -457,7 +541,38 @@ std::string GameplayTestApi::execute(
             return error_response("advance requires 0..10000 ticks");
         }
         for (int tick = 0; tick < ticks; ++tick) simulation.update();
-        return snapshot(simulation, player, false);
+        return success();
+    }
+    if (operation == "advance_until_idle") {
+        EntityId building_id{};
+        int max_ticks{};
+        if (!(input >> building_id >> max_ticks) || max_ticks < 0 ||
+            max_ticks > 10000) {
+            return error_response(
+                "advance_until_idle requires building id and 0..10000 ticks"
+            );
+        }
+        const Building* building = building_by_id(simulation, building_id);
+        if (building == nullptr || building->owner != player) {
+            return error_response("building cannot be observed");
+        }
+        int elapsed = 0;
+        while (elapsed < max_ticks &&
+               simulation.outcome() == MatchOutcome::ongoing) {
+            building = building_by_id(simulation, building_id);
+            if (building == nullptr ||
+                (building->production_queue.empty() &&
+                 building->age_research_ticks_remaining == 0 &&
+                 building->technology_research_ticks_remaining == 0)) {
+                break;
+            }
+            simulation.update();
+            ++elapsed;
+        }
+        std::string result = snapshot(simulation, player, false);
+        result.pop_back();
+        return result + ",\"elapsed_ticks\":" + std::to_string(elapsed) +
+            "}";
     }
     return error_response("unknown gameplay test command");
 }
@@ -465,6 +580,7 @@ std::string GameplayTestApi::execute(
 void GameplayTestApi::poll(
     Simulation& simulation,
     Player player,
+    bool match_active,
     const HostCommand& host_command
 ) {
     const std::uintmax_t size = std::filesystem::file_size(commands_path_);
@@ -487,7 +603,9 @@ void GameplayTestApi::poll(
             host_command ? host_command(command) : std::nullopt;
         const std::string result = host_result
             ? *host_result
-            : execute(simulation, player, command);
+            : match_active
+            ? execute(simulation, player, command)
+            : error_response("no visible active match");
         output << "{\"id\":\"" << json_escape(id)
                << "\",\"result\":" << result << "}\n";
         output.flush();

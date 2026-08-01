@@ -419,6 +419,92 @@ int main() {
                 "attack_move must reject enemy unit ownership");
     }
 
+    {
+        aoe::Simulation fast_simulation(aoe::GameMap(30, 12));
+        const aoe::EntityId first = fast_simulation.add_unit(
+            aoe::UnitKind::archer, aoe::Player::blue, {1, 2}
+        );
+        const aoe::EntityId second = fast_simulation.add_unit(
+            aoe::UnitKind::archer, aoe::Player::blue, {1, 4}
+        );
+        fast_simulation.add_unit(
+            aoe::UnitKind::villager, aoe::Player::red, {28, 10}
+        );
+        fast_simulation.add_building(
+            aoe::BuildingKind::house, aoe::Player::blue, {3, 7}
+        );
+
+        const std::string observed = aoe::GameplayTestApi::execute(
+            fast_simulation, aoe::Player::blue, "observe"
+        );
+        require(observed.find("\"units\":[") != std::string::npos &&
+                    observed.find("\"buildings\":[") != std::string::npos,
+                "observe must combine state, units, and buildings");
+
+        const std::string quiet = aoe::GameplayTestApi::execute(
+            fast_simulation,
+            aoe::Player::blue,
+            "quiet move " + std::to_string(first) + " 8 2"
+        );
+        require(quiet == "{\"ok\":true}",
+                "quiet command must omit repeated state serialization");
+
+        const std::string grouped = aoe::GameplayTestApi::execute(
+            fast_simulation,
+            aoe::Player::blue,
+            "attack_move_group 20 6 " + std::to_string(first) + " " +
+                std::to_string(second)
+        );
+        require(grouped.find("\"ok\":true") != std::string::npos &&
+                    fast_simulation.units()[0].attack_moving &&
+                    fast_simulation.units()[1].attack_moving,
+                "group attack move must order every owned unit");
+
+        const std::string batched = aoe::GameplayTestApi::execute(
+            fast_simulation,
+            aoe::Player::blue,
+            "batch move_group 10 2 " + std::to_string(first) + " " +
+                std::to_string(second) + "; advance 2"
+        );
+        require(batched.find("\"completed_commands\":2") !=
+                    std::string::npos,
+                "batch must execute several commands with one final state");
+    }
+
+    {
+        aoe::Scenario queued_scenario(20, 12);
+        queued_scenario.blue_economy = {1000, 1000, 1000, 1000};
+        queued_scenario.units.push_back({
+            aoe::UnitKind::villager, aoe::Player::blue, {7, 7}
+        });
+        queued_scenario.units.push_back({
+            aoe::UnitKind::villager, aoe::Player::red, {18, 10}
+        });
+        queued_scenario.buildings.push_back({
+            aoe::BuildingKind::town_center, aoe::Player::blue, {0, 0}
+        });
+        queued_scenario.buildings.push_back({
+            aoe::BuildingKind::house, aoe::Player::blue, {5, 0}
+        });
+        aoe::Simulation queued = aoe::create_simulation(queued_scenario);
+        const aoe::EntityId town_center = queued.buildings().front().id;
+        require(aoe::GameplayTestApi::execute(
+                    queued,
+                    aoe::Player::blue,
+                    "train " + std::to_string(town_center) + " villager"
+                ).find("\"ok\":true") != std::string::npos,
+                "advance-until fixture must queue production");
+        const std::string advanced_until = aoe::GameplayTestApi::execute(
+            queued,
+            aoe::Player::blue,
+            "advance_until_idle " + std::to_string(town_center) + " 1000"
+        );
+        require(advanced_until.find("\"elapsed_ticks\":") !=
+                    std::string::npos &&
+                    queued.buildings().front().production_queue.empty(),
+                "advance_until_idle must stop when production completes");
+    }
+
     const std::filesystem::path directory =
         std::filesystem::temp_directory_path() /
         "aoe-gameplay-test-api-tests";
@@ -430,7 +516,7 @@ int main() {
         );
         commands << "request-1\tstate\n";
     }
-    api.poll(simulation, aoe::Player::blue);
+    api.poll(simulation, aoe::Player::blue, true);
     std::ifstream responses(directory / "responses.jsonl");
     const std::string response{
         std::istreambuf_iterator<char>{responses},
@@ -439,6 +525,7 @@ int main() {
     require(response.find("\"id\":\"request-1\"") !=
                 std::string::npos,
             "file boundary must correlate response id");
+    const auto gated_tick = simulation.tick_number();
     {
         std::ofstream commands(
             directory / "commands.jsonl", std::ios::app
@@ -449,6 +536,7 @@ int main() {
     api.poll(
         simulation,
         aoe::Player::blue,
+        false,
         [&](std::string_view command) -> std::optional<std::string> {
             host_command_called = command == "start_random_map 42";
             return std::string{"{\"ok\":true,\"started\":true}"};
@@ -466,6 +554,25 @@ int main() {
                 "\"started\":true}"
             ) != std::string::npos,
             "host command response must remain correlated");
+    {
+        std::ofstream commands(
+            directory / "commands.jsonl", std::ios::app
+        );
+        commands << "request-3\tadvance 5\n";
+    }
+    api.poll(simulation, aoe::Player::blue, false);
+    std::ifstream gated_responses(directory / "responses.jsonl");
+    const std::string gated_response{
+        std::istreambuf_iterator<char>{gated_responses},
+        std::istreambuf_iterator<char>{}
+    };
+    require(gated_response.find("\"id\":\"request-3\"") !=
+                std::string::npos &&
+            gated_response.find("no visible active match") !=
+                std::string::npos,
+            "file boundary must reject commands without visible match");
+    require(simulation.tick_number() == gated_tick,
+            "rejected pre-match command must not mutate simulation");
     std::filesystem::remove_all(directory);
     return 0;
 }

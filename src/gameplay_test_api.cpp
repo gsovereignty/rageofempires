@@ -1,6 +1,9 @@
 #include "aoe/gameplay_test_api.hpp"
 
+#include "aoe/game_command.hpp"
+
 #include <algorithm>
+#include <cctype>
 #include <fstream>
 #include <iomanip>
 #include <sstream>
@@ -40,6 +43,19 @@ std::string error_response(std::string_view message) {
         json_escape(message) + "\"}";
 }
 
+std::string wire_name(std::string_view value) {
+    std::string result;
+    result.reserve(value.size());
+    for (const unsigned char character : value) {
+        if (character == ' ' || character == '-') {
+            result.push_back('_');
+        } else {
+            result.push_back(static_cast<char>(std::tolower(character)));
+        }
+    }
+    return result;
+}
+
 const Unit* unit_by_id(const Simulation& simulation, EntityId id) {
     const auto found = std::ranges::find_if(
         simulation.units(),
@@ -62,7 +78,7 @@ const Building* building_by_id(
 std::optional<BuildingKind> parse_building_kind(std::string_view value) {
     for (std::size_t index = 0; index < building_kind_count; ++index) {
         const auto kind = static_cast<BuildingKind>(index);
-        if (name(kind) == value) return kind;
+        if (wire_name(name(kind)) == value) return kind;
     }
     return std::nullopt;
 }
@@ -70,7 +86,15 @@ std::optional<BuildingKind> parse_building_kind(std::string_view value) {
 std::optional<UnitKind> parse_unit_kind(std::string_view value) {
     for (std::size_t index = 0; index < unit_kind_count; ++index) {
         const auto kind = static_cast<UnitKind>(index);
-        if (name(kind) == value) return kind;
+        if (wire_name(name(kind)) == value) return kind;
+    }
+    return std::nullopt;
+}
+
+std::optional<Technology> parse_technology(std::string_view value) {
+    for (std::size_t index = 0; index < technology_count; ++index) {
+        const auto technology = static_cast<Technology>(index);
+        if (wire_name(name(technology)) == value) return technology;
     }
     return std::nullopt;
 }
@@ -88,7 +112,8 @@ bool idle(const Unit& unit) {
 void append_unit(std::ostringstream& output, const Unit& unit) {
     const std::optional<Player> legacy_owner = unit.owner.legacy_player();
     output << "{\"id\":" << unit.id
-           << ",\"kind\":\"" << json_escape(name(unit.kind)) << "\""
+           << ",\"kind\":\"" << json_escape(wire_name(name(unit.kind)))
+           << "\""
            << ",\"owner\":\""
            << (legacy_owner ? json_escape(name(*legacy_owner))
                             : "player-" +
@@ -112,7 +137,8 @@ void append_unit(std::ostringstream& output, const Unit& unit) {
 void append_building(std::ostringstream& output, const Building& building) {
     const std::optional<Player> legacy_owner = building.owner.legacy_player();
     output << "{\"id\":" << building.id
-           << ",\"kind\":\"" << json_escape(name(building.kind)) << "\""
+           << ",\"kind\":\""
+           << json_escape(wire_name(name(building.kind))) << "\""
            << ",\"owner\":\""
            << (legacy_owner ? json_escape(name(*legacy_owner))
                             : "player-" +
@@ -127,7 +153,13 @@ void append_building(std::ostringstream& output, const Building& building) {
            << ",\"age_research_target\":\""
            << json_escape(name(building.age_research_target)) << "\""
            << ",\"age_research_ticks_remaining\":"
-           << building.age_research_ticks_remaining << '}';
+           << building.age_research_ticks_remaining
+           << ",\"technology_research_target\":\""
+           << json_escape(wire_name(
+                  name(building.technology_research_target)
+              )) << "\""
+           << ",\"technology_research_ticks_remaining\":"
+           << building.technology_research_ticks_remaining << '}';
 }
 
 }  // namespace
@@ -300,6 +332,48 @@ std::string GameplayTestApi::execute(
         if (building == nullptr || building->owner != player ||
             !simulation.queue_unit_at(building_id, *kind)) {
             return error_response("train command rejected");
+        }
+        return snapshot(simulation, player, false);
+    }
+    if (operation == "construct") {
+        EntityId villager_id{};
+        std::string kind_name;
+        TilePosition position{};
+        if (!(input >> villager_id >> kind_name >>
+              position.x >> position.y)) {
+            return error_response(
+                "construct requires villager id, building kind, x, and y"
+            );
+        }
+        const Unit* villager = unit_by_id(simulation, villager_id);
+        const auto kind = parse_building_kind(kind_name);
+        if (!kind) return error_response("unknown building kind");
+        if (villager == nullptr || villager->owner != player ||
+            !aoe::execute(
+                simulation,
+                ConstructBuildingCommand{villager_id, *kind, position}
+            )) {
+            return error_response("construct command rejected");
+        }
+        return snapshot(simulation, player, false);
+    }
+    if (operation == "research") {
+        EntityId building_id{};
+        std::string technology_name;
+        if (!(input >> building_id >> technology_name)) {
+            return error_response(
+                "research requires building id and technology"
+            );
+        }
+        const Building* building = building_by_id(simulation, building_id);
+        const auto technology = parse_technology(technology_name);
+        if (!technology) return error_response("unknown technology");
+        if (building == nullptr || building->owner != player ||
+            !aoe::execute(
+                simulation,
+                ResearchTechnologyCommand{building_id, *technology}
+            )) {
+            return error_response("research command rejected");
         }
         return snapshot(simulation, player, false);
     }

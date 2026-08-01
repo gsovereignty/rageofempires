@@ -87,6 +87,8 @@ int main() {
             production.buildings()[0].id;
         const aoe::EntityId blue_archery_range =
             production.buildings()[1].id;
+        const aoe::EntityId blue_blacksmith =
+            production.buildings()[2].id;
         const aoe::EntityId red_town_center =
             production.buildings()[4].id;
 
@@ -160,6 +162,93 @@ int main() {
                 "advance_age must target next age");
         require(production.buildings()[0].age_research_ticks_remaining > 0,
                 "advance_age must preserve normal research timing");
+
+        const std::string researched = aoe::GameplayTestApi::execute(
+            production,
+            aoe::Player::blue,
+            "research " + std::to_string(blue_blacksmith) + " fletching"
+        );
+        require(researched.find("\"ok\":true") != std::string::npos,
+                "research must start through normal technology rules");
+        require(production.buildings()[2].technology_research_target ==
+                    aoe::Technology::fletching,
+                "research must preserve requested technology");
+        require(production.buildings()[2].
+                    technology_research_ticks_remaining > 0,
+                "research must preserve normal technology timing");
+        const std::string researching_building =
+            aoe::GameplayTestApi::execute(
+                production, aoe::Player::blue, "list_buildings"
+            );
+        require(researching_building.find(
+                    "\"technology_research_target\":\"fletching\""
+                ) != std::string::npos,
+                "list_buildings must expose technology research target");
+        require(aoe::GameplayTestApi::execute(
+                    production,
+                    aoe::Player::blue,
+                    "research " + std::to_string(red_town_center) +
+                        " fletching"
+                ).find("\"ok\":false") != std::string::npos,
+                "research must reject enemy building ownership");
+    }
+
+    {
+        aoe::Scenario construction_scenario(16, 12);
+        construction_scenario.blue_economy = {1000, 1000, 1000, 1000};
+        construction_scenario.red_economy = {1000, 1000, 1000, 1000};
+        construction_scenario.units.push_back({
+            aoe::UnitKind::villager, aoe::Player::blue, {5, 5}
+        });
+        construction_scenario.units.push_back({
+            aoe::UnitKind::villager, aoe::Player::red, {14, 10}
+        });
+        aoe::Simulation construction =
+            aoe::create_simulation(construction_scenario);
+        const aoe::EntityId builder = construction.units()[0].id;
+        const aoe::EntityId enemy_builder = construction.units()[1].id;
+        const aoe::Economy before = construction.economy(aoe::Player::blue);
+
+        const std::string constructed = aoe::GameplayTestApi::execute(
+            construction,
+            aoe::Player::blue,
+            "construct " + std::to_string(builder) + " house 5 6"
+        );
+        require(constructed.find("\"ok\":true") != std::string::npos,
+                "construct must accept valid normal building command");
+        require(construction.buildings().size() == 1 &&
+                    construction.buildings().front().kind ==
+                        aoe::BuildingKind::house,
+                "construct must create requested building foundation");
+        require(construction.economy(aoe::Player::blue).wood < before.wood,
+                "construct must charge normal building cost");
+        require(aoe::GameplayTestApi::execute(
+                    construction,
+                    aoe::Player::blue,
+                    "construct " + std::to_string(builder) + " house 5 6"
+                ).find("\"ok\":false") != std::string::npos,
+                "construct must reject occupied footprint");
+        require(aoe::GameplayTestApi::execute(
+                    construction,
+                    aoe::Player::blue,
+                    "construct " + std::to_string(enemy_builder) +
+                        " house 13 10"
+                ).find("\"ok\":false") != std::string::npos,
+                "construct must reject enemy builder ownership");
+        require(aoe::GameplayTestApi::execute(
+                    construction,
+                    aoe::Player::blue,
+                    "construct " + std::to_string(builder) +
+                        " castle 3 5"
+                ).find("\"ok\":false") != std::string::npos,
+                "construct must preserve age prerequisites");
+        require(aoe::GameplayTestApi::execute(
+                    construction,
+                    aoe::Player::blue,
+                    "construct " + std::to_string(builder) +
+                        " unknown_building 3 5"
+                ).find("unknown building kind") != std::string::npos,
+                "construct must reject unknown building kind");
     }
 
     {

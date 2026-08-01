@@ -25,6 +25,8 @@ request-9	select_building_at 40 25
 request-10	select_building_kind town_center
 request-11	train 12 villager
 request-12	advance_age 12
+request-13	construct 1 house 20 15
+request-14	research 14 fletching
 ```
 
 Responses contain the same ID and a structured `result`. State reports tick,
@@ -33,15 +35,25 @@ also expose stable entity IDs, owner, tile position, destination, health,
 movement, gathering, and carried-resource state.
 
 Building reports expose stable IDs, kind, owner, origin tile, health,
-completion, production-queue size, and age-research progress. Owned buildings
+completion, production-queue size, age-research progress, and technology-
+research progress. Owned buildings
 can be selected by ID, occupied tile, or kind. `train` and `advance_age` take an
 owned building ID and call the same simulation production and research paths
 as command-panel actions; normal cost, prerequisite, queue, age, and population
 rules still apply.
 
+`construct` takes an owned villager ID, building kind, and origin tile. It
+executes the normal construction command, including civilization, age,
+prerequisite, resource, builder-distance, terrain, footprint, and obstruction
+checks. `research` takes an owned building ID and technology name and executes
+normal technology availability, location, prerequisite, cost, and timing
+checks. Building and technology names use lowercase underscore-separated names
+returned by `list_buildings`, such as `archery_range` and `fletching`.
+
 `advance` accepts 0 through 10,000 deterministic simulation ticks. Selection,
-movement, gathering, building selection, production, and age research are
-restricted to the active player's entities. This
+movement, gathering, construction, building selection, production, age
+research, and technology research are restricted to active player's entities.
+This
 API is intended for local testing, agents, and CI. It is not a network service
 and is inactive unless explicitly enabled.
 

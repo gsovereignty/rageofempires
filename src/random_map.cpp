@@ -122,6 +122,9 @@ void add_start(
 ) {
     const auto place_unit = [&](UnitKind kind, Player owner,
                                 TilePosition position) {
+        // Feature blobs can extend beyond the cleared town-center disc.
+        // Starting units must never inherit blocking resource terrain.
+        scenario.map.set_terrain(position, Terrain::grass);
         scenario.units.push_back({
             kind, owner, position, std::nullopt, std::nullopt,
             std::nullopt, std::nullopt, false, {},
@@ -192,6 +195,18 @@ void add_resource_pair(
     Terrain terrain,
     int amount
 ) {
+    const auto occupied_by_starting_unit = [&scenario](TilePosition tile) {
+        return std::ranges::any_of(
+            scenario.units,
+            [tile](const UnitPlacement& unit) {
+                return unit.position == tile;
+            }
+        );
+    };
+    while (occupied_by_starting_unit(blue) ||
+           occupied_by_starting_unit(mirror(scenario.map, blue))) {
+        --blue.y;
+    }
     const TilePosition red = mirror(scenario.map, blue);
     scenario.map.set_terrain(blue, terrain);
     scenario.map.set_resource_amount(blue, amount);

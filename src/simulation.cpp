@@ -2918,7 +2918,7 @@ bool Simulation::command_unit(
         building_target == nullptr) {
         return false;
     }
-    if ((!map_.walkable(destination) && !fishing_destination) ||
+    if ((!map_.walkable(destination) && !fishing_destination && !gathering) ||
         (target_resource != ResourceKind::none && !gathering)) {
         return false;
     }
@@ -5746,7 +5746,7 @@ void Simulation::update() {
             unit.moving && unit.movement_cooldown == 0 &&
             unit.next_path_step < unit.path.size()) {
             const TilePosition next = unit.path[unit.next_path_step];
-            if (map_.walkable(next) &&
+            if (map_.traversable(unit.position, next) &&
                 !occupied(next, unit.id, unit.owner)) {
                 unit.previous_position = unit.position;
                 unit.position = next;
@@ -6834,7 +6834,7 @@ void Simulation::update() {
         const TilePosition next = unit.path[unit.next_path_step];
 
         const bool next_walkable = is_ship(unit.kind)
-            ? map_.sailable(next) : map_.walkable(next);
+            ? map_.sailable(next) : map_.traversable(unit.position, next);
         if (next_walkable &&
             !occupied(next, unit.id, unit.owner)) {
             unit.previous_position = unit.position;
@@ -6862,7 +6862,7 @@ void Simulation::update() {
                 const TilePosition bonus =
                     unit.path[unit.next_path_step];
                 const bool bonus_walkable = is_ship(unit.kind)
-                    ? map_.sailable(bonus) : map_.walkable(bonus);
+                    ? map_.sailable(bonus) : map_.traversable(unit.position, bonus);
                 if (bonus_walkable &&
                     !occupied(bonus, unit.id, unit.owner)) {
                     unit.movement_speed_remainder -=
@@ -6894,7 +6894,7 @@ void Simulation::update() {
                 unit.next_path_step < unit.path.size()) {
                 const TilePosition bonus =
                     unit.path[unit.next_path_step];
-                if (map_.walkable(bonus) &&
+                if (map_.traversable(unit.position, bonus) &&
                     !occupied(bonus, unit.id, unit.owner)) {
                     unit.movement_speed_remainder -= 100;
                     unit.previous_position = unit.position;
@@ -8203,10 +8203,7 @@ bool Simulation::route_unit(Unit& unit, TilePosition destination) {
             return false;
         }
     }
-    unit.path = find_path(
-        map_,
-        unit.position,
-        route_target,
+    const auto blocked_for_route =
         [this, route_target, &occupied_for_route](TilePosition position) {
             const bool unrelated_resource =
                 position != route_target &&
@@ -8214,9 +8211,16 @@ bool Simulation::route_unit(Unit& unit, TilePosition destination) {
                     ResourceKind::none;
             return unrelated_resource ||
                 occupied_for_route(position);
-        },
-        traversable
-    );
+        };
+    unit.path = fishing_ship
+        ? find_path(
+              map_, unit.position, route_target,
+              blocked_for_route, traversable
+          )
+        : find_path(
+              map_, unit.position, route_target,
+              blocked_for_route
+          );
     if (unit.position != route_target && unit.path.empty()) {
         unit.moving = false;
         return false;

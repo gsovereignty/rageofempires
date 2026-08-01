@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <deque>
 #include <fstream>
 #include <limits>
 #include <optional>
@@ -92,13 +93,41 @@ std::optional<TilePosition> nearest_unexplored(
     const Unit& unit,
     const Simulation& simulation
 ) {
+    const GameMap& map = simulation.map();
+    const auto index = [&map](TilePosition position) {
+        return static_cast<std::size_t>(
+            position.y * map.width() + position.x
+        );
+    };
+    std::vector<bool> reachable(
+        static_cast<std::size_t>(map.width() * map.height()), false
+    );
+    std::deque<TilePosition> frontier{unit.position};
+    reachable[index(unit.position)] = true;
+    constexpr std::array<TilePosition, 4> directions{{
+        {1, 0}, {-1, 0}, {0, 1}, {0, -1},
+    }};
+    while (!frontier.empty()) {
+        const TilePosition current = frontier.front();
+        frontier.pop_front();
+        for (const TilePosition direction : directions) {
+            const TilePosition next{
+                current.x + direction.x, current.y + direction.y,
+            };
+            if (!map.traversable(current, next) || reachable[index(next)]) {
+                continue;
+            }
+            reachable[index(next)] = true;
+            frontier.push_back(next);
+        }
+    }
     std::optional<TilePosition> nearest;
     int nearest_distance = std::numeric_limits<int>::max();
     for (int y = 0; y < simulation.map().height(); ++y) {
         for (int x = 0; x < simulation.map().width(); ++x) {
             const TilePosition candidate{x, y};
             if (simulation.is_explored(unit.owner, candidate) ||
-                !simulation.map().walkable(candidate)) {
+                !reachable[index(candidate)]) {
                 continue;
             }
             const int candidate_distance =

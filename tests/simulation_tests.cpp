@@ -116,6 +116,23 @@ void unit_moves_deterministically() {
     require(simulation.units().front().position == aoe::TilePosition(5, 7));
 }
 
+void land_route_detours_around_cliff_and_makes_progress() {
+    aoe::GameMap map(5, 3);
+    map.set_elevation({1, 1}, 2);
+    aoe::Simulation simulation(std::move(map));
+    const aoe::EntityId villager = simulation.add_unit(
+        aoe::UnitKind::villager, aoe::Player::blue, {0, 1}
+    );
+    simulation.add_unit(
+        aoe::UnitKind::villager, aoe::Player::red, {4, 2}
+    );
+
+    require(simulation.command_unit(villager, {4, 1}));
+    for (int tick = 0; tick < 20; ++tick) simulation.update();
+    require(simulation.units().front().position == aoe::TilePosition(4, 1));
+    require(!simulation.units().front().moving);
+}
+
 void presentation_elevation_state_initializes_and_replaces_safely() {
     aoe::Simulation simulation(aoe::GameMap(8, 4));
     const aoe::EntityId scout = simulation.add_unit(
@@ -11116,6 +11133,7 @@ void scenario_resource_round_trip() {
             "set_objective_visible 2",
         },
     };
+    extended.map.set_terrain({8, 2}, aoe::Terrain::grass);
     extended.units.push_back({
         aoe::UnitKind::archer,
         aoe::Player::blue,
@@ -23413,6 +23431,10 @@ int main() {
         executable_conversion_arithmetic_is_exact
     );
     run("unit movement", unit_moves_deterministically);
+    run(
+        "land cliff routing progress",
+        land_route_detours_around_cliff_and_makes_progress
+    );
     run(
         "presentation elevation state lifecycle",
         presentation_elevation_state_initializes_and_replaces_safely

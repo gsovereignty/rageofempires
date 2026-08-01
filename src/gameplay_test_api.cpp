@@ -48,6 +48,33 @@ const Unit* unit_by_id(const Simulation& simulation, EntityId id) {
     return found == simulation.units().end() ? nullptr : &*found;
 }
 
+const Building* building_by_id(
+    const Simulation& simulation,
+    EntityId id
+) {
+    const auto found = std::ranges::find_if(
+        simulation.buildings(),
+        [id](const Building& building) { return building.id == id; }
+    );
+    return found == simulation.buildings().end() ? nullptr : &*found;
+}
+
+std::optional<BuildingKind> parse_building_kind(std::string_view value) {
+    for (std::size_t index = 0; index < building_kind_count; ++index) {
+        const auto kind = static_cast<BuildingKind>(index);
+        if (name(kind) == value) return kind;
+    }
+    return std::nullopt;
+}
+
+std::optional<UnitKind> parse_unit_kind(std::string_view value) {
+    for (std::size_t index = 0; index < unit_kind_count; ++index) {
+        const auto kind = static_cast<UnitKind>(index);
+        if (name(kind) == value) return kind;
+    }
+    return std::nullopt;
+}
+
 bool idle(const Unit& unit) {
     return unit.garrisoned_in == 0 && !unit.moving && unit.path.empty() &&
         !unit.has_resource_target && unit.attack_target_id == 0 &&
@@ -80,6 +107,27 @@ void append_unit(std::ostringstream& output, const Unit& unit) {
            << ",\"carried_resource\":\""
            << json_escape(name(unit.carried_resource)) << "\""
            << ",\"carried_amount\":" << unit.carried_amount << '}';
+}
+
+void append_building(std::ostringstream& output, const Building& building) {
+    const std::optional<Player> legacy_owner = building.owner.legacy_player();
+    output << "{\"id\":" << building.id
+           << ",\"kind\":\"" << json_escape(name(building.kind)) << "\""
+           << ",\"owner\":\""
+           << (legacy_owner ? json_escape(name(*legacy_owner))
+                            : "player-" +
+                                  std::to_string(building.owner.stable_id()))
+           << "\",\"x\":" << building.position.x
+           << ",\"y\":" << building.position.y
+           << ",\"hp\":" << building.hit_points
+           << ",\"completed\":"
+           << (building.completed() ? "true" : "false")
+           << ",\"production_queue_size\":"
+           << building.production_queue.size()
+           << ",\"age_research_target\":\""
+           << json_escape(name(building.age_research_target)) << "\""
+           << ",\"age_research_ticks_remaining\":"
+           << building.age_research_ticks_remaining << '}';
 }
 
 }  // namespace
@@ -120,6 +168,8 @@ std::string GameplayTestApi::snapshot(
            << "},\"population\":" << simulation.population(player)
            << ",\"population_capacity\":"
            << simulation.population_capacity(player)
+           << ",\"age\":\"" << json_escape(name(simulation.age(player)))
+           << "\""
            << ",\"idle_units\":" << idle_units
            << ",\"selected_units\":[";
     for (std::size_t index = 0;
@@ -127,7 +177,12 @@ std::string GameplayTestApi::snapshot(
         if (index != 0) output << ',';
         output << simulation.selected_units()[index];
     }
-    output << ']';
+    output << "],\"selected_building\":";
+    if (simulation.selected_building()) {
+        output << *simulation.selected_building();
+    } else {
+        output << "null";
+    }
     if (include_units) {
         output << ",\"units\":[";
         for (std::size_t index = 0; index < live_units.size(); ++index) {
@@ -155,6 +210,18 @@ std::string GameplayTestApi::execute(
     if (operation == "list_units") {
         return snapshot(simulation, player, true);
     }
+    if (operation == "list_buildings") {
+        std::ostringstream output;
+        output << "{\"ok\":true,\"buildings\":[";
+        bool first = true;
+        for (const Building& building : simulation.buildings()) {
+            if (!first) output << ',';
+            append_building(output, building);
+            first = false;
+        }
+        output << "]}";
+        return output.str();
+    }
     if (operation == "select") {
         EntityId id{};
         if (!(input >> id)) return error_response("select requires unit id");
@@ -175,6 +242,76 @@ std::string GameplayTestApi::execute(
         if (unit == nullptr || unit->owner != player ||
             !simulation.command_unit(id, destination)) {
             return error_response("move command rejected");
+        }
+        return snapshot(simulation, player, false);
+    }
+    if (operation == "select_building") {
+        EntityId id{};
+        if (!(input >> id)) {
+            return error_response("select_building requires building id");
+        }
+        const Building* building = building_by_id(simulation, id);
+        if (building == nullptr || building->owner != player ||
+            !simulation.select_building_at(building->position, player)) {
+            return error_response("building cannot be selected");
+        }
+        return snapshot(simulation, player, false);
+    }
+    if (operation == "select_building_at") {
+        TilePosition position{};
+        if (!(input >> position.x >> position.y)) {
+            return error_response("select_building_at requires x and y");
+        }
+        if (!simulation.select_building_at(position, player)) {
+            return error_response("building cannot be selected");
+        }
+        return snapshot(simulation, player, false);
+    }
+    if (operation == "select_building_kind") {
+        std::string kind_name;
+        if (!(input >> kind_name)) {
+            return error_response(
+                "select_building_kind requires building kind"
+            );
+        }
+        const auto kind = parse_building_kind(kind_name);
+        if (!kind) return error_response("unknown building kind");
+        const auto found = std::ranges::find_if(
+            simulation.buildings(),
+            [player, kind](const Building& building) {
+                return building.owner == player && building.kind == *kind;
+            }
+        );
+        if (found == simulation.buildings().end() ||
+            !simulation.select_building_at(found->position, player)) {
+            return error_response("building cannot be selected");
+        }
+        return snapshot(simulation, player, false);
+    }
+    if (operation == "train") {
+        EntityId building_id{};
+        std::string kind_name;
+        if (!(input >> building_id >> kind_name)) {
+            return error_response("train requires building id and unit kind");
+        }
+        const Building* building = building_by_id(simulation, building_id);
+        const auto kind = parse_unit_kind(kind_name);
+        if (!kind) return error_response("unknown unit kind");
+        if (building == nullptr || building->owner != player ||
+            !simulation.queue_unit_at(building_id, *kind)) {
+            return error_response("train command rejected");
+        }
+        return snapshot(simulation, player, false);
+    }
+    if (operation == "advance_age") {
+        EntityId building_id{};
+        if (!(input >> building_id)) {
+            return error_response("advance_age requires building id");
+        }
+        const Building* building = building_by_id(simulation, building_id);
+        if (building == nullptr || building->owner != player ||
+            !simulation.advance_age_at(building_id)) {
+            return error_response("advance_age command rejected");
         }
         return snapshot(simulation, player, false);
     }

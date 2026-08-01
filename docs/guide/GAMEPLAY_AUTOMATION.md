@@ -19,6 +19,12 @@ request-3	select 1
 request-4	move 1 20 15
 request-5	gather 1 7
 request-6	advance 250
+request-7	list_buildings
+request-8	select_building 12
+request-9	select_building_at 40 25
+request-10	select_building_kind town_center
+request-11	train 12 villager
+request-12	advance_age 12
 ```
 
 Responses contain the same ID and a structured `result`. State reports tick,
@@ -26,8 +32,16 @@ outcome, resources, population, idle-unit count, and selected IDs. Unit reports
 also expose stable entity IDs, owner, tile position, destination, health,
 movement, gathering, and carried-resource state.
 
+Building reports expose stable IDs, kind, owner, origin tile, health,
+completion, production-queue size, and age-research progress. Owned buildings
+can be selected by ID, occupied tile, or kind. `train` and `advance_age` take an
+owned building ID and call the same simulation production and research paths
+as command-panel actions; normal cost, prerequisite, queue, age, and population
+rules still apply.
+
 `advance` accepts 0 through 10,000 deterministic simulation ticks. Selection,
-movement, and gathering are restricted to the active player's entities. This
+movement, gathering, building selection, production, and age research are
+restricted to the active player's entities. This
 API is intended for local testing, agents, and CI. It is not a network service
 and is inactive unless explicitly enabled.
 

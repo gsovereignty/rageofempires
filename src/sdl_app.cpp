@@ -5634,8 +5634,9 @@ const LegacyAnimation* legacy_action_for(
         }
     }
     if (unit.kind == UnitKind::villager) {
-        if (render_action_detail_for(simulation, unit) ==
-            RenderActionDetail::animal_resource) {
+        if (render_action_for(simulation, unit) ==
+                RenderAction::gathering &&
+            !moving && !unit.moving) {
             return for_player(active_legacy_sprites.villager_gather);
         }
     }

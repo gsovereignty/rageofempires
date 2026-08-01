@@ -497,6 +497,25 @@ void canonical_unit_states_cover_runtime_special_actions() {
         "animal gathering must select runtime SLP 1528"
     );
 
+    state.action_detail = aoe::RenderActionDetail::terrain_resource;
+    const auto terrain_gather = aoe::resolve_unit_asset(
+        state, aoe::UnitKind::villager
+    );
+    require(
+        terrain_gather.request.slp_id == 1528 &&
+        terrain_gather.request.required_frame_count == 15,
+        "stationary terrain gathering must select gather animation"
+    );
+
+    state.moving = true;
+    const auto moving_gather = aoe::resolve_unit_asset(
+        state, aoe::UnitKind::villager
+    );
+    require(
+        moving_gather.request.slp_id == 1484,
+        "moving terrain gatherer must select villager movement animation"
+    );
+
     state.object_kind = "monk";
     state.action = aoe::RenderAction::carrying_relic;
     state.action_detail = aoe::RenderActionDetail::none;

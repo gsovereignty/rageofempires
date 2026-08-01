@@ -6656,7 +6656,14 @@ void Simulation::update() {
                         unit.resource_target.y - unit.position.y
                     )
                 );
-                if (distance <= 1) {
+                if (distance <= 2) {
+                    // Resource sprites and nearby units occupy a wider
+                    // visual/collision envelope than one logical tile.
+                    // Workers inside that envelope must be able to work
+                    // without claiming an already occupied ring tile.
+                    unit.path.clear();
+                    unit.next_path_step = 0;
+                    unit.moving = false;
                     gather(unit);
                     continue;
                 }

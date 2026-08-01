@@ -1360,6 +1360,50 @@ void diagonal_berry_workers_gather_without_route_churn() {
     }
 }
 
+void crowded_berry_ring_allows_nearby_workers_to_gather() {
+    aoe::GameMap map(12, 10);
+    constexpr aoe::TilePosition berry{6, 5};
+    map.set_terrain(berry, aoe::Terrain::berry_bush);
+    map.set_resource_amount(berry, 100);
+    aoe::Simulation simulation(std::move(map));
+    constexpr std::array<aoe::TilePosition, 3> workers{{
+        {5, 4}, {4, 4}, {5, 3},
+    }};
+    for (aoe::TilePosition position : workers) {
+        const aoe::EntityId worker = simulation.add_unit(
+            aoe::UnitKind::villager,
+            aoe::Player::blue,
+            position
+        );
+        require(simulation.command_unit(worker, berry));
+    }
+    constexpr std::array<aoe::TilePosition, 7> occupied_ring{{
+        {5, 5}, {5, 6}, {6, 4}, {6, 6},
+        {7, 4}, {7, 5}, {7, 6},
+    }};
+    for (aoe::TilePosition position : occupied_ring) {
+        simulation.add_unit(
+            aoe::UnitKind::sheep,
+            aoe::Player::blue,
+            position
+        );
+    }
+    simulation.add_unit(
+        aoe::UnitKind::villager,
+        aoe::Player::red,
+        {11, 9}
+    );
+
+    for (int tick = 0; tick < 5; ++tick) {
+        simulation.update();
+    }
+    for (std::size_t index = 0; index < workers.size(); ++index) {
+        const aoe::Unit& worker = simulation.units()[index];
+        require(worker.has_resource_target);
+        require(worker.carried_amount > 0);
+    }
+}
+
 void gathering_waits_for_a_temporarily_unavailable_drop_off() {
     aoe::GameMap map(12, 6);
     map.set_terrain({2, 2}, aoe::Terrain::forest);
@@ -23179,6 +23223,10 @@ int main() {
     run(
         "diagonal berry gathering",
         diagonal_berry_workers_gather_without_route_churn
+    );
+    run(
+        "crowded berry gathering ring",
+        crowded_berry_ring_allows_nearby_workers_to_gather
     );
     run(
         "temporarily unavailable gathering drop off",

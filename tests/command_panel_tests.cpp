@@ -398,8 +398,8 @@ int main() {
             }
             return true;
         };
-    const auto monk_id = simulation.add_unit(
-        aoe::UnitKind::monk, aoe::Player::blue, {2, 2});
+    const auto monk_id = add_at_empty_tile(
+        simulation, aoe::UnitKind::monk);
     simulation.select_units({monk_id}, aoe::Player::blue);
     panel = aoe::build_selection_panel(simulation, aoe::Player::blue);
     expect(
@@ -410,8 +410,8 @@ int main() {
         "normal monk command set"
     );
 
-    const auto cart_id = simulation.add_unit(
-        aoe::UnitKind::trade_cart, aoe::Player::blue, {3, 3});
+    const auto cart_id = add_at_empty_tile(
+        simulation, aoe::UnitKind::trade_cart);
     simulation.select_units({cart_id}, aoe::Player::blue);
     panel = aoe::build_selection_panel(simulation, aoe::Player::blue);
     expect(
@@ -419,8 +419,8 @@ int main() {
         "trade route command absent"
     );
 
-    const auto trebuchet_id = simulation.add_unit(
-        aoe::UnitKind::trebuchet, aoe::Player::blue, {4, 4});
+    const auto trebuchet_id = add_at_empty_tile(
+        simulation, aoe::UnitKind::trebuchet);
     simulation.select_units({trebuchet_id}, aoe::Player::blue);
     panel = aoe::build_selection_panel(simulation, aoe::Player::blue);
     expect(
@@ -428,8 +428,8 @@ int main() {
             !has_command(panel, aoe::PanelCommand::unpack_trebuchet),
         "deployed trebuchet needs pack only"
     );
-    const auto packed_id = simulation.add_unit(
-        aoe::UnitKind::packed_trebuchet, aoe::Player::blue, {5, 5});
+    const auto packed_id = add_at_empty_tile(
+        simulation, aoe::UnitKind::packed_trebuchet);
     simulation.select_units({packed_id}, aoe::Player::blue);
     panel = aoe::build_selection_panel(simulation, aoe::Player::blue);
     expect(

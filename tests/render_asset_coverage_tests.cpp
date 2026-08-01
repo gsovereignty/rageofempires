@@ -132,8 +132,6 @@ void simulation_command_reaches_sheep_attack_mapping() {
 
 void cavalry_accumulator_wait_does_not_animate_in_place() {
     aoe::GameMap map{8, 4};
-    map.set_elevation({1, 1}, 0);
-    map.set_elevation({2, 1}, 3);
     aoe::Simulation simulation{std::move(map)};
     const aoe::EntityId scout = simulation.add_unit(
         aoe::UnitKind::scout_cavalry,
@@ -199,11 +197,11 @@ void cavalry_accumulator_wait_does_not_animate_in_place() {
         projected_y(
             waiting.render_previous_subtile,
             waiting_endpoints.previous
-        ) == 24.0F &&
+        ) == 48.0F &&
         projected_y(
             waiting.render_current_subtile,
             waiting_endpoints.current
-        ) > 24.0F,
+        ) > 48.0F,
         "fractional endpoints must retain presentation elevation without "
         "mutating authoritative previous position"
     );

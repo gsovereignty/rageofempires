@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <cstdlib>
+#include <iostream>
 #include <stdexcept>
 #include <vector>
 
@@ -19,6 +20,11 @@ bool represented_player(Player player) {
 }
 
 bool is_wall(BuildingKind kind);
+
+bool gather_trace_enabled() {
+    static const bool enabled = std::getenv("AOE_GATHER_TRACE") != nullptr;
+    return enabled;
+}
 
 }
 
@@ -2037,17 +2043,19 @@ bool Simulation::command_gather_unit(
     villager->resource_building_id = 0;
     villager->resource_unit_id = herdable_id;
     villager->returning_resource = false;
+    if (villager->carried_amount == 0) {
+        villager->carried_resource = ResourceKind::food;
+    }
     villager->garrison_target_id = 0;
     if (villager->carried_amount > 0 &&
         villager->carried_resource != ResourceKind::food) {
         Building* drop_off = nearest_drop_off(*villager);
-        if (drop_off == nullptr ||
-            !route_unit(*villager, drop_off->position)) {
-            villager->has_resource_target = false;
-            villager->resource_unit_id = 0;
-            return false;
-        }
         villager->returning_resource = true;
+        if (drop_off != nullptr) {
+            route_unit(*villager, drop_off->position);
+        } else {
+            villager->moving = false;
+        }
     }
     detach_builder(villager->id);
     return true;
@@ -2811,6 +2819,15 @@ bool Simulation::command_unit(
     if (unit->garrisoned_in != 0) {
         return false;
     }
+    if (gather_trace_enabled() && unit->kind == UnitKind::villager) {
+        std::cerr << "GATHER_COMMAND tick=" << tick_number_
+                  << " id=" << unit->id
+                  << " destination=" << destination.x << ','
+                  << destination.y
+                  << " active_before=" << unit->has_resource_target
+                  << " returning_before=" << unit->returning_resource
+                  << " carried_before=" << unit->carried_amount << '\n';
+    }
     const bool leaving_formation_movement =
         unit->formation_move_interval > 0;
     unit->formation_move_interval = 0;
@@ -2935,9 +2952,7 @@ bool Simulation::command_unit(
             building_target->kind == BuildingKind::farm &&
             building_target->completed() &&
             building_target->resource_amount > 0) {
-            if (!route_unit(*unit, destination)) {
-                return false;
-            }
+            route_unit(*unit, destination);
             unit->attack_target_id = 0;
             unit->attack_target_is_building = false;
             unit->repair_target_id = 0;
@@ -2946,15 +2961,18 @@ bool Simulation::command_unit(
             unit->resource_building_id = building_target->id;
             unit->resource_unit_id = 0;
             unit->returning_resource = false;
+            if (unit->carried_amount == 0) {
+                unit->carried_resource = ResourceKind::food;
+            }
             if (unit->carried_amount > 0 &&
                 unit->carried_resource != ResourceKind::food) {
                 Building* drop_off = nearest_drop_off(*unit);
-                if (drop_off == nullptr ||
-                    !route_unit(*unit, drop_off->position)) {
-                    unit->has_resource_target = false;
-                    return false;
-                }
                 unit->returning_resource = true;
+                if (drop_off != nullptr) {
+                    route_unit(*unit, drop_off->position);
+                } else {
+                    unit->moving = false;
+                }
             }
             detach_builder(unit->id);
             clear_attack_move();
@@ -3010,7 +3028,10 @@ bool Simulation::command_unit(
         !is_enemy(building_target->owner, unit->owner)) {
         return false;
     }
-    if (!route_unit(*unit, destination)) {
+    const bool routed = gathering
+        ? route_to_resource_interaction(*unit, destination)
+        : route_unit(*unit, destination);
+    if (!routed && !gathering) {
         return false;
     }
     unit->attack_target_id =
@@ -3026,15 +3047,18 @@ bool Simulation::command_unit(
     unit->resource_unit_id = 0;
     unit->returning_resource = false;
     unit->garrison_target_id = 0;
+    if (gathering && unit->carried_amount == 0) {
+        unit->carried_resource = target_resource;
+    }
     if (gathering && unit->carried_amount > 0 &&
         unit->carried_resource != target_resource) {
         Building* drop_off = nearest_drop_off(*unit);
-        if (drop_off == nullptr ||
-            !route_unit(*unit, drop_off->position)) {
-            unit->has_resource_target = false;
-            return false;
-        }
         unit->returning_resource = true;
+        if (drop_off != nullptr) {
+            route_unit(*unit, drop_off->position);
+        } else {
+            unit->moving = false;
+        }
     }
     detach_builder(unit->id);
     clear_attack_move();
@@ -4349,6 +4373,13 @@ bool Simulation::stop_unit(EntityId unit_id) {
     Unit* unit = find_unit(unit_id);
     if (unit == nullptr || unit->garrisoned_in != 0) {
         return false;
+    }
+    if (gather_trace_enabled() && unit->kind == UnitKind::villager) {
+        std::cerr << "GATHER_STOP tick=" << tick_number_
+                  << " id=" << unit->id
+                  << " active_before=" << unit->has_resource_target
+                  << " returning_before=" << unit->returning_resource
+                  << " carried_before=" << unit->carried_amount << '\n';
     }
     const bool leaving_formation_movement =
         unit->formation_move_interval > 0;
@@ -6559,11 +6590,10 @@ void Simulation::update() {
                         unit.carried_resource
                     )) {
                     drop_off = nearest_drop_off(unit);
-                    if (drop_off == nullptr ||
-                        !route_unit(unit, drop_off->position)) {
-                        unit.has_resource_target = false;
-                        unit.returning_resource = false;
+                    if (drop_off == nullptr) {
                         unit.moving = false;
+                    } else {
+                        route_unit(unit, drop_off->position);
                     }
                     continue;
                 }
@@ -6600,10 +6630,17 @@ void Simulation::update() {
                     const ResourceKind completed_resource =
                         unit.carried_resource;
                     unit.carried_amount = 0;
-                    unit.carried_resource = ResourceKind::none;
                     unit.returning_resource = false;
                     if (work_resource_amount(unit) > 0) {
-                        route_unit(unit, unit.resource_target);
+                        if (unit.resource_building_id != 0) {
+                            route_unit(unit, unit.resource_target);
+                        } else if (unit.resource_unit_id != 0) {
+                            route_unit(unit, unit.resource_target);
+                        } else {
+                            route_to_resource_interaction(
+                                unit, unit.resource_target
+                            );
+                        }
                     } else if (
                         unit.resource_building_id == 0 &&
                         route_to_nearest_resource(
@@ -6614,17 +6651,50 @@ void Simulation::update() {
                         unit.has_resource_target = true;
                     } else {
                         unit.has_resource_target = false;
+                        unit.carried_resource = ResourceKind::none;
                         unit.moving = false;
                     }
                     continue;
                 }
+                if (drop_off != nullptr && distance > 1 &&
+                    !unit.moving) {
+                    route_unit(unit, drop_off->position);
+                }
             } else {
-                const int distance =
-                    std::abs(unit.resource_target.x - unit.position.x) +
-                    std::abs(unit.resource_target.y - unit.position.y);
-                if (distance <= 1) {
+                if (unit.resource_building_id == 0 &&
+                    unit.resource_unit_id == 0 &&
+                    work_resource_amount(unit) == 0) {
                     gather(unit);
                     continue;
+                }
+                const int distance = std::max(
+                    std::abs(
+                        unit.resource_target.x - unit.position.x
+                    ),
+                    std::abs(
+                        unit.resource_target.y - unit.position.y
+                    )
+                );
+                if (distance <= 2) {
+                    // Resource sprites and nearby units occupy a wider
+                    // visual/collision envelope than one logical tile.
+                    // Workers inside that envelope must be able to work
+                    // without claiming an already occupied ring tile.
+                    unit.path.clear();
+                    unit.next_path_step = 0;
+                    unit.moving = false;
+                    gather(unit);
+                    continue;
+                }
+                if (!unit.moving) {
+                    if (unit.resource_building_id != 0 ||
+                        unit.resource_unit_id != 0) {
+                        route_unit(unit, unit.resource_target);
+                    } else {
+                        route_to_resource_interaction(
+                            unit, unit.resource_target
+                        );
+                    }
                 }
             }
         }
@@ -6841,12 +6911,44 @@ void Simulation::update() {
                 unit.movement_speed_remainder =
                     movement_speed_remainder_before;
             }
-            route_unit(unit, unit.destination);
+            if (unit.has_resource_target) {
+                unit.path.clear();
+                unit.next_path_step = 0;
+                unit.moving = false;
+            } else {
+                route_unit(unit, unit.destination);
+            }
         }
     }
 
     for (Unit& unit : units_) {
         refresh_unit_render_subtile(unit);
+    }
+
+    if (gather_trace_enabled() && tick_number_ % 5 == 0) {
+        for (const Unit& unit : units_) {
+            if (unit.kind != UnitKind::villager ||
+                (!unit.has_resource_target && unit.carried_amount == 0)) {
+                continue;
+            }
+            std::cerr << "GATHER_STATE tick=" << tick_number_
+                      << " id=" << unit.id
+                      << " position=" << unit.position.x << ','
+                      << unit.position.y
+                      << " moving=" << unit.moving
+                      << " active=" << unit.has_resource_target
+                      << " returning=" << unit.returning_resource
+                      << " carried_kind="
+                      << static_cast<int>(unit.carried_resource)
+                      << " carried=" << unit.carried_amount
+                      << " target=" << unit.resource_target.x << ','
+                      << unit.resource_target.y
+                      << " target_amount=" << work_resource_amount(unit)
+                      << " destination=" << unit.destination.x << ','
+                      << unit.destination.y
+                      << " path_step=" << unit.next_path_step << '/'
+                      << unit.path.size() << '\n';
+        }
     }
 
     std::vector<std::uint64_t> formation_groups;
@@ -7825,6 +7927,59 @@ Building* Simulation::nearest_drop_off(const Unit& unit) {
     return nearest;
 }
 
+bool Simulation::route_to_resource_interaction(
+    Unit& unit,
+    TilePosition resource_target
+) {
+    const int current_distance = std::max(
+        std::abs(resource_target.x - unit.position.x),
+        std::abs(resource_target.y - unit.position.y)
+    );
+    if (current_distance <= 1) {
+        unit.path.clear();
+        unit.next_path_step = 0;
+        unit.destination = resource_target;
+        unit.moving = false;
+        return true;
+    }
+
+    std::array<TilePosition, 8> candidates{{
+        {resource_target.x - 1, resource_target.y - 1},
+        {resource_target.x - 1, resource_target.y},
+        {resource_target.x - 1, resource_target.y + 1},
+        {resource_target.x, resource_target.y - 1},
+        {resource_target.x, resource_target.y + 1},
+        {resource_target.x + 1, resource_target.y - 1},
+        {resource_target.x + 1, resource_target.y},
+        {resource_target.x + 1, resource_target.y + 1},
+    }};
+    std::ranges::sort(
+        candidates,
+        [&unit](TilePosition first, TilePosition second) {
+            const int first_distance =
+                std::abs(first.x - unit.position.x) +
+                std::abs(first.y - unit.position.y);
+            const int second_distance =
+                std::abs(second.x - unit.position.x) +
+                std::abs(second.y - unit.position.y);
+            if (first_distance != second_distance) {
+                return first_distance < second_distance;
+            }
+            return first.y != second.y
+                ? first.y < second.y
+                : first.x < second.x;
+        }
+    );
+    for (TilePosition candidate : candidates) {
+        if (map_.contains(candidate) && map_.walkable(candidate) &&
+            route_unit(unit, candidate)) {
+            return true;
+        }
+    }
+    unit.moving = false;
+    return false;
+}
+
 bool Simulation::route_to_nearest_resource(
     Unit& unit,
     ResourceKind resource
@@ -7858,13 +8013,21 @@ bool Simulation::route_to_nearest_resource(
         }
     );
     for (TilePosition candidate : candidates) {
-        if (route_unit(unit, candidate)) {
+        if (route_to_resource_interaction(unit, candidate)) {
             unit.resource_target = candidate;
             unit.resource_building_id = 0;
             unit.resource_unit_id = 0;
             unit.returning_resource = false;
             return true;
         }
+    }
+    if (!candidates.empty()) {
+        unit.resource_target = candidates.front();
+        unit.resource_building_id = 0;
+        unit.resource_unit_id = 0;
+        unit.returning_resource = false;
+        unit.moving = false;
+        return true;
     }
     return false;
 }
@@ -9060,11 +9223,18 @@ void Simulation::gather(Unit& unit) {
     const int capacity = carry_capacity(unit);
     const ResourceKind resource = work_resource(unit);
     if (resource == ResourceKind::none && unit.carried_amount == 0) {
+        if (unit.resource_building_id == 0 &&
+            unit.resource_unit_id == 0 &&
+            unit.carried_resource != ResourceKind::none &&
+            route_to_nearest_resource(unit, unit.carried_resource)) {
+            return;
+        }
         unit.has_resource_target = false;
+        unit.carried_resource = ResourceKind::none;
         unit.moving = false;
         return;
     }
-    if (unit.carried_resource == ResourceKind::none) {
+    if (unit.carried_amount == 0) {
         unit.carried_resource = resource;
     }
     const Unit* animal = unit.resource_unit_id == 0
@@ -9197,16 +9367,12 @@ void Simulation::gather(Unit& unit) {
     }
 
     Building* drop_off = nearest_drop_off(unit);
+    unit.returning_resource = true;
     if (drop_off == nullptr) {
-        unit.has_resource_target = false;
         unit.moving = false;
         return;
     }
-    unit.returning_resource = true;
-    if (!route_unit(unit, drop_off->position)) {
-        unit.returning_resource = false;
-        unit.has_resource_target = false;
-    }
+    route_unit(unit, drop_off->position);
 }
 
 std::pair<int, int> Simulation::finite_resource_yield(

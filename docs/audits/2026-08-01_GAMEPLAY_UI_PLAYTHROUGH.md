@@ -7,6 +7,10 @@ bugs until reproduced and fixed; security classification is not claimed.
 
 ## UI-01: semantic API advances hidden pre-match simulation
 
+**Resolution:** Fixed. File-boundary requests now receive
+`no visible active match` while frontend is visible; rejected requests do not
+reach or mutate simulation.
+
 **Impact:** High test-integrity bug. An agent can report gameplay progress and
 victory while visible game remains on Main Menu.
 
@@ -30,6 +34,10 @@ untracked) and semantic responses from automation directory
 `/private/tmp/aoe-all-ages.C69uVF`.
 
 ## UI-02: gameplay status text is clipped on the left
+
+**Resolution:** Fixed. HUD selection, status, countdown, controls, observer
+badge, and portrait content now share a safe x inset beyond original skin's
+decorative divider.
 
 **Impact:** Medium readability bug. Status and help text lose their leading
 characters, making labels and shortcuts ambiguous.
@@ -56,8 +64,9 @@ combat at tick 1183.
 - **Visible setup:** passed. Random Map setup rendered and produced a visible
   Easiest/Conquest match. Changing difficulty invalidated the preview, so one
   Enter regenerated it and a second Enter started the match.
-- **Gameplay HUD/world:** failed UI-02. Resource and population bars, terrain,
-  sprites, fog boundary, and minimap rendered without another confirmed defect.
+- **Gameplay HUD/world:** originally failed UI-02. Resource and population
+  bars, terrain, sprites, fog boundary, and minimap rendered without another
+  confirmed defect.
 - **Combat:** semantic combat completed. The unchanged camera remained at the
   blue base while the minimap showed the cross-map order; exact-process capture
   confirmed the visible match stayed bound to the semantic simulation.

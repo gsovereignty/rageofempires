@@ -577,7 +577,11 @@ std::string GameplayTestApi::execute(
     return error_response("unknown gameplay test command");
 }
 
-void GameplayTestApi::poll(Simulation& simulation, Player player) {
+void GameplayTestApi::poll(
+    Simulation& simulation,
+    Player player,
+    bool match_active
+) {
     const std::uintmax_t size = std::filesystem::file_size(commands_path_);
     if (size < command_offset_) command_offset_ = 0;
     if (size == command_offset_) return;
@@ -592,9 +596,9 @@ void GameplayTestApi::poll(Simulation& simulation, Player player) {
         const std::size_t separator = line.find('\t');
         if (separator == std::string::npos || separator == 0) continue;
         const std::string id = line.substr(0, separator);
-        const std::string result = execute(
-            simulation, player, line.substr(separator + 1)
-        );
+        const std::string result = match_active
+            ? execute(simulation, player, line.substr(separator + 1))
+            : error_response("no visible active match");
         output << "{\"id\":\"" << json_escape(id)
                << "\",\"result\":" << result << "}\n";
         output.flush();

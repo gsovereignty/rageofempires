@@ -516,7 +516,7 @@ int main() {
         );
         commands << "request-1\tstate\n";
     }
-    api.poll(simulation, aoe::Player::blue);
+    api.poll(simulation, aoe::Player::blue, true);
     std::ifstream responses(directory / "responses.jsonl");
     const std::string response{
         std::istreambuf_iterator<char>{responses},
@@ -525,6 +525,26 @@ int main() {
     require(response.find("\"id\":\"request-1\"") !=
                 std::string::npos,
             "file boundary must correlate response id");
+    const auto gated_tick = simulation.tick_number();
+    {
+        std::ofstream commands(
+            directory / "commands.jsonl", std::ios::app
+        );
+        commands << "request-2\tadvance 5\n";
+    }
+    api.poll(simulation, aoe::Player::blue, false);
+    std::ifstream gated_responses(directory / "responses.jsonl");
+    const std::string gated_response{
+        std::istreambuf_iterator<char>{gated_responses},
+        std::istreambuf_iterator<char>{}
+    };
+    require(gated_response.find("\"id\":\"request-2\"") !=
+                std::string::npos &&
+            gated_response.find("no visible active match") !=
+                std::string::npos,
+            "file boundary must reject commands without visible match");
+    require(simulation.tick_number() == gated_tick,
+            "rejected pre-match command must not mutate simulation");
     std::filesystem::remove_all(directory);
     return 0;
 }

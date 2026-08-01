@@ -76,6 +76,9 @@ struct ResourceStatusLayout {
 
 inline constexpr int game_background_frame_count = 8;
 inline constexpr int debug_glyph_width = 8;
+// Original HUD skin's left divider extends past nominal information-panel
+// edge. Keep text and portraits beyond divider plus one debug-glyph margin.
+inline constexpr int information_content_x = 286;
 
 [[nodiscard]] constexpr int civilization_file_index(
     Civilization civilization

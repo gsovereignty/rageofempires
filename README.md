@@ -33,6 +33,7 @@ does not require, probe, or load commercial asset directories.
 Controls and content:
 
 - [Controls and scenario editing](docs/guide/CONTROLS.md)
+- [Background gameplay automation](docs/guide/GAMEPLAY_AUTOMATION.md)
 - [Random maps](docs/guide/RANDOM_MAPS.md)
 - [Civilization content](docs/guide/CIVILIZATION_CONTENT.md)
 - [Current implementation status](docs/guide/IMPLEMENTATION_STATUS.md)

@@ -150,6 +150,7 @@ add_library(aoe_core
     src/selection_visual_contract.cpp
     src/hud_layout_contract.cpp
     src/game_command.cpp
+    src/gameplay_test_api.cpp
     src/frontend_audio.cpp
     src/computer_player.cpp
     src/game_rules.cpp
@@ -161,6 +162,13 @@ add_library(aoe_core
 target_include_directories(aoe_core PUBLIC include)
 target_link_libraries(aoe_core PUBLIC ZLIB::ZLIB)
 target_compile_options(aoe_core PRIVATE -Wall -Wextra -Wpedantic)
+
+add_executable(gameplay_test_api_tests tests/gameplay_test_api_tests.cpp)
+target_link_libraries(gameplay_test_api_tests PRIVATE aoe_core)
+target_compile_options(
+    gameplay_test_api_tests PRIVATE -Wall -Wextra -Wpedantic
+)
+add_test(NAME gameplay_test_api_tests COMMAND gameplay_test_api_tests)
 
 add_executable(settings_tests tests/settings_tests.cpp)
 target_link_libraries(settings_tests PRIVATE aoe_core)

@@ -6,7 +6,7 @@ create or poll automation files.
 
 The game creates these files inside the directory:
 
-- `ready` after the live simulation can accept commands;
+- `ready` after the automation file boundary is listening;
 - `commands.jsonl` for request lines;
 - `responses.jsonl` for correlated JSON responses.
 
@@ -15,6 +15,9 @@ The game creates these files inside the directory:
 Launch with `launch_game(background=true)`, keep returned `automation_dir`, and
 create a match through visible menus. Once match starts, prefer
 `gameplay_macro` for commands not exposed as typed desktop tools.
+Commands sent while Main Menu or setup remains visible receive
+`{"ok":false,"error":"no visible active match"}` and never mutate hidden
+simulation state.
 
 First observation:
 

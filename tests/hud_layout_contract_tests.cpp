@@ -120,6 +120,7 @@ int main() {
            remainder.row.x + remainder.row.width);
     assert((inset(Rect{0, 0, 100, 40}, 6) == Rect{6, 6, 88, 28}));
     assert((inset(Rect{0, 0, 8, 8}, 6) == Rect{6, 6, 0, 0}));
+    assert(information_content_x >= 255 + 23 + debug_glyph_width);
     assert(truncate_debug_text("VILLAGER", 64) == "VILLAGER");
     assert(truncate_debug_text("VILLAGER", 56) == "VILL...");
     assert(truncate_debug_text("VILLAGER", 16).empty());

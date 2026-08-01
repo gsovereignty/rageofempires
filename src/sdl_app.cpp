@@ -10452,7 +10452,12 @@ void render_hud(
         simulation.selected_unit() || simulation.selected_building();
     if (observer_mode) {
         SDL_SetRenderClipRect(renderer, nullptr);
-        const SDL_FRect badge{270.0F, top + 16.0F, 142.0F, 30.0F};
+        const SDL_FRect badge{
+            static_cast<float>(hud_layout::information_content_x),
+            top + 16.0F,
+            142.0F,
+            30.0F,
+        };
         render_beveled_panel(renderer, badge, {75, 61, 40, 255});
         set_color(renderer, {245, 215, 122, 255});
         SDL_RenderDebugText(
@@ -10463,7 +10468,7 @@ void render_hud(
     if (has_selection) {
         if (information_clip.w >= 180) {
             const SDL_FRect portrait{
-                information_panel.x + 15.0F,
+                static_cast<float>(hud_layout::information_content_x),
                 top + 30.0F,
                 72.0F,
                 72.0F
@@ -10731,7 +10736,9 @@ void render_hud(
         SDL_SetRenderClipRect(renderer, &information_clip);
     } else {
         SDL_RenderDebugText(
-            renderer, 270.0F, top + 30.0F,
+            renderer,
+            static_cast<float>(hud_layout::information_content_x),
+            top + 30.0F,
             selection_text(simulation).c_str()
         );
     }
@@ -11386,7 +11393,12 @@ void render_hud(
         ? building_controls.c_str()
         : "Villager 3 Outpost F12 Wonder  Market Alt+T cart  Cart Alt+T route  Ctrl+Alt+A/N/E diplomacy  S stop";
     if (!has_selection && !observer_mode) {
-        SDL_RenderDebugText(renderer, 270.0F, top + 108.0F, controls);
+        SDL_RenderDebugText(
+            renderer,
+            static_cast<float>(hud_layout::information_content_x),
+            top + 108.0F,
+            controls
+        );
     }
     SDL_SetRenderClipRect(renderer, nullptr);
     std::ostringstream status;
@@ -11409,7 +11421,10 @@ void render_hud(
                        : "ENEMY");
     if (!has_selection && !observer_mode) {
         SDL_RenderDebugText(
-            renderer, 270.0F, top + 52.0F, status.str().c_str()
+            renderer,
+            static_cast<float>(hud_layout::information_content_x),
+            top + 52.0F,
+            status.str().c_str()
         );
     }
     const auto countdown_name = [](VictoryCountdownKind kind) {
@@ -11448,7 +11463,9 @@ void render_hud(
     }
     if (!has_selection && !observer_mode) {
         SDL_RenderDebugText(
-            renderer, 270.0F, top + 72.0F,
+            renderer,
+            static_cast<float>(hud_layout::information_content_x),
+            top + 72.0F,
             countdown_status.str().c_str()
         );
     }
@@ -16398,7 +16415,11 @@ int SdlApp::run() {
     while (running) {
         const auto frame_started = std::chrono::steady_clock::now();
         if (gameplay_test_api) {
-            gameplay_test_api->poll(simulation, active_view_player);
+            gameplay_test_api->poll(
+                simulation,
+                active_view_player,
+                active_frontend_screen == FrontendScreen::hidden
+            );
         }
         SDL_Event event;
         while (SDL_PollEvent(&event)) {

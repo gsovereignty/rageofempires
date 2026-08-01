@@ -16,7 +16,11 @@ class GameplayTestApi {
 public:
     explicit GameplayTestApi(std::filesystem::path directory);
 
-    void poll(Simulation& simulation, Player player);
+    void poll(
+        Simulation& simulation,
+        Player player,
+        bool match_active
+    );
 
     [[nodiscard]] static std::string execute(
         Simulation& simulation,

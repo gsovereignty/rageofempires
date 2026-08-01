@@ -34,6 +34,7 @@
 #include "aoe/frame_timing.hpp"
 #include "aoe/computer_player.hpp"
 #include "aoe/game_command.hpp"
+#include "aoe/gameplay_test_api.hpp"
 #include "aoe/game_rules.hpp"
 #include "aoe/hud_layout_contract.hpp"
 #include "aoe/initial_camera.hpp"
@@ -15005,6 +15006,11 @@ int SdlApp::run() {
     double gameplay_benchmark_command_ms{};
     std::size_t gameplay_benchmark_commanded_units{};
     Simulation simulation = new_game();
+    std::optional<GameplayTestApi> gameplay_test_api;
+    if (const char* directory = SDL_getenv("AOE_GAMEPLAY_TEST_API_DIR");
+        directory != nullptr && directory[0] != '\0') {
+        gameplay_test_api.emplace(directory);
+    }
     if (const char* benchmark =
             SDL_getenv("AOE_GAMEPLAY_BENCHMARK_PATH");
         benchmark != nullptr && benchmark[0] != '\0') {
@@ -16402,6 +16408,9 @@ int SdlApp::run() {
 
     while (running) {
         const auto frame_started = std::chrono::steady_clock::now();
+        if (gameplay_test_api) {
+            gameplay_test_api->poll(simulation, active_view_player);
+        }
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_EVENT_QUIT) {

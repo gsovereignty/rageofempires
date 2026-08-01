@@ -7,6 +7,8 @@ Documentation grouped by lifetime and purpose.
 Reader-facing setup, controls, architecture, content, and status:
 [guide/](guide/).
 
+- [Gameplay automation](guide/GAMEPLAY_AUTOMATION.md)
+
 ## Contracts
 
 Durable reconstruction-native behavior:

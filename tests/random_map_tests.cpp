@@ -1,4 +1,5 @@
 #include <array>
+#include <deque>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -471,6 +472,82 @@ void computer_players_make_deterministic_random_map_progress() {
     }
 }
 
+void seed_scouts_remain_in_reachable_land_component() {
+    for (const std::uint64_t seed : {1ULL, 2ULL}) {
+        aoe::RandomMapSettings settings;
+        settings.kind = aoe::RandomMapKind::arabia;
+        settings.size = aoe::RandomMapSize::maximum;
+        settings.seed = seed;
+        aoe::Simulation simulation = aoe::create_simulation(
+            aoe::generate_random_map(settings)
+        );
+        aoe::ComputerPlayer blue(aoe::Player::blue);
+        aoe::ComputerPlayer red(aoe::Player::red);
+        for (int tick = 0; tick < 1000; ++tick) {
+            simulation.update();
+            if (tick % 10 == 0) {
+                blue.update(simulation);
+                red.update(simulation);
+            }
+        }
+
+        for (const aoe::Player player : {
+                 aoe::Player::blue, aoe::Player::red,
+             }) {
+            const aoe::TilePosition start = [&] {
+                for (const aoe::Building& building : simulation.buildings()) {
+                    if (building.owner == player &&
+                        building.kind == aoe::BuildingKind::town_center) {
+                        return building.position;
+                    }
+                }
+                throw std::runtime_error("seed test town center missing");
+            }();
+            const aoe::GameMap& map = simulation.map();
+            const auto index = [&map](aoe::TilePosition position) {
+                return static_cast<std::size_t>(
+                    position.y * map.width() + position.x
+                );
+            };
+            std::vector<bool> reachable(
+                static_cast<std::size_t>(map.width() * map.height()), false
+            );
+            std::deque<aoe::TilePosition> queue{start};
+            reachable[index(start)] = true;
+            constexpr std::array<aoe::TilePosition, 4> directions{{
+                {1, 0}, {-1, 0}, {0, 1}, {0, -1},
+            }};
+            while (!queue.empty()) {
+                const aoe::TilePosition current = queue.front();
+                queue.pop_front();
+                for (const aoe::TilePosition direction : directions) {
+                    const aoe::TilePosition next{
+                        current.x + direction.x,
+                        current.y + direction.y,
+                    };
+                    if (!map.traversable(current, next) ||
+                        reachable[index(next)]) continue;
+                    reachable[index(next)] = true;
+                    queue.push_back(next);
+                }
+            }
+            for (const aoe::Unit& unit : simulation.units()) {
+                if (unit.owner == player &&
+                    unit.kind == aoe::UnitKind::scout_cavalry) {
+                    require(
+                        unit.last_move_tick > 0,
+                        "seed scout never made movement progress"
+                    );
+                    require(
+                        reachable[index(unit.position)],
+                        "seed scout escaped reachable land component"
+                    );
+                }
+            }
+        }
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -481,6 +558,7 @@ int main() {
         generated_map_writes_current_scenario();
         generated_civilization_starts_are_exact_and_durable();
         computer_players_make_deterministic_random_map_progress();
+        seed_scouts_remain_in_reachable_land_component();
         std::cout << "All random map tests passed\n";
         return 0;
     } catch (const std::exception& error) {

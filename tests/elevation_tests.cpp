@@ -36,6 +36,24 @@ int main() {
         }).empty(),
         "cliff blocks path"
     );
+    map.set_elevation({1, 0}, 1);
+    for (const aoe::Terrain resource : {
+             aoe::Terrain::forest,
+             aoe::Terrain::berry_bush,
+             aoe::Terrain::gold_mine,
+             aoe::Terrain::stone_mine,
+         }) {
+        map.set_terrain({1, 0}, resource);
+        require(!map.walkable({1, 0}), "land resource blocks traversal");
+        require(
+            aoe::find_path(map, {0, 0}, {2, 0}, [](aoe::TilePosition) {
+                return false;
+            }).empty(),
+            "land resource blocks path"
+        );
+    }
+    map.set_terrain({1, 0}, aoe::Terrain::grass);
+    map.set_elevation({1, 0}, 2);
     require(
         aoe::apply_elevation_damage(map, {1, 0}, {0, 0}, 20) == 25,
         "downhill damage"

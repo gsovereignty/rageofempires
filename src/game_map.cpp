@@ -38,9 +38,21 @@ int GameMap::elevation_at(TilePosition position) const {
 }
 
 bool GameMap::walkable(TilePosition position) const {
-    return contains(position) &&
-        terrain_at(position) != Terrain::water &&
-        terrain_at(position) != Terrain::fish;
+    if (!contains(position)) return false;
+    switch (terrain_at(position)) {
+        case Terrain::grass:
+        case Terrain::beach:
+        case Terrain::shallows:
+            return true;
+        case Terrain::water:
+        case Terrain::forest:
+        case Terrain::berry_bush:
+        case Terrain::gold_mine:
+        case Terrain::stone_mine:
+        case Terrain::fish:
+            return false;
+    }
+    return false;
 }
 
 bool GameMap::sailable(TilePosition position) const {

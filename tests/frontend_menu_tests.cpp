@@ -12,7 +12,16 @@ int main() {
     assert(main_menu_items().size() == 8);
     assert(single_player_menu_items().size() == 7);
     assert(main_menu_items()[1].bounds ==
-        (FrontendMenuRect{311, 12, 114, 38}));
+        (FrontendMenuRect{42, 154, 250, 42}));
+    for (std::size_t index = 0; index < main_menu_items().size(); ++index) {
+        const auto& bounds = main_menu_items()[index].bounds;
+        assert(bounds.x == 42);
+        assert(bounds.width == 250);
+        assert(bounds.height == 42);
+        if (index > 0) {
+            assert(bounds.y == main_menu_items()[index - 1].bounds.y + 50);
+        }
+    }
     assert(single_player_menu_items()[0].bounds ==
         (FrontendMenuRect{476, 89, 260, 39}));
 
@@ -21,21 +30,21 @@ int main() {
     assert(exact.offset_x == 0.0F && exact.offset_y == 0.0F);
 
     const auto wide = frontend_logical_transform(1920, 1080);
-    assert(std::abs(wide.scale - 1.8F) < 0.001F);
-    assert(std::abs(wide.offset_x - 240.0F) < 0.001F);
+    assert(std::abs(wide.scale - 2.4F) < 0.001F);
+    assert(std::abs(wide.offset_y + 180.0F) < 0.001F);
     const auto logical = wide.window_to_logical(
-        240.0F + 311.0F * 1.8F,
-        12.0F * 1.8F
+        42.0F * 2.4F,
+        -180.0F + 154.0F * 2.4F
     );
-    assert(logical && std::abs((*logical)[0] - 311.0F) < 0.001F);
+    assert(logical && std::abs((*logical)[0] - 42.0F) < 0.001F);
     assert(!wide.window_to_logical(10.0F, 10.0F));
 
     const auto ultrawide = frontend_logical_transform(3440, 1440);
-    assert(std::abs(ultrawide.scale - 2.4F) < 0.001F);
-    assert(std::abs(ultrawide.offset_x - 760.0F) < 0.001F);
+    assert(std::abs(ultrawide.scale - 4.3F) < 0.001F);
+    assert(std::abs(ultrawide.offset_y + 570.0F) < 0.001F);
 
     assert(frontend_menu_hit_test(
-        FrontendMenuScreen::main_menu, 330, 30
+        FrontendMenuScreen::main_menu, 100, 170
     ) == 1);
     assert(frontend_menu_hit_test(
         FrontendMenuScreen::single_player_menu, 500, 100

@@ -67,6 +67,14 @@ Seek exhaustive coverage and at least 100 distinct confirmed bugs, but never inv
 
 Do not count failed launches, infrastructure failures, hypotheses, incomplete checks, expected design differences, or duplicate manifestations as bugs or passes.
 
+## Improve this skill
+
+Treat each completed wave as feedback on this workflow. Ask scenario agents to include concise process lessons: missed states, weak evidence, capture failures, useful tick intervals, reliable launch/cleanup methods, better original-reference sources, and repeated ambiguity in instructions.
+
+After each wave, let coordinator review lessons and update this skill when change is reusable, evidence-backed, and likely to improve later audits. Never let scenario agents edit skill concurrently. Reject one-off workarounds, unverified guesses, fixture-specific trivia, duplicate guidance, and changes that weaken deterministic evidence, production-fidelity rules, or four-instance cap.
+
+Keep improvements concise and imperative. Prefer tightening existing instructions over adding prose. Add a script or reference only when repeated work proves it useful. Validate skill after every edit, inspect diff, and preserve unrelated changes. Apply accepted improvements before launching next wave when safe; otherwise queue them for coordinator after active processes end. Record material skill changes in final audit handoff and include them in focused audit-related commit.
+
 ## Track and consolidate
 
 Maintain scenario status as `pending`, `running`, `passed`, `bugs-found`, or `blocked`. Retry blocked scenarios with fresh agents. Never treat blocked as complete.

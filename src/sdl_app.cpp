@@ -238,8 +238,19 @@ enum class FrontendScreen {
     hidden,
     main_menu,
     single_player_menu,
+    ai_arabia_size_menu,
     single_player_setup,
 };
+
+FrontendMenuScreen frontend_menu_screen(FrontendScreen screen) {
+    if (screen == FrontendScreen::main_menu) {
+        return FrontendMenuScreen::main_menu;
+    }
+    if (screen == FrontendScreen::ai_arabia_size_menu) {
+        return FrontendMenuScreen::ai_arabia_size_menu;
+    }
+    return FrontendMenuScreen::single_player_menu;
+}
 FrontendScreen active_frontend_screen{FrontendScreen::main_menu};
 std::string active_frontend_status{"SELECT A MODE"};
 std::size_t active_frontend_focus{1};
@@ -12741,7 +12752,8 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
     if (active_frontend_screen == FrontendScreen::hidden) return;
     const bool classic_menu =
         active_frontend_screen == FrontendScreen::main_menu ||
-        active_frontend_screen == FrontendScreen::single_player_menu;
+        active_frontend_screen == FrontendScreen::single_player_menu ||
+        active_frontend_screen == FrontendScreen::ai_arabia_size_menu;
     if (classic_menu) {
         const FrontendLogicalTransform transform =
             frontend_logical_transform(
@@ -12824,9 +12836,7 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
             );
         };
         const FrontendMenuScreen model_screen =
-            active_frontend_screen == FrontendScreen::main_menu
-            ? FrontendMenuScreen::main_menu
-            : FrontendMenuScreen::single_player_menu;
+            frontend_menu_screen(active_frontend_screen);
         const auto items = frontend_menu_items(model_screen);
 
         for (std::size_t index = 0; index < main_menu_items().size();
@@ -12860,7 +12870,10 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
                   index == active_frontend_focus) ||
                  (model_screen ==
                       FrontendMenuScreen::single_player_menu &&
-                  index == 1))
+                  index == 1) ||
+                 (model_screen ==
+                      FrontendMenuScreen::ai_arabia_size_menu &&
+                  index == 2))
                     ? SDL_Color{202, 207, 1, 255}
                     : item.enabled
                         ? SDL_Color{217, 208, 176, 255}
@@ -12868,7 +12881,7 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
             );
         }
 
-        if (model_screen == FrontendMenuScreen::single_player_menu) {
+        if (model_screen != FrontendMenuScreen::main_menu) {
             const SDL_FRect right{443, 0, 357, 600};
             set_color(renderer, {9, 8, 6, 126});
             SDL_RenderFillRect(renderer, &right);
@@ -12878,12 +12891,14 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
             set_color(renderer, {196, 168, 138, 255});
             SDL_RenderRect(renderer, &header);
             draw_centered(
-                "Single Player",
+                model_screen == FrontendMenuScreen::ai_arabia_size_menu
+                    ? "Arabia vs AI" : "Single Player",
                 {449, 6, 327, 22},
                 {255, 255, 255, 255}
             );
             draw_centered(
-                "Epsi",
+                model_screen == FrontendMenuScreen::ai_arabia_size_menu
+                    ? "Choose Map Size" : "Epsi",
                 {449, 30, 327, 16},
                 {255, 255, 255, 255}
             );
@@ -15621,10 +15636,9 @@ int SdlApp::run() {
     if (const char* focus = SDL_getenv("AOE_MENU_FOCUS");
         focus != nullptr && focus[0] != '\0') {
         const int requested = SDL_atoi(focus);
-        const auto items = active_frontend_screen ==
-                FrontendScreen::single_player_menu
-            ? single_player_menu_items()
-            : main_menu_items();
+        const auto items = frontend_menu_items(
+            frontend_menu_screen(active_frontend_screen)
+        );
         active_frontend_focus = static_cast<std::size_t>(
             std::clamp(
                 requested,
@@ -16289,6 +16303,15 @@ int SdlApp::run() {
             activation.button.x = 100.0F;
             activation.button.y = 170.0F;
             SDL_PushEvent(&activation);
+        } else if (std::string_view{proof} == "ai-tiny") {
+            activation.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
+            activation.button.button = SDL_BUTTON_LEFT;
+            activation.button.x = 100.0F;
+            activation.button.y = 220.0F;
+            SDL_PushEvent(&activation);
+            activation.button.x = 500.0F;
+            activation.button.y = 170.0F;
+            SDL_PushEvent(&activation);
         } else if (std::string_view{proof} == "enter") {
             activation.type = SDL_EVENT_KEY_DOWN;
             activation.key.key = SDLK_RETURN;
@@ -16732,6 +16755,32 @@ int SdlApp::run() {
         return changed;
     };
 
+    const auto launch_ai_arabia = [&](RandomMapSize size) {
+        active_random_settings.kind = RandomMapKind::arabia;
+        active_random_settings.size = size;
+        active_setup_difficulty = ComputerDifficulty::moderate;
+        active_setup_victory = 0;
+        refresh_random_map_preview();
+        if (!random_map_preview) return;
+        random_map_preview->blue_civilization =
+            active_setup_civilization;
+        MatchRules& rules = random_map_preview->match_rules;
+        rules.conquest_enabled = true;
+        rules.wonder_enabled = false;
+        rules.relic_enabled = false;
+        demo_scenario = *random_map_preview;
+        simulation = create_simulation(demo_scenario);
+        center_camera_on_local_start();
+        computer = ComputerPlayer(
+            Player::red, ComputerDifficulty::moderate
+        );
+        SDL_Log(
+            "launched 1v1 Arabia vs AI: %s, Dark Age, Conquest",
+            random_map_size_label(size)
+        );
+        active_frontend_screen = FrontendScreen::hidden;
+    };
+
     const auto activate_frontend_command = [&](
         FrontendMenuCommand command
     ) {
@@ -16745,6 +16794,11 @@ int SdlApp::run() {
             case FrontendMenuCommand::open_single_player:
                 active_frontend_screen =
                     FrontendScreen::single_player_menu;
+                active_frontend_focus = 0;
+                return;
+            case FrontendMenuCommand::open_ai_arabia:
+                active_frontend_screen =
+                    FrontendScreen::ai_arabia_size_menu;
                 active_frontend_focus = 0;
                 return;
             case FrontendMenuCommand::open_history:
@@ -16823,6 +16877,18 @@ int SdlApp::run() {
             case FrontendMenuCommand::close_flyout:
                 active_frontend_screen = FrontendScreen::main_menu;
                 active_frontend_focus = 1;
+                return;
+            case FrontendMenuCommand::launch_ai_arabia_tiny:
+                launch_ai_arabia(RandomMapSize::tiny);
+                return;
+            case FrontendMenuCommand::launch_ai_arabia_small:
+                launch_ai_arabia(RandomMapSize::small);
+                return;
+            case FrontendMenuCommand::launch_ai_arabia_medium:
+                launch_ai_arabia(RandomMapSize::medium);
+                return;
+            case FrontendMenuCommand::launch_ai_arabia_large:
+                launch_ai_arabia(RandomMapSize::large);
                 return;
         }
     };
@@ -17131,7 +17197,9 @@ int SdlApp::run() {
                 event.type == SDL_EVENT_MOUSE_MOTION &&
                 (active_frontend_screen == FrontendScreen::main_menu ||
                  active_frontend_screen ==
-                    FrontendScreen::single_player_menu)
+                    FrontendScreen::single_player_menu ||
+                 active_frontend_screen ==
+                    FrontendScreen::ai_arabia_size_menu)
             ) {
                 mouse_position = {event.motion.x, event.motion.y};
                 const auto logical =
@@ -17143,10 +17211,7 @@ int SdlApp::run() {
                     );
                 if (logical) {
                     const FrontendMenuScreen screen =
-                        active_frontend_screen ==
-                                FrontendScreen::main_menu
-                        ? FrontendMenuScreen::main_menu
-                        : FrontendMenuScreen::single_player_menu;
+                        frontend_menu_screen(active_frontend_screen);
                     if (const auto hit = frontend_menu_hit_test(
                             screen, (*logical)[0], (*logical)[1])) {
                         active_frontend_focus = *hit;
@@ -17631,8 +17696,8 @@ int SdlApp::run() {
                                     event.button.x, event.button.y
                                 );
                             if (logical &&
-                                active_frontend_screen ==
-                                    FrontendScreen::single_player_menu &&
+                                active_frontend_screen !=
+                                    FrontendScreen::main_menu &&
                                 FrontendMenuRect{
                                     780, 4, 16, 16
                                 }.contains(
@@ -17642,11 +17707,9 @@ int SdlApp::run() {
                                 );
                             } else if (logical) {
                                 const FrontendMenuScreen screen =
-                                    active_frontend_screen ==
-                                            FrontendScreen::main_menu
-                                    ? FrontendMenuScreen::main_menu
-                                    : FrontendMenuScreen::
-                                        single_player_menu;
+                                    frontend_menu_screen(
+                                        active_frontend_screen
+                                    );
                                 if (const auto hit =
                                         frontend_menu_hit_test(
                                             screen,
@@ -19299,10 +19362,7 @@ int SdlApp::run() {
                         event.key.key == SDLK_DOWN
                     ) {
                         const FrontendMenuScreen screen =
-                            active_frontend_screen ==
-                                    FrontendScreen::main_menu
-                            ? FrontendMenuScreen::main_menu
-                            : FrontendMenuScreen::single_player_menu;
+                            frontend_menu_screen(active_frontend_screen);
                         active_frontend_focus =
                             move_frontend_menu_focus(
                                 screen,
@@ -19315,10 +19375,7 @@ int SdlApp::run() {
                         event.key.key == SDLK_SPACE
                     ) {
                         const FrontendMenuScreen screen =
-                            active_frontend_screen ==
-                                    FrontendScreen::main_menu
-                            ? FrontendMenuScreen::main_menu
-                            : FrontendMenuScreen::single_player_menu;
+                            frontend_menu_screen(active_frontend_screen);
                         const auto items = frontend_menu_items(screen);
                         const FrontendMenuActivation activation =
                             activate_frontend_menu_item(
@@ -19337,8 +19394,7 @@ int SdlApp::run() {
                         }
                     } else if (
                         event.key.key == SDLK_ESCAPE &&
-                        active_frontend_screen ==
-                            FrontendScreen::single_player_menu
+                        active_frontend_screen != FrontendScreen::main_menu
                     ) {
                         activate_frontend_command(
                             FrontendMenuCommand::close_flyout

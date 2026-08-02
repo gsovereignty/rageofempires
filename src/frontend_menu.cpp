@@ -17,34 +17,62 @@ constexpr std::array main_items{
         "Play a single-player game.",
     },
     FrontendMenuItem{
-        "History", {42, 204, 250, 42},
+        "Arabia vs AI", {42, 204, 250, 42},
+        FrontendMenuCommand::open_ai_arabia, true,
+        "Play standard Arabia against the built-in AI.",
+    },
+    FrontendMenuItem{
+        "History", {42, 254, 250, 42},
         FrontendMenuCommand::open_history, true,
         "Explore the history behind Age of Empires II.",
     },
     FrontendMenuItem{
-        "Multiplayer", {42, 254, 250, 42},
+        "Multiplayer", {42, 304, 250, 42},
         FrontendMenuCommand::open_multiplayer, true,
         "Create or join a supported multiplayer game.",
     },
     FrontendMenuItem{
-        "Map Editor", {42, 304, 250, 42},
+        "Map Editor", {42, 354, 250, 42},
         FrontendMenuCommand::open_map_editor, true,
         "Create and edit a scenario.",
     },
     FrontendMenuItem{
-        "Options", {42, 354, 250, 42},
+        "Options", {42, 404, 250, 42},
         FrontendMenuCommand::open_options, true,
         "Change game settings.",
     },
     FrontendMenuItem{
-        "Zone", {42, 404, 250, 42},
+        "Zone", {42, 454, 250, 42},
         FrontendMenuCommand::show_zone_unavailable, true,
         "MSN Gaming Zone service is no longer available.",
     },
     FrontendMenuItem{
-        "Exit", {42, 454, 250, 42},
+        "Exit", {42, 504, 250, 42},
         FrontendMenuCommand::exit_game, true,
         "Exit Age of Empires II.",
+    },
+};
+
+constexpr std::array ai_arabia_size_items{
+    FrontendMenuItem{
+        "Tiny (2 players)", {476, 153, 260, 39},
+        FrontendMenuCommand::launch_ai_arabia_tiny, true,
+        "120x120: standard size for a 1v1 match.",
+    },
+    FrontendMenuItem{
+        "Small (4 players)", {476, 204, 260, 39},
+        FrontendMenuCommand::launch_ai_arabia_small, true,
+        "144x144: more room for a longer 1v1 match.",
+    },
+    FrontendMenuItem{
+        "Medium (6 players)", {476, 254, 260, 39},
+        FrontendMenuCommand::launch_ai_arabia_medium, true,
+        "168x168: broad two-player Arabia battlefield.",
+    },
+    FrontendMenuItem{
+        "Large (8 players)", {476, 319, 260, 39},
+        FrontendMenuCommand::launch_ai_arabia_large, true,
+        "220x220: largest common multiplayer preset.",
     },
 };
 
@@ -142,6 +170,10 @@ std::span<const FrontendMenuItem> single_player_menu_items() {
     return single_player_items;
 }
 
+std::span<const FrontendMenuItem> ai_arabia_size_menu_items() {
+    return ai_arabia_size_items;
+}
+
 std::span<const FrontendMenuItem> frontend_menu_items(
     FrontendMenuScreen screen
 ) {
@@ -150,6 +182,9 @@ std::span<const FrontendMenuItem> frontend_menu_items(
     }
     if (screen == FrontendMenuScreen::single_player_menu) {
         return single_player_items;
+    }
+    if (screen == FrontendMenuScreen::ai_arabia_size_menu) {
+        return ai_arabia_size_items;
     }
     return {};
 }
@@ -198,6 +233,13 @@ FrontendMenuActivation activate_frontend_menu_item(
             true,
         };
     }
+    if (command == FrontendMenuCommand::open_ai_arabia) {
+        return {
+            FrontendMenuScreen::ai_arabia_size_menu,
+            command,
+            true,
+        };
+    }
     if (command == FrontendMenuCommand::open_random_map ||
         command == FrontendMenuCommand::open_regicide ||
         command == FrontendMenuCommand::open_death_match) {
@@ -241,7 +283,8 @@ FrontendMenuActivation activate_frontend_menu_item(
 FrontendMenuActivation close_frontend_menu(
     FrontendMenuScreen screen
 ) {
-    if (screen == FrontendMenuScreen::single_player_menu) {
+    if (screen == FrontendMenuScreen::single_player_menu ||
+        screen == FrontendMenuScreen::ai_arabia_size_menu) {
         return {
             FrontendMenuScreen::main_menu,
             FrontendMenuCommand::close_flyout,

@@ -9,8 +9,9 @@
 int main() {
     using namespace aoe;
 
-    assert(main_menu_items().size() == 8);
+    assert(main_menu_items().size() == 9);
     assert(single_player_menu_items().size() == 7);
+    assert(ai_arabia_size_menu_items().size() == 4);
     assert(main_menu_items()[1].bounds ==
         (FrontendMenuRect{42, 154, 250, 42}));
     for (std::size_t index = 0; index < main_menu_items().size(); ++index) {
@@ -24,6 +25,10 @@ int main() {
     }
     assert(single_player_menu_items()[0].bounds ==
         (FrontendMenuRect{476, 89, 260, 39}));
+    assert(ai_arabia_size_menu_items()[0].command ==
+        FrontendMenuCommand::launch_ai_arabia_tiny);
+    assert(ai_arabia_size_menu_items()[3].command ==
+        FrontendMenuCommand::launch_ai_arabia_large);
 
     const auto exact = frontend_logical_transform(800, 600);
     assert(exact.scale == 1.0F);
@@ -57,7 +62,7 @@ int main() {
 
     assert(move_frontend_menu_focus(
         FrontendMenuScreen::main_menu, 0, -1
-    ) == 7);
+    ) == 8);
     assert(move_frontend_menu_focus(
         FrontendMenuScreen::main_menu, 5, 1
     ) == 6);
@@ -71,6 +76,19 @@ int main() {
     assert(single.activate);
     assert(single.screen == FrontendMenuScreen::single_player_menu);
     assert(single.command == FrontendMenuCommand::open_single_player);
+
+    const auto ai_arabia = activate_frontend_menu_item(
+        FrontendMenuScreen::main_menu, 2
+    );
+    assert(ai_arabia.activate);
+    assert(ai_arabia.screen == FrontendMenuScreen::ai_arabia_size_menu);
+    assert(ai_arabia.command == FrontendMenuCommand::open_ai_arabia);
+
+    const auto tiny = activate_frontend_menu_item(
+        FrontendMenuScreen::ai_arabia_size_menu, 0
+    );
+    assert(tiny.activate);
+    assert(tiny.command == FrontendMenuCommand::launch_ai_arabia_tiny);
 
     const auto regicide = activate_frontend_menu_item(
         FrontendMenuScreen::single_player_menu, 2
@@ -92,4 +110,7 @@ int main() {
     );
     assert(closed.activate);
     assert(closed.screen == FrontendMenuScreen::main_menu);
+    assert(close_frontend_menu(
+        FrontendMenuScreen::ai_arabia_size_menu
+    ).screen == FrontendMenuScreen::main_menu);
 }

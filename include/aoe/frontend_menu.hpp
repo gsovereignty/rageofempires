@@ -11,6 +11,7 @@ namespace aoe {
 enum class FrontendMenuScreen {
     main_menu,
     single_player_menu,
+    ai_arabia_size_menu,
     random_map_setup,
     campaign_browser,
     custom_campaign_browser,
@@ -22,6 +23,7 @@ enum class FrontendMenuCommand {
     none,
     learn_to_play,
     open_single_player,
+    open_ai_arabia,
     open_history,
     open_multiplayer,
     open_map_editor,
@@ -36,6 +38,10 @@ enum class FrontendMenuCommand {
     open_custom_scenario,
     open_saved_game,
     close_flyout,
+    launch_ai_arabia_tiny,
+    launch_ai_arabia_small,
+    launch_ai_arabia_medium,
+    launch_ai_arabia_large,
 };
 
 struct FrontendMenuRect {
@@ -82,6 +88,7 @@ inline constexpr int frontend_logical_height = 600;
 );
 [[nodiscard]] std::span<const FrontendMenuItem> main_menu_items();
 [[nodiscard]] std::span<const FrontendMenuItem> single_player_menu_items();
+[[nodiscard]] std::span<const FrontendMenuItem> ai_arabia_size_menu_items();
 [[nodiscard]] std::span<const FrontendMenuItem> frontend_menu_items(
     FrontendMenuScreen screen
 );

@@ -57,7 +57,9 @@ class BatchVisualOverlapAuditTests(unittest.TestCase):
             report = MODULE.run_batch(manifest, first)
             MODULE.run_batch(manifest, second)
 
-            self.assertEqual(report["summary"], {"total": 2, "flagged": 1, "clean": 1})
+            self.assertEqual(report["summary"], {
+                "total": 2, "flagged": 1, "clean": 1, "blocked": 0,
+            })
             self.assertEqual([case["id"] for case in report["cases"]], ["a-overlap", "z-clean"])
             self.assertEqual((first / "report.json").read_bytes(), (second / "report.json").read_bytes())
             self.assertEqual((first / "review.html").read_bytes(), (second / "review.html").read_bytes())

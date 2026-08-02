@@ -8,6 +8,7 @@
 #include <charconv>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -416,6 +417,9 @@ struct LegacySprite {
     int height{};
     int hotspot_x{};
     int hotspot_y{};
+    std::int32_t resource_id{-1};
+    std::size_t frame_index{};
+    unsigned palette_player{};
 
     void destroy() {
         SDL_DestroyTexture(texture);
@@ -980,6 +984,36 @@ struct LegacySprites {
 };
 
 LegacySprites active_legacy_sprites;
+struct OverlapCaptureDraw {
+    const LegacySprite* sprite{};
+    SDL_FRect destination{};
+    bool flip{};
+    bool visible{true};
+};
+
+struct OverlapCaptureCase {
+    std::string id;
+    std::string kind;
+    EntityId entity{};
+    std::string state;
+    int facing{};
+    EntityOwner owner{Player::neutral};
+    int expected_left{};
+    int expected_top{};
+    std::vector<OverlapCaptureDraw> draws;
+};
+
+struct OverlapCaptureState {
+    bool active{};
+    bool complete{};
+    std::filesystem::path directory;
+    std::uint64_t tick{};
+    float zoom{1.0F};
+    std::vector<OverlapCaptureCase> cases;
+    OverlapCaptureCase* current{};
+};
+
+OverlapCaptureState active_overlap_capture;
 struct RuntimeAssetLoadFailure {
     AssetCoverageStatus status{AssetCoverageStatus::decode_failure};
     std::string reason;
@@ -2800,6 +2834,9 @@ LegacySprite create_legacy_sprite(
         frame.height,
         frame.hotspot_x,
         frame.hotspot_y,
+        resource_id,
+        frame_index,
+        player,
     };
 }
 
@@ -2859,6 +2896,9 @@ LegacySprite create_loose_legacy_sprite(
         frame.height,
         frame.hotspot_x,
         frame.hotspot_y,
+        -1,
+        frame_index,
+        1,
     };
 }
 
@@ -2906,6 +2946,9 @@ LegacyHudBackground create_hud_background(
                 frame.height,
                 frame.hotspot_x,
                 frame.hotspot_y,
+                -1,
+                index,
+                1,
             };
         }
     } catch (...) {
@@ -3002,6 +3045,9 @@ LegacyAnimation create_legacy_animation(
                 frame.height,
                 frame.hotspot_x,
                 frame.hotspot_y,
+                resource_id,
+                index,
+                player,
             });
         }
     } catch (...) {
@@ -3046,6 +3092,9 @@ LegacyAnimation create_legacy_animation(
                 animation.shadow_frames.push_back({
                     texture, frame.width, frame.height,
                     frame.hotspot_x, frame.hotspot_y,
+                    shadow->shadow_slp,
+                    index,
+                    1,
                 });
             }
             animation.shadow_frames_per_angle =
@@ -5174,6 +5223,237 @@ LegacySprites load_local_legacy_sprites(
     return sprites;
 }
 
+bool write_overlap_tga(
+    const std::filesystem::path& path,
+    int width,
+    int height,
+    const std::vector<std::uint8_t>& rgba
+) {
+    std::ofstream output(path, std::ios::binary | std::ios::trunc);
+    if (!output || width <= 0 || height <= 0 ||
+        rgba.size() != static_cast<std::size_t>(width * height * 4)) {
+        return false;
+    }
+    const std::array<unsigned char, 18> header{
+        0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        static_cast<unsigned char>(width & 0xff),
+        static_cast<unsigned char>((width >> 8) & 0xff),
+        static_cast<unsigned char>(height & 0xff),
+        static_cast<unsigned char>((height >> 8) & 0xff),
+        32, 0x28,
+    };
+    output.write(reinterpret_cast<const char*>(header.data()), header.size());
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            const std::size_t offset = static_cast<std::size_t>(y * width + x) * 4;
+            const std::array<unsigned char, 4> bgra{
+                rgba[offset + 2], rgba[offset + 1], rgba[offset], rgba[offset + 3]
+            };
+            output.write(reinterpret_cast<const char*>(bgra.data()), bgra.size());
+        }
+    }
+    return static_cast<bool>(output);
+}
+
+bool save_overlap_pixels(
+    SDL_Renderer* renderer,
+    const std::filesystem::path& path
+) {
+    if (!SDL_FlushRenderer(renderer)) return false;
+    SDL_Surface* surface = SDL_RenderReadPixels(renderer, nullptr);
+    if (surface == nullptr) return false;
+    const bool saved = SDL_SaveBMP(surface, path.string().c_str());
+    SDL_DestroySurface(surface);
+    return saved;
+}
+
+void begin_overlap_case(
+    std::string kind,
+    EntityId entity,
+    std::string state,
+    int facing,
+    EntityOwner owner = EntityOwner{Player::neutral}
+) {
+    if (!active_overlap_capture.active) return;
+    std::ostringstream identifier;
+    identifier << "tick-" << active_overlap_capture.tick << '-'
+               << kind << '-' << entity;
+    active_overlap_capture.cases.push_back({
+        identifier.str(), std::move(kind), entity, std::move(state), facing,
+        owner,
+        0, 0, {}
+    });
+    active_overlap_capture.current = &active_overlap_capture.cases.back();
+}
+
+void finish_overlap_case() {
+    active_overlap_capture.current = nullptr;
+}
+
+std::string overlap_json_escape(std::string_view value) {
+    std::string escaped;
+    for (const char character : value) {
+        if (character == '\\' || character == '"') {
+            escaped += '\\';
+            escaped += character;
+        } else if (character == '\n') {
+            escaped += "\\n";
+        } else if (character != '\r') {
+            escaped += character;
+        }
+    }
+    return escaped;
+}
+
+void write_overlap_sprite(SDL_Renderer* renderer, OverlapCaptureCase& capture) {
+    if (capture.draws.empty()) return;
+    SDL_Texture* previous_target = SDL_GetRenderTarget(renderer);
+    SDL_Rect previous_viewport{};
+    float previous_scale_x = 1.0F;
+    float previous_scale_y = 1.0F;
+    SDL_BlendMode previous_blend = SDL_BLENDMODE_BLEND;
+    SDL_GetRenderViewport(renderer, &previous_viewport);
+    SDL_GetRenderScale(renderer, &previous_scale_x, &previous_scale_y);
+    SDL_GetRenderDrawBlendMode(renderer, &previous_blend);
+    SDL_Texture* target = SDL_CreateTexture(
+        renderer, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_TARGET,
+        view_pixel_width, logical_screen_height
+    );
+    if (target == nullptr || !SDL_SetRenderTarget(renderer, target)) {
+        SDL_DestroyTexture(target);
+        capture.draws.clear();
+        return;
+    }
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+    set_color(renderer, {0, 0, 0, 0});
+    SDL_RenderClear(renderer);
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    const SDL_Rect viewport{0, 0, view_pixel_width, view_pixel_height};
+    SDL_SetRenderViewport(renderer, &viewport);
+    SDL_SetRenderScale(
+        renderer, active_overlap_capture.zoom, active_overlap_capture.zoom
+    );
+    for (const OverlapCaptureDraw& draw : capture.draws) {
+        const LegacySprite& sprite = *draw.sprite;
+        SDL_SetTextureColorMod(
+            sprite.texture, draw.visible ? 255 : 82,
+            draw.visible ? 255 : 82, draw.visible ? 255 : 82
+        );
+        SDL_RenderTextureRotated(
+            renderer, sprite.texture, nullptr, &draw.destination, 0.0,
+            nullptr, draw.flip ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE
+        );
+    }
+    SDL_SetRenderScale(renderer, 1.0F, 1.0F);
+    SDL_SetRenderViewport(renderer, nullptr);
+    SDL_FlushRenderer(renderer);
+    SDL_Surface* raw = SDL_RenderReadPixels(renderer, nullptr);
+    SDL_SetRenderTarget(renderer, previous_target);
+    SDL_SetRenderViewport(renderer, &previous_viewport);
+    SDL_SetRenderScale(renderer, previous_scale_x, previous_scale_y);
+    SDL_SetRenderDrawBlendMode(renderer, previous_blend);
+    SDL_DestroyTexture(target);
+    if (raw == nullptr) {
+        capture.draws.clear();
+        return;
+    }
+    SDL_Surface* surface = SDL_ConvertSurface(raw, SDL_PIXELFORMAT_RGBA32);
+    SDL_DestroySurface(raw);
+    if (surface == nullptr) {
+        capture.draws.clear();
+        return;
+    }
+    const auto* pixels = static_cast<const std::uint8_t*>(surface->pixels);
+    int left = surface->w;
+    int top = surface->h;
+    int right = 0;
+    int bottom = 0;
+    for (int y = 0; y < surface->h; ++y) {
+        for (int x = 0; x < surface->w; ++x) {
+            if (pixels[y * surface->pitch + x * 4 + 3] == 0) continue;
+            left = std::min(left, x);
+            top = std::min(top, y);
+            right = std::max(right, x + 1);
+            bottom = std::max(bottom, y + 1);
+        }
+    }
+    if (right <= left || bottom <= top) {
+        SDL_DestroySurface(surface);
+        capture.draws.clear();
+        return;
+    }
+    capture.expected_left = left;
+    capture.expected_top = top;
+    const int width = right - left;
+    const int height = bottom - top;
+    std::vector<std::uint8_t> image(
+        static_cast<std::size_t>(width * height * 4)
+    );
+    for (int y = 0; y < height; ++y) {
+        std::memcpy(
+            image.data() + static_cast<std::size_t>(y * width * 4),
+            pixels + (top + y) * surface->pitch + left * 4,
+            static_cast<std::size_t>(width * 4)
+        );
+    }
+    SDL_DestroySurface(surface);
+    write_overlap_tga(active_overlap_capture.directory /
+        (capture.id + "-expected.tga"), width, height, image);
+}
+
+void write_overlap_manifest(const Simulation& simulation) {
+    const std::filesystem::path path =
+        active_overlap_capture.directory / "manifest.json";
+    std::ofstream output(path, std::ios::trunc);
+    output << "{\n  \"schema_version\": 1,\n  \"cases\": [\n";
+    for (std::size_t index = 0; index < active_overlap_capture.cases.size(); ++index) {
+        const OverlapCaptureCase& capture = active_overlap_capture.cases[index];
+        output << "    {\"id\":\"" << overlap_json_escape(capture.id) << "\",";
+        if (capture.draws.empty()) {
+            output << "\"blocked_reason\":\"renderer used no auditable legacy RGBA sprite\",";
+        } else {
+            output << "\"actual\":\"actual.bmp\",\"terrain\":\"terrain.bmp\",";
+            output << "\"sprite\":\"" << overlap_json_escape(capture.id)
+                   << "-expected.tga\",\"x\":" << capture.expected_left
+                   << ",\"y\":" << capture.expected_top << ',';
+        }
+        output << "\"metadata\":{\"entity_id\":" << capture.entity
+               << ",\"entity\":\"" << overlap_json_escape(capture.kind)
+               << "\",\"state\":\"" << overlap_json_escape(capture.state)
+               << "\",\"facing\":" << capture.facing
+               << ",\"tick\":" << simulation.tick_number()
+               << ",\"camera_x\":" << active_camera.x
+               << ",\"camera_y\":" << active_camera.y
+               << ",\"zoom\":" << active_camera.zoom
+               << ",\"resolution\":\"" << view_pixel_width << 'x'
+               << logical_screen_height << "\"";
+        if (const char* scenario = SDL_getenv("AOE_SCENARIO_PATH")) {
+            output << ",\"scenario\":\""
+                   << overlap_json_escape(
+                          std::filesystem::path(scenario).filename().string()
+                      ) << "\"";
+        }
+        const EntityOwner owner = capture.owner;
+        output << ",\"ownership\":" << static_cast<int>(owner.stable_id())
+               << ",\"civilization\":\""
+               << name(simulation.civilization(owner)) << "\""
+               << ",\"age\":" << static_cast<int>(simulation.age(owner))
+               << ",\"sprite_frames\":[";
+        for (std::size_t draw_index = 0;
+             draw_index < capture.draws.size(); ++draw_index) {
+            const LegacySprite& sprite = *capture.draws[draw_index].sprite;
+            output << "{\"resource_id\":" << sprite.resource_id
+                   << ",\"frame\":" << sprite.frame_index
+                   << ",\"palette_player\":" << sprite.palette_player
+                   << '}';
+            if (draw_index + 1 != capture.draws.size()) output << ',';
+        }
+        output << "]}}";
+        output << (index + 1 == active_overlap_capture.cases.size() ? "\n" : ",\n");
+    }
+    output << "  ]\n}\n";
+}
+
 bool render_legacy_sprite(
     SDL_Renderer* renderer,
     const LegacySprite& sprite,
@@ -5199,6 +5479,14 @@ bool render_legacy_sprite(
         static_cast<float>(sprite.width),
         static_cast<float>(sprite.height),
     };
+    if (active_overlap_capture.current != nullptr) {
+        active_overlap_capture.current->draws.push_back({
+            &sprite,
+            destination,
+            flip_horizontal,
+            visible,
+        });
+    }
     SDL_RenderTextureRotated(
         renderer,
         sprite.texture,
@@ -13952,6 +14240,24 @@ std::size_t render(
     const CameraView& camera
 ) {
     std::size_t rendered_tiles{};
+    active_overlap_capture.active = false;
+    if (!active_overlap_capture.complete) {
+        const char* capture_directory = SDL_getenv("AOE_OVERLAP_CAPTURE_DIR");
+        const char* capture_tick = SDL_getenv("AOE_OVERLAP_CAPTURE_TICK");
+        const std::uint64_t requested_tick = capture_tick == nullptr
+            ? 0
+            : static_cast<std::uint64_t>(std::max(0, SDL_atoi(capture_tick)));
+        if (capture_directory != nullptr && capture_directory[0] != '\0' &&
+            simulation.tick_number() >= requested_tick) {
+            active_overlap_capture.active = true;
+            active_overlap_capture.directory = capture_directory;
+            active_overlap_capture.tick = simulation.tick_number();
+            active_overlap_capture.zoom = camera.zoom;
+            active_overlap_capture.cases.clear();
+            active_overlap_capture.current = nullptr;
+            std::filesystem::create_directories(active_overlap_capture.directory);
+        }
+    }
     active_camera = camera;
     active_render_map = &simulation.map();
     const Uint64 signal_now = SDL_GetTicks();
@@ -14130,6 +14436,16 @@ std::size_t render(
         }
     }
 
+    if (active_overlap_capture.active) {
+        SDL_SetRenderScale(renderer, 1.0F, 1.0F);
+        SDL_SetRenderViewport(renderer, nullptr);
+        save_overlap_pixels(
+            renderer, active_overlap_capture.directory / "terrain.bmp"
+        );
+        SDL_SetRenderViewport(renderer, &world_viewport);
+        SDL_SetRenderScale(renderer, camera.zoom, camera.zoom);
+    }
+
     for (int depth = 0;
          depth < simulation.map().width() + simulation.map().height() - 1;
          ++depth) {
@@ -14145,6 +14461,14 @@ std::size_t render(
                 )) {
                 const Terrain terrain =
                     simulation.map().terrain_at(position);
+                begin_overlap_case(
+                    "resource-" + std::to_string(static_cast<int>(terrain)),
+                    static_cast<EntityId>(
+                        position.y * simulation.map().width() + position.x
+                    ),
+                    "standing",
+                    0
+                );
                 if (terrain == Terrain::forest) {
                     render_tree(
                         renderer,
@@ -14164,6 +14488,7 @@ std::size_t render(
                         simulation.map().resource_amount_at(position)
                     );
                 }
+                finish_overlap_case();
             }
         }
 
@@ -14175,6 +14500,15 @@ std::size_t render(
                  !simulation.is_visible_to_controller(active_view_player, effect.position))) {
                 continue;
             }
+            begin_overlap_case(
+                "blocked-building-rubble-" +
+                    render_building_kind_name(effect.kind),
+                effect.entity_id,
+                "renderer effect isolation unsupported",
+                0,
+                effect.owner
+            );
+            finish_overlap_case();
             const auto exact_building_death =
                 active_legacy_sprites.building_death_composites.find(
                     effect.kind
@@ -14322,6 +14656,14 @@ std::size_t render(
                 !simulation.is_visible_to_controller(active_view_player, effect.position)) {
                 continue;
             }
+            begin_overlap_case(
+                "blocked-unit-death-" + render_unit_kind_name(effect.kind),
+                effect.entity_id,
+                "renderer effect isolation unsupported",
+                render_direction(effect.previous_position, effect.position),
+                effect.owner
+            );
+            finish_overlap_case();
             const SDL_FPoint top = tile_top(effect.position);
             const auto exact_death =
                 active_legacy_sprites.death.find(effect.kind);
@@ -14433,6 +14775,13 @@ std::size_t render(
                  !simulation.is_building_visible(active_view_player, building))) {
                 continue;
             }
+            begin_overlap_case(
+                "building-" + render_building_kind_name(building.kind),
+                building.id,
+                building.completed() ? "standing" : "construction",
+                render_building_topology_frame(simulation, building),
+                building.owner
+            );
             render_building(renderer, simulation, building);
             render_building_damage_overlay(
                 renderer,
@@ -14444,6 +14793,7 @@ std::size_t render(
                 simulation,
                 building
             );
+            finish_overlap_case();
         }
 
         for (const Unit& unit : simulation.units()) {
@@ -14455,6 +14805,15 @@ std::size_t render(
                  !simulation.is_visible_to_controller(active_view_player, unit.position))) {
                 continue;
             }
+            begin_overlap_case(
+                "unit-" + render_unit_kind_name(unit.kind),
+                unit.id,
+                std::to_string(static_cast<int>(
+                    render_action_detail_for(simulation, unit)
+                )),
+                render_direction(unit.previous_position, unit.position),
+                unit.owner
+            );
             render_unit(
                 renderer,
                 simulation,
@@ -14462,6 +14821,7 @@ std::size_t render(
                 movement_alpha,
                 presentation_time_ms
             );
+            finish_overlap_case();
         }
     }
 
@@ -14992,6 +15352,24 @@ std::size_t render(
     render_statistics_overlay(renderer, simulation);
     render_save_browser_overlay(renderer);
     report_map_dimensions(simulation);
+    if (active_overlap_capture.active) {
+        save_overlap_pixels(
+            renderer, active_overlap_capture.directory / "actual.bmp"
+        );
+        for (OverlapCaptureCase& capture : active_overlap_capture.cases) {
+            write_overlap_sprite(renderer, capture);
+        }
+        write_overlap_manifest(simulation);
+        active_overlap_capture.active = false;
+        active_overlap_capture.complete = true;
+        if (const char* exit_after = SDL_getenv("AOE_OVERLAP_CAPTURE_EXIT")) {
+            if (exit_after[0] != '\0' && exit_after[0] != '0') {
+                SDL_Event quit{};
+                quit.type = SDL_EVENT_QUIT;
+                SDL_PushEvent(&quit);
+            }
+        }
+    }
     capture_requested_frame(renderer, simulation, movement_alpha);
     SDL_RenderPresent(renderer);
     return rendered_tiles;

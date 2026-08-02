@@ -10,7 +10,13 @@ import re
 import sys
 from pathlib import Path
 
-from PIL import Image
+try:
+    from PIL import Image
+except ImportError as error:  # pragma: no cover - bad tool installation
+    raise SystemExit(
+        "batch visual overlap audit requires Pillow; install it with "
+        "`python3 -m pip install Pillow`"
+    ) from error
 
 from visual_overlap_audit import audit_images
 
@@ -97,7 +103,14 @@ def _gallery(report: dict[str, object]) -> str:
             f"<dt>{html.escape(str(key))}</dt><dd>{html.escape(str(value))}</dd>"
             for key, value in sorted(metadata.items())
         )
-        images = case["images"]
+        images = case.get("images", {})
+        if case["status"] == "blocked":
+            cards.append(f"""
+<article class="case blocked" data-status="blocked" data-case="{case['id']}">
+  <header><h2>{html.escape(case['id'])}</h2><strong>blocked</strong></header>
+  <p>{html.escape(str(case['blocked_reason']))}</p><dl>{metadata_rows}</dl>
+</article>""")
+            continue
         cards.append(f"""
 <article class="case {case['status']}" data-status="{case['status']}" data-case="{case['id']}">
   <header><h2>{html.escape(case['id'])}</h2><strong>{case['status']}</strong></header>
@@ -116,7 +129,8 @@ def _gallery(report: dict[str, object]) -> str:
   </fieldset>
 </article>""")
     review_seed = json.dumps(
-        [{"id": case["id"], "detector_status": case["status"]} for case in report["cases"]],
+        [{"id": case["id"], "detector_status": case["status"]}
+         for case in report["cases"] if case["status"] != "blocked"],
         sort_keys=True,
     ).replace("</", "<\\/")
     summary = report["summary"]
@@ -130,7 +144,7 @@ figure{{margin:0}}img{{max-width:100%;image-rendering:pixelated;background:#444}
 figcaption{{text-align:center}}dl{{display:grid;grid-template-columns:max-content 1fr;gap:3px 10px}}dt{{font-weight:bold}}dd{{margin:0}}
 </style></head><body>
 <h1>Visual overlap review</h1>
-<p>{summary['total']} cases; {summary['flagged']} flagged; {summary['clean']} clean.</p>
+<p>{summary['total']} cases; {summary['flagged']} flagged; {summary['clean']} clean; {summary['blocked']} blocked.</p>
 <button onclick="filterCases('all')">All</button><button onclick="filterCases('overlap_detected')">Flagged</button><button onclick="filterCases('pass')">Clean</button>
 <button onclick="downloadDecisions()">Download decisions JSON</button>
 {''.join(cards)}
@@ -174,6 +188,22 @@ def run_batch(manifest_path: Path, output_dir: Path) -> dict[str, object]:
     results = []
     for case in cases:
         identifier = case["id"]
+        metadata = case.get("metadata", {})
+        if not isinstance(metadata, dict):
+            raise ValueError(f"case {identifier} metadata must be an object")
+        blocked_reason = case.get("blocked_reason")
+        if blocked_reason is not None:
+            if not isinstance(blocked_reason, str) or not blocked_reason:
+                raise ValueError(f"case {identifier} blocked_reason must be non-empty")
+            results.append({
+                "id": identifier,
+                "status": "blocked",
+                "blocked_reason": blocked_reason,
+                "component_count": 0,
+                "overlap_pixels": 0,
+                "metadata": metadata,
+            })
+            continue
         actual_path = _path(base, case.get("actual"), "actual")
         terrain_path = _path(base, case.get("terrain"), "terrain")
         sprite_path = _path(base, case.get("sprite"), "sprite")
@@ -185,9 +215,6 @@ def run_batch(manifest_path: Path, output_dir: Path) -> dict[str, object]:
         )
         annotated_name = f"{identifier}-annotated.png"
         annotated.save(assets / annotated_name, format="PNG")
-        metadata = case.get("metadata", {})
-        if not isinstance(metadata, dict):
-            raise ValueError(f"case {identifier} metadata must be an object")
         results.append({
             "id": identifier,
             "status": detector["status"],
@@ -204,9 +231,13 @@ def run_batch(manifest_path: Path, output_dir: Path) -> dict[str, object]:
         })
 
     flagged = sum(case["status"] == "overlap_detected" for case in results)
+    blocked = sum(case["status"] == "blocked" for case in results)
     report: dict[str, object] = {
         "schema_version": 1,
-        "summary": {"total": len(results), "flagged": flagged, "clean": len(results) - flagged},
+        "summary": {
+            "total": len(results), "flagged": flagged,
+            "clean": len(results) - flagged - blocked, "blocked": blocked,
+        },
         "cases": results,
     }
     output_dir.mkdir(parents=True, exist_ok=True)

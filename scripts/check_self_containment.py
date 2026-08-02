@@ -10,8 +10,8 @@ import sys
 
 FORBIDDEN = re.compile(
     r"""
-    \.\./(?:Crack|decompiled|original-assets|original-assets-alternative)
-    |/ISO/(?:Crack|decompiled|original-assets|original-assets-alternative)
+    \.\./(?:Crack|decompiled|original-assets-hd|original-assets-1999)
+    |/ISO/(?:Crack|decompiled|original-assets-hd|original-assets-1999)
     |AOE_DEFAULT_ASSET_ROOT
     |getenv\s*\(\s*"AOE_ASSET_ROOT"
     """,

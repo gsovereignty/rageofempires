@@ -89,7 +89,7 @@ and Scenario66 serialization.
 
 ## Supplied-package audit
 
-The supplied `original-assets/app/Random` directory contains 15 complete
+The supplied `original-assets-hd/app/Random` directory contains 15 complete
 standalone `.rms` files. `ES@Canals_v2.rms` was inspected as the packet-9
 package fixture. Its `temp_min_distance_group_placement 20` directive now
 flows through bounded deterministic object placement. Its exact `if REGICIDE`

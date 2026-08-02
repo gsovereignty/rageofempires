@@ -92,7 +92,7 @@ span preservation, and rule/action budgets.
 
 ## Supplied-package audit
 
-The supplied `original-assets/app/AI` directory contains only `AI.txt`, whose
+The supplied `original-assets-hd/app/AI` directory contains only `AI.txt`, whose
 entire content is the literal `AI.txt`. It provides neither a `.ai` manifest
 nor referenced `.per` files, selection symbols, or package resolution context.
 Per the fail-closed contract, this is inspection-only evidence. No branch,

@@ -21,9 +21,9 @@ int main() {
     assert((with_top.main_child == Rect{0, 50, 1024, 559}));
     assert(!plain.top_child);
 
-    assert((command_button(844, 0) == Rect{37, 875, 40, 40}));
-    assert((command_button(844, 4) == Rect{201, 875, 40, 40}));
-    assert((command_button(844, 14) == Rect{201, 957, 40, 40}));
+    assert((command_button(844, 0) == Rect{34, 875, 38, 38}));
+    assert((command_button(844, 4) == Rect{202, 875, 38, 38}));
+    assert((command_button(844, 14) == Rect{202, 959, 38, 38}));
     assert((command_button(844, 15) == Rect{}));
     for (int index = 0; index < 15; ++index) {
         const Rect button = command_button(844, index);
@@ -34,7 +34,7 @@ int main() {
             button.y + button.height - 1
         ) == index);
     }
-    assert(command_button_at(844, 77, 875) == -1);
+    assert(command_button_at(844, 73, 875) == -1);
 
     assert((anchored_large_panel(1280, 1024) ==
            Rect{944, 855, 326, 164}));

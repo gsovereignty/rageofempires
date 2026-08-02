@@ -13630,10 +13630,19 @@ void sheep_integrate_with_pathing_vision_outcomes_and_ai() {
     for (int tick = 0; tick < 700; ++tick) {
         gathering.update();
     }
+    require(gathering.economy(aoe::Player::blue).food > starting_food);
     require(
-        gathering.economy(aoe::Player::blue).food >
+        gathering.economy(aoe::Player::blue).food <=
         starting_food + 100
     );
+    const auto shepherd = std::ranges::find_if(
+        gathering.units(), [villager](const aoe::Unit& unit) {
+            return unit.id == villager;
+        }
+    );
+    require(shepherd != gathering.units().end());
+    require(!shepherd->has_resource_target);
+    require(!shepherd->moving);
 
     aoe::Simulation visibility(aoe::GameMap(12, 8));
     visibility.add_unit(
@@ -13792,6 +13801,11 @@ void animal_carcass_decay_is_dat_rated_persistent_and_competitive() {
     );
 
     for (int tick = 0; tick < 12; ++tick) cadence.update();
+    require(cadence.units()[0].hit_points == 0);
+    require(!cadence.units()[0].moving);
+    require(cadence.units()[0].destination == cadence.units()[0].position);
+    require(cadence.units()[1].hit_points == 0);
+    require(!cadence.units()[1].moving);
     require(cadence.units()[0].food_remaining == 100);
     require(cadence.units()[0].food_decay_remainder == 300);
     require(cadence.units()[1].food_remaining == 340);
@@ -13864,6 +13878,17 @@ void animal_carcass_decay_is_dat_rated_persistent_and_competitive() {
         competition.units(),
         [deer](const aoe::Unit& unit) { return unit.id == deer; }
     ));
+    for (int tick = 0; tick < 30; ++tick) competition.update();
+    for (const aoe::EntityId id : {first, second}) {
+        const auto worker = std::ranges::find_if(
+            competition.units(), [id](const aoe::Unit& unit) {
+                return unit.id == id;
+            }
+        );
+        require(worker != competition.units().end());
+        require(!worker->has_resource_target);
+        require(!worker->moving);
+    }
 
     aoe::Simulation spoiled(aoe::GameMap(9, 6));
     const aoe::EntityId archer = spoiled.add_unit(

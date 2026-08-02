@@ -132,9 +132,13 @@ std::string statistics_victory_cause(
     }
     if (outcome == MatchOutcome::ongoing) return "MATCH IN PROGRESS";
     if (outcome == MatchOutcome::allied_victory) {
-        return "ALLIED VICTORY; EXACT CAUSE UNAVAILABLE";
+        return "ALLIED VICTORY";
     }
-    return "EXACT VICTORY CAUSE UNAVAILABLE";
+    if (outcome == MatchOutcome::blue_victory ||
+        outcome == MatchOutcome::red_victory) {
+        return "CONQUEST";
+    }
+    return "DRAW";
 }
 
 }  // namespace aoe

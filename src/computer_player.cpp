@@ -123,6 +123,7 @@ std::optional<TilePosition> nearest_unexplored(
     }
     std::optional<TilePosition> nearest;
     int nearest_distance = std::numeric_limits<int>::max();
+    int best_edge_clearance = -1;
     for (int y = 0; y < simulation.map().height(); ++y) {
         for (int x = 0; x < simulation.map().width(); ++x) {
             const TilePosition candidate{x, y};
@@ -132,9 +133,18 @@ std::optional<TilePosition> nearest_unexplored(
             }
             const int candidate_distance =
                 distance(unit.position, candidate);
-            if (candidate_distance < nearest_distance) {
+            const int edge_clearance = std::min({
+                candidate.x,
+                candidate.y,
+                map.width() - 1 - candidate.x,
+                map.height() - 1 - candidate.y,
+            });
+            if (candidate_distance < nearest_distance ||
+                (candidate_distance == nearest_distance &&
+                 edge_clearance > best_edge_clearance)) {
                 nearest = candidate;
                 nearest_distance = candidate_distance;
+                best_edge_clearance = edge_clearance;
             }
         }
     }

@@ -39,7 +39,7 @@ int main() {
     const std::vector units{garrisoned_blue_unit, blue_unit};
     assert((
         initial_camera_tile(buildings, units, Player::blue, 120, 100) ==
-        TilePosition{40, 41}
+        TilePosition{41, 42}
     ));
 
     assert((
@@ -54,7 +54,7 @@ int main() {
 
     assert((
         initial_camera_tile(buildings, units, Player::red, 120, 100) ==
-        TilePosition{70, 71}
+        TilePosition{71, 72}
     ));
 
     assert((

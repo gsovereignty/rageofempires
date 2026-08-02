@@ -19942,6 +19942,8 @@ void computer_strategy_is_configurable_visible_and_persistent() {
         expert_simulation.units()[0].destination !=
         expert_simulation.units()[1].position
     );
+    require(expert_simulation.units()[0].destination.y > 0);
+    require(expert_simulation.units()[0].destination.y < 7);
     require(expert.status().objective == aoe::ComputerObjective::scout);
 
     const auto ai_path = std::filesystem::temp_directory_path() /

@@ -1037,6 +1037,12 @@ add_test(
         "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 add_test(
+    NAME aoe_visual_overlap_tools_tests
+    COMMAND
+        "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/visual_overlap_tools_tests.py"
+)
+add_test(
     NAME aoe_command_icon_manifest
     COMMAND
         "${Python3_EXECUTABLE}"

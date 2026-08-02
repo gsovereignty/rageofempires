@@ -12,7 +12,10 @@ from pathlib import Path
 try:
     from PIL import Image, ImageDraw
 except ImportError as error:  # pragma: no cover - exercised only on bad installs
-    raise SystemExit("visual overlap audit requires Pillow") from error
+    raise SystemExit(
+        "visual overlap audit requires Pillow; install it with "
+        "`python3 -m pip install Pillow`"
+    ) from error
 
 
 def _byte_distance(left: tuple[int, ...], right: tuple[int, ...]) -> int:

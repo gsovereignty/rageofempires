@@ -37,7 +37,9 @@ int main() {
         -180.0F + 154.0F * 2.4F
     );
     assert(logical && std::abs((*logical)[0] - 42.0F) < 0.001F);
-    assert(!wide.window_to_logical(10.0F, 10.0F));
+    const auto covered_corner = wide.window_to_logical(10.0F, 10.0F);
+    assert(covered_corner);
+    assert((*covered_corner)[0] >= 0.0F && (*covered_corner)[1] >= 0.0F);
 
     const auto ultrawide = frontend_logical_transform(3440, 1440);
     assert(std::abs(ultrawide.scale - 4.3F) < 0.001F);

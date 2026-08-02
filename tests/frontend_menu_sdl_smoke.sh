@@ -22,6 +22,10 @@ capture() {
 }
 
 capture main 800x600 env AOE_MAIN_MENU=1
+capture proof-click 800x600 env \
+    AOE_MAIN_MENU=1 AOE_MENU_ACTIVATION_PROOF=click
+capture proof-enter 800x600 env \
+    AOE_MAIN_MENU=1 AOE_MENU_ACTIVATION_PROOF=enter
 for focus in 0 1 2 3 4 5 6; do
     capture "single-$focus" 800x600 env \
         AOE_MENU_REFERENCE=1 "AOE_MENU_FOCUS=$focus"
@@ -66,6 +70,12 @@ if (width, height) != (800, 600):
 if main(500, 100) == (0, 0, 0):
     raise SystemExit("main menu did not render full logical canvas")
 
+for proof in ("proof-click", "proof-enter"):
+    _, _, activated = read(root / f"{proof}.bmp")
+    # Single-player screen places first control on right; main menu does not.
+    if activated(500, 100) == main(500, 100):
+        raise SystemExit(f"{proof}: Single Player transition not visible")
+
 buttons = [
     (476, 89, 260, 39),
     (476, 153, 260, 39),
@@ -91,10 +101,10 @@ for index, (x, y, w, h) in enumerate(buttons):
 width, height, wide = read(root / "wide.bmp")
 if (width, height) != (1280, 720):
     raise SystemExit("wide capture dimensions wrong")
-if wide(0, 360) != (10, 9, 7) or wide(1279, 360) != (10, 9, 7):
-    raise SystemExit("wide menu does not preserve 4:3 letterboxing")
-if wide(162, 2) == (10, 9, 7):
-    raise SystemExit("wide menu logical canvas missing at fitted edge")
+if wide(0, 360) == (10, 9, 7) or wide(1279, 360) == (10, 9, 7):
+    raise SystemExit("wide menu exposes black side gutters")
+if wide(640, 2) == (10, 9, 7):
+    raise SystemExit("wide menu logical canvas does not cover window")
 
 width, height, original = read(root / "original.bmp")
 if (width, height) != (800, 600):

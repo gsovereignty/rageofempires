@@ -2,10 +2,10 @@
 
 > Remediation status: **closed**. All findings listed here were addressed by
 > commits `eab2ff1`, `dc0cf17`, `8be5316`, `cec443f`, `505c670`, and the final
-> camera/scouting follow-up recorded after this report. Exact proprietary
-> statistics artwork was not copied; tracked reconstruction-native treatments
-> now fulfill the same background, decal, banner, tab, button, and team-emblem
-> roles without adding an external runtime dependency.
+> camera/scouting follow-up recorded after this report. Exact statistics
+> interface SLPs now load from tracked `game_data/Data/interfac.drs`; a
+> reconstruction-native fallback remains available when legacy assets are
+> explicitly disabled. No parent-workspace runtime dependency was added.
 
 ## Result and method
 
@@ -213,13 +213,25 @@ without treating reconstruction choices as original behavior.
 - `UIR-081`–`UIR-100`: textured statistics composition, emblem/banner roles,
   icon tabs/buttons, header and table separators, compact value columns, score
   summary/chart, clean action labels, corrected click bounds, and stable opaque
-  full-frame redraws.
+  full-frame redraws. `statistics_view_sdl_smoke` exercises real SDL click
+  events for all five tabs, fallback and original postgame buttons, exact
+  original-interface asset loading, and repeated byte-identical full frames.
 - `GAME-PLAY-001`–`GAME-PLAY-005`: bounded animal retargeting, dead-unit
   removal, valid remote construction, live deer/boar hunting, and terminal
   order settlement have direct simulation regressions.
 
 Required `make` completed without build errors. Relevant simulation, menu,
 HUD, minimap, fog, terrain, selection, statistics, initial-camera, and SDL
-smoke contracts pass. Full Dark Age sprite sample remains verified; untested
+smoke contracts pass; final full run passed **117/117** CTest cases. Full Dark
+Age sprite sample remains verified; untested
 ages and unit families remain coverage unknowns, not open defects from this
 audit.
+
+Interaction evidence is routed through production event handling:
+`frontend_menu_sdl_smoke` injects click and Enter activation and requires the
+visible Single Player transition; `minimap_interaction_sdl_smoke` injects a
+minimap click and requires changed camera output plus readable markers and
+viewport glyph; seed `99` runs for 1000 ticks with a bounded Red-scout edge
+streak. Screenshot verification explicitly flushes SDL's render queue before
+framebuffer reads, preventing the partial-black capture that produced
+`UIR-100`.

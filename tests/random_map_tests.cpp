@@ -473,7 +473,7 @@ void computer_players_make_deterministic_random_map_progress() {
 }
 
 void seed_scouts_remain_in_reachable_land_component() {
-    for (const std::uint64_t seed : {1ULL, 2ULL}) {
+    for (const std::uint64_t seed : {1ULL, 2ULL, 99ULL}) {
         aoe::RandomMapSettings settings;
         settings.kind = aoe::RandomMapKind::arabia;
         settings.size = aoe::RandomMapSize::maximum;
@@ -483,12 +483,38 @@ void seed_scouts_remain_in_reachable_land_component() {
         );
         aoe::ComputerPlayer blue(aoe::Player::blue);
         aoe::ComputerPlayer red(aoe::Player::red);
+        int red_scout_boundary_streak{};
+        int longest_red_scout_boundary_streak{};
         for (int tick = 0; tick < 1000; ++tick) {
             simulation.update();
             if (tick % 10 == 0) {
                 blue.update(simulation);
                 red.update(simulation);
             }
+            const auto scout = std::ranges::find_if(
+                simulation.units(), [](const aoe::Unit& unit) {
+                    return unit.owner == aoe::Player::red &&
+                        unit.kind == aoe::UnitKind::scout_cavalry;
+                }
+            );
+            if (scout != simulation.units().end() &&
+                (scout->position.x == 0 || scout->position.y == 0 ||
+                 scout->position.x == simulation.map().width() - 1 ||
+                 scout->position.y == simulation.map().height() - 1)) {
+                ++red_scout_boundary_streak;
+                longest_red_scout_boundary_streak = std::max(
+                    longest_red_scout_boundary_streak,
+                    red_scout_boundary_streak
+                );
+            } else {
+                red_scout_boundary_streak = 0;
+            }
+        }
+        if (seed == 99) {
+            require(
+                longest_red_scout_boundary_streak < 250,
+                "seed 99 red scout remained fixed to map boundary"
+            );
         }
 
         for (const aoe::Player player : {

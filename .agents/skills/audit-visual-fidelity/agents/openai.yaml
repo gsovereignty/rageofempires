@@ -1,0 +1,4 @@
+interface:
+  display_name: "Audit Visual Fidelity"
+  short_description: "Audit every gameplay frame against original visuals"
+  default_prompt: "Use $audit-visual-fidelity to audit every packaged scenario for production visual-fidelity bugs."

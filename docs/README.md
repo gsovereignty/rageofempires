@@ -31,6 +31,8 @@ Bounded findings about commercial formats and behavior:
 
 ## Assets
 
+- [HD and 1999 data-source manifest](assets/DATA_SOURCE_MANIFEST.md)
+
 Sprite, technology, civilization, renderer, and asset-coverage mappings:
 [assets/](assets/).
 

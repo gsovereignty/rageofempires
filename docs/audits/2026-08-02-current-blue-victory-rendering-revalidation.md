@@ -66,6 +66,153 @@ siege; monks; wonders; every facing; and every animation frame. One short
 Dark Age Conquest cannot prove that all sprites and animations render
 correctly. Any such claim would be unsupported.
 
+## Remaining playthrough inventory
+
+### Supported game types
+
+- Random Map
+- Custom Scenario
+- Campaign
+- Saved Game
+- Recorded-game/replay
+- Local multiplayer Host/Join
+- Scenario Editor playtest
+
+Regicide, Death Match, Learn to Play, and online Zone matchmaking are currently
+disabled or incomplete and cannot yet supply native full-playthrough coverage.
+
+### Random Map matrix
+
+Testable map kinds are Arabia, Black Forest, Islands, and Rivers. Testable
+victory rules are Conquest, Wonder, and Relic. Computer difficulty provides
+Easiest, Easy, Moderate, Hard, and Hardest levels. This creates a baseline of
+**60 configurations** before varying seed, civilization, starting age,
+diplomacy, save/reload point, or multiplayer role.
+
+The frontend currently exposes Maximum map size. Generation/import APIs also
+support Tiny, Small, Medium, Normal, Large, Giant, and Maximum, so non-frontend
+tests should cover the full size set.
+
+### Packaged campaign
+
+`briefing-demo.campaign` contains two ordered missions:
+
+1. `foundations.scenario` — Foundations
+2. `elevation-demo.scenario` — The High Ground
+
+Campaign coverage should include briefing, objectives, victory unlock,
+defeat/retry, progress persistence, stale-progress handling, and debrief.
+
+### Packaged custom scenarios
+
+The repository contains **70** scenario fixtures available for targeted
+playthrough and rendering tests.
+
+#### Core presentation and terrain
+
+- `visual-audit.scenario`
+- `building-age-dark.scenario`
+- `building-age-feudal.scenario`
+- `building-age-castle.scenario`
+- `building-age-imperial.scenario`
+- `foundations.scenario`
+- `elevation-demo.scenario`
+- `elevation-transition-matrix.scenario`
+- `water-render-audit.scenario`
+- `footprint-visibility-audit.scenario`
+- `damage-audit.scenario`
+- `rubble-audit.scenario`
+- `farm-render-audit.scenario`
+- `editor-roundtrip.scenario`
+
+#### Animation and worker behavior
+
+- `combat-pose-audit.scenario`
+- `movement-gait-audit.scenario`
+- `villager-work-audit.scenario`
+- `villager-repair-audit.scenario`
+- `sheep-gather-audit.scenario`
+- `sheep-movement-audit.scenario`
+- `huntable-animal-audit.scenario`
+- `wheelbarrow-movement-audit.scenario`
+- `ai-building-attack-audit.scenario`
+
+#### Monk, relic, trade, and economy
+
+- `monk-conversion-audit.scenario`
+- `monk-relic-healing-audit.scenario`
+- `market-exchange-audit.scenario`
+- `allied-trade-audit.scenario`
+
+#### Naval gameplay
+
+- `naval-fishing-audit.scenario`
+- `naval-combat-transport-audit.scenario`
+- `fire-demolition-ship-audit.scenario`
+- `cannon-dock-technologies-audit.scenario`
+- `unique-naval-units-audit.scenario`
+
+#### Civilization and unique-unit coverage
+
+- `civilization-bonuses-audit.scenario`
+- `expanded-civilizations-audit.scenario`
+- `asian-saracen-civilizations-audit.scenario`
+- `final-civilizations-audit.scenario`
+- `conquerors-civilizations-audit.scenario`
+- `castle-unique-units-audit.scenario`
+- `eastern-castle-unique-units-audit.scenario`
+
+#### Unit-upgrade rendering
+
+- `arbalester-render-audit.scenario`
+- `elite-skirmisher-render-audit.scenario`
+- `champion-render-audit.scenario`
+- `two-handed-swordsman-render-audit.scenario`
+- `light-cavalry-render-audit.scenario`
+- `cavalier-render-audit.scenario`
+- `paladin-render-audit.scenario`
+- `hussar-render-audit.scenario`
+
+#### Blacksmith and economy technologies
+
+- `loom-render-audit.scenario`
+- `double-bit-axe-audit.scenario`
+- `horse-collar-render-audit.scenario`
+- `husbandry-render-audit.scenario`
+- `bloodlines-render-audit.scenario`
+- `bodkin-arrow-render-audit.scenario`
+- `bracer-render-audit.scenario`
+- `padded-archer-armor-render-audit.scenario`
+- `leather-archer-armor-render-audit.scenario`
+- `ring-archer-armor-render-audit.scenario`
+- `scale-mail-armor-render-audit.scenario`
+- `chain-mail-armor-render-audit.scenario`
+- `plate-mail-armor-render-audit.scenario`
+- `scale-barding-armor-render-audit.scenario`
+- `chain-barding-armor-render-audit.scenario`
+- `plate-barding-armor-render-audit.scenario`
+- `iron-casting-render-audit.scenario`
+- `blast-furnace-render-audit.scenario`
+
+#### Buildings and gates
+
+- `palisade-gate-render-audit.scenario`
+- `stone-gate-render-audit.scenario`
+- `fortified-wall-render-audit.scenario`
+- `guard-tower-render-audit.scenario`
+- `keep-render-audit.scenario`
+
+### Recommended completion sequence
+
+1. Run all 70 scenario fixtures at their documented action/capture ticks.
+2. Run all 60 frontend Random Map combinations.
+3. Vary civilizations and seeds across that matrix to expose asset-selection
+   and procedural-map defects.
+4. Exercise Wonder and Relic countdowns through terminal statistics screens.
+5. Complete both campaign missions, including loss and persistence paths.
+6. Repeat representative land, naval, campaign, save/load, and terminal flows
+   in local multiplayer and replay modes.
+
 ## Original-source comparison
 
 Read-only decompiled evidence at `decompiled/AoK-HD-patched.c` around lines
@@ -85,4 +232,3 @@ used procedural noise.
 6. Click Military, Society, Technology, then Timeline.
 7. Observe Timeline removes header and bottom actions and shows an unlabeled,
    ambiguous chart.
-

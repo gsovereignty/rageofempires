@@ -12508,12 +12508,8 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
         set_color(renderer, {10, 9, 7, 255});
         SDL_RenderClear(renderer);
         const SDL_Rect viewport{
-            static_cast<int>(std::lround(
-                transform.offset_x / transform.scale
-            )),
-            static_cast<int>(std::lround(
-                transform.offset_y / transform.scale
-            )),
+            static_cast<int>(std::lround(transform.offset_x)),
+            static_cast<int>(std::lround(transform.offset_y)),
             static_cast<int>(std::lround(
                 frontend_logical_width * transform.scale
             )),
@@ -12590,9 +12586,6 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
             : FrontendMenuScreen::single_player_menu;
         const auto items = frontend_menu_items(model_screen);
 
-        const bool has_original_background =
-            active_legacy_sprites
-                .original_frontend_background.texture != nullptr;
         for (std::size_t index = 0; index < main_menu_items().size();
              ++index) {
             const FrontendMenuItem& item = main_menu_items()[index];
@@ -12603,12 +12596,14 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
                 item.bounds.x, item.bounds.y,
                 item.bounds.width, item.bounds.height,
             };
-            set_color(
+            render_beveled_panel(
                 renderer,
-                focused ? SDL_Color{92, 66, 30, 242}
-                        : SDL_Color{36, 27, 18, 218}
+                plaque,
+                focused ? SDL_Color{105, 72, 27, 246}
+                        : item.enabled
+                            ? SDL_Color{48, 35, 22, 232}
+                            : SDL_Color{31, 29, 25, 218}
             );
-            SDL_RenderFillRect(renderer, &plaque);
             set_color(
                 renderer,
                 focused ? SDL_Color{226, 207, 92, 255}
@@ -12706,16 +12701,35 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
                     y += 14.0F;
                 }
             }
-        } else if ((has_original_background ||
-                    active_legacy_sprites.frontend_background != nullptr) &&
-                   active_frontend_focus < items.size()) {
+        } else if (active_frontend_focus < items.size()) {
             const FrontendMenuItem& item = items[active_frontend_focus];
-            set_color(renderer, {202, 207, 1, 255});
+            const SDL_FRect help{326, 394, 438, 128};
+            render_beveled_panel(renderer, help, {151, 98, 48, 245});
+            set_color(renderer, {45, 27, 15, 255});
+            SDL_RenderDebugText(renderer, 350, 416, "SELECTED");
+            draw_centered(
+                item.label,
+                {350, 440, 390, 24},
+                item.enabled
+                    ? SDL_Color{250, 235, 185, 255}
+                    : SDL_Color{104, 91, 72, 255}
+            );
+            set_color(renderer, {55, 34, 19, 255});
+            SDL_RenderDebugText(
+                renderer, 350, 478,
+                std::string{item.help}.substr(0, 48).c_str()
+            );
+            set_color(renderer, {255, 226, 100, 255});
             const SDL_FRect focus{
-                item.bounds.x, item.bounds.y,
-                item.bounds.width, item.bounds.height,
+                item.bounds.x - 3.0F, item.bounds.y - 3.0F,
+                item.bounds.width + 6.0F, item.bounds.height + 6.0F,
             };
             SDL_RenderRect(renderer, &focus);
+            const SDL_FRect inner{
+                item.bounds.x + 3.0F, item.bounds.y + 3.0F,
+                item.bounds.width - 6.0F, item.bounds.height - 6.0F,
+            };
+            SDL_RenderRect(renderer, &inner);
         }
         SDL_SetRenderScale(renderer, 1.0F, 1.0F);
         SDL_SetRenderViewport(renderer, nullptr);
@@ -13088,9 +13102,9 @@ void render_statistics_overlay(
     }
     if (active_statistics_postgame) {
         const std::array<std::string, 3> actions{{
-            "C " + std::string{ui_text("statistics.continue")},
-            "R " + std::string{ui_text("statistics.rematch")},
-            "B " + std::string{ui_text("statistics.back")},
+            std::string{ui_text("statistics.continue")},
+            std::string{ui_text("statistics.rematch")},
+            std::string{ui_text("statistics.back")},
         }};
         for (std::size_t index = 0; index < actions.size(); ++index) {
             const SDL_FRect button{
@@ -13100,7 +13114,10 @@ void render_statistics_overlay(
             render_beveled_panel(renderer, button, {78, 58, 31, 255});
             set_color(renderer, {210, 224, 168, 255});
             SDL_RenderDebugText(
-                renderer, button.x + 24.0F, button.y + 13.0F,
+                renderer,
+                button.x + (button.w -
+                    static_cast<float>(actions[index].size() * 8)) * 0.5F,
+                button.y + 13.0F,
                 actions[index].c_str()
             );
         }
@@ -16705,6 +16722,55 @@ int SdlApp::run() {
                 }
             } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
                 mouse_position = {event.button.x, event.button.y};
+                if (event.button.button == SDL_BUTTON_LEFT &&
+                    active_statistics_visible) {
+                    const SDL_FPoint click{
+                        event.button.x, event.button.y
+                    };
+                    bool handled = false;
+                    for (std::size_t index = 0; index < 5; ++index) {
+                        const SDL_FRect tab{
+                            140.0F + static_cast<float>(index) * 190.0F,
+                            87.0F, 174.0F, 28.0F,
+                        };
+                        if (SDL_PointInRectFloat(&click, &tab)) {
+                            active_statistics_tab =
+                                static_cast<StatisticsTab>(index);
+                            handled = true;
+                            break;
+                        }
+                    }
+                    if (!handled && active_statistics_postgame) {
+                        for (std::size_t index = 0; index < 3; ++index) {
+                            const SDL_FRect button{
+                                325.0F +
+                                    static_cast<float>(index) * 220.0F,
+                                616.0F, 190.0F, 34.0F,
+                            };
+                            if (!SDL_PointInRectFloat(&click, &button)) {
+                                continue;
+                            }
+                            handled = true;
+                            if (index == 0) {
+                                active_statistics_visible = false;
+                            } else if (index == 1) {
+                                simulation = new_game();
+                                computer = ComputerPlayer(Player::red);
+                                center_camera_on_local_start();
+                                active_statistics_visible = false;
+                                active_statistics_postgame = false;
+                                outcome_statistics_seen = false;
+                            } else {
+                                active_statistics_visible = false;
+                                active_statistics_postgame = false;
+                                active_frontend_screen =
+                                    FrontendScreen::main_menu;
+                            }
+                            break;
+                        }
+                    }
+                    if (handled) continue;
+                }
                 if (event.button.button == SDL_BUTTON_LEFT &&
                     active_command_hover >= 0 &&
                     (simulation.selected_unit() ||

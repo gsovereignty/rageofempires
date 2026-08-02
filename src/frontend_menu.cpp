@@ -7,42 +7,42 @@ namespace {
 
 constexpr std::array main_items{
     FrontendMenuItem{
-        "Learn to Play", {0, 4, 121, 37},
+        "Learn to Play", {42, 104, 250, 42},
         FrontendMenuCommand::learn_to_play, false,
         "Learn the basics of commanding an empire.",
     },
     FrontendMenuItem{
-        "Single Player", {311, 12, 114, 38},
+        "Single Player", {42, 154, 250, 42},
         FrontendMenuCommand::open_single_player, true,
         "Play a single-player game.",
     },
     FrontendMenuItem{
-        "History", {108, 166, 96, 26},
+        "History", {42, 204, 250, 42},
         FrontendMenuCommand::open_history, true,
         "Explore the history behind Age of Empires II.",
     },
     FrontendMenuItem{
-        "Multiplayer", {266, 220, 91, 25},
+        "Multiplayer", {42, 254, 250, 42},
         FrontendMenuCommand::open_multiplayer, true,
         "Create or join a supported multiplayer game.",
     },
     FrontendMenuItem{
-        "Map Editor", {190, 273, 84, 25},
+        "Map Editor", {42, 304, 250, 42},
         FrontendMenuCommand::open_map_editor, true,
         "Create and edit a scenario.",
     },
     FrontendMenuItem{
-        "Options", {106, 347, 88, 25},
+        "Options", {42, 354, 250, 42},
         FrontendMenuCommand::open_options, true,
         "Change game settings.",
     },
     FrontendMenuItem{
-        "Zone", {273, 367, 63, 22},
+        "Zone", {42, 404, 250, 42},
         FrontendMenuCommand::show_zone_unavailable, true,
         "MSN Gaming Zone service is no longer available.",
     },
     FrontendMenuItem{
-        "Exit", {45, 548, 91, 31},
+        "Exit", {42, 454, 250, 42},
         FrontendMenuCommand::exit_game, true,
         "Exit Age of Empires II.",
     },
@@ -117,7 +117,9 @@ FrontendLogicalTransform frontend_logical_transform(
     if (window_width <= 0 || window_height <= 0) {
         return {0.0F, 0.0F, 0.0F};
     }
-    const float scale = std::min(
+    // Cover the window. Cropping a little background is preferable to
+    // exposing black gutters around an otherwise full-screen menu.
+    const float scale = std::max(
         static_cast<float>(window_width) /
             static_cast<float>(frontend_logical_width),
         static_cast<float>(window_height) /

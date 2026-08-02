@@ -54,6 +54,7 @@ inline constexpr std::array<std::array<std::uint8_t, 3>, 8> player_marker_rgb{{
     int output_row_count
 );
 [[nodiscard]] InclusiveRect size_one_marker_rect(int center_x, int center_y);
+[[nodiscard]] InclusiveRect readable_marker_rect(int center_x, int center_y);
 [[nodiscard]] InclusiveRect type_0x112_signal_outline(
     int center_x,
     int center_y

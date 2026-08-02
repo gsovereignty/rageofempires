@@ -45,6 +45,8 @@ int main() {
     }};
     assert(player_marker_rgb == expected_rgb);
     assert(size_one_marker_rect(10, 20) == InclusiveRect(9, 19, 11, 21));
+    assert(readable_marker_rect(10, 20) ==
+           InclusiveRect(8, 18, 12, 22));
     assert(type_0x112_signal_outline(10, 20) ==
            InclusiveRect(6, 16, 14, 24));
 

@@ -37,13 +37,15 @@ path. Valid `main_32.slp` plus palette 50589 enables original background art.
 Missing, malformed, or truncated input leaves visibly non-equivalent
 procedural plaques. Both paths preserve simulation state.
 
-Main and flyout focus use data-driven ordered item tables. Mouse motion,
+Main, Single Player, and Arabia-vs-AI size-menu focus use data-driven ordered
+item tables. Mouse motion,
 click, Up/Down wrapping, Enter/Space, Escape, and close-button input share one
 command dispatcher. Unsupported Learn to Play, Regicide, and Death Match
 remain legible but disabled. Zone only reports service unavailability.
 
 `frontend_menu_tests` covers geometry, transforms, hit testing, wrapping,
-routing, disabled entries, and flyout close. `legacy_assets_tests` covers
+routing, four Arabia size presets, disabled entries, and flyout close.
+`legacy_assets_tests` covers
 truncated SLP rejection. `frontend_menu_sdl_smoke` captures fallback and
 packaged-original 800×600 states, seven focus states, and a letterboxed 16:9
 window.

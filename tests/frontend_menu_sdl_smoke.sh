@@ -26,6 +26,8 @@ capture proof-click 800x600 env \
     AOE_MAIN_MENU=1 AOE_MENU_ACTIVATION_PROOF=click
 capture proof-enter 800x600 env \
     AOE_MAIN_MENU=1 AOE_MENU_ACTIVATION_PROOF=enter
+capture proof-ai-tiny 800x600 env \
+    AOE_MAIN_MENU=1 AOE_MENU_ACTIVATION_PROOF=ai-tiny
 for focus in 0 1 2 3 4 5 6; do
     capture "single-$focus" 800x600 env \
         AOE_MENU_REFERENCE=1 "AOE_MENU_FOCUS=$focus"
@@ -75,6 +77,14 @@ for proof in ("proof-click", "proof-enter"):
     # Single-player screen places first control on right; main menu does not.
     if activated(500, 100) == main(500, 100):
         raise SystemExit(f"{proof}: Single Player transition not visible")
+
+_, _, ai_tiny = read(root / "proof-ai-tiny.bmp")
+if ai_tiny(20, 20) == main(20, 20):
+    raise SystemExit("ai-tiny: direct Arabia match did not replace menu")
+if "launched 1v1 Arabia vs AI: TINY" not in (
+    root / "proof-ai-tiny.log"
+).read_text(errors="replace"):
+    raise SystemExit("ai-tiny: exact map-size launch not confirmed")
 
 buttons = [
     (476, 89, 260, 39),

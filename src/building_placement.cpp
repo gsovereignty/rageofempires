@@ -65,11 +65,6 @@ PlacementPreview evaluate_building_placement(
             }
         }
     }
-    if (std::abs(builder->position.x - origin.x) +
-            std::abs(builder->position.y - origin.y) > 2) {
-        result.reason = "BUILDER TOO FAR";
-        return result;
-    }
     const Economy& economy = simulation.economy(builder->owner);
     if (economy.wood < result.wood_cost ||
         economy.stone < result.stone_cost ||

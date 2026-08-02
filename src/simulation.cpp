@@ -1985,10 +1985,23 @@ bool Simulation::command_gather_unit(
         (is_herdable(herdable->kind) &&
          herdable->owner != villager->owner &&
          !herdable->owner.is_neutral()) ||
-        (is_huntable(herdable->kind) &&
-         herdable->hit_points > 0) ||
         herdable->food_remaining <= 0) {
         return false;
+    }
+    if (is_huntable(herdable->kind) && herdable->hit_points > 0) {
+        const TilePosition target_position = herdable->position;
+        if (!command_unit(villager_id, target_position)) {
+            return false;
+        }
+        villager = find_unit(villager_id);
+        if (villager == nullptr) return false;
+        villager->has_resource_target = true;
+        villager->resource_target = target_position;
+        villager->resource_building_id = 0;
+        villager->resource_unit_id = herdable_id;
+        villager->returning_resource = false;
+        villager->carried_resource = ResourceKind::food;
+        return true;
     }
     const std::array<TilePosition, 4> gathering_positions{{
         {herdable->position.x - 1, herdable->position.y},
@@ -4522,13 +4535,6 @@ bool Simulation::construct_building_at(
         !has_technology(builder->owner, Technology::wonder_plans)) {
         return false;
     }
-    const int distance =
-        std::abs(builder->position.x - position.x) +
-        std::abs(builder->position.y - position.y);
-    if (distance > 2) {
-        return false;
-    }
-
     Economy& owner_economy =
         builder->owner == Player::blue ? player_states_[0].economy : player_states_[1].economy;
     const BuildingRules& building_rules = rules_for(kind);
@@ -4540,6 +4546,11 @@ bool Simulation::construct_building_at(
     if (owner_economy.wood < wood_cost ||
         owner_economy.stone < stone_cost ||
         owner_economy.gold < gold_cost) {
+        return false;
+    }
+    // Building placement is an order, not a short-range action. Prove that
+    // the builder can reach the future foundation before charging resources.
+    if (!route_unit(*builder, position)) {
         return false;
     }
     owner_economy.wood -= wood_cost;
@@ -4560,7 +4571,6 @@ bool Simulation::construct_building_at(
     builder->attack_target_id = 0;
     builder->attack_target_is_building = false;
     builder->repair_target_id = 0;
-    route_unit(*builder, position);
     return true;
 }
 
@@ -6585,7 +6595,13 @@ void Simulation::update() {
                 unit.stance != UnitStance::stand_ground
             );
         }
-        if (unit.has_resource_target) {
+        const Unit* ordered_animal = unit.resource_unit_id == 0
+            ? nullptr : find_unit(unit.resource_unit_id);
+        const bool actively_hunting =
+            ordered_animal != nullptr &&
+            is_huntable(ordered_animal->kind) &&
+            ordered_animal->hit_points > 0;
+        if (unit.has_resource_target && !actively_hunting) {
             if (unit.returning_resource) {
                 Building* drop_off = building_at(unit.destination);
                 if (drop_off == nullptr ||
@@ -11520,6 +11536,29 @@ bool Simulation::acquire_nearby_target(
 
 void Simulation::update_match_outcome() {
     if (outcome_ != MatchOutcome::ongoing) return;
+    const auto finish = [this](MatchOutcome outcome) {
+        outcome_ = outcome;
+        for (Unit& unit : units_) {
+            unit.previous_position = unit.position;
+            unit.destination = unit.position;
+            unit.moving = false;
+            unit.path.clear();
+            unit.next_path_step = 0;
+            unit.waypoints.clear();
+            unit.formation_waypoints.clear();
+            unit.attack_target_id = 0;
+            unit.attack_target_is_building = false;
+            unit.attack_target_auto = false;
+            unit.attack_moving = false;
+            unit.patrolling = false;
+            unit.guard_target_id = 0;
+            unit.guard_target_is_building = false;
+            unit.has_resource_target = false;
+            unit.resource_building_id = 0;
+            unit.resource_unit_id = 0;
+            unit.returning_resource = false;
+        }
+    };
     const auto has_player_entity = [this](Player player) {
         return std::ranges::any_of(
                    units_,
@@ -11547,7 +11586,7 @@ void Simulation::update_match_outcome() {
         blue_wins = blue_alive && !red_alive;
         red_wins = red_alive && !blue_alive;
         if (!blue_alive && !red_alive) {
-            outcome_ = MatchOutcome::draw;
+            finish(MatchOutcome::draw);
             return;
         }
     }
@@ -11645,24 +11684,24 @@ void Simulation::update_match_outcome() {
     if (match_rules_.time_limit_ticks > 0 &&
         tick_number_ >= match_rules_.time_limit_ticks) {
         if (allied) {
-            outcome_ = MatchOutcome::allied_victory;
+            finish(MatchOutcome::allied_victory);
             return;
         }
         if (blue_score == red_score) {
-            outcome_ = MatchOutcome::draw;
+            finish(MatchOutcome::draw);
             return;
         }
         blue_wins = blue_score > red_score;
         red_wins = red_score > blue_score;
     }
     if (allied && (blue_wins || red_wins)) {
-        outcome_ = MatchOutcome::allied_victory;
+        finish(MatchOutcome::allied_victory);
     } else if (blue_wins && red_wins) {
-        outcome_ = MatchOutcome::draw;
+        finish(MatchOutcome::draw);
     } else if (blue_wins) {
-        outcome_ = MatchOutcome::blue_victory;
+        finish(MatchOutcome::blue_victory);
     } else if (red_wins) {
-        outcome_ = MatchOutcome::red_victory;
+        finish(MatchOutcome::red_victory);
     }
 }
 

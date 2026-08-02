@@ -27,8 +27,7 @@ int main() {
     const auto far = aoe::evaluate_building_placement(
         simulation, builder.id, aoe::BuildingKind::house, {8, 7}
     );
-    expect(!far.valid && far.reason == "BUILDER TOO FAR",
-           "builder range not rejected");
+    expect(far.valid, "reachable remote building order rejected");
     const auto segment =
         aoe::deterministic_wall_segment({1, 1}, {5, 3});
     expect(

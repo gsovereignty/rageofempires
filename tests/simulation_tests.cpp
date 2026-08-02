@@ -14019,6 +14019,57 @@ void boar_retaliate_and_hunt_state_persists_deterministically() {
     require(loaded_scenario.units[1].food_remaining == 222);
 }
 
+void playthrough_orders_support_remote_building_live_hunting_and_terminal_settle() {
+    aoe::Simulation building = aoe::Simulation::create_demo();
+    const aoe::EntityId builder = building.units().front().id;
+    require(building.construct_building_at(
+        builder, aoe::BuildingKind::house, {8, 7}
+    ));
+    require(building.buildings().back().kind == aoe::BuildingKind::house);
+    require(building.units().front().moving);
+
+    aoe::Simulation hunt(aoe::GameMap(16, 10));
+    const aoe::EntityId hunter = hunt.add_unit(
+        aoe::UnitKind::villager, aoe::Player::blue, {2, 4}
+    );
+    const aoe::EntityId deer = hunt.add_unit(
+        aoe::UnitKind::deer, aoe::Player::red, {6, 4}
+    );
+    hunt.add_unit(aoe::UnitKind::villager, aoe::Player::red, {15, 9});
+    require(hunt.command_gather_unit(hunter, deer));
+    require(hunt.units()[0].resource_unit_id == deer);
+    bool carcass_reached = false;
+    for (int tick = 0; tick < 100; ++tick) {
+        hunt.update();
+        const auto target = std::ranges::find(
+            hunt.units(), deer, &aoe::Unit::id
+        );
+        if (target != hunt.units().end() && target->hit_points == 0) {
+            carcass_reached = true;
+            break;
+        }
+    }
+    require(carcass_reached);
+    require(hunt.units().front().has_resource_target);
+
+    aoe::Simulation terminal(aoe::GameMap(12, 8));
+    const aoe::EntityId survivor = terminal.add_unit(
+        aoe::UnitKind::villager, aoe::Player::blue, {1, 1}
+    );
+    const aoe::EntityId defeated = terminal.add_unit(
+        aoe::UnitKind::villager, aoe::Player::red, {10, 6}
+    );
+    require(terminal.command_unit(survivor, {8, 5}));
+    require(terminal.units().front().moving);
+    require(terminal.delete_unit(defeated));
+    require(terminal.outcome() == aoe::MatchOutcome::blue_victory);
+    require(!terminal.units().front().moving);
+    require(terminal.units().front().destination ==
+        terminal.units().front().position);
+    require(terminal.units().front().attack_target_id == 0);
+    require(!terminal.units().front().has_resource_target);
+}
+
 void monks_convert_units_with_persisted_replayable_progress() {
     require(aoe::rules_for(aoe::BuildingKind::monastery).wood_cost == 175);
     require(
@@ -24091,6 +24142,10 @@ int main() {
     run(
         "boar hunting",
         boar_retaliate_and_hunt_state_persists_deterministically
+    );
+    run(
+        "playthrough remote build hunt and terminal settle",
+        playthrough_orders_support_remote_building_live_hunting_and_terminal_settle
     );
     run(
         "monk conversion",

@@ -56,6 +56,8 @@ Focused interaction and presentation contracts:
 Date-stamped snapshots that may become stale:
 [audits/](audits/).
 
+- [Full-playthrough UI and rendering audit — 2026-08-02](audits/2026-08-02-full-playthrough-ui-audit.md)
+
 ## Self-containment
 
 [SELF_CONTAINMENT.md](SELF_CONTAINMENT.md) defines product resource and

@@ -127,11 +127,10 @@ def main() -> int:
     parser.add_argument("scenario", type=Path)
     parser.add_argument(
         "--camera-tile",
-        default="122,127",
+        default="12,8",
         help=(
-            "tile to centre the capture on. The startup map is 255x255, so "
-            "the default start view holds no water; this frames the river "
-            "ford, which has both grass and water."
+            "tile to centre the capture on. The default visual-audit scene "
+            "is a compact, explicitly audit-only renderer matrix."
         ),
     )
     args = parser.parse_args()
@@ -152,6 +151,7 @@ def main() -> int:
                 "SDL_VIDEO_DRIVER": "dummy",
                 "AOE_WINDOW_SIZE": "800x600",
                 "AOE_SCENARIO_PATH": str(scenario),
+                "AOE_AUDIT_ANY_MAP_SIZE": "1",
                 "AOE_CAMERA_TILE": args.camera_tile,
                 # The map is larger than one start's explored area, so the
                 # capture would otherwise be mostly fog.
@@ -178,8 +178,8 @@ def main() -> int:
         if not capture.is_file() or capture.stat().st_size == 0:
             raise RuntimeError("render process produced no screenshot")
         require(
-            dimensions.read_text() == "map 255 255\ntiles 65025\n",
-            "runtime did not present the maximum 255x255 map",
+            dimensions.read_text() == "map 24 16\ntiles 384\n",
+            "runtime did not present the compact visual-audit map",
         )
         validate_capture(capture)
 

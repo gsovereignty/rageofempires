@@ -631,6 +631,13 @@ struct LegacySprites {
     SDL_Texture* frontend_background{};
     LegacySprite original_frontend_background;
     LegacySprite original_frontend_logo;
+    LegacySprite statistics_background;
+    LegacySprite statistics_decal;
+    LegacySprite statistics_banner_blue;
+    LegacySprite statistics_banner_red;
+    std::array<LegacySprite, 10> statistics_tabs;
+    LegacySprite statistics_button;
+    LegacySprite statistics_team;
     SDL_Texture* scenario_background{};
     LegacySprite campaign_background;
     LegacySprite market_western_blue;
@@ -721,6 +728,13 @@ struct LegacySprites {
         frontend_background = nullptr;
         original_frontend_background.destroy();
         original_frontend_logo.destroy();
+        statistics_background.destroy();
+        statistics_decal.destroy();
+        statistics_banner_blue.destroy();
+        statistics_banner_red.destroy();
+        for (LegacySprite& sprite : statistics_tabs) sprite.destroy();
+        statistics_button.destroy();
+        statistics_team.destroy();
         SDL_DestroyTexture(scenario_background);
         scenario_background = nullptr;
         campaign_background.destroy();
@@ -3353,6 +3367,40 @@ LegacySprites load_local_legacy_sprites(
                 "cannot load original menu SLP: %s",
                 error.what()
             );
+        }
+        const auto load_statistics_frame = [&] (
+            LegacySprite& target,
+            std::int32_t resource_id,
+            std::size_t frame = 0
+        ) {
+            try {
+                target = create_legacy_sprite(
+                    renderer, interface, palette, resource_id, 0, frame
+                );
+            } catch (const std::exception& error) {
+                SDL_LogWarn(
+                    SDL_LOG_CATEGORY_APPLICATION,
+                    "cannot load statistics SLP %d frame %zu: %s",
+                    resource_id, frame, error.what()
+                );
+            }
+        };
+        // Decompiled original loads AchDecal, PNBnr1/2, sat_tabs, sat_btn,
+        // AchTeam, and tml_bck using these interface resource IDs.
+        load_statistics_frame(sprites.statistics_decal, 50766);
+        load_statistics_frame(sprites.statistics_banner_blue, 50762);
+        load_statistics_frame(sprites.statistics_banner_red, 50767);
+        for (std::size_t frame = 0;
+             frame < sprites.statistics_tabs.size(); ++frame) {
+            load_statistics_frame(
+                sprites.statistics_tabs[frame], 50765, frame
+            );
+        }
+        load_statistics_frame(sprites.statistics_button, 50768);
+        load_statistics_frame(sprites.statistics_team, 50769);
+        load_statistics_frame(sprites.statistics_background, 50763);
+        if (sprites.statistics_background.texture != nullptr) {
+            SDL_Log("using original statistics interface SLPs");
         }
         try {
             const LegacyPalette game_palette =
@@ -9219,6 +9267,12 @@ void capture_requested_frame(
             return;
         }
     }
+    // SDL render commands may still be batched here. Reading before an
+    // explicit flush produced intermittent partially black audit captures.
+    if (!SDL_FlushRenderer(renderer)) {
+        SDL_Log("Could not flush captured frame: %s", SDL_GetError());
+        return;
+    }
     SDL_Surface* surface = SDL_RenderReadPixels(renderer, nullptr);
     if (surface == nullptr) {
         SDL_Log("Could not capture frame: %s", SDL_GetError());
@@ -13154,13 +13208,24 @@ void render_statistics_overlay(
     SDL_RenderFillRect(renderer, &shade);
     const SDL_FRect panel{120.0F, 36.0F, 1040.0F, 640.0F};
     render_beveled_panel(renderer, panel, {53, 41, 27, 255});
-    for (int y = 0; y < static_cast<int>(panel.h); y += 8) {
-        const Uint8 shade = static_cast<Uint8>(48 + ((y / 8) % 3) * 3);
-        set_color(renderer, {shade, static_cast<Uint8>(shade - 9),
-                             static_cast<Uint8>(shade - 21), 255});
-        const SDL_FRect grain{panel.x + 4.0F, panel.y + y + 4.0F,
-                              panel.w - 8.0F, 1.0F};
-        SDL_RenderFillRect(renderer, &grain);
+    if (active_legacy_sprites.statistics_background.texture != nullptr) {
+        SDL_RenderTexture(
+            renderer,
+            active_legacy_sprites.statistics_background.texture,
+            nullptr,
+            &panel
+        );
+        set_color(renderer, {24, 19, 12, 188});
+        SDL_RenderFillRect(renderer, &panel);
+    } else {
+        for (int y = 0; y < static_cast<int>(panel.h); y += 8) {
+            const Uint8 shade = static_cast<Uint8>(48 + ((y / 8) % 3) * 3);
+            set_color(renderer, {shade, static_cast<Uint8>(shade - 9),
+                                 static_cast<Uint8>(shade - 21), 255});
+            const SDL_FRect grain{panel.x + 4.0F, panel.y + y + 4.0F,
+                                  panel.w - 8.0F, 1.0F};
+            SDL_RenderFillRect(renderer, &grain);
+        }
     }
     const SDL_FRect banner{
         panel.x + 18.0F, panel.y + 12.0F, panel.w - 36.0F, 44.0F
@@ -13182,14 +13247,21 @@ void render_statistics_overlay(
         {crest_center.x, crest_center.y + 18.0F},
         {crest_center.x - 10.0F, crest_center.y + 12.0F},
     }};
-    set_color(renderer, {206, 168, 70, 255});
-    SDL_RenderLines(renderer, crest.data(), static_cast<int>(crest.size()));
-    SDL_RenderLine(renderer, crest.back().x, crest.back().y,
-                   crest.front().x, crest.front().y);
-    SDL_RenderLine(renderer, crest_center.x - 7.0F, crest_center.y,
-                   crest_center.x - 1.0F, crest_center.y + 7.0F);
-    SDL_RenderLine(renderer, crest_center.x - 1.0F, crest_center.y + 7.0F,
-                   crest_center.x + 8.0F, crest_center.y - 7.0F);
+    if (active_legacy_sprites.statistics_decal.texture != nullptr) {
+        const SDL_FRect decal{crest_center.x - 22.0F,
+                              crest_center.y - 20.0F, 44.0F, 40.0F};
+        SDL_RenderTexture(renderer,
+            active_legacy_sprites.statistics_decal.texture, nullptr, &decal);
+    } else {
+        set_color(renderer, {206, 168, 70, 255});
+        SDL_RenderLines(renderer, crest.data(), static_cast<int>(crest.size()));
+        SDL_RenderLine(renderer, crest.back().x, crest.back().y,
+                       crest.front().x, crest.front().y);
+        SDL_RenderLine(renderer, crest_center.x - 7.0F, crest_center.y,
+                       crest_center.x - 1.0F, crest_center.y + 7.0F);
+        SDL_RenderLine(renderer, crest_center.x - 1.0F, crest_center.y + 7.0F,
+                       crest_center.x + 8.0F, crest_center.y - 7.0F);
+    }
     set_color(renderer, {238, 214, 145, 255});
     SDL_RenderDebugText(
         renderer, panel.x + 28.0F, panel.y + 22.0F,
@@ -13205,6 +13277,12 @@ void render_statistics_overlay(
     SDL_RenderDebugText(
         renderer, panel.x + 760.0F, panel.y + 25.0F, cause.c_str()
     );
+    if (active_legacy_sprites.statistics_team.texture != nullptr) {
+        const SDL_FRect team{panel.x + 724.0F, panel.y + 18.0F,
+                             28.0F, 28.0F};
+        SDL_RenderTexture(renderer,
+            active_legacy_sprites.statistics_team.texture, nullptr, &team);
+    }
     set_color(renderer, {174, 134, 55, 255});
     SDL_RenderLine(renderer, panel.x + 330.0F, panel.y + 18.0F,
                    panel.x + 330.0F, panel.y + 50.0F);
@@ -13222,11 +13300,22 @@ void render_statistics_overlay(
         const bool selected =
             static_cast<std::size_t>(active_statistics_tab) == index;
         const SDL_FRect tab{tab_x - 8.0F, panel.y + 62.0F, 174.0F, 34.0F};
-        render_beveled_panel(
-            renderer, tab,
-            selected ? SDL_Color{128, 83, 29, 255}
-                     : SDL_Color{66, 54, 37, 255}
-        );
+        const std::size_t art_index = index + (selected ? 5U : 0U);
+        if (active_legacy_sprites.statistics_tabs[art_index].texture != nullptr) {
+            SDL_RenderTexture(renderer,
+                active_legacy_sprites.statistics_tabs[art_index].texture,
+                nullptr, &tab);
+            set_color(renderer,
+                selected ? SDL_Color{75, 45, 15, 145}
+                         : SDL_Color{26, 22, 16, 190});
+            SDL_RenderFillRect(renderer, &tab);
+        } else {
+            render_beveled_panel(
+                renderer, tab,
+                selected ? SDL_Color{128, 83, 29, 255}
+                         : SDL_Color{66, 54, 37, 255}
+            );
+        }
         set_color(renderer, selected ? SDL_Color{244, 203, 91, 255}
                                      : SDL_Color{184, 165, 119, 255});
         const SDL_FRect icon{tab.x + 8.0F, tab.y + 9.0F, 12.0F, 12.0F};
@@ -13248,22 +13337,36 @@ void render_statistics_overlay(
         );
         tab_x += 190.0F;
     }
-    set_color(renderer, {76, 142, 236, 255});
-    SDL_RenderDebugText(
-        renderer, panel.x + 662.0F, panel.y + 113.0F, "BLUE"
-    );
-    set_color(renderer, {222, 76, 68, 255});
-    SDL_RenderDebugText(
-        renderer, panel.x + 827.0F, panel.y + 113.0F, "RED"
-    );
     const SDL_FRect blue_banner{panel.x + 630.0F, panel.y + 106.0F,
                                 110.0F, 23.0F};
     const SDL_FRect red_banner{panel.x + 795.0F, panel.y + 106.0F,
                                110.0F, 23.0F};
+    if (active_legacy_sprites.statistics_banner_blue.texture != nullptr) {
+        SDL_RenderTexture(renderer,
+            active_legacy_sprites.statistics_banner_blue.texture,
+            nullptr, &blue_banner);
+        set_color(renderer, {20, 35, 67, 145});
+        SDL_RenderFillRect(renderer, &blue_banner);
+    }
+    if (active_legacy_sprites.statistics_banner_red.texture != nullptr) {
+        SDL_RenderTexture(renderer,
+            active_legacy_sprites.statistics_banner_red.texture,
+            nullptr, &red_banner);
+        set_color(renderer, {67, 24, 20, 145});
+        SDL_RenderFillRect(renderer, &red_banner);
+    }
     set_color(renderer, {53, 96, 164, 255});
     SDL_RenderRect(renderer, &blue_banner);
     set_color(renderer, {159, 58, 51, 255});
     SDL_RenderRect(renderer, &red_banner);
+    set_color(renderer, {116, 170, 244, 255});
+    SDL_RenderDebugText(
+        renderer, panel.x + 662.0F, panel.y + 113.0F, "BLUE"
+    );
+    set_color(renderer, {232, 112, 100, 255});
+    SDL_RenderDebugText(
+        renderer, panel.x + 827.0F, panel.y + 113.0F, "RED"
+    );
     if (active_statistics_tab == StatisticsTab::timeline) {
         const SDL_FRect graph{
             panel.x + 54.0F, panel.y + 148.0F, 900.0F, 350.0F,
@@ -13383,6 +13486,11 @@ void render_statistics_overlay(
                 panel.y + 580.0F, 190.0F, 34.0F,
             };
             render_beveled_panel(renderer, button, {78, 58, 31, 255});
+            if (active_legacy_sprites.statistics_button.texture != nullptr) {
+                SDL_RenderTexture(renderer,
+                    active_legacy_sprites.statistics_button.texture,
+                    nullptr, &button);
+            }
             set_color(renderer, {185, 151, 65, 255});
             const SDL_FRect button_icon{button.x + 12.0F, button.y + 10.0F,
                                         13.0F, 13.0F};
@@ -16121,6 +16229,7 @@ int SdlApp::run() {
         active_options_visible = true;
         active_frontend_screen = FrontendScreen::hidden;
     }
+    std::optional<std::size_t> statistics_click_proof;
     if (const char* statistics = SDL_getenv("AOE_STATISTICS_PANEL");
         statistics != nullptr && statistics[0] != '0') {
         active_statistics_visible = true;
@@ -16129,6 +16238,30 @@ int SdlApp::run() {
         if (std::string_view{statistics} == "timeline") {
             active_statistics_tab = StatisticsTab::timeline;
         }
+    }
+    if (const char* proof = SDL_getenv("AOE_STATISTICS_CLICK_PROOF");
+        proof != nullptr && proof[0] != '\0') {
+        constexpr std::array<std::string_view, 5> names{
+            "economy", "military", "society", "technology", "timeline"
+        };
+        const auto found = std::ranges::find(names, std::string_view{proof});
+        if (found != names.end()) {
+            statistics_click_proof = static_cast<std::size_t>(
+                std::distance(names.begin(), found)
+            );
+            active_statistics_visible = true;
+            active_statistics_postgame = false;
+            active_statistics_tab = StatisticsTab::economy;
+            active_frontend_screen = FrontendScreen::hidden;
+        }
+    }
+    if (const char* postgame = SDL_getenv("AOE_STATISTICS_POSTGAME_PROOF");
+        postgame != nullptr && postgame[0] != '0') {
+        simulation.resign(Player::red);
+        active_statistics_visible = true;
+        active_statistics_postgame = true;
+        active_statistics_tab = StatisticsTab::economy;
+        active_frontend_screen = FrontendScreen::hidden;
     }
     const std::filesystem::path save_path =
         user_data / "archaeology-save.txt";
@@ -16147,6 +16280,41 @@ int SdlApp::run() {
             multiplayer_checkpoint_save.string();
     }
     bool running = true;
+    if (const char* proof = SDL_getenv("AOE_MENU_ACTIVATION_PROOF");
+        proof != nullptr && proof[0] != '\0') {
+        SDL_Event activation{};
+        if (std::string_view{proof} == "click") {
+            activation.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
+            activation.button.button = SDL_BUTTON_LEFT;
+            activation.button.x = 100.0F;
+            activation.button.y = 170.0F;
+            SDL_PushEvent(&activation);
+        } else if (std::string_view{proof} == "enter") {
+            activation.type = SDL_EVENT_KEY_DOWN;
+            activation.key.key = SDLK_RETURN;
+            SDL_PushEvent(&activation);
+        }
+    }
+    if (const char* proof = SDL_getenv("AOE_MINIMAP_CLICK_PROOF");
+        proof != nullptr && proof[0] != '0') {
+        SDL_Event click{};
+        click.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
+        click.button.button = SDL_BUTTON_LEFT;
+        click.button.x = static_cast<float>(view_pixel_width - 55);
+        click.button.y = static_cast<float>(
+            view_pixel_height + hud_height - 82
+        );
+        SDL_PushEvent(&click);
+    }
+    if (statistics_click_proof) {
+        SDL_Event click{};
+        click.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
+        click.button.button = SDL_BUTTON_LEFT;
+        click.button.x = 227.0F +
+            static_cast<float>(*statistics_click_proof) * 190.0F;
+        click.button.y = 115.0F;
+        SDL_PushEvent(&click);
+    }
     bool pending_map_signal = false;
     std::uint64_t local_signal_sequence = 1;
     std::vector<Uint64> local_signal_times;
@@ -17643,6 +17811,12 @@ int SdlApp::run() {
                         minimap_tile
                     )) {
                     center_camera_on(camera, minimap_tile);
+                    if (SDL_getenv("AOE_MINIMAP_CLICK_PROOF") != nullptr) {
+                        SDL_Log(
+                            "minimap click centered camera on %d,%d",
+                            minimap_tile.x, minimap_tile.y
+                        );
+                    }
                     selection_drag.reset();
                     continue;
                 }

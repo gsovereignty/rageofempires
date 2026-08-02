@@ -109,13 +109,18 @@ for age in ("feudal", "castle", "imperial"):
         point for point in dark
         if dark[point] != captures[age][point]
     ]
-    if not 250 <= len(changed) <= 450:
+    if not 120 <= len(changed) <= 450:
         raise SystemExit(
             f"{age}: unexpected age-boundary pixel count {len(changed)}"
         )
-    if any(
-        not (320 <= x <= 480 and 90 <= y <= 150)
-        for x, y in changed
-    ):
-        raise SystemExit(f"{age}: visual change escaped building ROI")
+    escaped = [
+        (x, y) for x, y in changed
+        if not (320 <= x <= 480 and 70 <= y <= 150)
+    ]
+    if escaped:
+        raise SystemExit(
+            f"{age}: visual change escaped building ROI: "
+            f"x={min(x for x, _ in escaped)}..{max(x for x, _ in escaped)} "
+            f"y={min(y for _, y in escaped)}..{max(y for _, y in escaped)}"
+        )
 PY

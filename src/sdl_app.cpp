@@ -5484,6 +5484,11 @@ bool render_legacy_animation(
                     animation.shadow_frames_per_angle +
                 shadow_action;
             if (shadow_index < animation.shadow_frames.size()) {
+                SDL_Texture* shadow_texture =
+                    animation.shadow_frames[shadow_index].texture;
+                if (shadow_texture != nullptr) {
+                    SDL_SetTextureAlphaMod(shadow_texture, 112);
+                }
                 (void)render_legacy_sprite(
                     renderer,
                     animation.shadow_frames[shadow_index],
@@ -5498,6 +5503,9 @@ bool render_legacy_animation(
                     true,
                     shadow_flip
                 );
+                if (shadow_texture != nullptr) {
+                    SDL_SetTextureAlphaMod(shadow_texture, 255);
+                }
             }
         }
     }
@@ -5740,6 +5748,48 @@ void outline_diamond(
         {top.x, top.y},
     }};
     SDL_RenderLines(renderer, points.data(), static_cast<int>(points.size()));
+}
+
+void outline_unit_selection(
+    SDL_Renderer* renderer,
+    SDL_FPoint tile_top_position,
+    UnitKind kind,
+    SDL_Color color
+) {
+    const bool large = is_ship(kind) ||
+        kind == UnitKind::battering_ram ||
+        kind == UnitKind::capped_ram || kind == UnitKind::siege_ram ||
+        kind == UnitKind::mangonel || kind == UnitKind::onager ||
+        kind == UnitKind::siege_onager;
+    const bool mounted = is_cavalry(kind) || kind == UnitKind::trade_cart;
+    const float half_width = large ? 25.0F : mounted ? 20.0F : 15.0F;
+    const float half_height = half_width * 0.42F;
+    const SDL_FPoint center{
+        tile_top_position.x,
+        tile_top_position.y + half_tile_height + 1.0F,
+    };
+    set_color(renderer, {38, 26, 12, 230});
+    const std::array<SDL_FPoint, 5> shadow{{
+        {center.x, center.y - half_height - 1.0F},
+        {center.x + half_width + 1.0F, center.y},
+        {center.x, center.y + half_height + 1.0F},
+        {center.x - half_width - 1.0F, center.y},
+        {center.x, center.y - half_height - 1.0F},
+    }};
+    SDL_RenderLines(
+        renderer, shadow.data(), static_cast<int>(shadow.size())
+    );
+    set_color(renderer, color);
+    const std::array<SDL_FPoint, 5> marker{{
+        {center.x, center.y - half_height},
+        {center.x + half_width, center.y},
+        {center.x, center.y + half_height},
+        {center.x - half_width, center.y},
+        {center.x, center.y - half_height},
+    }};
+    SDL_RenderLines(
+        renderer, marker.data(), static_cast<int>(marker.size())
+    );
 }
 
 void render_procedural_terrain_transitions(
@@ -7668,8 +7718,8 @@ void render_unit(
                 {ground_top.x, ground_top.y + half_tile_height}
             )) {
             if (simulation.is_unit_selected(unit.id)) {
-                outline_diamond(
-                    renderer, ground_top, {250, 220, 65, 255}
+                outline_unit_selection(
+                    renderer, ground_top, unit.kind, {250, 220, 65, 255}
                 );
             }
             return;
@@ -7699,8 +7749,8 @@ void render_unit(
             shrine.y - 4.0F
         );
         if (simulation.is_unit_selected(unit.id)) {
-            outline_diamond(
-                renderer, ground_top, {250, 220, 65, 255}
+            outline_unit_selection(
+                renderer, ground_top, unit.kind, {250, 220, 65, 255}
             );
         }
         return;
@@ -7807,9 +7857,8 @@ void render_unit(
                         );
                     }
                     if (simulation.is_unit_selected(unit.id)) {
-                        outline_diamond(
-                            renderer,
-                            ground_top,
+                        outline_unit_selection(
+                            renderer, ground_top, unit.kind,
                             {250, 220, 65, 255}
                         );
                     }
@@ -7846,8 +7895,8 @@ void render_unit(
                     );
                 }
                 if (simulation.is_unit_selected(unit.id)) {
-                    outline_diamond(
-                        renderer, ground_top, {250, 220, 65, 255}
+                    outline_unit_selection(
+                        renderer, ground_top, unit.kind, {250, 220, 65, 255}
                     );
                 }
                 return;
@@ -7969,8 +8018,8 @@ void render_unit(
             );
         }
         if (simulation.is_unit_selected(unit.id)) {
-            outline_diamond(
-                renderer, ground_top, {250, 220, 65, 255}
+            outline_unit_selection(
+                renderer, ground_top, unit.kind, {250, 220, 65, 255}
             );
         }
         return;
@@ -8009,9 +8058,8 @@ void render_unit(
                     );
                 }
                 if (simulation.is_unit_selected(unit.id)) {
-                    outline_diamond(
-                        renderer,
-                        ground_top,
+                    outline_unit_selection(
+                        renderer, ground_top, unit.kind,
                         {250, 220, 65, 255}
                     );
                 }
@@ -8058,8 +8106,8 @@ void render_unit(
             );
         }
         if (simulation.is_unit_selected(unit.id)) {
-            outline_diamond(
-                renderer, ground_top, {250, 220, 65, 255}
+            outline_unit_selection(
+                renderer, ground_top, unit.kind, {250, 220, 65, 255}
             );
         }
         return;
@@ -8093,8 +8141,8 @@ void render_unit(
                 );
             }
             if (simulation.is_unit_selected(unit.id)) {
-                outline_diamond(
-                    renderer, ground_top, {250, 220, 65, 255}
+                outline_unit_selection(
+                    renderer, ground_top, unit.kind, {250, 220, 65, 255}
                 );
             }
             return;
@@ -8131,9 +8179,8 @@ void render_unit(
                 );
             }
             if (simulation.is_unit_selected(unit.id)) {
-                outline_diamond(
-                    renderer,
-                    ground_top,
+                outline_unit_selection(
+                    renderer, ground_top, unit.kind,
                     {250, 220, 65, 255}
                 );
             }
@@ -8965,7 +9012,9 @@ void render_unit(
         );
     }
     if (simulation.is_unit_selected(unit.id)) {
-        outline_diamond(renderer, ground_top, {250, 220, 65, 255});
+        outline_unit_selection(
+            renderer, ground_top, unit.kind, {250, 220, 65, 255}
+        );
         const SDL_Color stance_color =
             unit.stance == UnitStance::aggressive
                 ? SDL_Color{220, 65, 55, 255}
@@ -9916,7 +9965,7 @@ void render_minimap(
     for (int y = 0; y < simulation.map().height(); y += block_step) {
         for (int x = 0; x < simulation.map().width(); x += block_step) {
             const TilePosition position{x, y};
-            SDL_Color color{5, 7, 6, 255};
+            SDL_Color color{24, 29, 25, 255};
             // Original executable proves an explored-tile minimap pass, but
             // not its colors/masks. Keep this procedural contract until
             // generated/fog_rendering_catalog.json's missing links close.
@@ -9930,9 +9979,9 @@ void render_minimap(
                 if (active_settings.fog &&
                     !simulation.is_visible_to_controller(active_view_player, position)) {
                     color = {
-                        static_cast<Uint8>(color.r * 0.35F),
-                        static_cast<Uint8>(color.g * 0.35F),
-                        static_cast<Uint8>(color.b * 0.35F),
+                        static_cast<Uint8>(color.r * 0.55F),
+                        static_cast<Uint8>(color.g * 0.55F),
+                        static_cast<Uint8>(color.b * 0.55F),
                         255,
                     };
                 }
@@ -9973,7 +10022,7 @@ void render_minimap(
         const SDL_FPoint position = minimap_top(building.position);
         const SDL_Color* color = marker_color(building.owner);
         if (color == nullptr) continue;
-        const minimap::InclusiveRect bounds = minimap::size_one_marker_rect(
+        const minimap::InclusiveRect bounds = minimap::readable_marker_rect(
             static_cast<int>(std::lround(position.x)),
             static_cast<int>(std::lround(position.y))
         );
@@ -9995,7 +10044,7 @@ void render_minimap(
         const SDL_FPoint position = minimap_top(unit.position);
         const SDL_Color* color = marker_color(unit.owner);
         if (color == nullptr) continue;
-        const minimap::InclusiveRect bounds = minimap::size_one_marker_rect(
+        const minimap::InclusiveRect bounds = minimap::readable_marker_rect(
             static_cast<int>(std::lround(position.x)),
             static_cast<int>(std::lround(position.y))
         );
@@ -10073,11 +10122,55 @@ void render_minimap(
             static_cast<double>(cell_half_width),
             1.0
         );
-    static_cast<void>(viewport_bounds);
-    // Bounds above are exact. Scanline polygon and 640 anchor remain
-    // deliberately disabled because their raster/crop contracts are unproved.
-    static_assert(!minimap::viewport_scanline_polygon_proved);
-    static_assert(!minimap::map640_anchor_proved);
+    const SDL_FRect viewport_marker{
+        static_cast<float>(std::clamp(
+            viewport_bounds.left,
+            static_cast<int>(panel.x + padding),
+            static_cast<int>(panel.x + panel.w - padding)
+        )),
+        static_cast<float>(std::clamp(
+            viewport_bounds.top,
+            static_cast<int>(panel.y + padding),
+            static_cast<int>(panel.y + panel.h - padding)
+        )),
+        static_cast<float>(std::max(1, std::min(
+            viewport_bounds.right,
+            static_cast<int>(panel.x + panel.w - padding)
+        ) - std::max(
+            viewport_bounds.left,
+            static_cast<int>(panel.x + padding)
+        ))),
+        static_cast<float>(std::max(1, std::min(
+            viewport_bounds.bottom,
+            static_cast<int>(panel.y + panel.h - padding)
+        ) - std::max(
+            viewport_bounds.top,
+            static_cast<int>(panel.y + padding)
+        ))),
+    };
+    set_color(renderer, {245, 232, 194, 235});
+    SDL_RenderRect(renderer, &viewport_marker);
+
+    if (simulation.selected_unit()) {
+        const auto selected = std::ranges::find(
+            simulation.units(), *simulation.selected_unit(), &Unit::id
+        );
+        if (selected != simulation.units().end() && selected->moving) {
+            const SDL_FPoint start = minimap_top(selected->position);
+            const SDL_FPoint end = minimap_top(selected->destination);
+            set_color(renderer, {104, 255, 116, 255});
+            SDL_RenderLine(renderer, start.x, start.y, end.x, end.y);
+            const SDL_FRect endpoint{end.x - 3.0F, end.y - 3.0F, 7.0F, 7.0F};
+            SDL_RenderRect(renderer, &endpoint);
+        }
+    }
+
+    set_color(renderer, {116, 170, 244, 255});
+    SDL_RenderDebugText(renderer, panel.x + 10.0F, panel.y + 8.0F, "YOU");
+    set_color(renderer, {232, 112, 100, 255});
+    SDL_RenderDebugText(
+        renderer, panel.x + panel.w - 50.0F, panel.y + 8.0F, "ENEMY"
+    );
 }
 
 bool unit_available_to_player(
@@ -13060,11 +13153,19 @@ void render_statistics_overlay(
     set_color(renderer, {5, 5, 4, 244});
     SDL_RenderFillRect(renderer, &shade);
     const SDL_FRect panel{120.0F, 36.0F, 1040.0F, 640.0F};
-    render_beveled_panel(renderer, panel, {42, 33, 23, 255});
+    render_beveled_panel(renderer, panel, {53, 41, 27, 255});
+    for (int y = 0; y < static_cast<int>(panel.h); y += 8) {
+        const Uint8 shade = static_cast<Uint8>(48 + ((y / 8) % 3) * 3);
+        set_color(renderer, {shade, static_cast<Uint8>(shade - 9),
+                             static_cast<Uint8>(shade - 21), 255});
+        const SDL_FRect grain{panel.x + 4.0F, panel.y + y + 4.0F,
+                              panel.w - 8.0F, 1.0F};
+        SDL_RenderFillRect(renderer, &grain);
+    }
     const SDL_FRect banner{
-        panel.x + 18.0F, panel.y + 12.0F, panel.w - 36.0F, 38.0F
+        panel.x + 18.0F, panel.y + 12.0F, panel.w - 36.0F, 44.0F
     };
-    render_beveled_panel(renderer, banner, {91, 58, 24, 255});
+    render_beveled_panel(renderer, banner, {96, 61, 24, 255});
     const MatchStatistics statistics = simulation.match_statistics();
     const char* outcome =
         simulation.outcome() == MatchOutcome::blue_victory ? "BLUE VICTORY" :
@@ -13073,21 +13174,42 @@ void render_statistics_overlay(
             ? "ALLIED VICTORY" :
         simulation.outcome() == MatchOutcome::draw ? "DRAW" :
         "MATCH IN PROGRESS";
+    const SDL_FPoint crest_center{panel.x + 470.0F, panel.y + 34.0F};
+    const std::array<SDL_FPoint, 5> crest{{
+        {crest_center.x, crest_center.y - 16.0F},
+        {crest_center.x + 14.0F, crest_center.y - 7.0F},
+        {crest_center.x + 10.0F, crest_center.y + 12.0F},
+        {crest_center.x, crest_center.y + 18.0F},
+        {crest_center.x - 10.0F, crest_center.y + 12.0F},
+    }};
+    set_color(renderer, {206, 168, 70, 255});
+    SDL_RenderLines(renderer, crest.data(), static_cast<int>(crest.size()));
+    SDL_RenderLine(renderer, crest.back().x, crest.back().y,
+                   crest.front().x, crest.front().y);
+    SDL_RenderLine(renderer, crest_center.x - 7.0F, crest_center.y,
+                   crest_center.x - 1.0F, crest_center.y + 7.0F);
+    SDL_RenderLine(renderer, crest_center.x - 1.0F, crest_center.y + 7.0F,
+                   crest_center.x + 8.0F, crest_center.y - 7.0F);
     set_color(renderer, {238, 214, 145, 255});
     SDL_RenderDebugText(
         renderer, panel.x + 28.0F, panel.y + 22.0F,
         ui_text("statistics.title").data()
     );
     set_color(renderer, {226, 218, 190, 255});
-    SDL_RenderDebugText(renderer, panel.x + 360.0F, panel.y + 22.0F, outcome);
+    SDL_RenderDebugText(renderer, panel.x + 500.0F, panel.y + 25.0F, outcome);
     const std::string cause = statistics_victory_cause(
         simulation.outcome(),
         simulation.countdown_kind(Player::blue),
         simulation.countdown_kind(Player::red)
     );
     SDL_RenderDebugText(
-        renderer, panel.x + 560.0F, panel.y + 22.0F, cause.c_str()
+        renderer, panel.x + 760.0F, panel.y + 25.0F, cause.c_str()
     );
+    set_color(renderer, {174, 134, 55, 255});
+    SDL_RenderLine(renderer, panel.x + 330.0F, panel.y + 18.0F,
+                   panel.x + 330.0F, panel.y + 50.0F);
+    SDL_RenderLine(renderer, panel.x + 735.0F, panel.y + 18.0F,
+                   panel.x + 735.0F, panel.y + 50.0F);
     const std::array<std::string, 5> tabs{{
         "1 " + std::string{ui_text("statistics.economy")},
         "2 " + std::string{ui_text("statistics.military")},
@@ -13099,34 +13221,52 @@ void render_statistics_overlay(
     for (std::size_t index = 0; index < tabs.size(); ++index) {
         const bool selected =
             static_cast<std::size_t>(active_statistics_tab) == index;
-        const SDL_FRect tab{tab_x - 8.0F, panel.y + 51.0F, 174.0F, 28.0F};
+        const SDL_FRect tab{tab_x - 8.0F, panel.y + 62.0F, 174.0F, 34.0F};
         render_beveled_panel(
             renderer, tab,
-            selected ? SDL_Color{112, 74, 28, 255}
-                     : SDL_Color{53, 43, 31, 255}
+            selected ? SDL_Color{128, 83, 29, 255}
+                     : SDL_Color{66, 54, 37, 255}
         );
+        set_color(renderer, selected ? SDL_Color{244, 203, 91, 255}
+                                     : SDL_Color{184, 165, 119, 255});
+        const SDL_FRect icon{tab.x + 8.0F, tab.y + 9.0F, 12.0F, 12.0F};
+        SDL_RenderRect(renderer, &icon);
+        if (selected) {
+            SDL_RenderLine(renderer, tab.x + 2.0F, tab.y + tab.h + 1.0F,
+                           tab.x + tab.w - 2.0F, tab.y + tab.h + 1.0F);
+            SDL_RenderLine(renderer, tab.x + 2.0F, tab.y + tab.h + 2.0F,
+                           tab.x + tab.w - 2.0F, tab.y + tab.h + 2.0F);
+        }
         set_color(
             renderer,
             selected
                 ? SDL_Color{245, 215, 122, 255}
-                : SDL_Color{150, 136, 104, 255}
+                : SDL_Color{198, 184, 145, 255}
         );
         SDL_RenderDebugText(
-            renderer, tab_x, panel.y + 60.0F, tabs[index].c_str()
+            renderer, tab_x + 18.0F, panel.y + 74.0F, tabs[index].c_str()
         );
         tab_x += 190.0F;
     }
     set_color(renderer, {76, 142, 236, 255});
     SDL_RenderDebugText(
-        renderer, panel.x + 630.0F, panel.y + 98.0F, "BLUE"
+        renderer, panel.x + 662.0F, panel.y + 113.0F, "BLUE"
     );
     set_color(renderer, {222, 76, 68, 255});
     SDL_RenderDebugText(
-        renderer, panel.x + 820.0F, panel.y + 98.0F, "RED"
+        renderer, panel.x + 827.0F, panel.y + 113.0F, "RED"
     );
+    const SDL_FRect blue_banner{panel.x + 630.0F, panel.y + 106.0F,
+                                110.0F, 23.0F};
+    const SDL_FRect red_banner{panel.x + 795.0F, panel.y + 106.0F,
+                               110.0F, 23.0F};
+    set_color(renderer, {53, 96, 164, 255});
+    SDL_RenderRect(renderer, &blue_banner);
+    set_color(renderer, {159, 58, 51, 255});
+    SDL_RenderRect(renderer, &red_banner);
     if (active_statistics_tab == StatisticsTab::timeline) {
         const SDL_FRect graph{
-            panel.x + 54.0F, panel.y + 142.0F, 900.0F, 360.0F,
+            panel.x + 54.0F, panel.y + 148.0F, 900.0F, 350.0F,
         };
         set_color(renderer, {15, 15, 12, 255});
         SDL_RenderFillRect(renderer, &graph);
@@ -13173,8 +13313,21 @@ void render_statistics_overlay(
     } else {
         const auto rows =
             statistics_rows(statistics, active_statistics_tab);
-        float y = panel.y + 138.0F;
+        const SDL_FRect table{panel.x + 54.0F, panel.y + 140.0F,
+                              900.0F, 342.0F};
+        set_color(renderer, {31, 27, 20, 210});
+        SDL_RenderFillRect(renderer, &table);
+        set_color(renderer, {126, 104, 62, 255});
+        SDL_RenderRect(renderer, &table);
+        SDL_RenderLine(renderer, panel.x + 604.0F, table.y,
+                       panel.x + 604.0F, table.y + table.h);
+        SDL_RenderLine(renderer, panel.x + 774.0F, table.y,
+                       panel.x + 774.0F, table.y + table.h);
+        float y = panel.y + 157.0F;
         for (const auto& row : rows) {
+            set_color(renderer, {80, 68, 46, 255});
+            SDL_RenderLine(renderer, table.x, y + 22.0F,
+                           table.x + table.w, y + 22.0F);
             set_color(renderer, {226, 218, 190, 255});
             SDL_RenderDebugText(
                 renderer, panel.x + 72.0F, y, row.label.c_str()
@@ -13187,14 +13340,36 @@ void render_statistics_overlay(
                         : std::string{ui_text("statistics.unavailable")};
             set_color(renderer, {116, 170, 244, 255});
             SDL_RenderDebugText(
-                renderer, panel.x + 630.0F, y, blue.c_str()
+                renderer, panel.x + 662.0F, y, blue.c_str()
             );
             set_color(renderer, {232, 112, 100, 255});
             SDL_RenderDebugText(
-                renderer, panel.x + 820.0F, y, red.c_str()
+                renderer, panel.x + 827.0F, y, red.c_str()
             );
-            y += 48.0F;
+            y += 38.0F;
         }
+        const int blue_score = statistics.current_score[0];
+        const int red_score = statistics.current_score[1];
+        const int largest = std::max({1, blue_score, red_score});
+        const SDL_FRect summary{panel.x + 200.0F, panel.y + 504.0F,
+                                640.0F, 52.0F};
+        render_beveled_panel(renderer, summary, {45, 38, 25, 255});
+        set_color(renderer, {190, 176, 134, 255});
+        SDL_RenderDebugText(renderer, summary.x + 12.0F,
+                            summary.y + 10.0F, "FINAL SCORE");
+        const SDL_FRect blue_bar{summary.x + 120.0F, summary.y + 9.0F,
+            400.0F * static_cast<float>(blue_score) / largest, 11.0F};
+        const SDL_FRect red_bar{summary.x + 120.0F, summary.y + 31.0F,
+            400.0F * static_cast<float>(red_score) / largest, 11.0F};
+        set_color(renderer, {76, 142, 236, 255});
+        SDL_RenderFillRect(renderer, &blue_bar);
+        set_color(renderer, {222, 76, 68, 255});
+        SDL_RenderFillRect(renderer, &red_bar);
+        const std::string scores = std::to_string(blue_score) + " / " +
+                                   std::to_string(red_score);
+        set_color(renderer, {231, 216, 170, 255});
+        SDL_RenderDebugText(renderer, summary.x + 540.0F,
+                            summary.y + 22.0F, scores.c_str());
     }
     if (active_statistics_postgame) {
         const std::array<std::string, 3> actions{{
@@ -13208,6 +13383,10 @@ void render_statistics_overlay(
                 panel.y + 580.0F, 190.0F, 34.0F,
             };
             render_beveled_panel(renderer, button, {78, 58, 31, 255});
+            set_color(renderer, {185, 151, 65, 255});
+            const SDL_FRect button_icon{button.x + 12.0F, button.y + 10.0F,
+                                        13.0F, 13.0F};
+            SDL_RenderRect(renderer, &button_icon);
             set_color(renderer, {210, 224, 168, 255});
             SDL_RenderDebugText(
                 renderer,
@@ -13702,7 +13881,28 @@ std::size_t render(
             // are proved, but state/compass/shape/palette/blend mappings are
             // not. Partial archive use would invent the state-to-frame map.
             if (!explored) {
-                color = {9, 11, 10, 255};
+                const int shroud_variation =
+                    (x * 29 + y * 43 + x * y * 3) % 9;
+                color = {
+                    static_cast<Uint8>(18 + shroud_variation),
+                    static_cast<Uint8>(22 + shroud_variation),
+                    static_cast<Uint8>(19 + shroud_variation),
+                    255,
+                };
+                const std::array<TilePosition, 4> neighbors{{
+                    {x - 1, y}, {x + 1, y}, {x, y - 1}, {x, y + 1},
+                }};
+                if (std::ranges::any_of(
+                        neighbors,
+                        [&simulation](TilePosition neighbor) {
+                            return simulation.map().contains(neighbor) &&
+                                simulation.is_explored_to_controller(
+                                    active_view_player, neighbor
+                                );
+                        }
+                    )) {
+                    color = {35, 43, 36, 255};
+                }
             } else if (!visible) {
                 color = {
                     static_cast<Uint8>(color.r * 0.32F),
@@ -13746,7 +13946,7 @@ std::size_t render(
                         );
                     const std::size_t frame_index =
                         static_cast<std::size_t>(
-                            (x % 10) + (y % 10) * 10
+                            x * 37 + y * 61 + x * y * 7
                         ) % flat_frame_count;
                     texture = (*archive_frames)[frame_index];
                     full_texture_diamond = true;
@@ -14609,6 +14809,14 @@ std::size_t render(
 
     SDL_SetRenderScale(renderer, 1.0F, 1.0F);
     SDL_SetRenderViewport(renderer, nullptr);
+
+    const SDL_FRect world_edge{
+        0.5F, 0.5F,
+        static_cast<float>(view_pixel_width) - 1.0F,
+        static_cast<float>(view_pixel_height) - 1.0F,
+    };
+    set_color(renderer, {176, 145, 82, 210});
+    SDL_RenderRect(renderer, &world_edge);
 
     if (selection_drag) {
         const float left =
@@ -16827,7 +17035,7 @@ int SdlApp::run() {
                     for (std::size_t index = 0; index < 5; ++index) {
                         const SDL_FRect tab{
                             140.0F + static_cast<float>(index) * 190.0F,
-                            87.0F, 174.0F, 28.0F,
+                            98.0F, 174.0F, 34.0F,
                         };
                         if (SDL_PointInRectFloat(&click, &tab)) {
                             active_statistics_tab =

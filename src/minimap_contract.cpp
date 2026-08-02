@@ -49,6 +49,10 @@ InclusiveRect size_one_marker_rect(int center_x, int center_y) {
     return {center_x - 1, center_y - 1, center_x + 1, center_y + 1};
 }
 
+InclusiveRect readable_marker_rect(int center_x, int center_y) {
+    return {center_x - 2, center_y - 2, center_x + 2, center_y + 2};
+}
+
 InclusiveRect type_0x112_signal_outline(int center_x, int center_y) {
     return {center_x - 4, center_y - 4, center_x + 4, center_y + 4};
 }

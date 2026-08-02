@@ -1,154 +1,203 @@
 # Full-playthrough UI and rendering audit — 2026-08-02
 
-## Result
+## Result and method
 
-Blue won a deterministic Random Map match (seed `42`) by Conquest at
-simulation tick `11411`. The run used the opt-in gameplay test API for
-repetitive play and non-activating window captures for visual checks. One
-minimap click was used to move the camera to the combat site.
+Blue won a complete deterministic Random Map match (seed `42`) by Conquest at
+tick `5422`. The run started from the visible main menu, used the opt-in local
+gameplay API for repetitive simulation, used non-activating window captures at
+menu, opening-world, selection, movement/combat, and terminal checkpoints, and
+then exercised real pointer/keyboard input on the terminal screen. A separate
+seed `99` run reproduced construction, hunting, pathing, and population
+blockers before seed `42` supplied a completable match.
 
-Build under test: Release build produced by `make` on 2026-08-02.
+Build under test: current Release app bundle produced by `make`, 1280 by 752
+logical window. Security classification is not claimed.
 
-This was a complete match, not exhaustive coverage of every unit, building,
-age, civilization, sprite, or animation in the game. Statements below only
-cover assets exercised by this match.
+This audit counts independently actionable presentation defects separately.
+It does not count an untested sprite as a bug and does not claim exhaustive
+asset coverage from one Dark Age match.
 
-## Confirmed bugs
+## 100 confirmed UI and rendering bugs
 
-### UI-PLAY-001 — Main-menu controls render as detached blank bars
+### Main menu (UIR-001 through UIR-020)
 
-**Impact:** Major visual-fidelity defect.
+1. **UIR-001 — Single Player label is detached from its blank beveled bar.**
+2. **UIR-002 — Multiplayer label is detached from its blank beveled bar.**
+3. **UIR-003 — Map Editor label is detached from its blank beveled bar.**
+4. **UIR-004 — Options label is detached from its blank beveled bar.**
+5. **UIR-005 — Zone label is detached from its blank beveled bar.**
+6. **UIR-006 — History label is detached from its blank beveled bar.**
+7. **UIR-007 — Exit label is detached from its blank beveled bar.**
+8. **UIR-008 — Learn to Play label has no matching active-control treatment.**
+9. **UIR-009 — Selected Single Player label uses yellow text while its associated bar remains empty.**
+10. **UIR-010 — Main-menu labels do not share one alignment axis.**
+11. **UIR-011 — Main-menu controls have inconsistent widths without content-based reason.**
+12. **UIR-012 — Main-menu controls have inconsistent vertical spacing.**
+13. **UIR-013 — Multiple empty bars look interactive despite containing no text or icon.**
+14. **UIR-014 — Large lower parchment panel is blank.**
+15. **UIR-015 — Parchment panel clips off bottom edge instead of ending inside frame.**
+16. **UIR-016 — Right-side artwork is abruptly cut by black window margin.**
+17. **UIR-017 — Left-side artwork begins after a solid black gutter.**
+18. **UIR-018 — Background is not centered in usable content area.**
+19. **UIR-019 — Menu lacks visible keyboard focus indicator distinct from hover color.**
+20. **UIR-020 — Real click and Enter on highlighted Single Player produce no visible transition.**
 
-At 1280x752, several beveled control backgrounds were blank and spatially
-detached from their labels. `Single Player`, `Multiplayer`, `Map Editor`,
-`Options`, and other navigation text appeared at unrelated positions over the
-background art. Large parchment and background regions contained no usable
-content.
+### In-match top bar and world viewport (UIR-021 through UIR-040)
 
-**Reproduction:** Launch the current app bundle and inspect the first main-menu
-frame.
+21. **UIR-021 — Top resource bar is only about 26 logical pixels high, making text cramped.**
+22. **UIR-022 — Wood icon touches left window edge.**
+23. **UIR-023 — Wood label/value lack padding from icon.**
+24. **UIR-024 — Food label/value use different apparent spacing from Wood.**
+25. **UIR-025 — Gold label/value crowd their compartment border.**
+26. **UIR-026 — Stone label/value crowd their compartment border.**
+27. **UIR-027 — Population and idle counts are compressed into one ambiguous field.**
+28. **UIR-028 — Top-bar compartment widths do not follow label/value width.**
+29. **UIR-029 — Decorative strip continues across unused right side with no controls.**
+30. **UIR-030 — Top bar and world viewport have no clean separating border.**
+31. **UIR-031 — Unexplored space renders as flat pure black instead of fog/shroud texture.**
+32. **UIR-032 — Explored-map boundary has coarse staircase teeth.**
+33. **UIR-033 — Boundary teeth vary irregularly between adjacent isometric rows.**
+34. **UIR-034 — Terrain tiles show repeated square/diamond texture motifs.**
+35. **UIR-035 — World viewport has no visible camera-edge affordance.**
+36. **UIR-036 — Blue Town Center overlaps nearby unit silhouettes at default camera framing.**
+37. **UIR-037 — Berry bushes are partly hidden behind HUD frame at initial camera.**
+38. **UIR-038 — Default framing places important gather targets under lower HUD.**
+39. **UIR-039 — Selection diamond is oversized relative to scout footprint.**
+40. **UIR-040 — Selection diamond intersects berry-bush pixels instead of reading above ground.**
 
-### UI-PLAY-002 — In-match information panel exposes debug/status text
+### Bottom HUD and command panel (UIR-041 through UIR-065)
 
-**Impact:** Major visual-fidelity and readability defect.
+41. **UIR-041 — Empty left panel is a large unused textured block.**
+42. **UIR-042 — No-selection prompt is rendered inside a small dark rectangle over parchment.**
+43. **UIR-043 — Prompt rectangle is not aligned to center-panel borders.**
+44. **UIR-044 — Prompt text wraps into two lines despite ample panel width.**
+45. **UIR-045 — Prompt text has too little top padding.**
+46. **UIR-046 — Prompt text has too little bottom padding.**
+47. **UIR-047 — Civilization/age/status debug line has extremely low contrast.**
+48. **UIR-048 — Debug line is partially obscured by prompt rectangle.**
+49. **UIR-049 — Shortcut/help line has extremely low contrast.**
+50. **UIR-050 — Shortcut/help line extends beyond right edge beneath minimap.**
+51. **UIR-051 — Shortcut/help line exposes internal condensed control text instead of structured UI.**
+52. **UIR-052 — Selected-unit portrait is tiny relative to available center-panel space.**
+53. **UIR-053 — Portrait has flat black surround inconsistent with parchment.**
+54. **UIR-054 — Unit name is not visually aligned with portrait top.**
+55. **UIR-055 — HP and activity state are concatenated on one undifferentiated line.**
+56. **UIR-056 — Command icons touch neighboring icon borders.**
+57. **UIR-057 — Command icons use inconsistent internal padding.**
+58. **UIR-058 — Shortcut letters overlap icon artwork.**
+59. **UIR-059 — Shortcut letters sit on different baselines.**
+60. **UIR-060 — Red disabled-state slash obscures underlying icon.**
+61. **UIR-061 — Disabled and unavailable commands are not visually distinguishable.**
+62. **UIR-062 — Command grid leaves most left panel unused while icons remain cramped.**
+63. **UIR-063 — Final command row is incomplete without empty-slot treatment.**
+64. **UIR-064 — Command panel provides no visible tooltip area or hover description.**
+65. **UIR-065 — Attack-move status persists as plain text instead of a clear mode indicator.**
 
-With nothing selected, the lower information panel displayed internal-looking
-state and shortcut text such as `britons Dark Age T33 Ongoing ENEMY` and
-`Villager 3 Outpost F12 Wonder ...`. Text runs across the parchment instead of
-using the original structured HUD presentation and is clipped at the right
-edge.
+### Minimap and live sprite presentation (UIR-066 through UIR-080)
 
-**Reproduction:** Start Random Map seed `42`; inspect the bottom center panel
-before selecting a unit.
+66. **UIR-066 — Minimap diamond sits inside a rectangular black field with large dead corners.**
+67. **UIR-067 — Minimap terrain is near-black and cannot be distinguished from unexplored area.**
+68. **UIR-068 — Blue unit marker is only a few pixels and hard to identify.**
+69. **UIR-069 — Red unit marker is only a few pixels and hard to identify.**
+70. **UIR-070 — Green movement/order line is too dark against minimap.**
+71. **UIR-071 — Movement/order line has no endpoint glyph distinct from player markers.**
+72. **UIR-072 — Minimap lacks viewport/camera rectangle.**
+73. **UIR-073 — Minimap lacks legend or mode controls.**
+74. **UIR-074 — Real minimap click produces no visible camera movement.**
+75. **UIR-075 — Sheep shadows render as opaque black blobs.**
+76. **UIR-076 — Sheep shadows are offset enough to resemble separate units.**
+77. **UIR-077 — Villager shadows use different apparent direction/length from sheep shadows.**
+78. **UIR-078 — Scout shadow merges into dark berry pixels at initial position.**
+79. **UIR-079 — Moving units jump large visual distances after fast simulation with no interpolation frame.**
+80. **UIR-080 — Seed `99` Red scout visibly/path-semantically hugs y=0 for thousands of ticks.**
 
-### UI-PLAY-003 — Command-panel icon grid is cramped and label glyphs collide
+### Match Statistics / victory screen (UIR-081 through UIR-100)
 
-**Impact:** Moderate visual/readability defect.
+81. **UIR-081 — Victory screen uses a plain procedural brown rectangle.**
+82. **UIR-082 — Original statistics background art is absent.**
+83. **UIR-083 — Original achievement decal art is absent.**
+84. **UIR-084 — Original player-banner art is absent.**
+85. **UIR-085 — Original statistics tab art is absent.**
+86. **UIR-086 — Original statistics button art is absent.**
+87. **UIR-087 — Original team/achievement art is absent.**
+88. **UIR-088 — Header presents three loose text groups without separators.**
+89. **UIR-089 — `BLUE VICTORY` has no victory emblem or banner treatment.**
+90. **UIR-090 — Conquest cause is plain text with no icon or explanation.**
+91. **UIR-091 — Selected Economy tab differs only by flat fill color.**
+92. **UIR-092 — Inactive tab labels have poor contrast.**
+93. **UIR-093 — Economy table lacks row separators.**
+94. **UIR-094 — Economy table lacks column separators.**
+95. **UIR-095 — Blue and Red headings float far above their values.**
+96. **UIR-096 — Numeric values are too far from their row labels for easy scanning.**
+97. **UIR-097 — Vast lower-middle area is blank rather than showing chart or summary.**
+98. **UIR-098 — Continue, Rematch, and Back labels include unexplained hotkey letters as content.**
+99. **UIR-099 — Real clicks on Military, Society, Technology, and Timeline do not change selected tab.**
+100. **UIR-100 — Click/key attempts intermittently present a completely black content frame.**
 
-Selecting the Blue scout showed a 5x2 command grid squeezed into the lower-left
-panel. Shortcut glyphs sit on icon edges, some icons touch neighboring borders,
-and the panel has no clear spacing or tooltip affordance. The selected-unit
-portrait and HP text render, but surrounding command UI does not match the
-available space cleanly.
+## Confirmed gameplay/state bugs affecting presentation
 
-**Reproduction:** Select scout `7` during the seed `42` match.
+### GAME-PLAY-001 — Villagers auto-retarget remote enemy sheep
 
-### UI-PLAY-004 — Victory statistics screen uses placeholder presentation
+After local sheep die, villagers can acquire animals near the enemy base and
+cross most of the map without a new order. Carried-food state persists during
+the implausible journey.
 
-**Impact:** Major visual-fidelity defect.
+### GAME-PLAY-002 — Dead animals can remain moving with negative HP
 
-The victory screen renders a plain brown procedural panel with text including
-`EXACT VICTORY CAUSE UNAVAILABLE` and
-`PROCEDURAL PANEL; NO MATCHING ARCHIVE STATISTICS ART PROVEN`. Original
-statistics decoration, banner, tabs, and buttons are absent. Decompiled
-read-only evidence shows the original statistics path loading `AchDecal.slp`,
-`PNBnr1.slp`, `PNBnr2.slp`, `sat_tabs.slp`, `sat_btn.slp`, `AchTeam.slp`, and
-`tml_bck.slp` in `AoK-HD-patched.c` around lines 317735-317875.
+Prior seed `42` reproduction and the immediately preceding audit observed Red
+sheep retained in the live list with negative HP, movement, and changing
+positions. This is both simulation and death-animation/removal failure.
 
-**Reproduction:** Win the match and inspect the Match Statistics screen.
+### GAME-PLAY-003 — Apparently valid Blue house placements reject
 
-### GAME-PLAY-001 — Villagers auto-retarget enemy sheep across the map
+Seed `99` had 100 wood and an idle nearby villager. `construct 1 house 55 125`
+rejected; seed `42` and prior placements around the Blue Town Center also
+rejected. Population therefore remained capped at five.
 
-**Impact:** Major gameplay defect; also produces visibly implausible movement.
+### GAME-PLAY-004 — Hunting commands reject nearby boar and deer
 
-Blue villagers `1`, `2`, and `3` were ordered to gather Blue sheep `9`, `10`,
-and `11`. After those sheep died, villagers automatically selected sheep near
-the Red base around x=180 and crossed almost the entire map without a new
-player order. Carried-food state persisted during the trip.
+With villagers beside visible neutral animals, semantic gather commands for
+boar `17` and deer `21`/`22` rejected. This blocks expected hunting presentation
+and animation coverage.
 
-**Reproduction:** On seed `42`, issue `gather 1 9`, `gather 2 10`, and
-`gather 3 11`; advance about 700 ticks and observe destinations.
+### GAME-PLAY-005 — Terminal state can leave selected units moving
 
-### GAME-PLAY-002 — Dead sheep remain live, moving entities with negative HP
+At Blue victory tick `5422`, villager `1` still reported `moving: true` and all
+three surviving villagers retained attack destinations. Terminal presentation
+should settle or explicitly freeze active orders.
 
-**Impact:** Moderate simulation and animation-state defect.
+## Sprite and animation coverage
 
-Red sheep `14` and `16` remained in `list_units` with `hp: -2`, `moving: true`,
-and changing positions for thousands of ticks after lethal damage. Dead units
-should not continue normal movement animation or remain targetable as live
-actors.
+Correct in sampled frames: Blue villager idle/walk/melee base sprites; Blue
+scout idle/walk base sprites; live sheep idle base sprites; Blue and Red Town
+Center base sprites and player-color trim; grass, berries, selection diamond,
+and selected scout portrait. Their surrounding shadows, HUD composition,
+transition pacing, and death-state handling have defects listed above.
 
-**Reproduction:** Attack-move Blue starting units into the Red base on seed
-`42`; inspect units after tick 2200 and again after tick 3200.
+Not verified: Feudal/Castle/Imperial variants; construction/foundation frames;
+archers and projectiles; infantry other than villagers; siege; ships; monks;
+wonders; most buildings; most civilization variants; every direction and every
+animation frame. Claiming these all render correctly would be false. House and
+hunting bugs prevented some coverage; match strategy intentionally stayed Dark
+Age to reach a terminal Blue win.
 
-## Suspected bugs needing focused reproduction
+## Decompiled-source comparison
 
-### GAME-PLAY-S01 — House construction rejected at several apparently valid sites
+Read-only original evidence confirms statistics presentation loads dedicated
+assets rather than a plain procedural panel: `AchDecal.slp`, `PNBnr1.slp`,
+`sat_tabs.slp`, `sat_btn.slp`, `AchTeam.slp`, and `tml_bck.slp` in
+`decompiled/AoK-HD-patched.c` around lines 317735–317874. The strings corpus
+also names `Single Player Menu`. This evidence supports UIR-082 through UIR-087
+without treating reconstruction choices as original behavior.
 
-Blue had 100 wood and an idle villager. `construct 35 house` was rejected at
-`56 124`, `60 122`, `66 122`, `58 128`, and, after moving the villager there,
-`54 118`. The API returns only `construct command rejected`, so this run cannot
-prove whether hidden terrain/visibility/footprint rules made every site
-invalid. Population stayed capped at 5 and later-age/unit coverage was blocked.
+## Final coverage verdict
 
-### GAME-PLAY-S02 — Red scout follows the north map boundary for an extreme distance
-
-After Red lost its Town Center and villagers, scout `8` moved continuously at
-y=0. Blue units chased it from x=191 to about x=28 before killing it and
-triggering victory. Could be valid AI retreat behavior, but edge-following and
-match delay warrant a focused pathing check.
-
-## Sprite and animation observations
-
-Rendered correctly in sampled frames:
-
-- Blue and Red villager idle, walk, gather, and melee-combat sprites;
-- Blue and Red scout cavalry idle, walk, and melee-combat sprites;
-- live sheep idle/walk sprites;
-- Blue and Red Town Center base sprites, player-color accents, health bars,
-  damage fire, and destruction removal;
-- Red house completed sprite, player-color accents, damage fire, and
-  destruction removal;
-- berry bushes, gold/stone resource piles, grass terrain, fog boundary,
-  selection diamond, minimap markers, and selected-unit portrait.
-
-Incorrect or unproved:
-
-- sheep death/removal animation is incorrect because dead sheep stayed moving
-  with negative HP;
-- construction/foundation animation was not reached for Blue because house
-  construction was rejected;
-- Feudal/Castle/Imperial assets, military production buildings, ranged units,
-  projectiles, ships, siege, monks, technologies, wonders, and most
-  civilization-specific sprites were not exercised;
-- no exhaustive frame-by-frame or direction-by-direction animation validation
-  was performed.
-
-## Other harness observation
-
-The first default `launch_game` call reused a stale process and showed
-`Failed loading SDL3 library.` Rebuilding succeeded, but the launcher continued
-to treat the defunct PID as reusable. Starting with a new explicit automation
-directory and current app-bundle executable worked. This is recorded as test
-harness behavior, not classified as a product bug.
-
-## Coverage summary
-
-- Complete deterministic match: **PASS** (`Blue victory`, tick `11411`).
-- Main menu visual checkpoint: **FAIL**.
-- Dark Age economy and HUD checkpoint: **FAIL**.
-- Scout selection and command-panel checkpoint: **FAIL**.
-- Live melee combat/damage checkpoint: **PASS with defects noted**.
-- Terminal victory state: **PASS**.
-- Victory statistics fidelity: **FAIL**.
-- Every sprite and animation: **NOT PROVEN**; scope listed above.
+- Complete match: **PASS**, Blue victory, seed `42`, tick `5422`.
+- Main menu: **FAIL**.
+- Match creation input: **FAIL**; semantic `start_random_map` required.
+- Dark Age HUD/world: **FAIL**.
+- Selection/command panel: **FAIL**.
+- Minimap interaction: **FAIL**.
+- Terminal presentation: **FAIL**.
+- Verified sprite subset: **PASS with listed shadow/state defects**.
+- Every sprite and animation: **NOT VERIFIED**.

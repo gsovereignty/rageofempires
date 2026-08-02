@@ -10613,12 +10613,16 @@ void render_hud(
             const CommandButtonModel& command =
                 selection_panel.commands[index];
             if (command.grid_slot >= 15) continue;
-            const int column = static_cast<int>(command.grid_slot % 5);
-            const int row = static_cast<int>(command.grid_slot / 5);
+            const hud_layout::Rect layout_button =
+                hud_layout::command_button(
+                    static_cast<int>(top),
+                    static_cast<int>(command.grid_slot)
+                );
             const SDL_FRect button{
-                37.0F + column * 41.0F,
-                top + 31.0F + row * 41.0F,
-                40.0F, 40.0F,
+                static_cast<float>(layout_button.x),
+                static_cast<float>(layout_button.y),
+                static_cast<float>(layout_button.width),
+                static_cast<float>(layout_button.height),
             };
             const bool command_enabled =
                 command.enabled && !observer_mode;
@@ -10696,17 +10700,29 @@ void render_hud(
                 const SDL_FRect icon_box{
                     button.x + 2.0F + (pressed ? 1.0F : 0.0F),
                     button.y + 2.0F + (pressed ? 1.0F : 0.0F),
-                    36.0F,
-                    36.0F,
+                    button.w - 4.0F,
+                    button.h - 4.0F,
                 };
                 SDL_RenderTexture(
                     renderer, icon_sprite->texture, nullptr, &icon_box
                 );
                 SDL_SetTextureColorMod(icon_sprite->texture, 255, 255, 255);
             }
+            const std::string hotkey = command.hotkey.substr(0, 1);
+            const SDL_FRect hotkey_badge{
+                label_x - 1.0F, button.y + button.h - 11.0F,
+                11.0F, 10.0F,
+            };
+            set_color(renderer, {18, 14, 10, 220});
+            SDL_RenderFillRect(renderer, &hotkey_badge);
+            set_color(
+                renderer,
+                command_enabled ? SDL_Color{245, 228, 178, 255}
+                                : SDL_Color{117, 112, 102, 255}
+            );
             SDL_RenderDebugText(
-                renderer, label_x, button.y + 27.0F,
-                command.hotkey.substr(0, 4).c_str()
+                renderer, label_x, button.y + button.h - 10.0F,
+                hotkey.c_str()
             );
         }
         const auto hovered_command = std::ranges::find_if(
@@ -10734,12 +10750,16 @@ void render_hud(
             );
         }
         SDL_SetRenderClipRect(renderer, &information_clip);
-    } else {
-        SDL_RenderDebugText(
-            renderer,
+    } else if (!observer_mode) {
+        const SDL_FRect prompt{
             static_cast<float>(hud_layout::information_content_x),
-            top + 30.0F,
-            selection_text(simulation).c_str()
+            top + 34.0F, 230.0F, 32.0F,
+        };
+        render_beveled_panel(renderer, prompt, {68, 51, 30, 210});
+        set_color(renderer, {226, 213, 174, 255});
+        SDL_RenderDebugText(
+            renderer, prompt.x + 17.0F, prompt.y + 12.0F,
+            "SELECT A UNIT OR BUILDING"
         );
     }
     const bool selected_dock =
@@ -12576,17 +12596,25 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
         for (std::size_t index = 0; index < main_menu_items().size();
              ++index) {
             const FrontendMenuItem& item = main_menu_items()[index];
-            if (!has_original_background &&
-                active_legacy_sprites.frontend_background == nullptr) {
-                set_color(renderer, {72, 48, 28, 230});
-                const SDL_FRect plaque{
-                    item.bounds.x, item.bounds.y,
-                    item.bounds.width, item.bounds.height,
-                };
-                SDL_RenderFillRect(renderer, &plaque);
-                set_color(renderer, {196, 168, 138, 255});
-                SDL_RenderRect(renderer, &plaque);
-            }
+            const bool focused =
+                model_screen == FrontendMenuScreen::main_menu &&
+                index == active_frontend_focus;
+            const SDL_FRect plaque{
+                item.bounds.x, item.bounds.y,
+                item.bounds.width, item.bounds.height,
+            };
+            set_color(
+                renderer,
+                focused ? SDL_Color{92, 66, 30, 242}
+                        : SDL_Color{36, 27, 18, 218}
+            );
+            SDL_RenderFillRect(renderer, &plaque);
+            set_color(
+                renderer,
+                focused ? SDL_Color{226, 207, 92, 255}
+                        : SDL_Color{160, 135, 92, 255}
+            );
+            SDL_RenderRect(renderer, &plaque);
             draw_centered(
                 item.label,
                 item.bounds,
@@ -12923,6 +12951,10 @@ void render_statistics_overlay(
     SDL_RenderFillRect(renderer, &shade);
     const SDL_FRect panel{120.0F, 36.0F, 1040.0F, 640.0F};
     render_beveled_panel(renderer, panel, {42, 33, 23, 255});
+    const SDL_FRect banner{
+        panel.x + 18.0F, panel.y + 12.0F, panel.w - 36.0F, 38.0F
+    };
+    render_beveled_panel(renderer, banner, {91, 58, 24, 255});
     const MatchStatistics statistics = simulation.match_statistics();
     const char* outcome =
         simulation.outcome() == MatchOutcome::blue_victory ? "BLUE VICTORY" :
@@ -12955,9 +12987,17 @@ void render_statistics_overlay(
     }};
     float tab_x = panel.x + 28.0F;
     for (std::size_t index = 0; index < tabs.size(); ++index) {
+        const bool selected =
+            static_cast<std::size_t>(active_statistics_tab) == index;
+        const SDL_FRect tab{tab_x - 8.0F, panel.y + 51.0F, 174.0F, 28.0F};
+        render_beveled_panel(
+            renderer, tab,
+            selected ? SDL_Color{112, 74, 28, 255}
+                     : SDL_Color{53, 43, 31, 255}
+        );
         set_color(
             renderer,
-            static_cast<std::size_t>(active_statistics_tab) == index
+            selected
                 ? SDL_Color{245, 215, 122, 255}
                 : SDL_Color{150, 136, 104, 255}
         );
@@ -13046,20 +13086,31 @@ void render_statistics_overlay(
             y += 48.0F;
         }
     }
-    set_color(renderer, {169, 204, 139, 255});
-    SDL_RenderDebugText(
-        renderer, panel.x + 220.0F, panel.y + 592.0F,
-        active_statistics_postgame
-            ? ("C " + std::string{ui_text("statistics.continue")} +
-               "   R " + std::string{ui_text("statistics.rematch")} +
-               "   B " + std::string{ui_text("statistics.back")}).c_str()
-            : "F12 / ESC CLOSE   READ-ONLY LIVE SNAPSHOT"
-    );
-    set_color(renderer, {150, 136, 104, 255});
-    SDL_RenderDebugText(
-        renderer, panel.x + 255.0F, panel.y + 615.0F,
-        "PROCEDURAL PANEL; NO MATCHING ARCHIVE STATISTICS ART PROVEN"
-    );
+    if (active_statistics_postgame) {
+        const std::array<std::string, 3> actions{{
+            "C " + std::string{ui_text("statistics.continue")},
+            "R " + std::string{ui_text("statistics.rematch")},
+            "B " + std::string{ui_text("statistics.back")},
+        }};
+        for (std::size_t index = 0; index < actions.size(); ++index) {
+            const SDL_FRect button{
+                panel.x + 205.0F + static_cast<float>(index) * 220.0F,
+                panel.y + 580.0F, 190.0F, 34.0F,
+            };
+            render_beveled_panel(renderer, button, {78, 58, 31, 255});
+            set_color(renderer, {210, 224, 168, 255});
+            SDL_RenderDebugText(
+                renderer, button.x + 24.0F, button.y + 13.0F,
+                actions[index].c_str()
+            );
+        }
+    } else {
+        set_color(renderer, {169, 204, 139, 255});
+        SDL_RenderDebugText(
+            renderer, panel.x + 350.0F, panel.y + 596.0F,
+            "F12 / ESC CLOSE"
+        );
+    }
 }
 
 void render_save_browser_overlay(SDL_Renderer* renderer) {

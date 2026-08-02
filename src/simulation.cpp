@@ -6649,6 +6649,7 @@ void Simulation::update() {
                         }
                     } else if (
                         unit.resource_building_id == 0 &&
+                        unit.resource_unit_id == 0 &&
                         route_to_nearest_resource(
                             unit,
                             completed_resource
@@ -7105,6 +7106,28 @@ void Simulation::update() {
                 }
             }
         }
+    }
+    for (Unit& unit : units_) {
+        if (!is_animal(unit.kind) || unit.hit_points > 0) {
+            continue;
+        }
+        // Animal carcasses remain finite food resources, but no longer act
+        // as live mobile units after lethal damage.
+        unit.hit_points = 0;
+        unit.previous_position = unit.position;
+        unit.destination = unit.position;
+        unit.moving = false;
+        unit.path.clear();
+        unit.next_path_step = 0;
+        unit.waypoints.clear();
+        unit.formation_waypoints.clear();
+        unit.attack_target_id = 0;
+        unit.attack_target_is_building = false;
+        unit.attack_target_auto = false;
+        unit.attack_moving = false;
+        unit.patrolling = false;
+        unit.guard_target_id = 0;
+        unit.returning_to_stance = false;
     }
     for (const Unit& unit : units_) {
         if (unit.hit_points <= 0 && unit.garrisoned_in == 0 &&

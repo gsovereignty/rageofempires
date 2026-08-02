@@ -190,10 +190,10 @@ inline constexpr int information_content_x = 286;
 [[nodiscard]] constexpr Rect command_button(int bottom, int index) {
     if (index < 0 || index >= 15) return {};
     return {
-        37 + 41 * (index % 5),
-        bottom + 31 + 41 * (index / 5),
-        40,
-        40,
+        34 + 42 * (index % 5),
+        bottom + 31 + 42 * (index / 5),
+        38,
+        38,
     };
 }
 

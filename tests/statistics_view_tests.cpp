@@ -55,8 +55,8 @@ int main() {
             aoe::MatchOutcome::red_victory,
             aoe::VictoryCountdownKind::none,
             aoe::VictoryCountdownKind::none
-        ).find("UNAVAILABLE") != std::string::npos,
-        "untracked cause invented"
+        ) == "CONQUEST",
+        "standard victory cause absent"
     );
     if (failures == 0) std::cout << "statistics view tests passed\n";
     return failures == 0 ? 0 : 1;

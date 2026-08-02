@@ -10347,6 +10347,14 @@ void render_hud(
             view_pixel_width,
             complete_resource_icons
         );
+    const SDL_FRect resource_row{
+        static_cast<float>(resource_layout.row.x),
+        static_cast<float>(resource_layout.row.y),
+        static_cast<float>(resource_layout.row.width),
+        static_cast<float>(resource_layout.row.height),
+    };
+    set_color(renderer, {196, 164, 98, 255});
+    SDL_RenderRect(renderer, &resource_row);
     for (std::size_t index = 0;
          index < resource_layout.fields.size();
          ++index) {
@@ -10367,6 +10375,8 @@ void render_hud(
         };
         set_color(renderer, {12, 10, 7, 235});
         SDL_RenderFillRect(renderer, &field_background);
+        set_color(renderer, {105, 84, 50, 255});
+        SDL_RenderRect(renderer, &field_background);
         set_color(renderer, {239, 226, 185, 255});
         if (index < amounts.size()) {
             if (field.icon) {
@@ -10396,39 +10406,41 @@ void render_hud(
                 static_cast<float>(field.text.y),
                 amount_text.c_str()
             );
-        } else {
+        } else if (index == 4) {
             const bool show_paused =
                 paused && simulation.outcome() == MatchOutcome::ongoing;
             const std::string population_text =
-                hud_layout::population_status_text(
-                    stress_resource_values
-                        ? 999999
-                        : simulation.population(active_view_player),
-                    stress_resource_values
-                        ? 999999
-                        : simulation.population_capacity(active_view_player),
-                    stress_resource_values
-                        ? 9999
-                        : static_cast<int>(
-                              simulation
-                                  .idle_villagers(active_view_player)
-                                  .size()
-                          ),
-                    stress_resource_values
-                        ? 9999
-                        : static_cast<int>(
-                              simulation
-                                  .idle_military(active_view_player)
-                                  .size()
-                          ),
-                    show_paused || stress_resource_values,
-                    field.text.width
+                "POPULATION " + std::to_string(
+                    stress_resource_values ? 999999 :
+                    simulation.population(active_view_player)
+                ) + "/" + std::to_string(
+                    stress_resource_values ? 999999 :
+                    simulation.population_capacity(active_view_player)
+                ) + (show_paused ? " PAUSED" : "");
+            SDL_RenderDebugText(
+                renderer,
+                static_cast<float>(field.text.x),
+                static_cast<float>(field.text.y),
+                hud_layout::truncate_debug_text(
+                    population_text, field.text.width
+                ).c_str()
+            );
+        } else {
+            const std::string idle_text =
+                "IDLE V " + std::to_string(
+                    stress_resource_values ? 9999 :
+                    simulation.idle_villagers(active_view_player).size()
+                ) + "  M " + std::to_string(
+                    stress_resource_values ? 9999 :
+                    simulation.idle_military(active_view_player).size()
                 );
             SDL_RenderDebugText(
                 renderer,
                 static_cast<float>(field.text.x),
                 static_cast<float>(field.text.y),
-                population_text.c_str()
+                hud_layout::truncate_debug_text(
+                    idle_text, field.text.width
+                ).c_str()
             );
         }
         SDL_SetRenderClipRect(renderer, nullptr);
@@ -10450,6 +10462,7 @@ void render_hud(
         simulation.observer_perspective(active_view_player);
     const bool has_selection =
         simulation.selected_unit() || simulation.selected_building();
+    constexpr bool show_legacy_no_selection_debug = false;
     if (observer_mode) {
         SDL_SetRenderClipRect(renderer, nullptr);
         const SDL_FRect badge{
@@ -10469,11 +10482,11 @@ void render_hud(
         if (information_clip.w >= 180) {
             const SDL_FRect portrait{
                 static_cast<float>(hud_layout::information_content_x),
-                top + 30.0F,
-                72.0F,
-                72.0F
+                top + 18.0F,
+                88.0F,
+                88.0F
             };
-            set_color(renderer, {26, 20, 14, 255});
+            set_color(renderer, {92, 70, 43, 255});
             SDL_RenderFillRect(renderer, &portrait);
             set_color(renderer, {196, 164, 98, 255});
             SDL_RenderRect(renderer, &portrait);
@@ -10569,12 +10582,19 @@ void render_hud(
                 selection_panel.title, text_width
             );
             SDL_RenderDebugText(
-                renderer, text_x, top + 31.0F, title.c_str()
+                renderer, text_x, top + 20.0F, title.c_str()
+            );
+            std::ostringstream hit_points;
+            hit_points << "HP " << selection_panel.hit_points << '/'
+                       << selection_panel.maximum_hit_points;
+            SDL_RenderDebugText(
+                renderer, text_x, top + 42.0F,
+                hud_layout::truncate_debug_text(
+                    hit_points.str(), text_width
+                ).c_str()
             );
             std::ostringstream detail;
-            detail << "HP " << selection_panel.hit_points << '/'
-                   << selection_panel.maximum_hit_points
-                   << "  " << selection_panel.status;
+            detail << "STATUS  " << selection_panel.status;
             if (selection_panel.garrison_count > 0) {
                 detail << "  GARRISON " << selection_panel.garrison_count;
             }
@@ -10586,12 +10606,12 @@ void render_hud(
                 detail.str(), text_width
             );
             SDL_RenderDebugText(
-                renderer, text_x, top + 51.0F, detail_text.c_str()
+                renderer, text_x, top + 63.0F, detail_text.c_str()
             );
             if (selection_panel.progress_percent >= 0) {
                 const SDL_FRect track{
                     text_x,
-                    top + 75.0F,
+                    top + 88.0F,
                     static_cast<float>(std::min(260, text_width)),
                     8.0F
                 };
@@ -10607,6 +10627,19 @@ void render_hud(
             }
         }
         SDL_SetRenderClipRect(renderer, nullptr);
+        for (int slot = 0; slot < 15; ++slot) {
+            const hud_layout::Rect layout_slot =
+                hud_layout::command_button(static_cast<int>(top), slot);
+            const SDL_FRect empty_slot{
+                static_cast<float>(layout_slot.x),
+                static_cast<float>(layout_slot.y),
+                static_cast<float>(layout_slot.width),
+                static_cast<float>(layout_slot.height),
+            };
+            render_beveled_panel(renderer, empty_slot, {38, 32, 25, 210});
+            set_color(renderer, {91, 75, 52, 255});
+            SDL_RenderRect(renderer, &empty_slot);
+        }
         for (std::size_t index = 0;
              index < selection_panel.commands.size();
              ++index) {
@@ -10698,10 +10731,10 @@ void render_hud(
                     command_enabled ? 255 : 112
                 );
                 const SDL_FRect icon_box{
-                    button.x + 2.0F + (pressed ? 1.0F : 0.0F),
-                    button.y + 2.0F + (pressed ? 1.0F : 0.0F),
-                    button.w - 4.0F,
-                    button.h - 4.0F,
+                    button.x + 5.0F + (pressed ? 1.0F : 0.0F),
+                    button.y + 4.0F + (pressed ? 1.0F : 0.0F),
+                    button.w - 10.0F,
+                    button.h - 17.0F,
                 };
                 SDL_RenderTexture(
                     renderer, icon_sprite->texture, nullptr, &icon_box
@@ -10735,7 +10768,7 @@ void render_hud(
         );
         if (hovered_command != selection_panel.commands.end()) {
             const CommandButtonModel& hovered = *hovered_command;
-            const SDL_FRect tooltip{5.0F, top + 2.0F, 240.0F, 38.0F};
+            const SDL_FRect tooltip{5.0F, top - 44.0F, 310.0F, 40.0F};
             render_beveled_panel(renderer, tooltip, {31, 25, 18, 245});
             const std::string heading =
                 hovered.label + " [" + hovered.hotkey + "]";
@@ -10751,15 +10784,47 @@ void render_hud(
         }
         SDL_SetRenderClipRect(renderer, &information_clip);
     } else if (!observer_mode) {
+        SDL_SetRenderClipRect(renderer, nullptr);
+        set_color(renderer, {202, 181, 133, 255});
+        SDL_RenderDebugText(
+            renderer, command_panel.x + 18.0F,
+            command_panel.y + 22.0F, "COMMANDS"
+        );
+        set_color(renderer, {139, 124, 94, 255});
+        SDL_RenderDebugText(
+            renderer, command_panel.x + 18.0F,
+            command_panel.y + 48.0F, "No entity selected"
+        );
+        SDL_SetRenderClipRect(renderer, &information_clip);
         const SDL_FRect prompt{
             static_cast<float>(hud_layout::information_content_x),
-            top + 34.0F, 230.0F, 32.0F,
+            top + 18.0F,
+            static_cast<float>(std::max(
+                260,
+                information_clip.x + information_clip.w -
+                    hud_layout::information_content_x - 12
+            )),
+            104.0F,
         };
-        render_beveled_panel(renderer, prompt, {68, 51, 30, 210});
+        render_beveled_panel(renderer, prompt, {86, 65, 39, 235});
         set_color(renderer, {226, 213, 174, 255});
         SDL_RenderDebugText(
-            renderer, prompt.x + 17.0F, prompt.y + 12.0F,
-            "SELECT A UNIT OR BUILDING"
+            renderer, prompt.x + 20.0F, prompt.y + 18.0F,
+            "NO SELECTION"
+        );
+        set_color(renderer, {245, 232, 194, 255});
+        SDL_RenderDebugText(
+            renderer, prompt.x + 20.0F, prompt.y + 43.0F,
+            "Click a unit or building to view commands and status."
+        );
+        set_color(renderer, {186, 165, 119, 255});
+        const std::string world_status =
+            std::string{name(simulation.civilization(active_view_player))} +
+            "   " + std::string{name(simulation.age(active_view_player))} +
+            "   " + std::string{name(simulation.outcome())};
+        SDL_RenderDebugText(
+            renderer, prompt.x + 20.0F, prompt.y + 72.0F,
+            world_status.c_str()
         );
     }
     const bool selected_dock =
@@ -11412,7 +11477,8 @@ void render_hud(
         : selected_siege_workshop
         ? building_controls.c_str()
         : "Villager 3 Outpost F12 Wonder  Market Alt+T cart  Cart Alt+T route  Ctrl+Alt+A/N/E diplomacy  S stop";
-    if (!has_selection && !observer_mode) {
+    if (show_legacy_no_selection_debug &&
+        !has_selection && !observer_mode) {
         SDL_RenderDebugText(
             renderer,
             static_cast<float>(hud_layout::information_content_x),
@@ -11439,7 +11505,8 @@ void render_hud(
                      ) == Diplomacy::neutral
                        ? "NEUTRAL"
                        : "ENEMY");
-    if (!has_selection && !observer_mode) {
+    if (show_legacy_no_selection_debug &&
+        !has_selection && !observer_mode) {
         SDL_RenderDebugText(
             renderer,
             static_cast<float>(hud_layout::information_content_x),
@@ -11481,12 +11548,41 @@ void render_hud(
                              ? "RELIC"
                              : "");
     }
-    if (!has_selection && !observer_mode) {
+    if (show_legacy_no_selection_debug &&
+        !has_selection && !observer_mode) {
         SDL_RenderDebugText(
             renderer,
             static_cast<float>(hud_layout::information_content_x),
             top + 72.0F,
             countdown_status.str().c_str()
+        );
+    }
+    const char* active_mode =
+        pending_trade_route ? "TRADE ROUTE" :
+        pending_conversion ? "CONVERT TARGET" :
+        pending_guard ? "GUARD TARGET" :
+        pending_attack_ground ? "ATTACK GROUND" :
+        pending_patrol ? "PATROL ENDPOINT" :
+        pending_attack_move ? "ATTACK MOVE" :
+        pending_building ? "BUILD PLACEMENT" : nullptr;
+    if (active_mode != nullptr) {
+        const SDL_FRect mode_badge{
+            static_cast<float>(view_pixel_width) * 0.5F - 150.0F,
+            top - 40.0F,
+            300.0F,
+            34.0F,
+        };
+        render_beveled_panel(renderer, mode_badge, {116, 72, 25, 246});
+        set_color(renderer, {255, 226, 100, 255});
+        const std::string mode_text =
+            std::string{"MODE: "} + active_mode + "  |  ESC CANCEL";
+        SDL_RenderDebugText(
+            renderer,
+            mode_badge.x +
+                (mode_badge.w -
+                 static_cast<float>(mode_text.size() * 8)) * 0.5F,
+            mode_badge.y + 13.0F,
+            mode_text.c_str()
         );
     }
     if (simulation.outcome() != MatchOutcome::ongoing &&
@@ -11534,7 +11630,7 @@ void render_hud(
         );
         SDL_RenderDebugText(
             renderer, static_cast<float>(information_clip.x + 8),
-            top + 92.0F,
+            top + 130.0F,
             group_text.c_str()
         );
         SDL_SetRenderClipRect(renderer, nullptr);

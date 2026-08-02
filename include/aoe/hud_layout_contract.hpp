@@ -65,7 +65,7 @@ struct ResourceFieldLayout {
 
 struct ResourceStatusLayout {
     Rect row{};
-    std::array<ResourceFieldLayout, 5> fields{};
+    std::array<ResourceFieldLayout, 6> fields{};
     int gap{};
     int left_safe_margin{};
     int right_safe_margin{};
@@ -232,11 +232,11 @@ inline constexpr int information_content_x = 286;
 ) {
     constexpr int margin = 10;
     constexpr int gap = 6;
-    constexpr int maximum_row_width = 780;
-    constexpr int row_y = 3;
-    constexpr int row_height = 18;
-    constexpr int icon_size = 16;
-    constexpr int icon_text_gap = 4;
+    constexpr int maximum_row_width = 980;
+    constexpr int row_y = 4;
+    constexpr int row_height = 28;
+    constexpr int icon_size = 20;
+    constexpr int icon_text_gap = 7;
     ResourceStatusLayout result{};
     const int row_width = std::min(
         maximum_row_width,
@@ -247,23 +247,27 @@ inline constexpr int information_content_x = 286;
     result.left_safe_margin = margin;
     result.right_safe_margin =
         std::max(margin, screen_width - margin - row_width);
-    result.text_baseline = 8;
-    const int available = std::max(0, row_width - gap * 4);
-    const int field_width = available / 5;
-    const int remainder = available % 5;
+    result.text_baseline = 14;
+    const int available = std::max(0, row_width - gap * 5);
+    // Resources and population need more room than the compact idle field.
+    constexpr std::array<int, 6> weights{{3, 3, 3, 3, 3, 2}};
+    constexpr int total_weight = 17;
+    int assigned{};
     int x = margin;
     for (std::size_t index = 0; index < result.fields.size(); ++index) {
         ResourceFieldLayout& field = result.fields[index];
-        const int width =
-            field_width + (static_cast<int>(index) < remainder ? 1 : 0);
+        const int width = index + 1 == result.fields.size()
+            ? available - assigned
+            : available * weights[index] / total_weight;
+        assigned += width;
         field.bounds = {x, row_y, width, row_height};
         const bool has_icon =
             icons_available && index < 4 && width >= icon_size;
         if (has_icon) {
-            field.icon = Rect{x, row_y, icon_size, icon_size};
+            field.icon = Rect{x + 4, row_y + 4, icon_size, icon_size};
         }
         const int text_x =
-            x + (has_icon ? icon_size + icon_text_gap : 0);
+            x + (has_icon ? 4 + icon_size + icon_text_gap : 8);
         field.text = {
             text_x,
             result.text_baseline,

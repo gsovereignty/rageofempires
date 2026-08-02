@@ -72,14 +72,20 @@ def read(path):
 def layout(screen_width, icons):
     margin = 10
     gap = 6
-    row_width = min(780, max(0, screen_width - margin * 2))
-    available = max(0, row_width - gap * 4)
-    base, remainder = divmod(available, 5)
+    row_width = min(980, max(0, screen_width - margin * 2))
+    available = max(0, row_width - gap * 5)
+    weights = (3, 3, 3, 3, 3, 2)
     fields = []
     x = margin
-    for index in range(5):
-        width = base + (1 if index < remainder else 0)
-        text_x = x + (20 if icons and index < 4 else 0)
+    assigned = 0
+    for index, weight in enumerate(weights):
+        width = (
+            available - assigned
+            if index + 1 == len(weights)
+            else available * weight // sum(weights)
+        )
+        assigned += width
+        text_x = x + (31 if icons and index < 4 else 8)
         fields.append((x, width, text_x, x + width - text_x))
         x += width + gap
     return row_width, fields
@@ -116,7 +122,7 @@ for logical_width, logical_height, assets, scale in cases:
     for index, (x, field_width, text_x, text_width) in enumerate(fields):
         text_pixels = sum(
             pixel(px, py) == foreground
-            for py in range(8, 16)
+            for py in range(14, 22)
             for px in range(text_x, text_x + text_width)
         )
         if text_pixels == 0:
@@ -125,7 +131,7 @@ for logical_width, logical_height, assets, scale in cases:
             previous_end = fields[index - 1][0] + fields[index - 1][1]
             gap_pixels = sum(
                 pixel(px, py) == foreground
-                for py in range(3, 21)
+                for py in range(4, 32)
                 for px in range(previous_end, x)
             )
             if gap_pixels:
@@ -135,14 +141,14 @@ for logical_width, logical_height, assets, scale in cases:
     row_end = 10 + row_width
     leaked_right = sum(
         pixel(px, py) == foreground
-        for py in range(3, 21)
+        for py in range(4, 32)
         for px in range(row_end, width)
     )
     if leaked_right:
         raise SystemExit(f"{name}: resource row crossed right bound")
     log = (root / f"{name}.log").read_text(errors="replace")
     expected_log = (
-        f"output-scale={scale} row=10,3,{row_width},18"
+        f"output-scale={scale} row=10,4,{row_width},28"
     )
     if expected_log not in log:
         raise SystemExit(f"{name}: presentation geometry not logged")

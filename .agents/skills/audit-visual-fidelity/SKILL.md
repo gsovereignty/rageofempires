@@ -1,6 +1,6 @@
 ---
 name: audit-visual-fidelity
-description: Exhaustively audit this project's packaged scenarios through deterministic real-gameplay screen captures, predicting and comparing every reachable sprite, animation, effect, terrain element, HUD component, minimap item, menu, and terminal screen against original-game evidence. Use for production visual-fidelity, rendering, display, sprite, animation, or UI audits under reconstruction/resources/*.scenario.
+description: Exhaustively audit this project's packaged scenarios through deterministic real-gameplay screen captures, predicting and comparing every reachable sprite, animation, effect, terrain element, HUD component, minimap item, menu, and terminal screen against original-game evidence. Use for production visual-fidelity, rendering, display, sprite, animation, or UI audits under reconstruction/resources/*.scenario. Also supports an explicitly requested `playthrough` option for foreground, real-cursor, end-to-end coverage of every supported map-size and game-type combination.
 ---
 
 # Audit visual fidelity
@@ -9,9 +9,22 @@ Read repository `AGENTS.md` files first. Treat `resources/*.scenario` as fixture
 
 Read audit targets from skill invocation, including optional minimum confirmed-bug target. If caller gives no target, seek exhaustive coverage without imposing a numeric quota.
 
+Use normal scenario-audit mode by default. Activate `playthrough` mode only when the current user request explicitly says `playthrough` and confirms the computer can remain unused for the run. Never infer this option from requests for exhaustive, interactive, end-to-end, or gameplay coverage. If availability is not explicit, explain that this mode takes foreground mouse and keyboard control and ask before starting.
+
+## Run foreground playthroughs
+
+- Give one fresh playthrough agent exclusive control. Run exactly one game instance and no other gameplay agents. Tell the user immediately before taking foreground control.
+- Discover supported map sizes and game types from the shipped game UI and repository evidence. Record the full Cartesian coverage matrix before launching the first match; never silently omit, merge, or substitute a combination.
+- For every map-size and game-type combination, start at the packaged frontend and use visible cursor movement, clicks, keyboard input, and rendered UI only. Do not use semantic gameplay commands, direct scenario loading, tick advancement, state injection, debug shortcuts, or automation APIs to drive or bypass interaction. Read-only state observation may correlate evidence but must not control play.
+- Capture the foreground window after every cursor action and UI transition, at regular gameplay intervals, immediately around every meaningful state change, and through the complete terminal flow. Include frontend, setup choices, loading, opening state, selection, commands, economy, exploration, combat, damage, death, construction, age progression, objectives, pause/options, victory or defeat, statistics tabs, and return navigation when reachable.
+- Play each match through an actual terminal result using ordinary player-visible controls. Do not count resignation, forced termination, debug victory, timeout, or direct state mutation as completion unless the selected game type defines that action as its normal objective.
+- Keep screenshots correlated with cursor coordinates, window identity, wall-clock time, observed game time, chosen settings, action ledger, and result. Reject evidence after focus loss, user interference, ambiguous window selection, hidden overlays, or cursor-coordinate drift; restore focus and repeat the affected interaction.
+- Pause between matches when foreground ownership, input safety, file-descriptor budget, or evidence correlation is uncertain. Never continue while the user is using the computer.
+- Report every matrix cell as `passed`, `bugs-found`, or `blocked`, with duration, result, interaction coverage, evidence paths, and gaps. Deduplicate findings across combinations while preserving every affected cell.
+
 ## Enforce runtime cap
 
-- Assign exactly one fresh subagent exclusive ownership of each scenario.
+- In normal scenario-audit mode, assign exactly one fresh subagent exclusive ownership of each scenario.
 - Run waves containing at most four scenario agents.
 - Never permit more than four game instances across entire agent tree. Count foreground, background, headless, dummy-video, retries, repairs, orphaned, zombie, coordinator-owned, and subagent-owned instances.
 - Keep coordinator game-free.

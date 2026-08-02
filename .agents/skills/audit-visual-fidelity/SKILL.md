@@ -7,6 +7,8 @@ description: Exhaustively audit this project's packaged scenarios through determ
 
 Read repository `AGENTS.md` files first. Treat `resources/*.scenario` as fixture source of truth. Consult `decompiled/` and original assets only as read-only fidelity evidence.
 
+Read audit targets from skill invocation, including optional minimum confirmed-bug target. If caller gives no target, seek exhaustive coverage without imposing a numeric quota.
+
 ## Enforce runtime cap
 
 - Assign exactly one fresh subagent exclusive ownership of each scenario.
@@ -63,7 +65,7 @@ Report only reproducible mismatches supported by:
 - relevant original or decompiled reference;
 - duplicate-group identifier when same root defect appears elsewhere.
 
-Seek exhaustive coverage and at least 100 distinct confirmed bugs, but never invent, inflate, split duplicates, or misclassify findings to meet quota. If fewer exist, report evidence-backed total and remaining coverage gaps.
+Seek exhaustive coverage. When caller supplies minimum confirmed-bug target, pursue it through broader valid coverage, but never invent, inflate, split duplicates, or misclassify findings to meet quota. If fewer exist, report evidence-backed total and remaining coverage gaps.
 
 Do not count failed launches, infrastructure failures, hypotheses, incomplete checks, expected design differences, or duplicate manifestations as bugs or passes.
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <span>
 
 #include "aoe/types.hpp"
@@ -19,7 +20,14 @@ namespace aoe {
     for (const Building& building : buildings) {
         if (building.owner == local_player &&
             building.kind == BuildingKind::town_center) {
-            return building.position;
+            return {
+                map_width > 0
+                    ? std::clamp(building.position.x + 1, 0, map_width - 1)
+                    : 0,
+                map_height > 0
+                    ? std::clamp(building.position.y + 1, 0, map_height - 1)
+                    : 0,
+            };
         }
     }
     for (const Unit& unit : units) {

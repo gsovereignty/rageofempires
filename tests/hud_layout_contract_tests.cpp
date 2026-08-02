@@ -46,12 +46,12 @@ int main() {
             const ResourceStatusLayout layout =
                 resource_status_layout(width, icons);
             assert(layout.row.x == 10);
-            assert(layout.row.width <= 780);
+            assert(layout.row.width <= 980);
             assert(layout.row.x >= 0);
             assert(layout.row.x + layout.row.width <= width);
             assert(layout.left_safe_margin >= 10);
             assert(layout.right_safe_margin >= 10);
-            assert(layout.text_baseline == 8);
+            assert(layout.text_baseline == 14);
             for (std::size_t index = 0;
                  index < layout.fields.size();
                  ++index) {
@@ -76,15 +76,15 @@ int main() {
                 }
                 if (field.icon) {
                     assert(index < 4);
-                    assert(field.icon->width == 16);
-                    assert(field.icon->height == 16);
+                    assert(field.icon->width == 20);
+                    assert(field.icon->height == 20);
                     assert(field.icon->x >= field.bounds.x);
                     assert(field.icon->x + field.icon->width <=
                            field.bounds.x + field.bounds.width);
                     assert(field.text.x ==
-                           field.icon->x + field.icon->width + 4);
+                           field.icon->x + field.icon->width + 7);
                 } else {
-                    assert(field.text.x == field.bounds.x);
+                    assert(field.text.x == field.bounds.x + 8);
                 }
                 for (const std::string source : {
                          "WOOD 200",
@@ -104,17 +104,19 @@ int main() {
             }
             const Rect& stone = layout.fields[3].bounds;
             const Rect& population = layout.fields[4].bounds;
+            const Rect& idle = layout.fields[5].bounds;
             assert(stone.x + stone.width < population.x);
-            assert(population.x + population.width <= width - 10);
+            assert(population.x + population.width < idle.x);
+            assert(idle.x + idle.width <= width - 10);
             if (width >= 1024) {
-                assert(layout.row.width == 780);
+                assert(layout.row.width == 980);
             }
         }
     }
     const ResourceStatusLayout remainder =
         resource_status_layout(641, true);
     assert(remainder.fields.front().bounds.width ==
-           remainder.fields[2].bounds.width + 1);
+           remainder.fields[2].bounds.width);
     assert(remainder.fields.back().bounds.x +
                remainder.fields.back().bounds.width ==
            remainder.row.x + remainder.row.width);

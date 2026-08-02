@@ -78,6 +78,16 @@ Record expected and actual:
 
 Require production assets. Confirm any procedural, placeholder, synthetic, debug, missing-asset, or fallback rendering as a bug when reproduced. Never accept fallback presentation as correct production rendering.
 
+## Batch terrain-over-sprite review
+
+- Detect terrain replacing opaque sprite pixels with `tools/visual_overlap_audit.py`. Supply an actual gameplay capture, matching terrain-only capture, expected production RGBA sprite frame, and exact top-left or screen-anchor placement. Treat exit `0` as clean, `1` as overlap candidates, and `2` as invalid input.
+- Generate actual, terrain-only, and sprite inputs from the same tick, camera, resolution, terrain-animation frame, fog state, elevation, palette, and random seed. Preserve transparent sprite holes. Treat production sprite/frame, anchor, palette, and aligned terrain-only generation as pre-approved when derived deterministically from renderer state; do not stop for per-asset approval.
+- Add every rendered sprite case across all scenarios, civilizations, ages, facings, animation states, damage/construction stages, terrains, elevations, resolutions, and playthrough matrix cells to one schema-version-1 JSON manifest. Use stable unique case IDs and record entity, sprite/frame, scenario, tick, camera, terrain, civilization, age, ownership, state, facing, and resolution in case metadata.
+- Run `python3 tools/batch_visual_overlap_audit.py <manifest.json> --output-dir artifacts/visual-overlap-review` only after the whole requested corpus is captured. Exit `1` means review candidates exist, not infrastructure failure.
+- Deliver one self-contained `review.html` for the human to audit the entire rendered-sprite corpus at once. Include clean and flagged cases; never interrupt the run for individual candidate review. Preserve combined `report.json`, red-contour annotations, actual views, terrain-only views, expected sprites, and downloadable human decisions JSON.
+- Accept human decisions only as `bug`, `intentional`, or `uncertain`. Convert confirmed bugs into regression cases, retain intentional overlaps in an explicit baseline, and keep uncertain cases open without counting them as bugs or passes. On later runs, surface only new candidates, changed candidates, missing baseline entries, and unresolved cases.
+- Mark cases with missing or uncorrelated layer inputs `blocked`; never silently exclude them from the whole-game manifest or coverage totals.
+
 ## Confirm findings
 
 Report only reproducible mismatches supported by:

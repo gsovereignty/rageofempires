@@ -18,6 +18,15 @@ Read audit targets from skill invocation, including optional minimum confirmed-b
 - Wait for every current-wave agent to return and terminate its process before starting another wave.
 - Inspect process table between waves. Stop spawning until every stale instance is cleaned or reaped.
 
+## Enforce file-descriptor cap
+
+- Keep one long-lived game process per scenario for the entire capture run. Advance and capture that process in place. Never relaunch the game once per tick, frame, selection, or screenshot.
+- Avoid persistent shell pipelines, background capture loops, and unused interactive exec sessions. Close screenshot files, logs, pipes, automation responses, and process handles promptly after each operation.
+- Before each wave, prove a trivial process can start and record the soft open-file limit plus current coordinator open-file count. Start no wave when process creation fails or descriptor use is at least half the soft limit.
+- Use two scenario agents per wave by default. Increase to at most four only after the previous wave completed without descriptor growth, unreaped children, zombies, or `Too many open files` errors.
+- After every wave, wait for all agents, terminate and reap every owned child, close all command sessions, then repeat the descriptor preflight. Do not start the next wave until the count returns to its pre-wave baseline or lower.
+- On `EMFILE`, `ENFILE`, or `Too many open files`, launch nothing else. End the current wave, reap children and zombies through their owning launcher, close sessions, and retry the preflight with bounded backoff. Mark affected scenarios `blocked` and retry them with fresh agents only after recovery.
+
 Tell every scenario agent it is not alone, must not modify or revert shared files, and must not edit shared audit documents or create commits. Give it exclusive ownership of:
 
 `artifacts/scenario-audits/<scenario-stem>/`
@@ -25,6 +34,8 @@ Tell every scenario agent it is not alone, must not modify or revert shared file
 ## Drive deterministic gameplay
 
 Run fixture as real gameplay in background/headless mode unless real UI input is essential. Use unique automation directories, PIDs, and window identity. Never select windows through ambiguous shared process names.
+
+Set `AOE_MAIN_MENU=0` for direct scenario captures and `AOE_AUDIT_ANY_MAP_SIZE=1` for compact audit fixtures; verify reported map dimensions. Inspect the first frame before continuing, and reject the run immediately if it shows the frontend. Launch the packaged app executable when available and require startup-log proof that optional original sprites loaded. Record all asset-loader flags; never use `AOE_DISABLE_LEGACY_ASSETS=1` when validating production presentation.
 
 Record deterministic launch configuration, camera, actions, selection, tick schedule, and outcome. Exercise fixture purpose through completion or terminal result. Add deliberate directions, selections, damage states, and UI states needed to expose fixture content.
 

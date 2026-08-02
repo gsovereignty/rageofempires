@@ -2,7 +2,7 @@
 
 ## Scope and evidence
 
-Comparison uses supplied original installation at `../original-assets/app`,
+Comparison uses supplied HD Edition installation at `../original-assets-hd/app`,
 reconstruction runtime in `src/audio_system.cpp`, `src/frontend_audio.cpp`,
 and `src/sdl_app.cpp`, plus the parsed DAT/DRS inventory in
 `generated/audio_catalog.json`.
@@ -260,7 +260,7 @@ behavioral fidelity for when, where, how often, or which variant plays.
 
 `../fidelity/AUDIO_ARCHIVE_FIDELITY.md` says supplied live root contains exactly
 `Sound/stream/town.mp3` and `Sound/terrain/Wave1.wav`. Current supplied
-`../original-assets/app` instead has 29 stream MP3s, 2 music MP3s, 20 terrain
+`../original-assets-hd/app` instead has 29 stream MP3s, 2 music MP3s, 20 terrain
 WAVs, 115 campaign MP3s, 709 scenario MP3s, and 42 taunts. Its inventory-based
 music/ambience conclusion is stale and must not be treated as current
 full-root fidelity evidence.

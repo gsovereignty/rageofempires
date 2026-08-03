@@ -1,0 +1,4 @@
+interface:
+  display_name: "Audit Pointer Coordinates"
+  short_description: "Test pointer mapping and log reproducible bugs"
+  default_prompt: "Use $audit-pointer-coordinates to exhaustively test cursor, UI hit-testing, minimap targeting, and log confirmed bugs."

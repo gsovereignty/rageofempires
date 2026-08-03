@@ -21,9 +21,9 @@ int main() {
     assert((with_top.main_child == Rect{0, 50, 1024, 559}));
     assert(!plain.top_child);
 
-    assert((command_button(844, 0) == Rect{34, 875, 38, 38}));
-    assert((command_button(844, 4) == Rect{202, 875, 38, 38}));
-    assert((command_button(844, 14) == Rect{202, 959, 38, 38}));
+    assert((command_button(844, 0) == Rect{37, 875, 40, 40}));
+    assert((command_button(844, 4) == Rect{201, 875, 40, 40}));
+    assert((command_button(844, 14) == Rect{201, 957, 40, 40}));
     assert((command_button(844, 15) == Rect{}));
     for (int index = 0; index < 15; ++index) {
         const Rect button = command_button(844, index);
@@ -34,7 +34,7 @@ int main() {
             button.y + button.height - 1
         ) == index);
     }
-    assert(command_button_at(844, 73, 875) == -1);
+    assert(command_button_at(844, 36, 875) == -1);
 
     assert((anchored_large_panel(1280, 1024) ==
            Rect{944, 855, 326, 164}));
@@ -45,13 +45,13 @@ int main() {
         for (const bool icons : {false, true}) {
             const ResourceStatusLayout layout =
                 resource_status_layout(width, icons);
-            assert(layout.row.x == 10);
-            assert(layout.row.width <= 980);
+            assert(layout.row.x == 2);
+            assert(layout.row.width <= 420);
             assert(layout.row.x >= 0);
             assert(layout.row.x + layout.row.width <= width);
-            assert(layout.left_safe_margin >= 10);
-            assert(layout.right_safe_margin >= 10);
-            assert(layout.text_baseline == 14);
+            assert(layout.left_safe_margin >= 2);
+            assert(layout.right_safe_margin >= 2);
+            assert(layout.text_baseline == 6);
             for (std::size_t index = 0;
                  index < layout.fields.size();
                  ++index) {
@@ -76,15 +76,15 @@ int main() {
                 }
                 if (field.icon) {
                     assert(index < 4);
-                    assert(field.icon->width == 20);
-                    assert(field.icon->height == 20);
+                    assert(field.icon->width == 14);
+                    assert(field.icon->height == 14);
                     assert(field.icon->x >= field.bounds.x);
                     assert(field.icon->x + field.icon->width <=
                            field.bounds.x + field.bounds.width);
                     assert(field.text.x ==
-                           field.icon->x + field.icon->width + 7);
+                           field.icon->x + field.icon->width + 2);
                 } else {
-                    assert(field.text.x == field.bounds.x + 8);
+                    assert(field.text.x == field.bounds.x + 2);
                 }
                 for (const std::string source : {
                          "WOOD 200",
@@ -107,14 +107,14 @@ int main() {
             const Rect& idle = layout.fields[5].bounds;
             assert(stone.x + stone.width < population.x);
             assert(population.x + population.width < idle.x);
-            assert(idle.x + idle.width <= width - 10);
-            if (width >= 1024) {
-                assert(layout.row.width == 980);
+            assert(idle.x + idle.width <= width - 2);
+            if (width >= 640) {
+                assert(layout.row.width == 420);
             }
         }
     }
     const ResourceStatusLayout remainder =
-        resource_status_layout(641, true);
+        resource_status_layout(419, true);
     assert(remainder.fields.front().bounds.width ==
            remainder.fields[2].bounds.width);
     assert(remainder.fields.back().bounds.x +

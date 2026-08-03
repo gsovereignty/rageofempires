@@ -10803,12 +10803,6 @@ void render_minimap(
         }
     }
 
-    set_color(renderer, {116, 170, 244, 255});
-    SDL_RenderDebugText(renderer, panel.x + 10.0F, panel.y + 8.0F, "YOU");
-    set_color(renderer, {232, 112, 100, 255});
-    SDL_RenderDebugText(
-        renderer, panel.x + panel.w - 50.0F, panel.y + 8.0F, "ENEMY"
-    );
 }
 
 bool unit_available_to_player(
@@ -10967,9 +10961,6 @@ bool render_original_hud_background(
         metrics
     );
     for (const hud_layout::BackgroundDraw& draw : draws) {
-        // Frame 5 is a large legacy center ornament. Without the original
-        // widgets layered over it, it obscures both the world and info panel.
-        if (draw.frame == 5) continue;
         const LegacySprite& frame =
             background.frames[static_cast<std::size_t>(draw.frame)];
         const SDL_FRect destination{
@@ -10983,6 +10974,25 @@ bool render_original_hud_background(
         );
     }
     return true;
+}
+
+std::optional<hud_layout::Rect> original_hud_age_control(
+    Civilization civilization
+) {
+    const int file_index =
+        hud_layout::civilization_file_index(civilization);
+    const LegacyHudBackground& background =
+        active_legacy_sprites.civilization_hud_backgrounds[
+            static_cast<std::size_t>(file_index)
+        ];
+    if (!background.complete()) return std::nullopt;
+    const LegacySprite& frame6 = background.frames[6];
+    const LegacySprite& frame7 = background.frames[7];
+    return hud_layout::frame7_sibling_view(
+        view_pixel_width,
+        {frame6.width, frame6.height, frame6.hotspot_x, frame6.hotspot_y},
+        {frame7.width, frame7.height, frame7.hotspot_x, frame7.hotspot_y}
+    );
 }
 
 void render_hud(
@@ -11084,8 +11094,12 @@ void render_hud(
         static_cast<float>(resource_layout.row.width),
         static_cast<float>(resource_layout.row.height),
     };
-    set_color(renderer, {196, 164, 98, 255});
-    SDL_RenderRect(renderer, &resource_row);
+    if (!original_background) {
+        set_color(renderer, {12, 10, 7, 235});
+        SDL_RenderFillRect(renderer, &resource_row);
+        set_color(renderer, {196, 164, 98, 255});
+        SDL_RenderRect(renderer, &resource_row);
+    }
     for (std::size_t index = 0;
          index < resource_layout.fields.size();
          ++index) {
@@ -11104,10 +11118,10 @@ void render_hud(
             static_cast<float>(field.bounds.width),
             static_cast<float>(field.bounds.height),
         };
-        set_color(renderer, {12, 10, 7, 235});
-        SDL_RenderFillRect(renderer, &field_background);
-        set_color(renderer, {105, 84, 50, 255});
-        SDL_RenderRect(renderer, &field_background);
+        if (!original_background) {
+            set_color(renderer, {12, 10, 7, 235});
+            SDL_RenderFillRect(renderer, &field_background);
+        }
         set_color(renderer, {239, 226, 185, 255});
         if (index < amounts.size()) {
             if (field.icon) {
@@ -11126,7 +11140,8 @@ void render_hud(
             );
             }
             std::ostringstream amount;
-            amount << labels[index] << ' ' << amounts[index];
+            if (!field.icon) amount << labels[index] << ' ';
+            amount << amounts[index];
             const std::string amount_text =
                 hud_layout::truncate_debug_text(
                     amount.str(), field.text.width
@@ -11141,7 +11156,7 @@ void render_hud(
             const bool show_paused =
                 paused && simulation.outcome() == MatchOutcome::ongoing;
             const std::string population_text =
-                "POPULATION " + std::to_string(
+                "POP " + std::to_string(
                     stress_resource_values ? 999999 :
                     simulation.population(active_view_player)
                 ) + "/" + std::to_string(
@@ -11158,10 +11173,10 @@ void render_hud(
             );
         } else {
             const std::string idle_text =
-                "IDLE V " + std::to_string(
+                "V" + std::to_string(
                     stress_resource_values ? 9999 :
                     simulation.idle_villagers(active_view_player).size()
-                ) + "  M " + std::to_string(
+                ) + " M" + std::to_string(
                     stress_resource_values ? 9999 :
                     simulation.idle_military(active_view_player).size()
                 );
@@ -11175,6 +11190,23 @@ void render_hud(
             );
         }
         SDL_SetRenderClipRect(renderer, nullptr);
+    }
+    if (const auto age_control = original_hud_age_control(
+            simulation.civilization(active_view_player)
+        )) {
+        const std::string age{name(simulation.age(active_view_player))};
+        set_color(renderer, {54, 38, 23, 255});
+        SDL_RenderDebugText(
+            renderer,
+            static_cast<float>(
+                age_control->x +
+                (age_control->width -
+                 static_cast<int>(age.size()) *
+                     hud_layout::debug_glyph_width) / 2
+            ),
+            static_cast<float>(age_control->y + 6),
+            age.c_str()
+        );
     }
     SDL_SetRenderClipRect(renderer, &information_clip);
     set_color(
@@ -11324,8 +11356,18 @@ void render_hud(
                 information_clip.x + information_clip.w -
                     static_cast<int>(text_x) - 8
             );
+            std::string display_title = selection_panel.title;
+            bool start_of_word = true;
+            for (char& character : display_title) {
+                const unsigned char byte =
+                    static_cast<unsigned char>(character);
+                if (start_of_word && std::isalpha(byte)) {
+                    character = static_cast<char>(std::toupper(byte));
+                }
+                start_of_word = std::isspace(byte) != 0;
+            }
             const std::string title = hud_layout::truncate_debug_text(
-                selection_panel.title, text_width
+                display_title, text_width
             );
             SDL_RenderDebugText(
                 renderer, text_x, top + 20.0F, title.c_str()
@@ -11530,48 +11572,9 @@ void render_hud(
         }
         SDL_SetRenderClipRect(renderer, &information_clip);
     } else if (!observer_mode) {
-        SDL_SetRenderClipRect(renderer, nullptr);
-        set_color(renderer, {202, 181, 133, 255});
-        SDL_RenderDebugText(
-            renderer, command_panel.x + 18.0F,
-            command_panel.y + 22.0F, "COMMANDS"
-        );
-        set_color(renderer, {139, 124, 94, 255});
-        SDL_RenderDebugText(
-            renderer, command_panel.x + 18.0F,
-            command_panel.y + 48.0F, "No entity selected"
-        );
+        // Original no-selection state leaves civilization ornament visible.
+        // Selection widgets replace this area only after an entity is chosen.
         SDL_SetRenderClipRect(renderer, &information_clip);
-        const SDL_FRect prompt{
-            static_cast<float>(hud_layout::information_content_x),
-            top + 18.0F,
-            static_cast<float>(std::max(
-                260,
-                information_clip.x + information_clip.w -
-                    hud_layout::information_content_x - 12
-            )),
-            104.0F,
-        };
-        render_beveled_panel(renderer, prompt, {86, 65, 39, 235});
-        set_color(renderer, {226, 213, 174, 255});
-        SDL_RenderDebugText(
-            renderer, prompt.x + 20.0F, prompt.y + 18.0F,
-            "NO SELECTION"
-        );
-        set_color(renderer, {245, 232, 194, 255});
-        SDL_RenderDebugText(
-            renderer, prompt.x + 20.0F, prompt.y + 43.0F,
-            "Click a unit or building to view commands and status."
-        );
-        set_color(renderer, {186, 165, 119, 255});
-        const std::string world_status =
-            std::string{name(simulation.civilization(active_view_player))} +
-            "   " + std::string{name(simulation.age(active_view_player))} +
-            "   " + std::string{name(simulation.outcome())};
-        SDL_RenderDebugText(
-            renderer, prompt.x + 20.0F, prompt.y + 72.0F,
-            world_status.c_str()
-        );
     }
     const bool selected_dock =
         simulation.selected_building() &&

@@ -56,6 +56,8 @@ Focused interaction and presentation contracts:
 Date-stamped snapshots that may become stale:
 [audits/](audits/).
 
+- [Decompiled gameplay and character-behavior audit](audits/2026-08-04-DECOMPILED-GAMEPLAY-BEHAVIOR-AUDIT.md)
+
 ## Self-containment
 
 [SELF_CONTAINMENT.md](SELF_CONTAINMENT.md) defines product resource and

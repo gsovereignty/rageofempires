@@ -6,8 +6,7 @@ Blue won Random Map seed `42` by Conquest at tick 5008. Testing covered menu,
 Dark Age gameplay, combat, victory, and all five postgame tabs using semantic
 gameplay plus window captures and real tab clicks.
 
-The earlier [100-bug audit](2026-08-02-full-playthrough-ui-audit.md) remains the
-historical catalog. This run found eight current defects:
+This run found eight current defects:
 
 1. Continue button sprite renders as orange/white noise.
 2. Rematch button sprite renders as orange/white noise.

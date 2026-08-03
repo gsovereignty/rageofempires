@@ -1,0 +1,4 @@
+interface:
+  display_name: "Audit Sprite Screenshots"
+  short_description: "Capture and review isolated gameplay sprites"
+  default_prompt: "Use $audit-sprite-screenshots to capture and review the packaged scenarios sprite corpus."

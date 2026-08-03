@@ -25,10 +25,12 @@ Use normal scenario-audit mode by default. Activate `playthrough` mode only when
 ## Enforce runtime cap
 
 - In normal scenario-audit mode, assign exactly one fresh subagent exclusive ownership of each scenario.
+- Use one disposable wave coordinator per wave. The parent spawns it, it owns only that wave, spawns the scenario agents, waits for their final results, verifies cleanup, returns its ledger, and exits. Never reuse a wave coordinator for a later wave.
 - Run waves containing at most four scenario agents.
 - Never permit more than four game instances across entire agent tree. Count foreground, background, headless, dummy-video, retries, repairs, orphaned, zombie, coordinator-owned, and subagent-owned instances.
-- Keep coordinator game-free.
+- Keep parent and wave coordinators game-free.
 - Wait for every current-wave agent to return and terminate its process before starting another wave.
+- Do not start the next wave until the completed wave coordinator has exited and its agent thread is closed. If explicit thread closure is available, close every completed scenario-agent thread before the wave coordinator exits.
 - Inspect process table between waves. Stop spawning until every stale instance is cleaned or reaped.
 
 ## Enforce file-descriptor cap
@@ -38,6 +40,7 @@ Use normal scenario-audit mode by default. Activate `playthrough` mode only when
 - Before each wave, prove a trivial process can start and record the soft open-file limit plus current coordinator open-file count. Start no wave when process creation fails or descriptor use is at least half the soft limit.
 - Use two scenario agents per wave by default. Increase to at most four only after the previous wave completed without descriptor growth, unreaped children, zombies, or `Too many open files` errors.
 - After every wave, wait for all agents, terminate and reap every owned child, close all command sessions, then repeat the descriptor preflight. Do not start the next wave until the count returns to its pre-wave baseline or lower.
+- Run the post-wave descriptor preflight from the parent after the disposable wave coordinator exits. Treat any growth above the parent's pre-wave baseline as unreleased agent or command resources; launch nothing until it returns to baseline or lower.
 - On `EMFILE`, `ENFILE`, or `Too many open files`, launch nothing else. End the current wave, reap children and zombies through their owning launcher, close sessions, and retry the preflight with bounded backoff. Mark affected scenarios `blocked` and retry them with fresh agents only after recovery.
 
 Tell every scenario agent it is not alone, must not modify or revert shared files, and must not edit shared audit documents or create commits. Give it exclusive ownership of:

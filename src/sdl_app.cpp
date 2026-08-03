@@ -681,8 +681,6 @@ struct LegacySprites {
     std::array<std::array<LegacySprite, 5>, 4> house_red;
     std::array<std::array<LegacySprite, 5>, 4> town_center_age_blue;
     std::array<std::array<LegacySprite, 5>, 4> town_center_age_red;
-    std::array<std::array<LegacySprite, 5>, 4> town_center_low_blue;
-    std::array<std::array<LegacySprite, 5>, 4> town_center_low_red;
     std::array<std::array<LegacySprite, 5>, 2> blacksmith_blue;
     std::array<std::array<LegacySprite, 5>, 2> blacksmith_red;
     std::array<LegacySprite, 5> lumber_camp_blue;
@@ -866,12 +864,6 @@ struct LegacySprites {
             for (LegacySprite& sprite : age) sprite.destroy();
         }
         for (auto& age : town_center_age_red) {
-            for (LegacySprite& sprite : age) sprite.destroy();
-        }
-        for (auto& age : town_center_low_blue) {
-            for (LegacySprite& sprite : age) sprite.destroy();
-        }
-        for (auto& age : town_center_low_red) {
             for (LegacySprite& sprite : age) sprite.destroy();
         }
         for (auto& age : blacksmith_blue) {
@@ -4241,16 +4233,9 @@ LegacySprites load_local_legacy_sprites(
         constexpr std::array<std::array<std::int32_t, 5>, 4>
             town_center_age_slps{{
                 {{891, 891, 891, 891, 891}},
-                {{903, 900, 902, 901, 5067}},
-                {{915, 912, 914, 913, 5076}},
-                {{927, 924, 926, 925, 5085}},
-            }};
-        constexpr std::array<std::array<std::int32_t, 5>, 4>
-            town_center_low_slps{{
-                {{889, 889, 889, 889, 889}},
-                {{895, 892, 894, 893, 5065}},
-                {{907, 904, 906, 905, 5074}},
-                {{919, 916, 918, 917, 5083}},
+                {{903, 900, 902, 901, 903}},
+                {{915, 912, 914, 913, 915}},
+                {{927, 924, 926, 925, 927}},
             }};
         constexpr std::array<std::array<std::int32_t, 5>, 2>
             blacksmith_slps{{
@@ -4296,16 +4281,6 @@ LegacySprites load_local_legacy_sprites(
                 attempt(
                     sprites.town_center_age_red[age][family],
                     town_center_age_slps[age][family],
-                    2
-                );
-                attempt(
-                    sprites.town_center_low_blue[age][family],
-                    town_center_low_slps[age][family],
-                    1
-                );
-                attempt(
-                    sprites.town_center_low_red[age][family],
-                    town_center_low_slps[age][family],
                     2
                 );
             }
@@ -7243,19 +7218,13 @@ void render_building(
                 building.owner == Player::blue
                 ? active_legacy_sprites.town_center_age_blue
                 : active_legacy_sprites.town_center_age_red;
-            const auto& low =
-                building.owner == Player::blue
-                ? active_legacy_sprites.town_center_low_blue
-                : active_legacy_sprites.town_center_low_red;
             const SDL_FPoint ground{
                 top.x, top.y + half_tile_height
             };
-            // Draw the DAT layer-5 footprint before the layer-20 body. The
-            // body has intentional openings; omitting its low layer makes a
-            // bright terrain diamond look as though it crosses the building.
+            // Age/family base is already a coherent rendered Town Center.
+            // Neighboring DAT component SLPs have independent displaced art;
+            // drawing them here adds unrelated poles and fragments.
             rendered_original = render_legacy_sprite(
-                renderer, low[age][family], ground
-            ) && render_legacy_sprite(
                 renderer, base[age][family], ground
             );
         }

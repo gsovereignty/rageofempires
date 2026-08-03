@@ -152,11 +152,11 @@ Every edge is anchored at `(0,0)` with display angle `-1`; every node has
 order within a layer. The composite roots listed above are all present in
 `graphics.drs`, so they are the preferred complete images.
 
-Renderer invariant: shipped Town Center roots are not treated as complete
-bitmaps. Draw the present layer-5 footprint first, then the matching `NN`
-age/family body. Do not expand the incomplete high-detail delta graph: its
-missing layer-10 resources prevent exact reconstruction, while drawing only
-remaining high layers produces detached poles and fragments.
+Renderer invariant: draw a present complete root SLP once. DAT deltas remain
+composition evidence and are not expanded over that root. Delta traversal is
+used only for an explicitly classified SLP-less/container root. All children
+then come from that selected root, with accumulated offsets, lower layers
+first, and stable DAT order within equal layers.
 
 The dark-age DAG is:
 
@@ -167,10 +167,11 @@ The dark-age DAG is:
 | 434 `RTWC1N1G` middle | 890 | 10 | **absent** |
 | 5470 `RTWC1N7G` overlay | 4612 | 20 | present |
 
-SLP 890 is specifically the layer-10 middle delta. Exact delta reconstruction
-cannot be completed from this archive. The same HD packaging omits several
-layer-10 TC delta SLPs (896, 897, 899, 908–911), while retaining the layer-5
-footprints and `NN` bodies used by the bounded renderer path.
+SLP 890 is specifically the layer-10 middle delta. It is not required when
+rendering composite SLP 3596, which is present and complete. It is required
+for delta-only reconstruction; that reconstruction cannot be completed from
+this archive. The same HD packaging omits several layer-10 TC delta SLPs
+(896, 897, 899, 908–911), while retaining their composite roots.
 
 ## Barracks, Mill, Lumber Camp, and Mining Camp
 

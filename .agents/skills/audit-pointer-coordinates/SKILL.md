@@ -107,6 +107,38 @@ Report:
 
 Do not report blocked cells as passes. Do not claim exhaustive coverage while any required matrix cell remains `not-tested`; say bounded audit and name gaps.
 
+## Improve this skill after every audit
+
+Treat each completed audit as evidence about workflow quality. Before finishing, review commands, matrix results, raw evidence, report drafting, and blockers. Record concise lessons under `Skill improvement` in audit report:
+
+- missed coordinate spaces, surfaces, transitions, or negative controls;
+- tests that produced false confidence or shared production oracle;
+- unreliable launch, input, capture, cleanup, or correlation steps;
+- repeated manual work suitable for deterministic script;
+- ambiguity that caused inconsistent classification or incomplete evidence;
+- existing instruction that prevented a real failure or wasted work.
+
+Update this skill in same audit run when lesson is reusable, evidenced, and changes future agent behavior. Prefer tightening existing text. Add reference or script only when instruction alone cannot make repeated work reliable. Test any new script with representative passing and failing input.
+
+Accept improvement only when at least one condition holds:
+
+- same problem occurred in two independent matrix cells or runs;
+- one problem caused false pass, lost evidence, wrong coordinate-space attribution, unsafe foreground control, leaked process, or incomplete required coverage;
+- repository gained new pointer surface, automation hook, presentation mode, or durable contract absent from matrix.
+
+Reject speculative advice, fixture-specific coordinates, transient machine details, copied audit findings, duplicate rules, broad prose, and changes made only to explain one bug. Never weaken independent-oracle, reproducibility, complete-matrix, background-safety, security-proof, build, cleanup, or evidence requirements.
+
+After editing:
+
+1. Re-read full changed skill and directly referenced resources.
+2. Compare diff against lesson; remove unrelated edits.
+3. Run skill-creator `quick_validate.py`; use disposable dependency environment if host lacks validator modules.
+4. Run `git diff --check` on skill files.
+5. Re-run smallest audit check affected by change when practical.
+6. Record lesson, accepted or rejected decision, files changed, validation result, and remaining uncertainty in audit report.
+
+Do not rewrite history or silently erase useful rules. If current audit evidence conflicts with existing guidance, preserve both facts in report and change skill only after resolving conflict through another independent check. Include accepted skill edits in focused audit commit after required `make` succeeds.
+
 ## Finish
 
 Terminate owned game processes and close automation sessions. Run `make` from repository root. If tracked files changed, stage only current audit/skill files and create focused commit after `make` succeeds. If `make` fails because of unrelated existing work, do not commit; report exact blocker. Return report path, confirmed bug count, matrix totals, build result, commit hash or explicit no-commit reason, and most important gaps.

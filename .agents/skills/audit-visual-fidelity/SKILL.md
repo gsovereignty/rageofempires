@@ -1,6 +1,6 @@
 ---
 name: audit-visual-fidelity
-description: Exhaustively audit this project's packaged scenarios through deterministic real-gameplay screen captures, predicting and comparing every reachable sprite, animation, effect, terrain element, HUD component, minimap item, menu, and terminal screen against original-game evidence. Use for production visual-fidelity, rendering, display, sprite, animation, or UI audits under reconstruction/resources/*.scenario. Also supports an explicitly requested `playthrough` option for foreground, real-cursor, end-to-end coverage of every supported map-size and game-type combination.
+description: Exhaustively audit this project's packaged scenarios through deterministic real-gameplay screen captures, predicting and comparing reachable animation, effects, terrain, HUD, minimap, menus, and terminal screens against original-game evidence. Use for production visual-fidelity, rendering, display, animation, or UI audits under reconstruction/resources/*.scenario. Use audit-sprite-screenshots instead for isolated sprite captures, terrain-overlap review, sprite corpora, and sprite decision baselines. Also supports an explicitly requested `playthrough` option for foreground, real-cursor, end-to-end coverage of every supported map-size and game-type combination.
 ---
 
 # Audit visual fidelity
@@ -51,7 +51,7 @@ Tell every scenario agent it is not alone, must not modify or revert shared file
 
 Run fixture as real gameplay in background/headless mode unless real UI input is essential. Use unique automation directories, PIDs, and window identity. Never select windows through ambiguous shared process names.
 
-Set `AOE_MAIN_MENU=0` for direct scenario captures and `AOE_AUDIT_ANY_MAP_SIZE=1` for compact audit fixtures; verify reported map dimensions. Inspect the first frame before continuing, and reject the run immediately if it shows the frontend. Launch the packaged app executable when available and require startup-log proof that optional original sprites loaded. Record all asset-loader flags; never use `AOE_DISABLE_LEGACY_ASSETS=1` when validating production presentation.
+Set `AOE_MAIN_MENU=0` for direct scenario captures and `AOE_AUDIT_ANY_MAP_SIZE=1` for compact audit fixtures; verify reported map dimensions. Inspect the first frame before continuing, and reject the run immediately if it shows the frontend. Launch the packaged app executable when available. Record all asset-loader flags; never use `AOE_DISABLE_LEGACY_ASSETS=1` when validating production presentation.
 
 Record deterministic launch configuration, camera, actions, selection, tick schedule, and outcome. Exercise fixture purpose through completion or terminal result. Add deliberate directions, selections, damage states, and UI states needed to expose fixture content.
 
@@ -73,26 +73,13 @@ For each captured tick, derive expected presentation before judging image. Use s
 Record expected and actual:
 
 - visible entities, position, ownership, civilization, and age variant;
-- sprite identity, palette, transparency, scale, anchor, facing, shadow, layering, and occlusion;
+- entity appearance, palette, transparency, scale, facing, shadow, layering, and occlusion;
 - animation state, frame order, timing, looping, projectile, hit, work, gather, carry, repair, construction, death, decay, and destruction;
 - terrain blending, elevation, water, footprints, fire, smoke, rubble, and effects;
 - HUD portrait, icons, text, values, commands, buttons, panels, selection, minimap, menus, and statistics;
 - viewport-edge behavior and supported resolutions.
 
 Require production assets. Confirm any procedural, placeholder, synthetic, debug, missing-asset, or fallback rendering as a bug when reproduced. Never accept fallback presentation as correct production rendering.
-
-## Batch terrain-over-sprite review
-
-- Before capture, prove no game process is active and descriptor use is below half the soft limit. Run one background process per scenario with `python3 tools/capture_visual_overlap.py <executable> <scenario> --capture-dir <new-dir> --output-dir <review-dir> --tick <tick>`. This orchestrator selects dummy video/audio, software rendering, direct scenario loading, compact-map support, one-process timeout/reaping, manifest validation, and batch review. Its exit `1` means review candidates exist, not capture failure.
-- For direct integration, set `AOE_OVERLAP_CAPTURE_DIR`; optionally set `AOE_OVERLAP_CAPTURE_TICK` and `AOE_OVERLAP_CAPTURE_EXIT`. The renderer captures actual and terrain-only images from one render state, replays exact selected legacy textures into transparent RGBA composites, and records placement plus schema-version-1 metadata without advancing simulation. Preserve palette, frame, facing, flip, shadows, multipart composition, zoom, clipping, and transparent holes.
-- Use `tools/visual_overlap_audit.py` only for manually supplied actual, terrain-only, expected RGBA sprite, and placement inputs. Treat exit `0` as clean, `1` as overlap candidates, and `2` as invalid input.
-- Treat production sprite/frame, anchor, palette, and aligned terrain-only generation as pre-approved when derived deterministically from renderer state; do not stop for per-asset approval.
-- Add every rendered sprite case across all scenarios, civilizations, ages, facings, animation states, damage/construction stages, terrains, elevations, resolutions, and playthrough matrix cells to one schema-version-1 JSON manifest. Use stable unique case IDs and record entity, sprite/frame, scenario, tick, camera, terrain, civilization, age, ownership, state, facing, and resolution in case metadata.
-- Run `python3 tools/batch_visual_overlap_audit.py <manifest.json> --output-dir artifacts/visual-overlap-review` only after the whole requested corpus is captured. Exit `1` means review candidates exist, not infrastructure failure.
-- Deliver one self-contained `review.html` for the human to audit the entire rendered-sprite corpus at once. Include clean and flagged cases; never interrupt the run for individual candidate review. Preserve combined `report.json`, red-contour annotations, actual views, terrain-only views, expected sprites, and downloadable human decisions JSON.
-- Accept human decisions only as `bug`, `intentional`, or `uncertain`. Create or update a baseline with `python3 tools/visual_overlap_decisions.py <report.json> --decisions <decisions.json> --output <baseline.json>`. Compare later runs with `python3 tools/visual_overlap_decisions.py <report.json> --baseline <baseline.json> --output <comparison.json>` and surface new, changed, missing, and unresolved cases.
-- Convert confirmed bugs into regression cases, retain intentional overlaps in the explicit baseline, and keep uncertain cases open without counting them as bugs or passes.
-- Capture loaded legacy RGBA units, buildings, and resources automatically. Mark procedural rendering, unsupported isolation, rubble/death effects, projectile/impact instances, and missing or uncorrelated layer inputs `blocked`; never silently exclude them from the manifest or coverage totals.
 
 ## Confirm findings
 
@@ -127,10 +114,10 @@ Require each agent to return:
 - capture interval, actions, and ticks;
 - outcome and prediction-versus-actual ledger;
 - confirmed bugs and evidence paths;
-- sprites, animations, and UI states covered;
+- animations and UI states covered;
 - untested states and blockers;
 - process termination confirmation.
 
-After all scenarios complete, write one concise report under `docs/audits/` containing scope/build, completion ledger, deduplicated bugs, affected fixtures, reproduction steps, evidence paths, sprite/animation/UI coverage matrix, capture intervals and frame totals, remaining gaps, and exact status/bug totals. Reference fixtures rather than repeating their contents.
+After all scenarios complete, write one concise report under `docs/audits/` containing scope/build, completion ledger, deduplicated bugs, affected fixtures, reproduction steps, evidence paths, animation/UI coverage matrix, capture intervals and frame totals, remaining gaps, and exact status/bug totals. Reference fixtures rather than repeating their contents.
 
 Run `make` from reconstruction root and require success. Preserve unrelated changes, stage only audit-related tracked files, create focused commit, then report totals, build result, report path, and commit hash.

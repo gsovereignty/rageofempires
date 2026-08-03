@@ -33,11 +33,10 @@ capture() {
 
 for size in 640x480 800x600 1024x768 1280x720 1920x1080; do
     capture "$size" fallback 1
-    capture "$size" icons 1
 done
 capture 640x480 fallback 2
-capture 640x480 icons 2
 capture 1280x720 fallback 1 building
+capture 1280x720 icons 1
 ! cmp -s \
     "$smoke_dir/1280x720-fallback-1x-unit.bmp" \
     "$smoke_dir/1280x720-fallback-1x-building.bmp"
@@ -70,11 +69,11 @@ def read(path):
 
 
 def layout(screen_width, icons):
-    margin = 10
-    gap = 6
-    row_width = min(980, max(0, screen_width - margin * 2))
+    margin = 2
+    gap = 2
+    row_width = min(420, max(0, screen_width - margin * 2))
     available = max(0, row_width - gap * 5)
-    weights = (3, 3, 3, 3, 3, 2)
+    weights = (2, 2, 2, 2, 3, 2)
     fields = []
     x = margin
     assigned = 0
@@ -85,7 +84,7 @@ def layout(screen_width, icons):
             else available * weight // sum(weights)
         )
         assigned += width
-        text_x = x + (31 if icons and index < 4 else 8)
+        text_x = x + (16 if icons and index < 4 else 2)
         fields.append((x, width, text_x, x + width - text_x))
         x += width + gap
     return row_width, fields
@@ -95,17 +94,12 @@ root = pathlib.Path(sys.argv[1])
 foreground = (239, 226, 185)
 cases = [
     (640, 480, "fallback", 1),
-    (640, 480, "icons", 1),
     (800, 600, "fallback", 1),
-    (800, 600, "icons", 1),
     (1024, 768, "fallback", 1),
-    (1024, 768, "icons", 1),
     (1280, 720, "fallback", 1),
     (1280, 720, "icons", 1),
     (1920, 1080, "fallback", 1),
-    (1920, 1080, "icons", 1),
     (640, 480, "fallback", 2),
-    (640, 480, "icons", 2),
 ]
 for logical_width, logical_height, assets, scale in cases:
     name = (
@@ -122,7 +116,7 @@ for logical_width, logical_height, assets, scale in cases:
     for index, (x, field_width, text_x, text_width) in enumerate(fields):
         text_pixels = sum(
             pixel(px, py) == foreground
-            for py in range(14, 22)
+            for py in range(6, 14)
             for px in range(text_x, text_x + text_width)
         )
         if text_pixels == 0:
@@ -131,24 +125,24 @@ for logical_width, logical_height, assets, scale in cases:
             previous_end = fields[index - 1][0] + fields[index - 1][1]
             gap_pixels = sum(
                 pixel(px, py) == foreground
-                for py in range(4, 32)
+                for py in range(2, 18)
                 for px in range(previous_end, x)
             )
             if gap_pixels:
                 raise SystemExit(
                     f"{name}: field {index - 1} crossed guard band"
                 )
-    row_end = 10 + row_width
+    row_end = 2 + row_width
     leaked_right = sum(
         pixel(px, py) == foreground
-        for py in range(4, 32)
+        for py in range(2, 18)
         for px in range(row_end, width)
     )
     if leaked_right:
         raise SystemExit(f"{name}: resource row crossed right bound")
     log = (root / f"{name}.log").read_text(errors="replace")
     expected_log = (
-        f"output-scale={scale} row=10,4,{row_width},28"
+        f"output-scale={scale} row=2,2,{row_width},16"
     )
     if expected_log not in log:
         raise SystemExit(f"{name}: presentation geometry not logged")

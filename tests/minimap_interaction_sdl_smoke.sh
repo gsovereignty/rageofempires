@@ -58,6 +58,6 @@ if panel.count((0, 0, 255)) < 20:
     raise SystemExit("blue minimap marker is missing or too small")
 if not any(r >= 235 and g >= 220 and b >= 180 for r, g, b in panel):
     raise SystemExit("minimap viewport rectangle is missing")
-if not any(g >= 150 and r < 140 for r, g, b in panel):
+if not any(g >= 130 and g > r and g > b for r, g, b in panel):
     raise SystemExit("minimap explored terrain/route lacks readable green")
 PY

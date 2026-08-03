@@ -190,10 +190,10 @@ inline constexpr int information_content_x = 286;
 [[nodiscard]] constexpr Rect command_button(int bottom, int index) {
     if (index < 0 || index >= 15) return {};
     return {
-        34 + 42 * (index % 5),
-        bottom + 31 + 42 * (index / 5),
-        38,
-        38,
+        37 + 41 * (index % 5),
+        bottom + 31 + 41 * (index / 5),
+        40,
+        40,
     };
 }
 
@@ -223,20 +223,20 @@ inline constexpr int information_content_x = 286;
     return {2, 2, 420, 16};
 }
 
-// Reconstruction-native responsive resource row. Exact commercial field
-// positions are unproved. Width is capped so wide screens retain one compact
-// status group; integer remainder pixels are assigned from left to right.
+// FUN_005f37c0 proves a fixed 420x16 top status strip. Field subdivisions are
+// bounded reconstruction geometry inferred from HD gameplay captures; unlike
+// the old responsive row, they stay inside the original fixed strip.
 [[nodiscard]] constexpr ResourceStatusLayout resource_status_layout(
     int screen_width,
     bool icons_available
 ) {
-    constexpr int margin = 10;
-    constexpr int gap = 6;
-    constexpr int maximum_row_width = 980;
-    constexpr int row_y = 4;
-    constexpr int row_height = 28;
-    constexpr int icon_size = 20;
-    constexpr int icon_text_gap = 7;
+    constexpr int margin = 2;
+    constexpr int gap = 2;
+    constexpr int maximum_row_width = 420;
+    constexpr int row_y = 2;
+    constexpr int row_height = 16;
+    constexpr int icon_size = 14;
+    constexpr int icon_text_gap = 2;
     ResourceStatusLayout result{};
     const int row_width = std::min(
         maximum_row_width,
@@ -247,11 +247,10 @@ inline constexpr int information_content_x = 286;
     result.left_safe_margin = margin;
     result.right_safe_margin =
         std::max(margin, screen_width - margin - row_width);
-    result.text_baseline = 14;
+    result.text_baseline = 6;
     const int available = std::max(0, row_width - gap * 5);
-    // Resources and population need more room than the compact idle field.
-    constexpr std::array<int, 6> weights{{3, 3, 3, 3, 3, 2}};
-    constexpr int total_weight = 17;
+    constexpr std::array<int, 6> weights{{2, 2, 2, 2, 3, 2}};
+    constexpr int total_weight = 13;
     int assigned{};
     int x = margin;
     for (std::size_t index = 0; index < result.fields.size(); ++index) {
@@ -264,10 +263,10 @@ inline constexpr int information_content_x = 286;
         const bool has_icon =
             icons_available && index < 4 && width >= icon_size;
         if (has_icon) {
-            field.icon = Rect{x + 4, row_y + 4, icon_size, icon_size};
+            field.icon = Rect{x, row_y + 1, icon_size, icon_size};
         }
         const int text_x =
-            x + (has_icon ? 4 + icon_size + icon_text_gap : 8);
+            x + (has_icon ? icon_size + icon_text_gap : 2);
         field.text = {
             text_x,
             result.text_baseline,

@@ -141,29 +141,35 @@ These are exact relative operands. The recovered frame-1 height now also
 proves the absolute bottom split. Semantic roles for several child pointers
 remain unproved.
 
-Exact Wood/Food/Gold/Stone/Population field coordinates remain unproved. The
-runtime therefore uses a reconstruction-native readability contract:
+Exact Wood/Food/Gold/Stone/Population field coordinates remain unproved. HD
+gameplay screenshots do prove that values remain inside the fixed decompiled
+420×16 status strip rather than a wide boxed bar. Runtime therefore uses a
+bounded reconstruction-native subdivision of that strip:
 
 - one ordered field per Wood, Food, Gold, Stone, and Population;
-- 10 logical pixels of safe left/right margin and 6-pixel guard bands;
-- row width capped at 780 pixels, left-anchored, so wide screens retain one
-  compact original-style status group;
+- 2 logical pixels of safe left/right margin and 2-pixel guard bands;
+- row width capped at the exact 420-pixel decompiled status-strip width;
 - deterministic left-to-right distribution of integer remainder pixels;
-- 16×16 resource icons, 4-pixel icon/text padding, fixed 8-pixel debug-font
+- 14×14 resource icons, 2-pixel icon/text padding, fixed 8-pixel debug-font
   cells, and one renderer clip rectangle per field;
 - same five bounded fields when icon assets are absent;
 - Population always keeps `POP current/capacity`; `PAUSED` has priority over
   optional `IDLE villagers/military` when narrow width cannot fit both.
 
-Dark field backing makes the text readable over native `game_b%d.slp` top
-ornaments. Truncation only handles large values or long localization after
+Native `game_b%d.slp` art supplies the field backing. Procedural fallback
+retains one dark strip. Truncation only handles large values or localization after
 geometry and renderer clips enforce separation. Field clips are cleared before
 the existing information-panel clip is restored.
 
+The active Age is centered inside frame 7's exact sibling-relative plaque.
+Idle Villager and military counts use compact `V<n> M<n>` text so both remain
+visible inside the fixed status strip at production resolutions.
+
 Contract tests cover logical widths 640, 800, 1024, 1280, and 1920 with normal,
 nine-digit, paused, large-population, long-label, icon, and no-icon cases.
-`aoe_hud_layout_sdl_smoke` captures all five widths with both asset paths,
-plus 640×480 at deterministic 1× and 2× renderer output. Its pixel validator
+`aoe_hud_layout_sdl_smoke` captures all five widths through the procedural
+fallback, one production-asset HUD at 1280×720, plus 640×480 at deterministic
+1× and 2× renderer output. Its pixel validator
 requires text in every field, exact foreground-free inter-field guard bands,
 and no resource foreground beyond the row. `AOE_HUD_STRESS_VALUES=1` affects
 display values only; `AOE_HUD_OUTPUT_SCALE=1|2` creates physical-output test
@@ -200,7 +206,8 @@ command-grid callsite selects it.
   native width.
 
 Missing or undecodable loose HUD files select procedural rendering. A valid
-file is always composed natively and never stretched or cropped.
+file is always composed natively, including frame 5's centered civilization
+ornament, and is never stretched or cropped.
 
 ## Reproduction
 

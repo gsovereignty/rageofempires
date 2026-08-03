@@ -37,6 +37,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--tick", type=int, default=0)
     parser.add_argument("--timeout", type=int, default=120)
+    parser.add_argument(
+        "--manifest-only", action="store_true",
+        help="capture renderer inputs and manifest without building a review bundle",
+    )
     args = parser.parse_args(argv)
     if args.tick < 0:
         parser.error("--tick must be non-negative")
@@ -78,6 +82,8 @@ def main(argv: list[str] | None = None) -> int:
     manifest = args.capture_dir / "manifest.json"
     if not manifest.is_file():
         parser.error("renderer exited without manifest.json")
+    if args.manifest_only:
+        return 0
     reviewer = Path(__file__).with_name("batch_visual_overlap_audit.py")
     review = subprocess.run([
         sys.executable, str(reviewer), str(manifest),

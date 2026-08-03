@@ -79,6 +79,22 @@ recognized as a multi-layer DAT composition, but remains procedural when any
 required layer is absent. DRS contents are read from packaged `game_data` and
 never from the parent research workspace.
 
+To inspect one original sprite as a BMP contact sheet, build the tools and pass
+its SLP resource ID directly:
+
+```sh
+cmake --build build --target slp_contact_sheet
+./build/slp_contact_sheet \
+  game_data/Data/graphics.drs \
+  game_data/Data/interfac.drs \
+  3629 \
+  /tmp/sheep.bmp
+open /tmp/sheep.bmp
+```
+
+The tool prints each frame's index, dimensions, and hotspot. Its older loose
+SLP form remains available through `slp_contact_sheet SLP INTERFAC_DRS OUTPUT`.
+
 Release bundle embeds SDL3 under `Contents/Frameworks`; it has no Homebrew
 runtime dependency. Verifier checks both Universal 2 slices and macOS 11.0 in
 the executable, SDL dylib, and Info.plist alongside resources, linkage, signature,

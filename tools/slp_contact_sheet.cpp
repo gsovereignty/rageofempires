@@ -6,7 +6,9 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 namespace {
@@ -76,15 +78,34 @@ void write_bmp(
 }  // namespace
 
 int main(int argc, char** argv) {
-    if (argc != 4) {
-        std::cerr << "usage: slp_contact_sheet SLP INTERFAC_DRS OUTPUT\n";
+    if (argc != 4 && argc != 5) {
+        std::cerr
+            << "usage: slp_contact_sheet SLP INTERFAC_DRS OUTPUT\n"
+            << "   or: slp_contact_sheet GRAPHICS_DRS INTERFAC_DRS "
+               "SLP_ID OUTPUT\n";
         return 2;
     }
     try {
-        const auto bytes = read_bytes(argv[1]);
+        std::vector<std::byte> bytes;
+        std::int32_t palette_id = 50589;
+        const std::filesystem::path output = argv[argc - 1];
+        if (argc == 5) {
+            std::size_t consumed{};
+            const std::string text = argv[3];
+            const long long parsed = std::stoll(text, &consumed);
+            if (consumed != text.size() || parsed < 0 ||
+                parsed > std::numeric_limits<std::int32_t>::max()) {
+                throw std::runtime_error{"SLP ID must be a non-negative integer"};
+            }
+            const aoe::DrsArchive graphics{argv[1]};
+            bytes = graphics.read("slp", static_cast<std::int32_t>(parsed));
+            palette_id = 50500;
+        } else {
+            bytes = read_bytes(argv[1]);
+        }
         const aoe::DrsArchive interface{argv[2]};
         const aoe::LegacyPalette palette = aoe::LegacyPalette::from_jasc(
-            interface.read("bina", 50589)
+            interface.read("bina", palette_id)
         );
         std::vector<aoe::RgbaFrame> frames;
         int cell_width{};
@@ -102,7 +123,10 @@ int main(int argc, char** argv) {
                       << frames.back().hotspot_x << ','
                       << frames.back().hotspot_y << '\n';
         }
-        constexpr int columns = 4;
+        const int columns = std::min(4, static_cast<int>(frames.size()));
+        if (columns == 0) {
+            throw std::runtime_error{"SLP contains no frames"};
+        }
         const int rows =
             (static_cast<int>(frames.size()) + columns - 1) / columns;
         const int width = columns * cell_width;
@@ -135,7 +159,7 @@ int main(int argc, char** argv) {
                 }
             }
         }
-        write_bmp(argv[3], width, height, sheet);
+        write_bmp(output, width, height, sheet);
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;

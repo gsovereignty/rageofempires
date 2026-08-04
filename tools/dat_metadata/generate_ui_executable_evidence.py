@@ -61,7 +61,67 @@ def drs_slp_counts(path):
     return result
 
 
-def extract(decompile_text, executable_path, interfac_path):
+def pe_string_table(path):
+    """Read numeric RT_STRING values from a PE32 language DLL."""
+    data = Path(path).read_bytes()
+    pe = struct.unpack_from("<I", data, 0x3C)[0]
+    sections = struct.unpack_from("<H", data, pe + 6)[0]
+    optional_size = struct.unpack_from("<H", data, pe + 20)[0]
+    optional = pe + 24
+    if struct.unpack_from("<H", data, optional)[0] != 0x10B:
+        raise ValueError("language DLL is not PE32")
+    section_table = optional + optional_size
+    mappings = []
+    for index in range(sections):
+        at = section_table + index * 40
+        virtual_size, virtual_address, raw_size, raw_offset = (
+            struct.unpack_from("<IIII", data, at + 8)
+        )
+        mappings.append((
+            virtual_address, max(virtual_size, raw_size), raw_offset
+        ))
+
+    def file_offset(rva):
+        for virtual_address, size, raw_offset in mappings:
+            if virtual_address <= rva < virtual_address + size:
+                return raw_offset + rva - virtual_address
+        raise ValueError("PE resource RVA outside sections")
+
+    resource_rva = struct.unpack_from("<I", data, optional + 96 + 16)[0]
+    resource_base = file_offset(resource_rva)
+
+    def directory(relative):
+        at = resource_base + relative
+        named, identifiers = struct.unpack_from("<HH", data, at + 12)
+        return [
+            struct.unpack_from("<II", data, at + 16 + index * 8)
+            for index in range(named + identifiers)
+        ]
+
+    result = {}
+    string_type = next(
+        (target for name, target in directory(0) if name == 6), None
+    )
+    if string_type is None:
+        return result
+    for block, block_target in directory(string_type & 0x7FFFFFFF):
+        languages = directory(block_target & 0x7FFFFFFF)
+        if not languages:
+            continue
+        _, language_target = languages[0]
+        data_entry = resource_base + (language_target & 0x7FFFFFFF)
+        payload_rva = struct.unpack_from("<I", data, data_entry)[0]
+        position = file_offset(payload_rva)
+        for index in range(16):
+            length = struct.unpack_from("<H", data, position)[0]
+            position += 2
+            value = data[position:position + length * 2].decode("utf-16le")
+            position += length * 2
+            result[(block - 1) * 16 + index] = value
+    return result
+
+
+def extract(decompile_text, executable_path, interfac_path, language_dll=None):
     source = Path(executable_path).read_bytes()
     slps = drs_slp_counts(interfac_path)
     font_files = []
@@ -70,9 +130,21 @@ def extract(decompile_text, executable_path, interfac_path):
         if path not in font_files:
             font_files.append(path)
 
+    localized = pe_string_table(language_dll) if language_dll else {}
     slots = []
     for match in FONT_CALL.finditer(decompile_text):
         base = integer(match.group("string"))
+        family = localized.get(base)
+        height = localized.get(base + 1)
+        style = localized.get(base + 2)
+        resolved = None
+        if family and height and style is not None:
+            resolved = {
+                "family": family,
+                "height": int(height),
+                "weight": 700 if "b" in style.lower() else 400,
+                "italic": "i" in style.lower(),
+            }
         slots.append({
             "slot": integer(match.group("slot")),
             "role": match.group("name"),
@@ -83,8 +155,10 @@ def extract(decompile_text, executable_path, interfac_path):
                 "style": base + 2,
             },
             "strikeout": match.group("strike") == "1",
-            "resolved_values": None,
-            "classification": "exact_loader_contract",
+            "resolved_values": resolved,
+            "classification": (
+                "exact_hd" if resolved else "exact_loader_contract"
+            ),
         })
     for match in DIRECT_FONT.finditer(decompile_text):
         slots.append({
@@ -135,6 +209,11 @@ def extract(decompile_text, executable_path, interfac_path):
             "executable_sha256": hashlib.sha256(source).hexdigest(),
             "decompile_function_font_setup": "FUN_004f3b30 at 0x004f3b30",
             "decompile_function_font_parser": "FUN_004f3010 at 0x004f3010",
+            "language_dll": Path(language_dll).name if language_dll else None,
+            "language_dll_sha256": (
+                hashlib.sha256(Path(language_dll).read_bytes()).hexdigest()
+                if language_dll else None
+            ),
         },
         "fonts": {
             "slot_count": 37,
@@ -174,12 +253,16 @@ def main():
     parser.add_argument("decompile")
     parser.add_argument("executable")
     parser.add_argument("interfac_drs")
+    parser.add_argument("--language-dll")
     parser.add_argument(
         "--output", default="generated/ui_executable_evidence.json"
     )
     args = parser.parse_args()
     text = Path(args.decompile).read_text(errors="replace")
-    output = extract(text, Path(args.executable), Path(args.interfac_drs))
+    output = extract(
+        text, Path(args.executable), Path(args.interfac_drs),
+        Path(args.language_dll) if args.language_dll else None
+    )
     Path(args.output).write_text(json.dumps(output, indent=2) + "\n")
 
 

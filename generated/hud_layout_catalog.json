@@ -99,17 +99,64 @@
       "centered_top_control": "(screen_width / 2 - 155, 16, 310, 20)",
       "top_right_controls": "(screen_width - 260 + 50 * index, 3, 50, 19), index 0..4"
     },
+    "resource_status_cells": {
+      "count": 5,
+      "roles": [
+        "wood",
+        "food",
+        "gold",
+        "stone",
+        "population"
+      ],
+      "weight_partition": [
+        3,
+        3,
+        3,
+        3,
+        4
+      ],
+      "classification": "exact_strip_and_interface_sheet_partition"
+    },
     "limits": "stored field producers, absolute world/HUD split, semantic resolution labels, and panel roles remain unproved"
   },
   "button_chrome": {
     "classification": "exact_relative",
+    "sheet": "btngame.shp",
+    "resource_id": 50751,
+    "archive_frame_count": 48,
     "normal_frame": 36,
     "pressed_frame": 37,
     "pressed_icon_offset": {
       "x": 1,
       "y": 1
     },
-    "limits": "FUN_005c5e40 proves generic pressed rendering only; it does not prove command-slot semantics, hover/disabled frames, or archive-backed layout"
+    "disabled_state": "hidden",
+    "hover_state": "normal",
+    "frame_metrics": [
+      {
+        "index": 36,
+        "width": 54,
+        "height": 54,
+        "hotspot_x": 0,
+        "hotspot_y": 0,
+        "properties": 16,
+        "command_table_offset": 39130,
+        "outline_table_offset": 38914,
+        "palette_offset": 0
+      },
+      {
+        "index": 37,
+        "width": 54,
+        "height": 54,
+        "hotspot_x": 0,
+        "hotspot_y": 0,
+        "properties": 16,
+        "command_table_offset": 40104,
+        "outline_table_offset": 39888,
+        "palette_offset": 0
+      }
+    ],
+    "limits": "FUN_005c5e40 proves btngame frames 36/37, one-pixel pressed icon offset, and unchanged normal hover; FUN_005c6050 proves inactive controls clear capture and remain hidden"
   },
   "proved": {
     "asset_identity": "interfac.drs contains unlinked SLP 51141 with one 1280x1024 frame",
@@ -119,7 +166,7 @@
     "background_composition": "pinned FUN_005e7cb0 composes game_b frames 0 through 7: frame 0 tiles across top, frame 6 overlays at origin, frames 2/3 alternate across bottom span, frames 1/4 cap its sides, frame 5 centers, and frame 7 anchors to a sibling view",
     "candidate_rejection": "SLP 51141 has one frame, while executable compositor requires game_b frames 0 through 7; it cannot be promoted as game_b",
     "relative_layout": "pinned FUN_005f37c0 proves field-relative vertical geometry, a 15-slot 5x3 command grid, and several screen-edge-relative rectangles; these formulas do not prove absolute split or semantic panel roles",
-    "button_chrome": "runtime artwork inspection rejects action frames 36 and 37 as reusable button chrome"
+    "button_chrome": "frames 36 and 37 belong to btngame resource 50751, not btncmd resource 50721; archive metadata and executable dispatch agree"
   },
   "unproved": {
     "resolution_to_resource": "game_b selection is by civilization, not resolution; no authoritative mapping connects its loose files to SLP 51141",

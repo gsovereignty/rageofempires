@@ -17,7 +17,7 @@ class UiExecutableEvidenceTests(unittest.TestCase):
             Path("generated/ui_executable_evidence.json").read_text()
         )
 
-    def test_all_hd_font_slots_are_accounted_for_without_invented_values(self):
+    def test_all_hd_font_slots_are_accounted_for_from_language_resources(self):
         fonts = self.data["fonts"]
         slots = {item["slot"]: item for item in fonts["slots"]}
         self.assertEqual(fonts["slot_count"], 37)
@@ -28,7 +28,18 @@ class UiExecutableEvidenceTests(unittest.TestCase):
             slots[0]["string_ids"],
             {"family": 110, "height": 111, "style": 112},
         )
-        self.assertIsNone(slots[0]["resolved_values"])
+        self.assertEqual(
+            slots[0]["resolved_values"],
+            {"family": "Lucida Blackletter", "height": 14,
+             "weight": 400, "italic": False},
+        )
+        self.assertEqual(
+            slots[7]["resolved_values"],
+            {"family": "Georgia", "height": 9,
+             "weight": 700, "italic": False},
+        )
+        self.assertEqual(slots[7]["role"], "RGE_FONT_GAME")
+        self.assertEqual(slots[7]["classification"], "exact_hd")
         self.assertEqual(
             slots[36],
             {

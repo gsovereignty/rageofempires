@@ -146,15 +146,16 @@ gameplay screenshots do prove that values remain inside the fixed decompiled
 420×16 status strip rather than a wide boxed bar. Runtime therefore uses a
 bounded reconstruction-native subdivision of that strip:
 
-- one ordered field per Wood, Food, Gold, Stone, and Population;
+- one ordered field per Wood, Food, Gold, Stone, and Population; interface
+  sheet 51141 visibly proves five cells, four equal and one wider;
 - 2 logical pixels of safe left/right margin and 2-pixel guard bands;
 - row width capped at the exact 420-pixel decompiled status-strip width;
 - deterministic left-to-right distribution of integer remainder pixels;
 - 14×14 resource icons, 2-pixel icon/text padding, fixed 8-pixel debug-font
   cells, and one renderer clip rectangle per field;
 - same five bounded fields when icon assets are absent;
-- Population always keeps `POP current/capacity`; `PAUSED` has priority over
-  optional `IDLE villagers/military` when narrow width cannot fit both.
+- Population always keeps `POP current/capacity`; `PAUSED` appends while space
+  remains. Idle counts are not inserted into this five-cell resource strip.
 
 Native `game_b%d.slp` art supplies the field backing. Procedural fallback
 retains one dark strip. Truncation only handles large values or localization after
@@ -162,8 +163,6 @@ geometry and renderer clips enforce separation. Field clips are cleared before
 the existing information-panel clip is restored.
 
 The active Age is centered inside frame 7's exact sibling-relative plaque.
-Idle Villager and military counts use compact `V<n> M<n>` text so both remain
-visible inside the fixed status strip at production resolutions.
 
 Contract tests cover logical widths 640, 800, 1024, 1280, and 1920 with normal,
 nine-digit, paused, large-population, long-label, icon, and no-icon cases.
@@ -179,10 +178,13 @@ This responsive policy is not an exact recovered field map. Exact evidence
 remains limited to the surrounding status strip and screen-relative controls
 listed above.
 
-Runtime frame inspection proves 50721 frames 36 and 37 contain action artwork,
-not reusable button chrome. Command slots use procedural normal, pressed,
-selected, and disabled chrome. Bounded candidate frames render for mapped
-actions with `unknown` semantic evidence; missing candidates retain labels.
+`FUN_005c5e40` proves command chrome comes from `btngame.shp` resource 50751,
+not action sheet 50721. Normal controls draw frame 36; captured/selected controls
+draw frame 37 and shift their unchanged action icon one pixel down/right.
+`FUN_005c6050` clears capture from inactive controls; inactive controls are
+hidden rather than rendered as tinted substitutes. Hover retains normal frame
+36. Runtime decodes both 54×54 archive frames and clips them to each exact
+40×40 command cell. Procedural chrome remains only missing-archive fallback.
 
 ## Original button and icon assets
 
@@ -200,14 +202,22 @@ command-grid callsite selects it.
 
 - the semantic identity of the sibling pointer anchoring frame 7;
 - portrait and information-child pointer identities;
-- hover and disabled chrome frames;
-- exact command semantics and page ordering for non-unit icons;
+- exact command semantics and page ordering for still-unmapped actions;
 - authorization to alter the unavoidable cap overlap below their combined
   native width.
 
 Missing or undecodable loose HUD files select procedural rendering. A valid
 file is always composed natively, including frame 5's centered civilization
 ornament, and is never stretched or cropped.
+
+## Gameplay font
+
+Supplied `language.dll` RT_STRING blocks close HD font slot values. Exact slot
+7 `RGE_FONT_GAME` is Georgia, height 9, weight 700, non-italic. Runtime loads
+user-supplied `Data/fonts/GEORGIAB.TTF` and uses measured proportional glyphs
+for resource, Age, and selection text. Missing font bytes retain debug-text
+fallback. `generated/ui_executable_evidence.json` records all 35 localized
+slot triplets plus source hashes; no font bytes are tracked.
 
 ## Reproduction
 

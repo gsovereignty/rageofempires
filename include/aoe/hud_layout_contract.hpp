@@ -65,7 +65,7 @@ struct ResourceFieldLayout {
 
 struct ResourceStatusLayout {
     Rect row{};
-    std::array<ResourceFieldLayout, 6> fields{};
+    std::array<ResourceFieldLayout, 5> fields{};
     int gap{};
     int left_safe_margin{};
     int right_safe_margin{};
@@ -73,6 +73,39 @@ struct ResourceStatusLayout {
 
     auto operator<=>(const ResourceStatusLayout&) const = default;
 };
+
+enum class CommandVisualState {
+    hidden,
+    normal,
+    pressed,
+};
+
+struct CommandVisual {
+    CommandVisualState state{};
+    int chrome_resource_id{-1};
+    int chrome_frame{-1};
+    int icon_offset{};
+
+    auto operator<=>(const CommandVisual&) const = default;
+};
+
+// FUN_005c5e40: btngame.shp resource 50751 frame 36 normally, frame 37
+// while the control owns capture; icon shifts one pixel. FUN_005c6050 clears
+// capture for inactive controls, which are not drawn or hit-testable.
+[[nodiscard]] constexpr CommandVisual command_visual(
+    bool enabled,
+    bool pressed,
+    bool selected
+) {
+    if (!enabled) return {CommandVisualState::hidden, -1, -1, 0};
+    const bool depressed = pressed || selected;
+    return {
+        depressed ? CommandVisualState::pressed : CommandVisualState::normal,
+        50751,
+        depressed ? 37 : 36,
+        depressed ? 1 : 0,
+    };
+}
 
 inline constexpr int game_background_frame_count = 8;
 inline constexpr int debug_glyph_width = 8;
@@ -248,9 +281,13 @@ inline constexpr int information_content_x = 286;
     result.right_safe_margin =
         std::max(margin, screen_width - margin - row_width);
     result.text_baseline = 6;
-    const int available = std::max(0, row_width - gap * 5);
-    constexpr std::array<int, 6> weights{{2, 2, 2, 2, 3, 2}};
-    constexpr int total_weight = 13;
+    const int available = std::max(
+        0, row_width - gap * static_cast<int>(result.fields.size() - 1)
+    );
+    // Interface sheet 51141 visibly divides the exact 420-pixel strip into
+    // four equal resource cells and one wider population cell.
+    constexpr std::array<int, 5> weights{{3, 3, 3, 3, 4}};
+    constexpr int total_weight = 16;
     int assigned{};
     int x = margin;
     for (std::size_t index = 0; index < result.fields.size(); ++index) {

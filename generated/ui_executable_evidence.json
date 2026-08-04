@@ -4,7 +4,9 @@
     "executable": "AoK HD.exe",
     "executable_sha256": "e23272e21014fb281f71a21ef96a6437ab8b322f4978fd4998be835be219edcc",
     "decompile_function_font_setup": "FUN_004f3b30 at 0x004f3b30",
-    "decompile_function_font_parser": "FUN_004f3010 at 0x004f3010"
+    "decompile_function_font_parser": "FUN_004f3010 at 0x004f3010",
+    "language_dll": "language.dll",
+    "language_dll_sha256": "9557a66ca0dc0ad8901ec26d40cdb4f882c8f97001927b117cda94a9f8dc31f3"
   },
   "fonts": {
     "slot_count": 37,
@@ -42,8 +44,13 @@
           "style": 112
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Lucida Blackletter",
+          "height": 14,
+          "weight": 400,
+          "italic": false
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 1,
@@ -55,8 +62,13 @@
           "style": 115
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Lucida Blackletter",
+          "height": 21,
+          "weight": 700,
+          "italic": false
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 2,
@@ -68,8 +80,13 @@
           "style": 136
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Lucida Blackletter",
+          "height": 38,
+          "weight": 700,
+          "italic": false
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 3,
@@ -81,8 +98,13 @@
           "style": 139
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Lucida Blackletter",
+          "height": 28,
+          "weight": 700,
+          "italic": false
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 4,
@@ -94,8 +116,13 @@
           "style": 118
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Lucida Blackletter",
+          "height": 12,
+          "weight": 700,
+          "italic": false
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 6,
@@ -107,8 +134,13 @@
           "style": 133
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Arial",
+          "height": 8,
+          "weight": 400,
+          "italic": false
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 7,
@@ -120,8 +152,13 @@
           "style": 121
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Georgia",
+          "height": 9,
+          "weight": 700,
+          "italic": false
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 8,
@@ -133,8 +170,13 @@
           "style": 130
         },
         "strikeout": true,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Georgia",
+          "height": 9,
+          "weight": 700,
+          "italic": false
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 9,
@@ -146,8 +188,13 @@
           "style": 124
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Georgia",
+          "height": 8,
+          "weight": 700,
+          "italic": false
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 10,
@@ -159,8 +206,13 @@
           "style": 127
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Georgia",
+          "height": 9,
+          "weight": 400,
+          "italic": false
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 11,
@@ -172,8 +224,13 @@
           "style": 130
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Georgia",
+          "height": 9,
+          "weight": 700,
+          "italic": false
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 12,
@@ -185,8 +242,13 @@
           "style": 142
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Arial Narrow",
+          "height": 9,
+          "weight": 400,
+          "italic": false
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 13,
@@ -198,8 +260,13 @@
           "style": 145
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Arial",
+          "height": 9,
+          "weight": 400,
+          "italic": false
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 14,
@@ -211,8 +278,13 @@
           "style": 148
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Lucida Blackletter",
+          "height": 12,
+          "weight": 400,
+          "italic": false
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 15,
@@ -224,8 +296,13 @@
           "style": 151
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Lucida Blackletter",
+          "height": 12,
+          "weight": 700,
+          "italic": false
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 16,
@@ -237,8 +314,13 @@
           "style": 154
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Viner Hand ITC",
+          "height": 16,
+          "weight": 400,
+          "italic": false
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 17,
@@ -250,8 +332,13 @@
           "style": 157
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Georgia",
+          "height": 9,
+          "weight": 700,
+          "italic": false
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 18,
@@ -263,8 +350,13 @@
           "style": 160
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Georgia",
+          "height": 9,
+          "weight": 400,
+          "italic": true
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 19,
@@ -276,8 +368,13 @@
           "style": 163
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Georgia",
+          "height": 9,
+          "weight": 700,
+          "italic": true
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 20,
@@ -289,8 +386,13 @@
           "style": 166
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Lucida Calligraphy",
+          "height": 14,
+          "weight": 400,
+          "italic": false
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 21,
@@ -302,8 +404,13 @@
           "style": 169
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Poor Richard",
+          "height": 14,
+          "weight": 400,
+          "italic": false
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 22,
@@ -315,8 +422,13 @@
           "style": 172
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Georgia",
+          "height": 10,
+          "weight": 700,
+          "italic": false
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 23,
@@ -328,8 +440,13 @@
           "style": 175
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Lucida Bright",
+          "height": 12,
+          "weight": 700,
+          "italic": true
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 24,
@@ -341,8 +458,13 @@
           "style": 178
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Lucida Blackletter",
+          "height": 14,
+          "weight": 700,
+          "italic": false
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 25,
@@ -354,8 +476,13 @@
           "style": 181
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Lucida Blackletter",
+          "height": 12,
+          "weight": 700,
+          "italic": false
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 26,
@@ -367,8 +494,13 @@
           "style": 184
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Georgia",
+          "height": 11,
+          "weight": 400,
+          "italic": false
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 27,
@@ -380,8 +512,13 @@
           "style": 187
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Lucida Blackletter",
+          "height": 12,
+          "weight": 700,
+          "italic": false
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 28,
@@ -393,8 +530,13 @@
           "style": 190
         },
         "strikeout": true,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Georgia",
+          "height": 10,
+          "weight": 700,
+          "italic": false
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 29,
@@ -406,8 +548,13 @@
           "style": 193
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Georgia",
+          "height": 9,
+          "weight": 700,
+          "italic": false
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 30,
@@ -419,8 +566,13 @@
           "style": 196
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Lucida Blackletter",
+          "height": 11,
+          "weight": 400,
+          "italic": false
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 31,
@@ -432,8 +584,13 @@
           "style": 199
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Papyrus",
+          "height": 12,
+          "weight": 400,
+          "italic": false
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 32,
@@ -445,8 +602,13 @@
           "style": 202
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Georgia",
+          "height": 9,
+          "weight": 700,
+          "italic": false
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 33,
@@ -458,8 +620,13 @@
           "style": 205
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Georgia",
+          "height": 11,
+          "weight": 700,
+          "italic": false
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 34,
@@ -471,8 +638,13 @@
           "style": 208
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Georgia",
+          "height": 11,
+          "weight": 400,
+          "italic": true
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 35,
@@ -484,8 +656,13 @@
           "style": 211
         },
         "strikeout": false,
-        "resolved_values": null,
-        "classification": "exact_loader_contract"
+        "resolved_values": {
+          "family": "Georgia",
+          "height": 11,
+          "weight": 700,
+          "italic": true
+        },
+        "classification": "exact_hd"
       },
       {
         "slot": 36,

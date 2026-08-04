@@ -26,7 +26,7 @@ upgrade unresolved original-game behavior to exact parity.
 | CP-019 | Evidence-blocked by design | Action/slot semantics remain `unproved`; the renderer uses labeled procedural fallback. |
 | CP-021 | Implemented | Named actions cannot carry guessed exact archive bindings. |
 | CP-022 | Implemented | Complete bounded unit and technology sheets are cached; corrupt/missing external archives fail to procedural rendering. |
-| CP-023 | Explicit reconstruction fallback | Disabled modulation, pressed offset, bevel, and page treatment are documented as reconstructed, not original. |
+| CP-023 | Implemented from executable/archive | `btngame` 50751 frames 36/37 provide normal/pressed chrome, pressed icons move one pixel, hover retains normal chrome, and disabled controls are hidden. |
 | CP-024 | Implemented | Construction buttons use exact DAT `button_icon` frames through executable-proved building-subtype dispatch. Installed architecture-sheet resources 50705–50708 are byte-identical; runtime uses canonical sheet 50706 and retains text fallback. |
 | CP-025 | Implemented | `generated/command_icon_manifest.json` covers every `PanelCommand`; the build gate rejects missing, duplicate, out-of-range, or unsupported exact claims. |
 | CP-026 | Evidence-blocked by design | Exact original nesting, mixed-selection rules, hidden/disabled behavior, and hotkeys remain unproved. The reconstruction behavior above is deterministic and tested. |
@@ -40,8 +40,8 @@ upgrade unresolved original-game behavior to exact parity.
 - Action entries use procedural/text art unless an exact independently cited
   binding exists. Building entries use exact DAT-indexed sheet frames.
 - `generated/command_icon_manifest.json` is the machine-readable authority.
-- Pressed, selected, hover, disabled, and page chrome remain reconstruction
-  behavior until original runtime evidence is captured.
+- Normal, pressed/selected, hover, and disabled command-control states follow
+  `FUN_005c5e40`/`FUN_005c6050`; page semantics remain bounded by evidence.
 
 ## Verification
 

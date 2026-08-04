@@ -256,16 +256,21 @@ FrontendScreen active_frontend_screen{FrontendScreen::main_menu};
 std::string active_frontend_status{"SELECT A MODE"};
 std::size_t active_frontend_focus{1};
 RandomMapSettings active_random_settings{
-    RandomMapKind::arabia, RandomMapSize::maximum, 1
+    RandomMapKind::arabia, RandomMapSize::normal, 1
 };
 const Scenario* active_random_preview{};
 std::string active_random_map_source{"CLASSIC RMS"};
 
-// Modern choice: the reconstruction presents only the recovered maximum.
-// Smaller presets remain available to import/generation APIs for fidelity
-// tests, but cannot become a playable frontend selection.
-constexpr std::array<RandomMapSize, 1> random_map_size_order{{
-    RandomMapSize::maximum,
+// FUN_00622010 maps the six recovered setup indices to these tile sizes.
+// Its seventh 255-tile case has no recovered setup label, so keep that
+// importer/generator extension out of the player-facing selector.
+constexpr std::array<RandomMapSize, 6> random_map_size_order{{
+    RandomMapSize::tiny,
+    RandomMapSize::small,
+    RandomMapSize::medium,
+    RandomMapSize::normal,
+    RandomMapSize::large,
+    RandomMapSize::giant,
 }};
 
 const char* random_map_size_label(RandomMapSize size) {

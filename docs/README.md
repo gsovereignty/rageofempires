@@ -39,6 +39,8 @@ Sprite, technology, civilization, renderer, and asset-coverage mappings:
 
 ## Evidence
 
+- [Supplied HD multiplayer protocol evidence](evidence/COMMERCIAL_MULTIPLAYER_PROTOCOL_EVIDENCE.md)
+  pins recovered Steam P2P outer records and exact interoperability blockers.
 - [Frontend game-mode evidence](evidence/FRONTEND_GAME_MODES_EVIDENCE.md)
   proves restored Learn to Play, Regicide, Death Match, and retired Zone
   contracts plus persistence and background SDL coverage.

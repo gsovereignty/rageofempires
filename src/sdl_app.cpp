@@ -47,6 +47,7 @@
 #include "aoe/initial_camera.hpp"
 #include "aoe/legacy_assets.hpp"
 #include "aoe/legacy_dat.hpp"
+#include "aoe/legacy_campaign.hpp"
 #include "aoe/localization.hpp"
 #include "aoe/multiplayer.hpp"
 #include "aoe/multiplayer_transport.hpp"
@@ -16187,14 +16188,39 @@ Simulation load_presentable_game(
     return simulation;
 }
 
+std::filesystem::path user_data_directory();
+
 ScenarioStartup load_startup_scenario() {
     if (const char* requested = SDL_getenv("AOE_CAMPAIGN")) {
         if (requested[0] != '\0') {
-            Campaign campaign = load_campaign(requested);
+            const std::filesystem::path requested_path{requested};
+            std::string extension = requested_path.extension().string();
+            std::ranges::transform(extension, extension.begin(), [](unsigned char c) {
+                return static_cast<char>(std::tolower(c));
+            });
+            const bool classic = extension == ".cpn" || extension == ".cpx" ||
+                extension == ".cpx2";
+            Campaign campaign;
+            if (classic) {
+                const auto root = configured_asset_root();
+                if (!root) {
+                    throw std::runtime_error(
+                        "classic campaign import requires configured game data"
+                    );
+                }
+                campaign = import_legacy_campaign(
+                    requested_path, *root / "Data" / "empires2_x1_p1.dat",
+                    user_data_directory() / "imported-campaigns"
+                );
+            } else {
+                campaign = load_campaign(requested_path);
+            }
             const std::filesystem::path progress_path =
                 SDL_getenv("AOE_CAMPAIGN_PROGRESS") != nullptr
                 ? SDL_getenv("AOE_CAMPAIGN_PROGRESS")
-                : std::filesystem::path(requested).concat(".progress");
+                : classic
+                    ? user_data_directory() / (campaign.id + ".progress")
+                    : std::filesystem::path(requested).concat(".progress");
             CampaignProgressLoad loaded =
                 load_campaign_progress(campaign, progress_path);
             if (loaded.status == CampaignProgressStatus::stale) {
@@ -16205,7 +16231,8 @@ ScenarioStartup load_startup_scenario() {
             CampaignScenarioEntry selected =
                 current_campaign_scenario(campaign, loaded.progress);
             return {
-                load_presentable_scenario(selected.path),
+                classic ? load_scenario(selected.path)
+                        : load_presentable_scenario(selected.path),
                 CampaignPresentation{
                     std::move(campaign),
                     std::move(loaded.progress),
@@ -17869,6 +17896,39 @@ int SdlApp::run() {
         active_frontend_screen = FrontendScreen::hidden;
     };
 
+    const auto launch_classic_campaign = [&](const std::filesystem::path& path) {
+        const auto root = configured_asset_root();
+        if (!root) {
+            throw std::runtime_error(
+                "classic campaign import requires configured game data"
+            );
+        }
+        Campaign campaign = import_legacy_campaign(
+            path, *root / "Data" / "empires2_x1_p1.dat",
+            user_data / "imported-campaigns"
+        );
+        const std::filesystem::path progress_path =
+            user_data / (campaign.id + ".progress");
+        CampaignProgressLoad loaded =
+            load_campaign_progress(campaign, progress_path);
+        if (loaded.status == CampaignProgressStatus::stale) {
+            throw std::runtime_error("campaign progress is stale");
+        }
+        CampaignScenarioEntry selected =
+            current_campaign_scenario(campaign, loaded.progress);
+        demo_scenario = load_scenario(selected.path);
+        simulation = create_simulation(demo_scenario);
+        campaign_presentation = CampaignPresentation{
+            std::move(campaign), std::move(loaded.progress), progress_path,
+            std::move(selected), true, false, false, false,
+            CampaignPresentation::Screen::briefing, {}, {},
+        };
+        center_camera_on_local_start();
+        computer = ComputerPlayer(Player::red);
+        replaying = false;
+        active_frontend_screen = FrontendScreen::hidden;
+    };
+
     const auto activate_frontend_command = [&](
         FrontendMenuCommand command
     ) {
@@ -17953,8 +18013,15 @@ int SdlApp::run() {
                 refresh_random_map_preview();
                 return;
             case FrontendMenuCommand::open_custom_campaign:
-                active_frontend_status =
-                    "NO SUPPORTED CUSTOM CAMPAIGN BROWSER";
+                active_browser_entries = browse_user_data_files(active_browser_root);
+                std::erase_if(active_browser_entries, [](const BrowserEntry& entry) {
+                    return entry.kind != BrowserFileKind::campaign;
+                });
+                active_browser_selection = 0;
+                active_save_browser_status =
+                    "SELECT .CPN / .CPX / .CPX2 CAMPAIGN";
+                active_save_browser_visible = true;
+                active_frontend_screen = FrontendScreen::hidden;
                 return;
             case FrontendMenuCommand::open_custom_scenario:
                 active_browser_entries =
@@ -20127,6 +20194,11 @@ int SdlApp::run() {
                                     replaying = true;
                                     active_save_browser_status =
                                         "REPLAY STARTED";
+                                } else if (entry.kind ==
+                                           BrowserFileKind::campaign) {
+                                    launch_classic_campaign(path);
+                                    active_save_browser_status =
+                                        "CAMPAIGN STARTED";
                                 }
                                 active_save_browser_visible = false;
                             } catch (const std::exception& error) {
@@ -20884,9 +20956,38 @@ int SdlApp::run() {
                     !event.key.repeat) {
                     if (event.key.key == SDLK_RETURN ||
                         event.key.key == SDLK_KP_ENTER) {
-                        campaign_presentation->screen =
-                            CampaignPresentation::Screen::status;
-                        campaign_presentation->visible = false;
+                        if (campaign_presentation->screen ==
+                            CampaignPresentation::Screen::debrief) {
+                            const auto next = next_campaign_scenario(
+                                campaign_presentation->campaign,
+                                campaign_presentation->progress
+                            );
+                            if (next && next->id !=
+                                    campaign_presentation->scenario.id) {
+                                campaign_presentation->scenario = *next;
+                                demo_scenario = load_scenario(next->path);
+                                simulation = create_simulation(demo_scenario);
+                                computer = ComputerPlayer(Player::red);
+                                campaign_presentation->outcome_processed = false;
+                                campaign_presentation->narration_started = false;
+                                campaign_presentation->debrief_narration_started = false;
+                                campaign_presentation->screen =
+                                    CampaignPresentation::Screen::briefing;
+                                campaign_presentation->visible = true;
+                                active_statistics_visible = false;
+                                outcome_statistics_seen = false;
+                                audio_events.prime(simulation);
+                                center_camera_on_local_start();
+                            } else {
+                                campaign_presentation->screen =
+                                    CampaignPresentation::Screen::status;
+                                campaign_presentation->visible = false;
+                            }
+                        } else {
+                            campaign_presentation->screen =
+                                CampaignPresentation::Screen::status;
+                            campaign_presentation->visible = false;
+                        }
                     } else if (event.key.key == SDLK_ESCAPE) {
                         if (campaign_presentation->screen ==
                             CampaignPresentation::Screen::briefing) {

@@ -31,12 +31,12 @@ this audited root,” not “commercial distributions never contain it.”
 
 ### Campaigns
 
-`src/campaign.cpp` implements reconstruction-native ordered campaigns,
-canonical path containment, content digests, atomic contiguous progress, and
-victory-gated unlocks. Classic `.cpn`/`.cpx` inspection in
-`src/legacy_campaign.cpp` preserves embedded scenario order, raw unsupported
-payloads, and unindexed gaps. Commercial branching, cinematics, briefings,
-later container versions, and proprietary writing remain absent.
+`src/campaign.cpp` implements ordered campaigns, canonical path containment,
+content digests, atomic contiguous progress, and victory-gated unlocks.
+`src/legacy_campaign.cpp` parses `.cpn`, `.cpx`, and `.cpx2`, preserves complete
+source bytes, supports exact reserialization, converts ordered embedded
+scenarios into user-data native files, and feeds same progression/presentation
+path. Unknown fields and unindexed gaps remain byte-exact.
 
 Evidence: `CAMPAIGN_FIDELITY.md`, `CAMPAIGN_IMPORT_FIDELITY.md`, campaign tests
 in `tests/simulation_tests.cpp`, and `tests/legacy_scenario_tests.cpp`.

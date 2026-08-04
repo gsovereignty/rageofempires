@@ -255,6 +255,41 @@ std::vector<std::byte> classic_campaign_fixture() {
     return bytes;
 }
 
+std::vector<std::byte> cpx2_campaign_fixture() {
+    const auto scenario = classic_fixture();
+    const std::string scenario_name = "First mission";
+    const std::string filename = "first.scx";
+    const std::size_t index_end = 4 + 8 + 256 + 4 + 8 + 4 +
+        scenario_name.size() + 4 + filename.size();
+    std::vector<std::byte> bytes(index_end + scenario.size());
+    write_fixed(bytes, 0, 4, "2.00");
+    write_fixed(bytes, 12, 256, "CPX2 fixture");
+    bytes[268] = std::byte{1};
+    const auto write_u32_at = [&](std::size_t offset, std::uint32_t value) {
+        for (int shift : {0, 8, 16, 24}) {
+            bytes[offset + shift / 8] =
+                static_cast<std::byte>((value >> shift) & 0xffU);
+        }
+    };
+    std::size_t cursor = 272;
+    write_u32_at(cursor, static_cast<std::uint32_t>(scenario.size()));
+    write_u32_at(cursor + 4, static_cast<std::uint32_t>(index_end));
+    cursor += 8;
+    bytes[cursor] = static_cast<std::byte>(scenario_name.size());
+    bytes[cursor + 2] = std::byte{0x60};
+    bytes[cursor + 3] = std::byte{0x0a};
+    cursor += 4;
+    write_fixed(bytes, cursor, scenario_name.size(), scenario_name);
+    cursor += scenario_name.size();
+    bytes[cursor] = static_cast<std::byte>(filename.size());
+    bytes[cursor + 2] = std::byte{0x60};
+    bytes[cursor + 3] = std::byte{0x0a};
+    cursor += 4;
+    write_fixed(bytes, cursor, filename.size(), filename);
+    std::copy(scenario.begin(), scenario.end(), bytes.begin() + index_end);
+    return bytes;
+}
+
 void reads_proved_classic_header_and_body() {
     const auto path = write_fixture("legacy-scenario-valid", classic_fixture());
     const auto result = aoe::inspect_legacy_scenario(path);
@@ -1092,16 +1127,76 @@ void campaign_index_preserves_order_payloads_and_unknowns() {
     );
 
     auto unsupported = bytes;
-    unsupported[0] = std::byte{'2'};
+    write_fixed(unsupported, 0, 4, "9.99");
     require(
         aoe::inspect_legacy_campaign_bytes(unsupported).status ==
         aoe::LegacyCampaignImportStatus::unsupported_version
     );
 }
 
+void cpx2_and_serializer_round_trip_exactly() {
+    const auto bytes = cpx2_campaign_fixture();
+    const auto result = aoe::inspect_legacy_campaign_bytes(bytes);
+    require(result.status == aoe::LegacyCampaignImportStatus::inspected);
+    require(result.version == "2.00");
+    require(result.name == "CPX2 fixture");
+    require(result.entries.size() == 1);
+    require(result.entries[0].name == "First mission");
+    require(result.entries[0].filename == "first.scx");
+    require(result.entries[0].raw_payload == classic_fixture());
+    require(aoe::serialize_legacy_campaign(result) == bytes);
+}
+
+void cpx2_import_installs_and_persists_completion() {
+    const auto root = std::filesystem::temp_directory_path() /
+        "aoe-cpx2-campaign-import-tests";
+    std::filesystem::remove_all(root);
+    std::filesystem::create_directories(root);
+    const auto campaign_path = root / "fixture.cpx2";
+    {
+        const auto bytes = cpx2_campaign_fixture();
+        std::ofstream output(campaign_path, std::ios::binary);
+        output.write(reinterpret_cast<const char*>(bytes.data()),
+                     static_cast<std::streamsize>(bytes.size()));
+    }
+    std::vector<std::byte> dat_bytes(18);
+    write_fixed(dat_bytes, 0, 7, "VER 5.7");
+    dat_bytes[10] = std::byte{41};
+    const auto compressed_dat = deflate_raw(dat_bytes);
+    const auto dat_path = root / "empires2_x1_p1.dat";
+    {
+        std::ofstream output(dat_path, std::ios::binary);
+        output.write(reinterpret_cast<const char*>(compressed_dat.data()),
+                     static_cast<std::streamsize>(compressed_dat.size()));
+    }
+    const aoe::Campaign campaign = aoe::import_legacy_campaign(
+        campaign_path, dat_path, root / "installed"
+    );
+    require(campaign.name == "CPX2 fixture");
+    require(campaign.scenarios.size() == 1);
+    require(std::filesystem::is_regular_file(campaign.scenarios[0].path));
+    aoe::CampaignProgress progress = aoe::fresh_campaign_progress(campaign);
+    const auto progress_path = root / "progress.txt";
+    require(aoe::commit_campaign_outcome(
+        campaign, 1, aoe::MatchOutcome::blue_victory,
+        progress, progress_path
+    ));
+    const auto loaded = aoe::load_campaign_progress(campaign, progress_path);
+    require(loaded.status == aoe::CampaignProgressStatus::current);
+    require(loaded.progress.completed == std::vector<int>{1});
+    std::filesystem::remove_all(root);
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
+    if (argc == 3 && std::string_view{argv[1]} == "--write-cpx2") {
+        const auto bytes = cpx2_campaign_fixture();
+        std::ofstream output(argv[2], std::ios::binary | std::ios::trunc);
+        output.write(reinterpret_cast<const char*>(bytes.data()),
+                     static_cast<std::streamsize>(bytes.size()));
+        return output ? 0 : 1;
+    }
     reads_proved_classic_header_and_body();
     rejects_unknown_versions_and_corrupt_payloads();
     conversion_reports_every_unsupported_record();
@@ -1110,10 +1205,13 @@ int main(int argc, char** argv) {
     trigger_audit_is_deterministic_and_machine_readable();
     commercial_object_references_remap_stably_or_fail_atomically();
     campaign_index_preserves_order_payloads_and_unknowns();
+    cpx2_and_serializer_round_trip_exactly();
+    cpx2_import_installs_and_persists_completion();
     for (int index = 1; index < argc; ++index) {
         const std::filesystem::path input_path = argv[index];
         const auto extension = input_path.extension().string();
-        if (extension == ".cpn" || extension == ".cpx") {
+        if (extension == ".cpn" || extension == ".cpx" ||
+            extension == ".cpx2") {
             const auto campaign = aoe::inspect_legacy_campaign(input_path);
             require(
                 campaign.status ==

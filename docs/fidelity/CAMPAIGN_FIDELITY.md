@@ -2,17 +2,16 @@
 
 ## Scope
 
-This document defines a small reconstruction-native campaign manifest that
-references the repository's existing `.scenario` files. It is not a parser,
-importer, or byte-compatible replacement for proprietary `.cpn`, `.cpx`, or
-`.cpx2` files.
+This document defines shared campaign progression for reconstruction-native
+manifests and imported classic `.cpn`, `.cpx`, and `.cpx2` containers. Classic
+container byte layout and import limits are documented in
+`CAMPAIGN_IMPORT_FIDELITY.md`.
 
 ## Evidence hierarchy
 
-1. **Supplied campaign binaries.** These would be the strongest content
-   evidence. `generated/live_content_assets_inventory.json` reports campaign
-   `count: 0`, `bytes: 0`; therefore no supplied campaign container can be
-   inspected.
+1. **Supplied campaign binaries.** Nine original `.cpn`/`.cpx` containers
+   validate ordered index and embedded scenario handling without being copied
+   into tracked tests.
 2. **Original Microsoft manual.** The original *Age of Empires II: The Age of
    Kings* manual says a campaign is a series of scenarios, that each game must
    be won before progressing to the next, and that custom-campaign scenarios
@@ -112,7 +111,8 @@ Rules:
   classic campaign field.
 - Do not embed scenario bytes. Existing repository `.scenario` files remain
   independently editable and testable.
-- Do not accept proprietary campaign extensions through this loader.
+- Native manifest loader remains text-only. Classic extensions route through
+  bounded `import_legacy_campaign`, never through manifest parsing.
 
 The bounded loader result should be:
 

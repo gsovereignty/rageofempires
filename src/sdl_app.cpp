@@ -2,6 +2,11 @@
 
 #include <SDL3/SDL.h>
 
+#if defined(__APPLE__)
+#include <CoreGraphics/CoreGraphics.h>
+#include <CoreText/CoreText.h>
+#endif
+
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -657,6 +662,8 @@ struct LegacySprites {
     LegacySprite original_frontend_logo;
     std::array<std::array<LegacySprite, 4>, 7>
         original_frontend_controls;
+    std::array<std::array<SDL_Texture*, 4>, 7>
+        original_frontend_labels{};
     std::array<FrontendHitMask, 7> original_frontend_hit_masks;
     LegacySprite statistics_background;
     LegacySprite statistics_decal;
@@ -751,6 +758,12 @@ struct LegacySprites {
         original_frontend_logo.destroy();
         for (auto& states : original_frontend_controls) {
             for (LegacySprite& sprite : states) sprite.destroy();
+        }
+        for (auto& states : original_frontend_labels) {
+            for (SDL_Texture*& texture : states) {
+                SDL_DestroyTexture(texture);
+                texture = nullptr;
+            }
         }
         statistics_background.destroy();
         statistics_decal.destroy();
@@ -3340,6 +3353,151 @@ LegacyAnimatedComposite create_legacy_animated_composite(
     return composite;
 }
 
+#if defined(__APPLE__)
+SDL_Texture* create_native_frontend_label(
+    SDL_Renderer* renderer,
+    const std::filesystem::path& font_path,
+    std::string_view text,
+    const FrontendMenuRect& bounds,
+    FrontendControlState state
+) {
+    const auto& contract = native_frontend_font();
+    const auto has_exact_family = [&](CTFontRef candidate) {
+        if (candidate == nullptr) return false;
+        CFStringRef resolved = CTFontCopyFamilyName(candidate);
+        if (resolved == nullptr) return false;
+        char resolved_name[128]{};
+        const bool exact = CFStringGetCString(
+            resolved, resolved_name, sizeof(resolved_name),
+            kCFStringEncodingUTF8
+        ) && std::string_view{resolved_name} == contract.family;
+        CFRelease(resolved);
+        return exact;
+    };
+    CTFontRef font{};
+    if (std::filesystem::is_regular_file(font_path)) {
+        const std::string native_path = font_path.string();
+        CFURLRef url = CFURLCreateFromFileSystemRepresentation(
+            nullptr,
+            reinterpret_cast<const UInt8*>(native_path.c_str()),
+            native_path.size(), false
+        );
+        CGDataProviderRef provider = url == nullptr
+            ? nullptr : CGDataProviderCreateWithURL(url);
+        CGFontRef graphic = provider == nullptr
+            ? nullptr : CGFontCreateWithDataProvider(provider);
+        if (graphic != nullptr) {
+            font = CTFontCreateWithGraphicsFont(
+                graphic, static_cast<CGFloat>(contract.raster_height),
+                nullptr, nullptr
+            );
+        }
+        if (graphic != nullptr) CGFontRelease(graphic);
+        if (provider != nullptr) CGDataProviderRelease(provider);
+        if (url != nullptr) CFRelease(url);
+        if (!has_exact_family(font)) {
+            if (font != nullptr) CFRelease(font);
+            font = nullptr;
+        }
+    }
+    if (font == nullptr) {
+        CFStringRef family = CFStringCreateWithBytes(
+            nullptr,
+            reinterpret_cast<const UInt8*>(contract.family.data()),
+            contract.family.size(), kCFStringEncodingUTF8, false
+        );
+        font = CTFontCreateWithName(
+            family, static_cast<CGFloat>(contract.raster_height), nullptr
+        );
+        CFRelease(family);
+        if (!has_exact_family(font)) {
+            if (font != nullptr) CFRelease(font);
+            return nullptr;
+        }
+    }
+
+    const int width = static_cast<int>(bounds.width);
+    const int height = static_cast<int>(bounds.height);
+    std::vector<std::uint8_t> pixels(
+        static_cast<std::size_t>(width * height * 4), 0
+    );
+    CGColorSpaceRef color_space = CGColorSpaceCreateDeviceRGB();
+    CGContextRef context = CGBitmapContextCreate(
+        pixels.data(), width, height, 8, width * 4, color_space,
+        static_cast<CGBitmapInfo>(
+            static_cast<std::uint32_t>(kCGImageAlphaPremultipliedLast) |
+            static_cast<std::uint32_t>(kCGBitmapByteOrder32Big)
+        )
+    );
+    if (context == nullptr) {
+        CGColorSpaceRelease(color_space);
+        CFRelease(font);
+        return nullptr;
+    }
+    CGContextSetShouldAntialias(context, true);
+    CGContextSetShouldSmoothFonts(context, false);
+    CFStringRef string = CFStringCreateWithBytes(
+        nullptr, reinterpret_cast<const UInt8*>(text.data()), text.size(),
+        kCFStringEncodingUTF8, false
+    );
+    const auto draw_line = [&](const std::array<std::uint8_t, 3>& color,
+                               CGFloat offset_x, CGFloat offset_y) {
+        const CGFloat components[]{
+            color[0] / 255.0, color[1] / 255.0, color[2] / 255.0, 1.0
+        };
+        CGColorRef cg_color = CGColorCreate(color_space, components);
+        const void* keys[]{kCTFontAttributeName, kCTForegroundColorAttributeName};
+        const void* values[]{font, cg_color};
+        CFDictionaryRef attributes = CFDictionaryCreate(
+            nullptr, keys, values, 2, &kCFTypeDictionaryKeyCallBacks,
+            &kCFTypeDictionaryValueCallBacks
+        );
+        CFAttributedStringRef attributed = CFAttributedStringCreate(
+            nullptr, string, attributes
+        );
+        CTLineRef line = CTLineCreateWithAttributedString(attributed);
+        CGFloat ascent{}, descent{}, leading{};
+        const CGFloat line_width = static_cast<CGFloat>(
+            CTLineGetTypographicBounds(line, &ascent, &descent, &leading)
+        );
+        const CGFloat x = std::floor((width - line_width) * 0.5) + offset_x;
+        const CGFloat y = std::floor(
+            (height - (ascent + descent)) * 0.5 + descent
+        ) + offset_y;
+        CGContextSetTextPosition(context, x, y);
+        CTLineDraw(line, context);
+        CFRelease(line);
+        CFRelease(attributed);
+        CFRelease(attributes);
+        CGColorRelease(cg_color);
+    };
+    draw_line(contract.shadow_color, contract.shadow_offset_x,
+              -contract.shadow_offset_y);
+    const auto& color = state == FrontendControlState::focused ||
+                        state == FrontendControlState::pressed
+        ? contract.focus_color
+        : state == FrontendControlState::disabled
+            ? contract.disabled_color : contract.normal_color;
+    draw_line(color, 0, 0);
+    CFRelease(string);
+    CGContextRelease(context);
+    CGColorSpaceRelease(color_space);
+    CFRelease(font);
+
+    SDL_Surface* surface = SDL_CreateSurfaceFrom(
+        width, height, SDL_PIXELFORMAT_RGBA32, pixels.data(), width * 4
+    );
+    SDL_Texture* texture = surface == nullptr
+        ? nullptr : SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_DestroySurface(surface);
+    if (texture != nullptr) {
+        SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST);
+        SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+    }
+    return texture;
+}
+#endif
+
 LegacySprites load_local_legacy_sprites(
     SDL_Renderer* renderer,
     const std::array<bool, 8>& required_owner_slots,
@@ -3516,6 +3674,17 @@ LegacySprites load_local_legacy_sprites(
                         }
                     }
                 }
+#if defined(__APPLE__)
+                for (std::size_t state = 0; state < 4; ++state) {
+                    sprites.original_frontend_labels[index][state] =
+                        create_native_frontend_label(
+                            renderer, data_root / "fonts" / "LBLACK.TTF",
+                            ui_text(controls[index].label_key),
+                            controls[index].label_bounds,
+                            static_cast<FrontendControlState>(state)
+                        );
+                }
+#endif
             }
             SDL_Log(
                 "using original menu SLP from %s",
@@ -13293,6 +13462,20 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
                     controls[index].bounds.height,
                 };
                 SDL_RenderTexture(renderer, sprite.texture, nullptr, &target);
+                SDL_Texture* label =
+                    active_legacy_sprites.original_frontend_labels[index]
+                        [static_cast<std::size_t>(state)];
+                if (label != nullptr) {
+                    const SDL_FRect label_target{
+                        controls[index].label_bounds.x,
+                        controls[index].label_bounds.y,
+                        controls[index].label_bounds.width,
+                        controls[index].label_bounds.height,
+                    };
+                    SDL_RenderTexture(
+                        renderer, label, nullptr, &label_target
+                    );
+                }
             }
         }
 
@@ -16013,7 +16196,16 @@ int SdlApp::run() {
             try {
                 LegacyLanguageReport legacy =
                     load_legacy_language_sources(
-                        requested_locale, 0x0409, sources, {}
+                        requested_locale, 0x0409, sources,
+                        {
+                            {9500, "frontend.main.single_player"},
+                            {9501, "frontend.main.multiplayer"},
+                            {9503, "frontend.main.learn_to_play"},
+                            {9504, "frontend.main.map_editor"},
+                            {9505, "frontend.main.history"},
+                            {9506, "frontend.main.options"},
+                            {9509, "frontend.main.exit"},
+                        }
                     );
                 localization.table = std::move(legacy.table);
                 SDL_Log(
@@ -16867,14 +17059,21 @@ int SdlApp::run() {
             activation.button.x = 100.0F;
             activation.button.y = 170.0F;
             SDL_PushEvent(&activation);
+            activation.type = SDL_EVENT_MOUSE_BUTTON_UP;
+            SDL_PushEvent(&activation);
         } else if (std::string_view{proof} == "ai-tiny") {
             activation.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
             activation.button.button = SDL_BUTTON_LEFT;
             activation.button.x = 100.0F;
             activation.button.y = 220.0F;
             SDL_PushEvent(&activation);
+            activation.type = SDL_EVENT_MOUSE_BUTTON_UP;
+            SDL_PushEvent(&activation);
+            activation.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
             activation.button.x = 500.0F;
             activation.button.y = 170.0F;
+            SDL_PushEvent(&activation);
+            activation.type = SDL_EVENT_MOUSE_BUTTON_UP;
             SDL_PushEvent(&activation);
         } else if (std::string_view{proof} == "enter") {
             activation.type = SDL_EVENT_KEY_DOWN;

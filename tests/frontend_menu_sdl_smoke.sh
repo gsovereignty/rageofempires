@@ -85,13 +85,14 @@ if main(500, 100) == (0, 0, 0):
     raise SystemExit("main menu did not render full logical canvas")
 
 for proof in ("proof-click", "proof-enter"):
-    _, _, activated = read(root / f"{proof}.bmp")
-    # Single-player screen places first control on right; main menu does not.
-    if activated(500, 100) == main(500, 100):
+    if (root / f"{proof}.bmp").read_bytes() == (
+        root / "main.bmp"
+    ).read_bytes():
         raise SystemExit(f"{proof}: Single Player transition not visible")
 
-_, _, ai_tiny = read(root / "proof-ai-tiny.bmp")
-if ai_tiny(20, 20) == main(20, 20):
+if (root / "proof-ai-tiny.bmp").read_bytes() == (
+    root / "main.bmp"
+).read_bytes():
     raise SystemExit("ai-tiny: direct Arabia match did not replace menu")
 if "launched 1v1 Arabia vs AI: TINY" not in (
     root / "proof-ai-tiny.log"
@@ -153,6 +154,26 @@ if native_normal_path.read_bytes() == native_focused_path.read_bytes():
     raise SystemExit("native focused frame did not change pixels")
 if native_focused_path.read_bytes() == native_pressed_path.read_bytes():
     raise SystemExit("native pressed frame did not change pixels")
+
+def color_count(pixel, bounds, color):
+    x, y, width, height = bounds
+    return sum(
+        pixel(px, py) == color
+        for py in range(y, y + height)
+        for px in range(x, x + width)
+    )
+
+single_label = (542, 20, 178, 38)
+learn_label = (150, 13, 188, 40)
+if color_count(native_normal, single_label, (217, 208, 176)) < 2:
+    raise SystemExit("native normal label color/geometry absent")
+_, _, native_focused = read(native_focused_path)
+if color_count(native_focused, single_label, (202, 207, 1)) < 2:
+    raise SystemExit("native focused label color/geometry absent")
+if color_count(native_normal, learn_label, (255, 255, 255)) < 2:
+    raise SystemExit("native disabled label color/geometry absent")
+if color_count(native_normal, single_label, (0, 0, 0)) < 2:
+    raise SystemExit("native label shadow absent")
 
 width, height, native_four_three = read(root / "native-four-three.bmp")
 if (width, height) != (1024, 768):

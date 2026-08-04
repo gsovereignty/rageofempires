@@ -615,6 +615,8 @@ if(APPLE)
         aoe_reconstruction PRIVATE
         "-framework AudioToolbox"
         "-framework CoreFoundation"
+        "-framework CoreGraphics"
+        "-framework CoreText"
     )
     target_compile_definitions(
         aoe_reconstruction PRIVATE AOE_HAVE_NATIVE_MP3=1
@@ -707,6 +709,8 @@ if(APPLE)
         aoe_reconstruction_app PRIVATE
         "-framework AudioToolbox"
         "-framework CoreFoundation"
+        "-framework CoreGraphics"
+        "-framework CoreText"
     )
     target_compile_definitions(
         aoe_reconstruction_app PRIVATE AOE_HAVE_NATIVE_MP3=1

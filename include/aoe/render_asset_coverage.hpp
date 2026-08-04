@@ -335,6 +335,13 @@ struct RuntimeFallbackEvent {
 };
 
 [[nodiscard]] RenderAction render_action_for(const Unit& unit);
+// World objects normally use their occupied tile's isometric diagonal. A unit
+// striking a building from its north edge shares the target's contact plane,
+// so it must not be painted before that target and wholly erased by it.
+[[nodiscard]] int render_unit_world_depth(
+    const Unit& unit,
+    std::span<const Building> buildings
+);
 [[nodiscard]] bool render_unit_is_interpolating(
     const Simulation& simulation,
     const Unit& unit

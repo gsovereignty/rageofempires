@@ -121,6 +121,37 @@ void battering_ram_actions_preserve_dat_composition() {
     );
 }
 
+void building_contact_depth_keeps_striker_readable() {
+    aoe::Building house;
+    house.id = 70;
+    house.kind = aoe::BuildingKind::house;
+    house.position = {1, 1};
+    const std::array buildings{house};
+
+    aoe::Unit ram;
+    ram.id = 35;
+    ram.kind = aoe::UnitKind::battering_ram;
+    ram.position = {0, 1};
+    ram.attack_target_id = house.id;
+    ram.attack_target_is_building = true;
+    require(
+        aoe::render_unit_world_depth(ram, buildings) == 2,
+        "north-contact attacker must share target depth and draw after it"
+    );
+
+    ram.position = {4, 4};
+    require(
+        aoe::render_unit_world_depth(ram, buildings) == 8,
+        "distant attacker must retain its own isometric depth"
+    );
+    ram.position = {0, 1};
+    ram.attack_target_is_building = false;
+    require(
+        aoe::render_unit_world_depth(ram, buildings) == 1,
+        "unit-target attacks must not inherit building contact depth"
+    );
+}
+
 void simulation_command_reaches_sheep_attack_mapping() {
     aoe::Simulation simulation{aoe::GameMap{8, 6}};
     const aoe::EntityId sheep = simulation.add_unit(
@@ -1056,6 +1087,7 @@ int main() {
     try {
         state_derivation_is_deterministic();
         battering_ram_actions_preserve_dat_composition();
+        building_contact_depth_keeps_striker_readable();
         simulation_command_reaches_sheep_attack_mapping();
         cavalry_accumulator_wait_does_not_animate_in_place();
         villager_paced_step_advances_through_subtile_space();

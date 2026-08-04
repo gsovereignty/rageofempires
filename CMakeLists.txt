@@ -533,6 +533,13 @@ add_test(
 )
 set_tests_properties(battering_ram_composite_sdl_smoke PROPERTIES TIMEOUT 30)
 add_test(
+    NAME building_contact_layering_sdl_smoke
+    COMMAND bash
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/building_contact_layering_sdl_smoke.sh
+        $<TARGET_FILE:aoe_reconstruction>
+)
+set_tests_properties(building_contact_layering_sdl_smoke PROPERTIES TIMEOUT 30)
+add_test(
     NAME frontend_menu_sdl_smoke
     COMMAND bash
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend_menu_sdl_smoke.sh
@@ -1250,6 +1257,7 @@ set_tests_properties(
     aoe_packaged_sprites_sdl_smoke
     aoe_packaged_audio_sdl_smoke
     battering_ram_composite_sdl_smoke
+    building_contact_layering_sdl_smoke
     PROPERTIES ENVIRONMENT
         "AOE_DISABLE_LEGACY_ASSETS=0;AOE_MAIN_MENU=0"
 )

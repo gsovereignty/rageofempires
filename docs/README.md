@@ -57,6 +57,7 @@ Date-stamped snapshots that may become stale:
 [audits/](audits/).
 
 - [Decompiled gameplay and character-behavior audit](audits/2026-08-04-DECOMPILED-GAMEPLAY-BEHAVIOR-AUDIT.md)
+- [Pointer-coordinate audit](audits/2026-08-04-pointer-coordinate-audit.md)
 
 ## Self-containment
 

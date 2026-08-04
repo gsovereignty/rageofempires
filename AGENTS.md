@@ -9,6 +9,26 @@ mandatory build/runtime isolation. Rules here supplement those parent rules.
 Preserve unrelated working-tree changes. Do not edit generated or build output
 unless the task specifically requires regenerating it.
 
+## Subagent lifecycle and concurrency
+
+Use at most one live subagent at any time. Before every spawn, query agent
+status and prove that no child agent is `running`, `waiting`, or otherwise
+live. Completed historical entries do not authorize another spawn until the
+current child has returned a final result and its status is confirmed closed.
+
+For sequential per-problem work:
+
+1. Spawn one child for exactly one problem.
+2. Do not spawn reviewers, helpers, retries, or replacement children while it
+   is live.
+3. If replacing or retrying that child, interrupt it first and confirm it is
+   no longer live before spawning the replacement.
+4. Verify the result and repository state, then confirm the child is closed.
+5. Only then spawn a fresh child for the next problem.
+
+Never accumulate multiple live children, even when nominal concurrency slots
+are available. If agent status is ambiguous or cannot be queried, do not spawn.
+
 After solving any user-requested problem that changes tracked files, create a
 focused Git commit before reporting completion. Stage only current-task files;
 preserve and exclude unrelated user or agent changes. If no tracked files

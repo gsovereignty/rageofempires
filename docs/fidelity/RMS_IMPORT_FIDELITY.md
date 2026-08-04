@@ -53,9 +53,20 @@ open `aoe2-rms-lib` reference:
   per-generation minimum group-spacing field used by
   `min_distance_group_placement`. The temporary lifetime has no distinct
   representation once one object generation has been materialized.
-- Weighted random branches. Selection uses a fixed seed mixer.
-- `#include_drs` and `#include` are preserved but treated as non-map-affecting;
-  no external include is loaded.
+- Weighted random branches consume recovered MSVCRT `rand()` values against a
+  fixed 100-slot chance table. Weights are not normalized; an unclaimed tail
+  selects no branch, matching classic `percent_chance` behavior.
+- `#const`, conditional `#define`, nested `if`/`elseif`/`else`, and caller
+  match definitions are evaluated case-insensitively. Lobby evaluation supplies
+  one of `TINY_MAP`, `SMALL_MAP`, `MEDIUM_MAP`, `LARGE_MAP`, `HUGE_MAP`, or
+  `GIGANTIC_MAP`; import callers can additionally supply mode symbols such as
+  `REGICIDE` through `RmsEvaluationContext`.
+- Caller-owned `#include` and `#include_drs` bodies expand recursively before
+  parsing. DRS bodies may be keyed by case-insensitive filename or numeric
+  resource ID. Cycles, missing inputs, invalid include forms, and nesting past
+  the original 32-level ceiling fail atomically. The no-resolver overload still
+  preserves includes for inspection; `BUG-RMS-002` separately tracks that
+  legacy overload's permissive playability result.
 
 Evaluation constructs a blank map at the selected size, fills base terrain,
 then applies active land, elevation, terrain, connection, and object
@@ -76,13 +87,15 @@ evaluate that script through the same gameplay path.
 - Unsupported commands and bodies retain exact source text plus inclusive
   first/last line numbers for tooling.
 - Malformed braces/comments/random blocks fail closed.
-- Default limits: 1 MiB, 20,000 lines, 200,000 tokens, nesting depth 64.
-- Unsupported `if`/`elseif`/`else`, constants, defines, external include
-  expansion, named-user constants, and later-engine extensions are preserved
-  or rejected; they are never guessed.
+- Default limits: 1 MiB, 20,000 lines, 200,000 tokens, syntax nesting depth
+  64, and include depth 32.
+- Later-engine extensions and unresolved semantic object/terrain identities are
+  preserved or rejected; they are never guessed.
 
 Hermetic tests cover direct section-driven tile/elevation/entity placement,
-common sections/directives, random selection,
+common sections/directives, classic 100-slot random selection and remainder,
+case-insensitive match/map-size conditions, filename/resource-ID includes and
+include depth,
 same-seed output identity, civilization flow, exact unsupported spans,
 closed failure for malformed/oversized input, live simulation construction,
 and Scenario66 serialization.

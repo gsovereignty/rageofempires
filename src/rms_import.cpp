@@ -1118,7 +1118,7 @@ RmsDocument parse_rms(
     std::set<std::string> active;
     const auto expand = [&](auto&& self, std::string_view text,
                             std::size_t depth) -> std::optional<std::string> {
-        if (depth > limits.maximum_nesting) return std::nullopt;
+        if (depth > limits.maximum_include_depth) return std::nullopt;
         std::istringstream input{std::string(text)};
         std::ostringstream output;
         std::string line;
@@ -1127,11 +1127,19 @@ RmsDocument parse_rms(
             if (!parts.empty() &&
                 (lower(parts[0]) == "#include" ||
                  lower(parts[0]) == "#include_drs")) {
-                if (parts.size() < 2) return std::nullopt;
+                const bool drs = lower(parts[0]) == "#include_drs";
+                if ((!drs && parts.size() != 2) ||
+                    (drs && (parts.size() != 3 || !integer(parts[2])))) {
+                    return std::nullopt;
+                }
                 const std::string key = lower(parts[1]);
+                const std::string resource_key = drs ? parts[2] : "";
                 const auto found = std::ranges::find_if(
-                    includes, [&key](const auto& entry) {
-                        return lower(entry.first) == key;
+                    includes, [&key, &resource_key](const auto& entry) {
+                        const std::string entry_key = lower(entry.first);
+                        return entry_key == key ||
+                            (!resource_key.empty() &&
+                             entry_key == resource_key);
                     });
                 if (found == includes.end() || active.contains(key)) {
                     return std::nullopt;
@@ -1543,6 +1551,16 @@ std::optional<Scenario> evaluate_rms(
     Civilization blue,
     Civilization red
 ) {
+    return evaluate_rms(document, seed, RmsEvaluationContext{}, blue, red);
+}
+
+std::optional<Scenario> evaluate_rms(
+    const RmsDocument& document,
+    std::uint64_t seed,
+    const RmsEvaluationContext& context,
+    Civilization blue,
+    Civilization red
+) {
     if (!document.playable()) return std::nullopt;
     RmsRandom random(seed);
     std::unordered_map<std::size_t, std::size_t> selected;
@@ -1564,13 +1582,12 @@ std::optional<Scenario> evaluate_rms(
                 );
             }
         }
-        int total{};
-        for (const auto& branch : branches) total += branch.second;
-        int choice = total > 0 ? random.between(0, total - 1) : 0;
-        selected[directive.random_group] =
-            branches.empty() ? 0 : branches.front().first;
+        // Classic percent_chance entries occupy a fixed 100-slot table.
+        // Unclaimed remainder selects no branch; do not renormalize weights.
+        int choice = random.between(1, 100);
+        selected[directive.random_group] = 0;
         for (const auto& branch : branches) {
-            if (choice < branch.second) {
+            if (choice <= branch.second) {
                 selected[directive.random_group] = branch.first;
                 break;
             }
@@ -1578,6 +1595,20 @@ std::optional<Scenario> evaluate_rms(
         }
     }
     std::set<std::string> definitions;
+    for (const std::string& definition : context.definitions) {
+        definitions.insert(lower(definition));
+    }
+    const auto add_size_definition = [&definitions](RandomMapSize size) {
+        switch (size) {
+            case RandomMapSize::tiny: definitions.insert("tiny_map"); break;
+            case RandomMapSize::small: definitions.insert("small_map"); break;
+            case RandomMapSize::medium: definitions.insert("medium_map"); break;
+            case RandomMapSize::normal: definitions.insert("large_map"); break;
+            case RandomMapSize::large: definitions.insert("huge_map"); break;
+            case RandomMapSize::giant: definitions.insert("gigantic_map"); break;
+        }
+    };
+    if (context.map_size) add_size_definition(*context.map_size);
     const auto random_active = [&](const RmsDirective& directive) {
         return directive.random_group == 0 ||
             selected[directive.random_group] == directive.random_branch;
@@ -1608,7 +1639,9 @@ std::optional<Scenario> evaluate_rms(
     } while (changed);
     // No override_map_size directive means the script inherits the
     // lobby-selected size, so track the shared default.
-    int dimension = random_map_dimension(RandomMapSettings{}.size);
+    int dimension = random_map_dimension(
+        context.map_size.value_or(RandomMapSettings{}.size)
+    );
     const auto active = [&](const RmsDirective& directive) {
         return random_active(directive) && conditions_active(directive) &&
             directive.name != "#define";
@@ -2346,9 +2379,12 @@ create_object STONE {
                 std::to_string(document.unsupported.front().span.first_line);
         return {std::nullopt, reason};
     }
+    RmsEvaluationContext context;
+    context.map_size = settings.size;
     std::optional<Scenario> scenario = evaluate_rms(
         document,
         settings.seed,
+        context,
         settings.blue_civilization,
         settings.red_civilization
     );

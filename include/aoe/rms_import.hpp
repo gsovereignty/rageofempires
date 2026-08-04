@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -55,11 +56,20 @@ struct RmsImportLimits {
     std::size_t maximum_lines{20000};
     std::size_t maximum_tokens{200000};
     std::size_t maximum_nesting{64};
+    std::size_t maximum_include_depth{32};
 };
 
 struct RmsMapResult {
     std::optional<Scenario> scenario;
     std::string error;
+};
+
+// Symbols supplied by match setup before an RMS is evaluated. Classic scripts
+// use these for game-mode and map-size conditionals (for example REGICIDE and
+// TINY_MAP). Definitions are case-insensitive.
+struct RmsEvaluationContext {
+    std::set<std::string> definitions;
+    std::optional<RandomMapSize> map_size;
 };
 
 [[nodiscard]] RmsDocument parse_rms(
@@ -82,6 +92,14 @@ struct RmsMapResult {
 [[nodiscard]] std::optional<Scenario> evaluate_rms(
     const RmsDocument& document,
     std::uint64_t seed,
+    Civilization blue = Civilization::generic,
+    Civilization red = Civilization::generic
+);
+
+[[nodiscard]] std::optional<Scenario> evaluate_rms(
+    const RmsDocument& document,
+    std::uint64_t seed,
+    const RmsEvaluationContext& context,
     Civilization blue = Civilization::generic,
     Civilization red = Civilization::generic
 );

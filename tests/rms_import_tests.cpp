@@ -1427,6 +1427,110 @@ void live_file_and_drs_includes_expand_or_refuse_atomically() {
     std::filesystem::remove_all(root);
 }
 
+void placement_directives_change_seeded_generation() {
+    const auto evaluate = [](std::string_view setup, std::string_view land,
+                             std::string_view connection,
+                             std::string_view object) {
+        const std::string source =
+            "<PLAYER_SETUP>\n" + std::string(setup) +
+            "\n<LAND_GENERATION>\nbase_terrain WATER\n" +
+            std::string(land) +
+            "\n<CONNECTION_GENERATION>\n" + std::string(connection) +
+            "\n<OBJECTS_GENERATION>\n" + std::string(object);
+        const auto document = aoe::parse_rms(source);
+        require(document.playable(), "placement directive script refused");
+        const auto scenario = aoe::evaluate_rms(document, 413);
+        require(scenario.has_value(), "placement directive evaluation failed");
+        return *scenario;
+    };
+    const std::string lands = R"rms(
+create_player_lands {
+ terrain_type GRASS
+ land_percent 20
+ base_size 6
+ set_zone_by_team
+}
+create_land {
+ terrain_type DIRT
+ number_of_tiles 80
+ base_size 4
+ zone 7
+ border_fuzziness 45
+ other_zone_avoidance_distance 25
+}
+create_land {
+ terrain_type SNOW
+ number_of_tiles 80
+ base_size 4
+ zone 8
+ border_fuzziness 45
+ other_zone_avoidance_distance 25
+}
+)rms";
+    const std::string connections = R"rms(
+create_connect_all_players_land {
+ terrain_type ROAD
+ terrain_size 2
+ terrain_cost WATER 30
+ terrain_cost GRASS 1
+}
+)rms";
+    const std::string objects = R"rms(
+create_object DEER {
+ number_of_objects 1
+ number_of_groups 2
+ min_distance_to_players 12
+ min_distance_group_placement 8
+ max_distance_to_other_zones 35
+ set_gaia_object_only
+ set_gaia_unconvertible
+}
+)rms";
+    const auto random = evaluate("random_placement", lands, connections, objects);
+    const auto repeat = evaluate("random_placement", lands, connections, objects);
+    const auto direct = evaluate("direct_placement", lands, connections, objects);
+    require(random.units.size() == repeat.units.size(),
+            "same seed changed placement count");
+    require(std::ranges::equal(
+        random.units, repeat.units, {}, &aoe::UnitPlacement::position,
+        &aoe::UnitPlacement::position), "same seed changed placement order");
+    const auto random_blue = std::ranges::find_if(
+        random.buildings, [](const aoe::BuildingPlacement& building) {
+            return building.owner == aoe::EntityOwner{aoe::Player::blue};
+        });
+    const auto direct_blue = std::ranges::find_if(
+        direct.buildings, [](const aoe::BuildingPlacement& building) {
+            return building.owner == aoe::EntityOwner{aoe::Player::blue};
+        });
+    require(random_blue != random.buildings.end() &&
+            direct_blue != direct.buildings.end() &&
+            random_blue->position != direct_blue->position,
+            "random_placement had no effect");
+    require(std::ranges::any_of(random.units,
+        [](const aoe::UnitPlacement& unit) { return unit.unconvertible; }),
+        "set_gaia_unconvertible was discarded");
+    const auto path = std::filesystem::temp_directory_path() /
+        "aoe-rms-unconvertible.scenario";
+    aoe::save_scenario(random, path);
+    const auto restored = aoe::load_scenario(path);
+    std::filesystem::remove(path);
+    require(std::ranges::any_of(restored.units,
+        [](const aoe::UnitPlacement& unit) { return unit.unconvertible; }),
+        "Gaia convertibility did not survive scenario persistence");
+    const auto simulation = aoe::create_simulation(restored);
+    require(std::ranges::any_of(simulation.units(),
+        [](const aoe::Unit& unit) { return unit.unconvertible; }),
+        "Gaia convertibility did not reach runtime");
+    const auto save_path = std::filesystem::temp_directory_path() /
+        "aoe-rms-unconvertible.save";
+    aoe::save_game(simulation, save_path);
+    const auto save_roundtrip = aoe::load_game(save_path);
+    std::filesystem::remove(save_path);
+    require(std::ranges::any_of(save_roundtrip.units(),
+        [](const aoe::Unit& unit) { return unit.unconvertible; }),
+        "Gaia convertibility did not survive save persistence");
+}
+
 }  // namespace
 
 int main() {
@@ -1477,6 +1581,8 @@ int main() {
             drs_resource_id_and_include_depth_are_enforced);
         run("live filesystem and DRS includes",
             live_file_and_drs_includes_expand_or_refuse_atomically);
+        run("placement directives",
+            placement_directives_change_seeded_generation);
         std::cout << "All RMS import tests passed\n";
         return 0;
     } catch (const std::exception& error) {

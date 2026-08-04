@@ -3308,6 +3308,7 @@ bool Simulation::command_convert(EntityId monk_id, EntityId target_id) {
         target->garrisoned_in != 0 ||
         (is_animal(target->kind) || is_relic(target->kind)) ||
         target->hit_points <= 0 ||
+        target->unconvertible ||
         monk->conversion_cooldown > 0 ||
         (religious_target &&
          !has_technology(monk->owner, Technology::atonement)) ||
@@ -6230,6 +6231,7 @@ void Simulation::update() {
                 !is_animal(target->kind) &&
                 !is_relic(target->kind) &&
                 target->hit_points > 0 &&
+                !target->unconvertible &&
                 ((target->kind != UnitKind::monk &&
                   target->kind != UnitKind::missionary) ||
                  has_technology(unit.owner, Technology::atonement)) &&

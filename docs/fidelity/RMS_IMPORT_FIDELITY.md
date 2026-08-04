@@ -26,14 +26,20 @@ open `aoe2-rms-lib` reference:
 ## Accepted reconstruction subset
 
 - Sections: player, land, elevation, cliff, terrain, connection, objects.
-- Player placement and map-size override. `override_map_size` is a tile
+- Player placement and map-size override. `random_placement` consumes the
+  shared recovered RNG before land generation and rotates the opposed player
+  pair around seeded edge anchors. `direct_placement` retains authored quarter
+  anchors; `grouped_by_team` retains team grouping (the current two-player
+  runtime has one member per opposing team). `override_map_size` is a tile
   count, so it snaps up to the nearest `RandomMapSize` preset
   (120/144/168/200/220/240/255) and clamps above 255. A script with no
   `override_map_size` inherits the `RandomMapSettings` default.
 - Land creation paints requested terrain over `base_terrain`; player lands use
   deterministic player anchors and requested percentages/base sizes. Explicit
   `number_of_tiles`, `land_position`, player assignment, zones, and borders
-  feed land origin and size decisions.
+  feed land origin and size decisions. `border_fuzziness` consumes seeded edge
+  noise, `other_zone_avoidance_distance` rejects too-close origins from other
+  zones, and `set_zone_by_team` assigns distinct player-team zones.
 - Terrain clumps use requested terrain, counts, tile/percentage coverage, and
   player-start avoidance. A block-local `base_terrain` filters replacement
   tiles and cannot alter the map-wide base. Clumping changes edge regularity;
@@ -53,11 +59,15 @@ open `aoe2-rms-lib` reference:
 - Connections operate on recorded player and neutral land origins. Supported
   connection kinds select origin pairs, while
   `default_terrain_replacement`, `replace_terrain`, and `terrain_size`
-  control path painting.
+  control path painting. `terrain_cost` drives deterministic weighted
+  least-cost routing rather than being accepted and discarded.
 - Common object creation/count/group/player/resource attributes. Neutral
   groups use seeded map-wide placement with player-distance and inter-group
   constraints. `group_variance` varies each group independently within classic
   bounds, and `second_object` overlays every placed primary.
+  `max_distance_to_other_zones` constrains neutral group centers to a land
+  zone. `set_gaia_unconvertible` reaches scenario placement, current scenario
+  persistence, runtime conversion checks, and Save117 persistence.
 - Supplied classic `temp_min_distance_group_placement`, bounded as the same
   per-generation minimum group-spacing field used by
   `min_distance_group_placement`. The temporary lifetime has no distinct
@@ -116,6 +126,9 @@ closed failure for malformed/oversized input, live simulation construction,
 and current Scenario serialization. Cliff coverage fixes count and length,
 edge and player-land avoidance, classic section ordering, impassability,
 same-seed identity, and Scenario68/Save116 round trips.
+Placement coverage exercises formerly silent directives in a combined script,
+same-seed order, zone spacing, weighted routes, and Gaia
+convertibility through scenario/runtime persistence.
 
 Include regression additionally covers relative and duplicate filesystem
 includes, block-comment suppression, DRS resource 54000, included constants
@@ -137,3 +150,10 @@ branch and other unsupported placement attributes remain retained with source
 spans, so the complete script correctly remains inspection-only instead of
 selecting a game-mode branch silently. No include dependency is required to
 establish that refusal.
+
+The complete supplied set was also counted read-only for placement vocabulary:
+`random_placement` occurs in 15/15 scripts, `border_fuzziness` in 9/15,
+`other_zone_avoidance_distance` in 10/15, `set_zone_by_team` in 5/15,
+`terrain_cost` in 7/15, and `max_distance_to_other_zones` in 15/15. These
+directives now enter their enclosing generation models. Any unknown later
+map-affecting directive still makes the whole document nonplayable.

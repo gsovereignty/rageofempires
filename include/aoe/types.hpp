@@ -698,6 +698,7 @@ struct Unit {
     EntityId conversion_target_id{};
     int conversion_progress{};
     int conversion_cooldown{};
+    bool unconvertible{};
     EntityId healing_target_id{};
     bool carrying_relic{};
     EntityId relic_target_id{};

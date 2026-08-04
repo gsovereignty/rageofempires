@@ -22,6 +22,7 @@ struct UnitPlacement {
     std::vector<TilePosition> waypoints;
     UnitStance stance{UnitStance::aggressive};
     std::optional<int> food_remaining;
+    bool unconvertible{};
 };
 
 struct BuildingPlacement {

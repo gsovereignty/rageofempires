@@ -7,15 +7,17 @@
     "classic_1999": "original-assets-1999/Binary"
   },
   "summary": {
-    "file_count": 1438,
-    "size_bytes": 1204374945,
+    "file_count": 1440,
+    "size_bytes": 1204454603,
     "counts_by_classification": {
       "hd_and_1999_identical": 530,
-      "hd_only": 908
+      "hd_only": 908,
+      "no_exact_source_match": 2
     },
     "bytes_by_classification": {
       "hd_and_1999_identical": 72414786,
-      "hd_only": 1131960159
+      "hd_only": 1131960159,
+      "no_exact_source_match": 79658
     },
     "counts_by_top_level_directory": {
       "Bin": {
@@ -28,7 +30,8 @@
       },
       "Data": {
         "hd_and_1999_identical": 12,
-        "hd_only": 165
+        "hd_only": 165,
+        "no_exact_source_match": 2
       },
       "Sound": {
         "hd_and_1999_identical": 439,
@@ -4172,6 +4175,22 @@
       "hd_matches": [
         "Data/Slp/scrstart.slp"
       ],
+      "classic_1999_matches": []
+    },
+    {
+      "path": "Data/Slp/town-center-dark-annexes-blue.png",
+      "size_bytes": 40703,
+      "sha256": "4a6d5722e00afb06768da54d3e264d37837821912d7496efaa4cb7f96c1f97b5",
+      "classification": "no_exact_source_match",
+      "hd_matches": [],
+      "classic_1999_matches": []
+    },
+    {
+      "path": "Data/Slp/town-center-dark-annexes-red.png",
+      "size_bytes": 38955,
+      "sha256": "9ccb5bb12b17b786b35ad47179de1f34e7b99c1ad2160ef3cfc1960d947df326",
+      "classification": "no_exact_source_match",
+      "hd_matches": [],
       "classic_1999_matches": []
     },
     {

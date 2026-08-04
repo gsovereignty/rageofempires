@@ -1623,6 +1623,43 @@ RenderAction render_action_for(const Unit& unit) {
     return RenderAction::idle;
 }
 
+int render_unit_world_depth(
+    const Unit& unit,
+    std::span<const Building> buildings
+) {
+    const int unit_depth = unit.position.x + unit.position.y;
+    if (unit.attack_target_id == 0 ||
+        !unit.attack_target_is_building) {
+        return unit_depth;
+    }
+    const auto target = std::ranges::find(
+        buildings, unit.attack_target_id, &Building::id
+    );
+    if (target == buildings.end()) return unit_depth;
+
+    const BuildingRules& rules = rules_for(target->kind);
+    const int maximum_x =
+        target->position.x + rules.footprint_width - 1;
+    const int maximum_y =
+        target->position.y + rules.footprint_height - 1;
+    const int x_distance = unit.position.x < target->position.x
+        ? target->position.x - unit.position.x
+        : unit.position.x > maximum_x
+            ? unit.position.x - maximum_x
+            : 0;
+    const int y_distance = unit.position.y < target->position.y
+        ? target->position.y - unit.position.y
+        : unit.position.y > maximum_y
+            ? unit.position.y - maximum_y
+            : 0;
+    if (std::max(x_distance, y_distance) > 1) return unit_depth;
+
+    return std::max(
+        unit_depth,
+        target->position.x + target->position.y
+    );
+}
+
 bool render_unit_is_interpolating(
     const Simulation& simulation,
     const Unit& unit

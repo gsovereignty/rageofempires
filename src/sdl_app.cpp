@@ -14863,7 +14863,9 @@ std::size_t render(
 
         for (const Unit& unit : simulation.units()) {
             if (unit.garrisoned_in != 0 ||
-                unit.position.x + unit.position.y != depth ||
+                render_unit_world_depth(
+                    unit, simulation.buildings()
+                ) != depth ||
                 !tile_near_world_view(unit.position) ||
                 (active_settings.fog &&
                  unit.owner != active_view_player &&

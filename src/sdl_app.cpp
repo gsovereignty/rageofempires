@@ -15116,6 +15116,9 @@ std::size_t render(
         if (!simulation.is_visible_to_controller(active_view_player, effect.position)) {
             continue;
         }
+        if (!projectile_impact_is_visible(effect)) {
+            continue;
+        }
         const SDL_FPoint top = tile_top(effect.position);
         const SDL_FPoint center{
             top.x,
@@ -15147,7 +15150,7 @@ std::size_t render(
                   ),
                   true
               )
-            : (siege_source || !impact_asset) &&
+            : siege_source &&
                 render_legacy_animation(
                     renderer,
                     active_legacy_sprites.siege_impact,

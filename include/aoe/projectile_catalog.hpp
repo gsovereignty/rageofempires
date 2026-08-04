@@ -52,6 +52,12 @@ projectile_asset_kind_for(const Projectile& projectile);
 [[nodiscard]] std::optional<ProjectileAssetKind>
 impact_asset_kind_for(const ImpactEffect& impact);
 
+// Non-splash hits without an exact impact binding are intentionally silent.
+// In particular, ordinary arrows must not borrow the siege explosion.
+[[nodiscard]] bool projectile_impact_is_visible(
+    const ImpactEffect& impact
+);
+
 // Uses Genie/openage's front direction (-1,+1), clockwise degrees, nearest
 // logical angle, and horizontal mirroring above 180 degrees. Rejects archives
 // whose physical frame count does not match the half-plus-center layout.

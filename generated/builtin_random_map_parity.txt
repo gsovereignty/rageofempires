@@ -1,23 +1,23 @@
 # Derived reconstruction parity fingerprints. Format: family size seed hash cliffs.
 # Regenerate with build/aoe_rms_parity_probe. No proprietary RMS text included.
-arabia tiny 1 random-map-fnv1a64:97d22704a6aefa22 37
-arabia tiny 305419896 random-map-fnv1a64:87972ceb3ac3db5b 40
-arabia normal 1 random-map-fnv1a64:62a0a3601f3246b1 55
-arabia normal 305419896 random-map-fnv1a64:62c4f00cefe8bb3b 55
-arabia giant 1 random-map-fnv1a64:e579f33f148eb0f5 34
-arabia giant 305419896 random-map-fnv1a64:c98d6ca0afd5c330 36
+arabia tiny 1 random-map-fnv1a64:51c4447b2612fe6a 21
+arabia tiny 305419896 random-map-fnv1a64:8179a5fced13424b 42
+arabia normal 1 random-map-fnv1a64:d0ac82734cd80f26 21
+arabia normal 305419896 random-map-fnv1a64:87612c09f4a097bf 18
+arabia giant 1 random-map-fnv1a64:90a34095e45e733d 20
+arabia giant 305419896 random-map-fnv1a64:22d3ca178cf99d81 18
 black_forest tiny 1 random-map-fnv1a64:575a038dd161d3cb 0
 black_forest tiny 305419896 random-map-fnv1a64:d12d8734ee0cccdd 0
 black_forest normal 1 random-map-fnv1a64:ec972b0275faaf50 0
 black_forest normal 305419896 random-map-fnv1a64:0d03816027a2311f 0
 black_forest giant 1 random-map-fnv1a64:d4fd53ea74d19b34 0
 black_forest giant 305419896 random-map-fnv1a64:a7eb77dab252f1af 0
-islands tiny 1 random-map-fnv1a64:2613b181362eff97 0
-islands tiny 305419896 random-map-fnv1a64:d55c317c0d9836c2 0
-islands normal 1 random-map-fnv1a64:490490e2e1a4cd75 0
-islands normal 305419896 random-map-fnv1a64:ec0778e186281058 0
-islands giant 1 random-map-fnv1a64:5e66ed3168996dfd 0
-islands giant 305419896 random-map-fnv1a64:66e59457d2658157 0
+islands tiny 1 random-map-fnv1a64:631cdcb3ab5a2e01 0
+islands tiny 305419896 random-map-fnv1a64:25a2ed831233be0d 0
+islands normal 1 random-map-fnv1a64:3eb9e70a96546f67 0
+islands normal 305419896 random-map-fnv1a64:63abb8d9a1808dd4 0
+islands giant 1 random-map-fnv1a64:be9369a6ea8b4a0d 0
+islands giant 305419896 random-map-fnv1a64:50e3c06a68c4811e 0
 rivers tiny 1 random-map-fnv1a64:14c113ff05d97eaa 0
 rivers tiny 305419896 random-map-fnv1a64:e3f104b939a8500d 0
 rivers normal 1 random-map-fnv1a64:209f4784cd7a9113 0

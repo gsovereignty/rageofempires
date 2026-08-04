@@ -6,6 +6,7 @@
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include "aoe/computer_player.hpp"
 #include "aoe/format_versions.hpp"
@@ -968,6 +969,7 @@ create_terrain PINE_FOREST {
  number_of_clumps COUNT
  number_of_tiles 40
 }
+
 endif
 <OBJECTS_GENERATION>
 create_object TOWN_CENTER {
@@ -1012,6 +1014,191 @@ create_object SHORE_FISH {
     std::filesystem::remove(save_path);
     require(save_roundtrip.map().cliff_at(*first_cliff),
             "save lost cliff topology");
+}
+
+void cliff_generation_honors_complete_line_contract() {
+    constexpr std::string_view source = R"rms(
+<PLAYER_SETUP>
+override_map_size 120
+<LAND_GENERATION>
+base_terrain GRASS
+create_player_lands {
+ terrain_type GRASS
+ base_size 12
+}
+<ELEVATION_GENERATION>
+create_elevation 3 {
+ number_of_clumps 4
+ number_of_tiles 120
+}
+<CLIFF_GENERATION>
+create_cliffs
+min_number_of_cliffs 3
+max_number_of_cliffs 3
+min_length_of_cliff 6
+max_length_of_cliff 6
+cliff_curliness 35
+min_distance_cliffs 5
+min_terrain_distance 2
+)rms";
+    const auto first = aoe::evaluate_rms(aoe::parse_rms(source), 90210);
+    const auto second = aoe::evaluate_rms(aoe::parse_rms(source), 90210);
+    require(first && second, "cliff contract did not evaluate");
+    require(
+        aoe::random_map_hash(*first) == aoe::random_map_hash(*second),
+        "same seed changed cliff topology"
+    );
+
+    std::vector<aoe::TilePosition> cliffs;
+    for (int y = 0; y < first->map.height(); ++y) {
+        for (int x = 0; x < first->map.width(); ++x) {
+            const aoe::TilePosition tile{x, y};
+            if (!first->map.cliff_at(tile)) continue;
+            cliffs.push_back(tile);
+            require(
+                x >= 2 && y >= 2 && x < first->map.width() - 2 &&
+                    y < first->map.height() - 2,
+                "cliff violated map-edge clearance"
+            );
+            for (aoe::TilePosition start : {
+                     aoe::TilePosition{30, 60},
+                     aoe::TilePosition{89, 59},
+                 }) {
+                require(
+                    std::max(
+                        std::abs(tile.x - start.x),
+                        std::abs(tile.y - start.y)
+                    ) > 8,
+                    "cliff entered player-land start area"
+                );
+            }
+            require(
+                !first->map.traversable({tile.x - 1, tile.y}, tile),
+                "cliff tile remained traversable"
+            );
+        }
+    }
+    require(cliffs.size() == 18, "fixed cliff count/length changed");
+    std::set<std::pair<int, int>> remaining;
+    for (aoe::TilePosition tile : cliffs) {
+        remaining.emplace(tile.x, tile.y);
+    }
+    std::vector<std::vector<aoe::TilePosition>> lines;
+    while (!remaining.empty()) {
+        std::vector<aoe::TilePosition> pending{{
+            remaining.begin()->first, remaining.begin()->second,
+        }};
+        remaining.erase(remaining.begin());
+        lines.push_back({});
+        while (!pending.empty()) {
+            const aoe::TilePosition tile = pending.back();
+            pending.pop_back();
+            lines.back().push_back(tile);
+            for (int dy = -1; dy <= 1; ++dy) {
+                for (int dx = -1; dx <= 1; ++dx) {
+                    if (dx == 0 && dy == 0) continue;
+                    const auto found = remaining.find({
+                        tile.x + dx, tile.y + dy,
+                    });
+                    if (found == remaining.end()) continue;
+                    pending.push_back({found->first, found->second});
+                    remaining.erase(found);
+                }
+            }
+        }
+    }
+    require(lines.size() == 3, "fixed cliff count did not make three lines");
+    for (const auto& line : lines) {
+        require(line.size() == 6, "fixed cliff line lost requested length");
+    }
+    for (std::size_t first_line = 0; first_line < lines.size(); ++first_line) {
+        for (std::size_t second_line = first_line + 1;
+             second_line < lines.size(); ++second_line) {
+            for (aoe::TilePosition first_tile : lines[first_line]) {
+                for (aoe::TilePosition second_tile : lines[second_line]) {
+                    require(
+                        std::max(
+                            std::abs(first_tile.x - second_tile.x),
+                            std::abs(first_tile.y - second_tile.y)
+                        ) >= 5,
+                        "cliff lines violated minimum spacing"
+                    );
+                }
+            }
+        }
+    }
+
+    constexpr std::string_view curled = R"rms(
+<LAND_GENERATION>
+base_terrain GRASS
+<CLIFF_GENERATION>
+create_cliffs
+min_number_of_cliffs 1
+max_number_of_cliffs 1
+min_length_of_cliff 12
+max_length_of_cliff 12
+cliff_curliness 100
+)rms";
+    const auto curled_map = aoe::evaluate_rms(aoe::parse_rms(curled), 9);
+    require(curled_map.has_value(), "curled cliff did not evaluate");
+    std::vector<aoe::TilePosition> curled_tiles;
+    for (int y = 0; y < curled_map->map.height(); ++y) {
+        for (int x = 0; x < curled_map->map.width(); ++x) {
+            if (curled_map->map.cliff_at({x, y})) {
+                curled_tiles.push_back({x, y});
+            }
+        }
+    }
+    require(curled_tiles.size() == 12, "curled line lost requested length");
+    const aoe::TilePosition curl_origin = curled_tiles.front();
+    const bool vertical = std::ranges::all_of(
+        curled_tiles, [&](aoe::TilePosition tile) {
+            return tile.x == curl_origin.x;
+        }
+    );
+    const bool horizontal = std::ranges::all_of(
+        curled_tiles, [&](aoe::TilePosition tile) {
+            return tile.y == curl_origin.y;
+        }
+    );
+    const bool diagonal = std::ranges::all_of(
+        curled_tiles, [&](aoe::TilePosition tile) {
+            return std::abs(tile.x - curl_origin.x) ==
+                std::abs(tile.y - curl_origin.y);
+        }
+    );
+    require(
+        !vertical && !horizontal && !diagonal,
+        "100-percent curliness produced a straight line"
+    );
+
+    constexpr std::string_view ordered = R"rms(
+<TERRAIN_GENERATION>
+create_terrain GRASS {
+ number_of_clumps 1
+ land_percent 100
+}
+<CLIFF_GENERATION>
+create_cliffs
+min_number_of_cliffs 2
+max_number_of_cliffs 2
+min_length_of_cliff 5
+max_length_of_cliff 5
+<LAND_GENERATION>
+base_terrain WATER
+)rms";
+    const auto section_order = aoe::evaluate_rms(
+        aoe::parse_rms(ordered), 17
+    );
+    require(section_order.has_value(), "ordered cliff RMS did not evaluate");
+    for (int y = 0; y < section_order->map.height(); ++y) {
+        for (int x = 0; x < section_order->map.width(); ++x) {
+            require(
+                !section_order->map.cliff_at({x, y}),
+                "terrain source order moved terrain before cliffs"
+            );
+        }
+    }
 }
 
 void classic_context_symbols_and_percent_table_are_exact() {
@@ -1282,6 +1469,8 @@ int main() {
             supplied_temporary_group_distance_is_bounded_alias);
         run("recovered RNG/include/cliff/variant contracts",
             recovered_rng_include_cliff_and_variant_contracts);
+        run("complete cliff generation contract",
+            cliff_generation_honors_complete_line_contract);
         run("classic context and percent table",
             classic_context_symbols_and_percent_table_are_exact);
         run("DRS include identity and depth",

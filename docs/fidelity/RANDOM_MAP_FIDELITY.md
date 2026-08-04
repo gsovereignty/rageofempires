@@ -65,6 +65,26 @@ conditions, weighted random blocks, land IDs, specific-land placement, zones,
 scaling, flat-terrain filters, terrain replacements, connections, elevation,
 cliffs, and classic object aliases used by pinned built-in resources.
 
+## Cliff-generation evidence and contract
+
+The supplied executable's RTTI contains the concrete
+`RGE_RMM_Cliffs_Generator` class beside the random-map module, elevation,
+land, and object generators (`AoK-HD-patched.strings.txt:35468-35473`). The
+module dispatcher at `FUN_005cf8a0` executes generator modules through their
+virtual entry points and samples `_rand()` between completed modules. This
+proves cliffs are a generation module participating in the one ordered CRT
+random stream, rather than post-processing inferred from final terrain.
+
+Pinned grammar and supplied RMS inputs establish the authored parameters:
+minimum/maximum line count, minimum/maximum line length, curliness, and
+minimum line spacing. Reconstruction evaluates that block in classic section
+order after elevation and before terrain. It commits only complete lines,
+keeps them off map borders and player-land anchors, applies terrain and
+inter-line clearance to every line tile, and consumes the same recovered
+MSVCRT stream for candidates and turns. Explicit cliff topology is hashed,
+blocks movement, survives Scenario68 and Save116, draws in the world view,
+and receives a distinct explored minimap color.
+
 ## Observed map-size ladder
 
 Observed executable evidence:

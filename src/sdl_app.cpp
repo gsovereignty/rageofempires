@@ -10795,6 +10795,19 @@ void render_minimap(
         for (int x = 0; x < simulation.map().width(); x += block_step) {
             const TilePosition position{x, y};
             SDL_Color color{24, 29, 25, 255};
+            bool cliff_in_block{};
+            for (int sample_y = y;
+                 sample_y < std::min(y + block_step, simulation.map().height()) &&
+                 !cliff_in_block; ++sample_y) {
+                for (int sample_x = x;
+                     sample_x < std::min(x + block_step, simulation.map().width());
+                     ++sample_x) {
+                    if (simulation.map().cliff_at({sample_x, sample_y})) {
+                        cliff_in_block = true;
+                        break;
+                    }
+                }
+            }
             // Original executable proves an explored-tile minimap pass, but
             // not its colors/masks. Keep this procedural contract until
             // generated/fog_rendering_catalog.json's missing links close.
@@ -10813,6 +10826,14 @@ void render_minimap(
                         static_cast<Uint8>(color.b * 0.55F),
                         255,
                     };
+                }
+                if (cliff_in_block) {
+                    color = active_settings.fog &&
+                            !simulation.is_visible_to_controller(
+                                active_view_player, position
+                            )
+                        ? SDL_Color{45, 36, 28, 255}
+                        : SDL_Color{82, 59, 39, 255};
                 }
             }
             const SDL_FPoint cell_top = minimap_top(position);

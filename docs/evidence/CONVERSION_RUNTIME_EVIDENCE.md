@@ -41,14 +41,14 @@ minimum/maximum thresholds, and the executable’s floating-to-integer helper
 path. Confidence is low for unnamed resistance contributors and commercial
 target-class policy.
 
-The reconstruction function `evaluate_conversion_check` preserves only the
-proved arithmetic seam. Its inputs remain explicit; native simulation chooses
-the still-documented deterministic resistance/timing policy.
+`Simulation` now feeds this arithmetic from one persisted MSVCRT-compatible
+global stream. Live VER 5.7 Monk task 1 records `work_values: (4.0, 10.0)` and
+accuracy 25. Represented unit IDs/classes and resource 77/178/179 effects feed
+the recovered resistance and time inputs on every active conversion update.
 
 ## Known incompatibilities
 
-- Native matches do not consume the commercial CRT random stream.
-- Native resistance timing and participant selection remain reconstruction
-  contracts documented in `../assets/RELIGIOUS_ASSET_MAP.md`.
-- No original-runtime save, replay, or multiplayer equivalence is claimed.
-- Unknown resource/object-class offsets remain untranslated.
+- Building-conversion scheduling remains its separate bounded path.
+- Participant selection, target eligibility, recharge, Theocracy, and Heresy
+  remain reconstruction contracts documented in
+  `../assets/RELIGIOUS_ASSET_MAP.md`.

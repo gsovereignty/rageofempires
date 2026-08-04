@@ -79,24 +79,27 @@ Other resource-backed effects require behavior beyond this DAT:
 - Illumination deterministically halves the bounded conversion recharge from
   20 to 10 ticks. Resource 35 adding 3 does not independently prove this
   recharge constant or cadence.
-- Unit conversion uses a deterministic reconstruction resistance roll:
-  `8 + ((converter_id * 17 + target_id * 29) % 3)` ticks. Faith adds four
-  ticks. Effect 45 exposes resources 77/178/179 adding 3/2/4, but does not
-  prove this formula, spread, or original randomness. Stable entity IDs make
-  the policy identical across replay and save/load without hidden RNG state.
+- Unit conversion checks once per active update against one shared persisted
+  MSVCRT stream. Live Monk task 1 supplies minimum/maximum work values 4/10;
+  its DAT accuracy supplies chance 25. Recovered resistant classes add 3,
+  commercial IDs 448/546/441/751/752 add 8, Faith adds resources 77/178/179
+  of 3/2/4, and Teuton team effect 404 adds 2/1/2. Every check consumes one
+  random value, including forced-minimum failures; forced maximum is
+  inclusive. Save/load preserves next global consumer exactly.
 - Theocracy makes only the successful participant recharge after grouped
   conversion. Heresy kills a converted unit rather than transferring it.
   Resources 193/192 only prove toggles; participant selection, mixed progress,
   group charges, target death ownership, building behavior, and simultaneous
   edge cases remain unvalidated.
 
-These are bounded deterministic reconstruction contracts, not claims of exact
-commercial-runtime semantics.
+Target eligibility, grouped participants, Heresy, and recharge remain bounded
+reconstruction contracts where noted; random stream, resistance inputs, and
+unit-conversion check schedule follow recovered commercial semantics.
 
 The isolated commercial conversion-roll arithmetic is now recorded separately
 in `../evidence/CONVERSION_RUNTIME_EVIDENCE.md`. That static evidence proves the
-`rand()*100/0x7fff`, resistance conversion, threshold, and comparison seam;
-it does not prove this document's native timing or target policy.
+`rand()*100/0x7fff`, resistance conversion, threshold, comparison, and task
+timing seam. It does not prove every target-policy branch.
 
 ## Conversion command contract
 
@@ -119,7 +122,7 @@ does. Heresy leaves the target with its old owner and kills it through normal
 unit-death cleanup rather than transferring ownership.
 
 Tests cover command rejection, Atonement and Redemption gates, Monk/Missionary
-restrictions, deterministic resistance variation, Faith delay, both Theocracy
+restrictions, commercial resistance variation, Faith delay, both Theocracy
 group outcomes, Heresy death, recharge, replayed command identity, and a
 mid-conversion save/load branch that reaches the same owner and cooldown.
 

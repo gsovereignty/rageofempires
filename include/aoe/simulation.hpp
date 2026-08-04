@@ -78,6 +78,13 @@ public:
         return selected_building_;
     }
     [[nodiscard]] std::uint64_t tick_number() const { return tick_number_; }
+    [[nodiscard]] std::uint32_t commercial_random_state() const {
+        return commercial_random_state_;
+    }
+    void seed_commercial_random(std::uint32_t seed) {
+        commercial_random_state_ = seed;
+    }
+    int consume_commercial_random();
     [[nodiscard]] TilePosition render_previous_elevation_position(
         const Unit& unit
     ) const;
@@ -488,6 +495,9 @@ public:
         std::vector<ScenarioMessage> messages = {}
     );
     void replace_match_statistics(MatchStatistics statistics);
+    void replace_commercial_random_state(std::uint32_t state) {
+        commercial_random_state_ = state;
+    }
 
 private:
     struct RenderElevationPositions {
@@ -656,6 +666,9 @@ private:
     std::optional<EntityId> selected_building_;
     EntityId next_id_{1};
     std::uint64_t tick_number_{};
+    // MSVCRT global random state used by commercial gameplay paths. CRT rand
+    // starts from seed 1 when srand has not been called.
+    std::uint32_t commercial_random_state_{1};
     MatchOutcome outcome_{MatchOutcome::ongoing};
     MatchRules match_rules_{};
     int food_market_price_{100};

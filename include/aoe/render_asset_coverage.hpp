@@ -246,6 +246,13 @@ canonical_unit_death_animation_sets();
 [[nodiscard]] const UnitDeathAnimationSet* unit_death_animation_set(
     UnitKind kind
 );
+// Death actions play once, then hold their final corpse frame until the
+// simulation removes the effect. One normal-speed simulation tick is two
+// 100 ms DAT frames.
+[[nodiscard]] std::size_t unit_death_animation_frame(
+    UnitKind kind,
+    int elapsed_simulation_ticks
+);
 [[nodiscard]] std::span<const NavalCompositeSet>
 canonical_naval_composite_sets();
 [[nodiscard]] const NavalCompositeSet* naval_composite_set(

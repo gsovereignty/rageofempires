@@ -14723,13 +14723,12 @@ std::size_t render(
                 continue;
             }
             begin_overlap_case(
-                "blocked-unit-death-" + render_unit_kind_name(effect.kind),
+                "unit-death-" + render_unit_kind_name(effect.kind),
                 effect.entity_id,
-                "renderer effect isolation unsupported",
+                "dying",
                 render_direction(effect.previous_position, effect.position),
                 effect.owner
             );
-            finish_overlap_case();
             const SDL_FPoint top = tile_top(effect.position);
             const auto exact_death =
                 active_legacy_sprites.death.find(effect.kind);
@@ -14738,18 +14737,17 @@ std::size_t render(
             if (exact_death != active_legacy_sprites.death.end()) {
                 const LegacyAnimation* animation =
                     exact_death->second.owner(effect.owner);
-                const std::uint64_t elapsed =
-                    static_cast<std::uint64_t>(std::max(
+                const int elapsed = std::max(
                         effect.total_ticks - effect.ticks_remaining,
                         0
-                    ));
+                    );
                 if (animation != nullptr && render_legacy_animation(
                         renderer,
                         *animation,
                         {top.x, top.y + half_tile_height},
                         effect.previous_position,
                         effect.position,
-                        elapsed * 2,
+                        unit_death_animation_frame(effect.kind, elapsed),
                         true
                     )) {
                     if (effect.kind == UnitKind::demolition_ship ||
@@ -14773,6 +14771,7 @@ std::size_t render(
                             top.y + half_tile_height + flare * 0.5F
                         );
                     }
+                    finish_overlap_case();
                     continue;
                 }
             }
@@ -14830,6 +14829,7 @@ std::size_t render(
                 set_color(renderer, {212, 174, 126, 255});
                 SDL_RenderFillRect(renderer, &head);
             }
+            finish_overlap_case();
         }
 
         for (const Building& building : simulation.buildings()) {

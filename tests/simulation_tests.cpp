@@ -9385,6 +9385,7 @@ void unit_death_effect_collapses_persists_and_expires() {
     simulation.update();
     require(simulation.units().size() == 2);
     require(simulation.death_effects().size() == 1);
+    require(simulation.rubble_effects().empty());
     require(
         simulation.death_effects().front().position ==
         aoe::TilePosition(2, 1)

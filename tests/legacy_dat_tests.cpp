@@ -1,5 +1,6 @@
 #include "aoe/legacy_dat.hpp"
 
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -33,6 +34,14 @@ void put_u32(
 ) {
     put_u16(bytes, offset, static_cast<std::uint16_t>(value));
     put_u16(bytes, offset + 2, static_cast<std::uint16_t>(value >> 16));
+}
+
+void put_f32(
+    std::vector<std::byte>& bytes,
+    std::size_t offset,
+    float value
+) {
+    put_u32(bytes, offset, std::bit_cast<std::uint32_t>(value));
 }
 
 void put_i16(
@@ -96,6 +105,9 @@ std::vector<std::byte> fixture() {
     bytes[record + 40] = std::byte{20};
     put_u16(bytes, record + 57, 1);
     put_u16(bytes, record + 59, 1);
+    put_f32(bytes, record + 61, 1.25F);
+    put_f32(bytes, record + 65, 0.05F);
+    put_f32(bytes, record + 69, 0.10F);
     put_u16(bytes, record + 74, 0);
     bytes[record + 56] = std::byte{1};
     put_i16(bytes, record + 78, 0);
@@ -172,6 +184,9 @@ int main() {
     check(graphic && graphic->layer == 20, "layer");
     check(graphic && graphic->frame_count == 1, "frame count");
     check(graphic && graphic->angle_count == 1, "angle count");
+    check(graphic && graphic->speed_adjust == 1.25F, "graphic speed adjust");
+    check(graphic && graphic->frame_rate == 0.05F, "graphic frame rate");
+    check(graphic && graphic->replay_delay == 0.10F, "graphic replay delay");
     check(
         graphic && graphic->angle_sounds.size() == 1 &&
             graphic->angle_sounds[0][0].frame == 0 &&

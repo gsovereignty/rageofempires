@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <fstream>
 #include <limits>
 #include <zlib.h>
@@ -39,6 +40,7 @@ public:
             (static_cast<std::uint32_t>(u16()) << 16);
     }
     std::int32_t i32() { return static_cast<std::int32_t>(u32()); }
+    float f32() { return std::bit_cast<float>(u32()); }
     std::string fixed_string(std::size_t length) {
         need(length);
         const char* start =
@@ -217,7 +219,9 @@ LegacyDatFile LegacyDatFile::from_decompressed(
         const auto angle_sounds_used = reader.u8();
         graphic.frame_count = reader.i16();
         graphic.angle_count = reader.i16();
-        reader.skip(12);
+        graphic.speed_adjust = reader.f32();
+        graphic.frame_rate = reader.f32();
+        graphic.replay_delay = reader.f32();
         reader.skip(1);
         graphic.graphic_id = reader.i16();
         graphic.mirroring_mode = reader.u8();

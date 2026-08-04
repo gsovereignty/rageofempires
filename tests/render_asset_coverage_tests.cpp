@@ -906,6 +906,21 @@ void building_resolver_selects_age_family_and_reviewed_farm() {
         !aoe::render_component_animation_frame(0, 14, true),
         "each composite layer must bound elapsed phase to its own frames"
     );
+    require(
+        aoe::render_component_animation_frame_at_time(
+            4, 0, 0.05F, 0.10F, true
+        ) == 0 &&
+        aoe::render_component_animation_frame_at_time(
+            4, 51, 0.05F, 0.10F, true
+        ) == 1 &&
+        aoe::render_component_animation_frame_at_time(
+            4, 225, 0.05F, 0.10F, true
+        ) == 3 &&
+        aoe::render_component_animation_frame_at_time(
+            4, 301, 0.05F, 0.10F, true
+        ) == 0,
+        "graphic timing must use frame rate and hold final frame for replay delay"
+    );
 
     for (const aoe::BuildingCompositeSet& mapping :
          aoe::canonical_building_composite_sets()) {

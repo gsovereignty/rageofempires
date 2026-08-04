@@ -562,6 +562,8 @@ struct LegacyAnimatedCompositePart {
     int offset_y{};
     int angle_count{1};
     int display_angle{-1};
+    float frame_rate{};
+    float replay_delay{};
 };
 
 struct LegacyAnimatedComposite {
@@ -3292,6 +3294,8 @@ LegacyAnimatedComposite create_legacy_animated_composite(
                     part.angle_count =
                         std::max<int>(graphic->angle_count, 1);
                     part.display_angle = display_angle;
+                    part.frame_rate = graphic->frame_rate;
+                    part.replay_delay = graphic->replay_delay;
                     composite.parts.push_back(std::move(part));
                 }
             } else if (graphic->deltas.empty()) {
@@ -5631,7 +5635,8 @@ bool render_legacy_animated_composite(
     TilePosition previous,
     TilePosition current,
     std::uint64_t animation_tick,
-    bool active
+    bool active,
+    bool use_graphic_timing = false
 ) {
     if (composite.parts.empty()) {
         return false;
@@ -5674,11 +5679,19 @@ bool render_legacy_animated_composite(
                 angle %= static_cast<int>(stored_angles);
             }
         }
-        const auto action_frame = render_component_animation_frame(
-            animation.frames_per_angle,
-            animation_tick,
-            active
-        );
+        const auto action_frame = use_graphic_timing
+            ? render_component_animation_frame_at_time(
+                  animation.frames_per_angle,
+                  animation_tick,
+                  part.frame_rate,
+                  part.replay_delay,
+                  active
+              )
+            : render_component_animation_frame(
+                  animation.frames_per_angle,
+                  animation_tick,
+                  active
+              );
         if (!action_frame) return false;
         const std::size_t frame_index =
             static_cast<std::size_t>(angle) *
@@ -6685,7 +6698,8 @@ std::uint64_t building_damage_elapsed(
 void render_building(
     SDL_Renderer* renderer,
     const Simulation& simulation,
-    const Building& building
+    const Building& building,
+    std::uint64_t presentation_time_ms
 ) {
     const BuildingRules& rules = rules_for(building.kind);
     const auto owner_slot = building.owner.slot_index();
@@ -6727,7 +6741,7 @@ void render_building(
                   damage_records[*damage_index].graphic_id
               }
             : std::nullopt,
-        simulation.tick_number()
+        presentation_time_ms
     );
     if (damage_index && damage_records[*damage_index].flag == 2) {
         const auto found = active_legacy_sprites.building_damage_graphics.find(
@@ -6745,6 +6759,7 @@ void render_building(
                     building.position,
                     building.position,
                     damage_elapsed,
+                    true,
                     true
                 )) {
                 return;
@@ -7991,7 +8006,8 @@ void render_building(
 void render_building_damage_overlay(
     SDL_Renderer* renderer,
     const Simulation& simulation,
-    const Building& building
+    const Building& building,
+    std::uint64_t presentation_time_ms
 ) {
     const auto records = canonical_building_damage_records(
         building.kind,
@@ -8008,7 +8024,7 @@ void render_building_damage_overlay(
     const std::uint64_t elapsed = building_damage_elapsed(
         building.id,
         records[*selected].graphic_id,
-        simulation.tick_number()
+        presentation_time_ms
     );
     const auto found = active_legacy_sprites.building_damage_graphics.find(
         records[*selected].graphic_id
@@ -8041,6 +8057,7 @@ void render_building_damage_overlay(
         building.position,
         building.position,
         elapsed,
+        true,
         true
     )) {
         record_building_procedural_fallback(
@@ -14830,11 +14847,14 @@ std::size_t render(
                 render_building_topology_frame(simulation, building),
                 building.owner
             );
-            render_building(renderer, simulation, building);
+            render_building(
+                renderer, simulation, building, presentation_time_ms
+            );
             render_building_damage_overlay(
                 renderer,
                 simulation,
-                building
+                building,
+                presentation_time_ms
             );
             render_garrison_presentation(
                 renderer,

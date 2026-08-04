@@ -1849,6 +1849,34 @@ std::optional<std::size_t> render_component_animation_frame(
         : std::optional<std::size_t>{0};
 }
 
+std::optional<std::size_t> render_component_animation_frame_at_time(
+    std::size_t frames_per_angle,
+    std::uint64_t elapsed_milliseconds,
+    float frame_rate_seconds,
+    float replay_delay_seconds,
+    bool active
+) {
+    if (frames_per_angle == 0) return std::nullopt;
+    if (!active || frames_per_angle == 1) return 0;
+    // FUN_004eb870 clamps graphic +0x68 to this exact float value.
+    constexpr float minimum_frame_rate = 0.001F;
+    const double frame_milliseconds =
+        static_cast<double>(std::max(frame_rate_seconds, minimum_frame_rate)) *
+        1000.0;
+    const double replay_milliseconds =
+        static_cast<double>(std::max(replay_delay_seconds, 0.0F)) * 1000.0;
+    const double cycle_milliseconds =
+        frame_milliseconds * static_cast<double>(frames_per_angle) +
+        replay_milliseconds;
+    const double cycle_position = std::fmod(
+        static_cast<double>(elapsed_milliseconds), cycle_milliseconds
+    );
+    return std::min(
+        static_cast<std::size_t>(cycle_position / frame_milliseconds),
+        frames_per_angle - 1
+    );
+}
+
 std::string render_unit_kind_name(UnitKind kind) {
     static constexpr std::string_view names[] = {
         "villager", "knight", "archer", "scout_cavalry", "militia",

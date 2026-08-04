@@ -34,6 +34,7 @@ SCANNED_NAMES = {"CMakeLists.txt", "Makefile"}
 IGNORED_PARTS = {
     ".codebase-memory",
     ".git",
+    ".worktrees",
     "artifacts",
     "docs",
     "generated",

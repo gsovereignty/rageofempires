@@ -27,10 +27,10 @@ for capture in first second; do
         "$app_path" >"$smoke_dir/run.log" 2>&1
     test -s "$smoke_dir/$capture.bmp"
     test "$(cat "$smoke_dir/$capture.dimensions")" = \
-"map 255 255
-tiles 65025
-preview 255 255
-preview_tiles 65025"
+"map 200 200
+tiles 40000
+preview 200 200
+preview_tiles 40000"
 done
 
 cmp "$smoke_dir/first.bmp" "$smoke_dir/second.bmp"

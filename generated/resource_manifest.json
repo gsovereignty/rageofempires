@@ -194,8 +194,8 @@
     },
     {
       "path": "resources/huntable-animal-audit.scenario",
-      "size": 429,
-      "sha256": "118f28dc38c99686420445700b6e0997843c34b740caabb8ec1dcbb6e70b8671"
+      "size": 399,
+      "sha256": "a6e59eb123eb6040f0b610bb62324259f9f8326d8589738402ffd6fe6a81c728"
     },
     {
       "path": "resources/husbandry-render-audit.scenario",
@@ -2351,6 +2351,16 @@
       "path": "game_data/Data/Slp/scrstart.slp",
       "size": 4201725,
       "sha256": "a1da33cc6f6a3739c10b388a531af47e4d217af2e0b751084bcf7d680cc1931c"
+    },
+    {
+      "path": "game_data/Data/Slp/town-center-dark-annexes-blue.png",
+      "size": 40703,
+      "sha256": "4a6d5722e00afb06768da54d3e264d37837821912d7496efaa4cb7f96c1f97b5"
+    },
+    {
+      "path": "game_data/Data/Slp/town-center-dark-annexes-red.png",
+      "size": 38955,
+      "sha256": "9ccb5bb12b17b786b35ad47179de1f34e7b99c1ad2160ef3cfc1960d947df326"
     },
     {
       "path": "game_data/Data/Slp/xcam.sin",

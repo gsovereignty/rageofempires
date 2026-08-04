@@ -146,6 +146,12 @@ struct UnitDeathAnimationSet {
     int frames{};
 };
 
+struct UnitActionCompositeSet {
+    UnitKind kind{UnitKind::villager};
+    RenderAction action{RenderAction::idle};
+    std::int16_t graphic_root{-1};
+};
+
 struct NavalCompositeSet {
     UnitKind kind{UnitKind::galley};
     RenderAction action{RenderAction::idle};
@@ -228,6 +234,12 @@ struct GateConstructionSet {
 canonical_unit_animation_sets();
 [[nodiscard]] std::optional<UnitAnimationSet> unit_animation_set(
     UnitKind kind
+);
+[[nodiscard]] std::span<const UnitActionCompositeSet>
+canonical_unit_action_composite_sets();
+[[nodiscard]] const UnitActionCompositeSet* unit_action_composite_set(
+    UnitKind kind,
+    RenderAction action
 );
 [[nodiscard]] std::span<const UnitDeathAnimationSet>
 canonical_unit_death_animation_sets();

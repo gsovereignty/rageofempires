@@ -724,6 +724,8 @@ struct LegacySprites {
     std::map<UnitKind, PlayerLegacySprites> movement;
     std::map<UnitKind, PlayerLegacySprites> attack;
     std::map<UnitKind, PlayerLegacySprites> death;
+    std::map<std::pair<UnitKind, RenderAction>,
+             PlayerLegacyAnimatedComposite> unit_action_composites;
     PlayerLegacySprites packed_trebuchet_transform;
     PlayerLegacySprites unpacked_trebuchet_transform;
     std::map<UnitKind, std::array<PlayerLegacyAnimatedComposite, 4>>
@@ -952,6 +954,11 @@ struct LegacySprites {
             sprites.destroy();
         }
         death.clear();
+        for (auto& [key, composite] : unit_action_composites) {
+            static_cast<void>(key);
+            composite.destroy();
+        }
+        unit_action_composites.clear();
         packed_trebuchet_transform.destroy();
         unpacked_trebuchet_transform.destroy();
         for (auto* table : {&naval_idle, &naval_move, &naval_attack}) {
@@ -3215,7 +3222,8 @@ LegacyAnimatedComposite create_legacy_animated_composite(
     std::int16_t root_graphic,
     unsigned player,
     bool allow_missing_root_sprite,
-    bool expand_deltas = true
+    bool expand_deltas = true,
+    bool allow_missing_delta_sprites = false
 ) {
     LegacyAnimatedComposite composite;
     std::set<std::int16_t> active_path;
@@ -3242,9 +3250,15 @@ LegacyAnimatedComposite create_legacy_animated_composite(
             }
             if (graphic->slp_id >= 0) {
                 if (!graphics.contains("slp", graphic->slp_id)) {
-                    if (!allow_missing_root_sprite ||
-                        graphic_id != root_graphic ||
-                        graphic->deltas.empty()) {
+                    const bool allowed_missing_root =
+                        allow_missing_root_sprite &&
+                        graphic_id == root_graphic &&
+                        !graphic->deltas.empty();
+                    const bool allowed_missing_delta =
+                        allow_missing_delta_sprites &&
+                        graphic_id != root_graphic;
+                    if (!allowed_missing_root &&
+                        !allowed_missing_delta) {
                         throw LegacyAssetError{
                             "composite graphic " +
                             std::to_string(graphic_id) +
@@ -4993,6 +5007,37 @@ LegacySprites load_local_legacy_sprites(
                 canonical.attack_slp,
                 static_cast<std::size_t>(canonical.attack_frames)
             );
+        }
+        for (const UnitActionCompositeSet& mapping :
+             canonical_unit_action_composite_sets()) {
+            PlayerLegacyAnimatedComposite& players =
+                sprites.unit_action_composites[
+                    {mapping.kind, mapping.action}
+                ];
+            try {
+                for (std::size_t player = 0; player < 8; ++player) {
+                    if (!required_owner_slots[player]) continue;
+                    players.slot(player) = create_legacy_animated_composite(
+                        renderer,
+                        graphics,
+                        palette,
+                        dat,
+                        mapping.graphic_root,
+                        static_cast<unsigned>(player + 1),
+                        false,
+                        true,
+                        true
+                    );
+                }
+            } catch (const std::exception& error) {
+                players.destroy();
+                SDL_LogWarn(
+                    SDL_LOG_CATEGORY_APPLICATION,
+                    "cannot load optional unit action composite %d: %s",
+                    mapping.graphic_root,
+                    error.what()
+                );
+            }
         }
         struct DeathMapping {
             UnitKind kind;
@@ -8460,6 +8505,45 @@ void render_unit(
     }
     const LegacyAnimation* early_animation =
         legacy_action_for(simulation, unit, interpolating);
+    const RenderAction unit_action = render_action_for(simulation, unit);
+    const auto composite_found =
+        active_legacy_sprites.unit_action_composites.find(
+            {unit.kind, unit_action}
+        );
+    if (composite_found !=
+            active_legacy_sprites.unit_action_composites.end()) {
+        const LegacyAnimatedComposite* composite =
+            composite_found->second.owner(unit.owner);
+        if (composite != nullptr && render_legacy_animated_composite(
+                renderer,
+                *composite,
+                {ground_top.x, ground_top.y + half_tile_height},
+                unit.previous_position,
+                unit.position,
+                unit_animation_frame,
+                true
+            )) {
+            const int maximum_hit_points =
+                simulation.maximum_hit_points(unit);
+            if (unit.hit_points < maximum_hit_points ||
+                simulation.is_unit_selected(unit.id)) {
+                render_health_bar(
+                    renderer,
+                    ground_top.x,
+                    ground_top.y - 36.0F,
+                    unit.hit_points,
+                    maximum_hit_points
+                );
+            }
+            if (simulation.is_unit_selected(unit.id)) {
+                outline_unit_selection(
+                    renderer, ground_top, unit.kind,
+                    {250, 220, 65, 255}
+                );
+            }
+            return;
+        }
+    }
     if (early_animation != nullptr) {
         const std::uint64_t action_tick =
             unit.trebuchet_transform_ticks_remaining > 0

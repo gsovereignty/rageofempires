@@ -97,6 +97,30 @@ void state_derivation_is_deterministic() {
     );
 }
 
+void battering_ram_actions_preserve_dat_composition() {
+    const auto* idle = aoe::unit_action_composite_set(
+        aoe::UnitKind::battering_ram, aoe::RenderAction::idle
+    );
+    const auto* moving = aoe::unit_action_composite_set(
+        aoe::UnitKind::battering_ram, aoe::RenderAction::moving
+    );
+    const auto* attacking = aoe::unit_action_composite_set(
+        aoe::UnitKind::battering_ram, aoe::RenderAction::attacking
+    );
+    require(idle && idle->graphic_root == 686,
+            "Battering Ram idle must use full DAT composite root 686");
+    require(moving && moving->graphic_root == 690,
+            "Battering Ram move must use full DAT composite root 690");
+    require(attacking && attacking->graphic_root == 680,
+            "Battering Ram attack must use full DAT composite root 680");
+    require(
+        aoe::unit_action_composite_set(
+            aoe::UnitKind::capped_ram, aoe::RenderAction::moving
+        ) == nullptr,
+        "unproved Ram variants must not inherit Battering Ram roots"
+    );
+}
+
 void simulation_command_reaches_sheep_attack_mapping() {
     aoe::Simulation simulation{aoe::GameMap{8, 6}};
     const aoe::EntityId sheep = simulation.add_unit(
@@ -1031,6 +1055,7 @@ void building_resolver_selects_age_family_and_reviewed_farm() {
 int main() {
     try {
         state_derivation_is_deterministic();
+        battering_ram_actions_preserve_dat_composition();
         simulation_command_reaches_sheep_attack_mapping();
         cavalry_accumulator_wait_does_not_animate_in_place();
         villager_paced_step_advances_through_subtile_space();

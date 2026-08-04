@@ -291,7 +291,6 @@ const char* random_map_size_label(RandomMapSize size) {
         case RandomMapSize::normal: return "NORMAL";
         case RandomMapSize::large: return "LARGE";
         case RandomMapSize::giant: return "GIANT";
-        case RandomMapSize::maximum: return "MAXIMUM";
     }
     return "SMALL";
 }
@@ -16196,43 +16195,16 @@ bool contextual_group_target(
            enemy_building != simulation.buildings().end();
 }
 
-// Modern choice: the renderer audit fixtures under resources/ are
-// deliberately tiny, single-purpose sprite stages whose telemetry is
-// position independent, and regenerating all of them at 255x255 would
-// churn the pixel-audit suite for no gameplay gain. This diagnostic lets
-// tools/run_renderer_runtime_coverage.py keep loading them while every
-// ordinary launch path stays 255x255. Unset, no smaller map is accepted.
-[[nodiscard]] bool audit_map_sizes_allowed() {
-    const char* requested = SDL_getenv("AOE_AUDIT_ANY_MAP_SIZE");
-    return requested != nullptr && requested[0] != '\0' &&
-           requested[0] != '0';
-}
-
 Scenario load_presentable_scenario(
     const std::filesystem::path& path
 ) {
-    Scenario scenario = load_scenario(path);
-    if (!audit_map_sizes_allowed() &&
-        (scenario.map.width() != 255 || scenario.map.height() != 255)) {
-        throw std::runtime_error(
-            "playable scenarios must use a 255x255 map"
-        );
-    }
-    return scenario;
+    return load_scenario(path);
 }
 
 Simulation load_presentable_game(
     const std::filesystem::path& path
 ) {
-    Simulation simulation = load_game(path);
-    if (!audit_map_sizes_allowed() &&
-        (simulation.map().width() != 255 ||
-         simulation.map().height() != 255)) {
-        throw std::runtime_error(
-            "playable saves must use a 255x255 map"
-        );
-    }
-    return simulation;
+    return load_game(path);
 }
 
 std::filesystem::path user_data_directory();
@@ -16605,7 +16577,7 @@ int SdlApp::run() {
             SDL_getenv("AOE_GAMEPLAY_BENCHMARK_PATH");
         benchmark != nullptr && benchmark[0] != '\0') {
         RandomMapSettings benchmark_settings = active_random_settings;
-        benchmark_settings.size = RandomMapSize::maximum;
+        benchmark_settings.size = RandomMapSize::giant;
         benchmark_settings.seed = 424242;
         const RmsMapResult benchmark_map =
             generate_rms_map(benchmark_settings);
@@ -18097,8 +18069,14 @@ int SdlApp::run() {
             case FrontendMenuCommand::launch_ai_arabia_medium:
                 launch_ai_arabia(RandomMapSize::medium);
                 return;
+            case FrontendMenuCommand::launch_ai_arabia_normal:
+                launch_ai_arabia(RandomMapSize::normal);
+                return;
             case FrontendMenuCommand::launch_ai_arabia_large:
                 launch_ai_arabia(RandomMapSize::large);
+                return;
+            case FrontendMenuCommand::launch_ai_arabia_giant:
+                launch_ai_arabia(RandomMapSize::giant);
                 return;
         }
     };

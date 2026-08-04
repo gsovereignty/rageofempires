@@ -43,7 +43,9 @@ enum class FrontendMenuCommand {
     launch_ai_arabia_tiny,
     launch_ai_arabia_small,
     launch_ai_arabia_medium,
+    launch_ai_arabia_normal,
     launch_ai_arabia_large,
+    launch_ai_arabia_giant,
 };
 
 struct FrontendMenuRect {

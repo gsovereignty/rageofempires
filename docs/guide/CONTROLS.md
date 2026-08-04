@@ -12,11 +12,10 @@ King-survival or post-Imperial/high-resource rules. Zone opens a retired-service
 screen, names its historical URL and supported Multiplayer alternative, and
 makes no network request.
 
-`Arabia vs AI` opens four map-size choices: Tiny (120), Small (144), Medium
-(168), and Large (220 tiles per side). Each starts one human against one
-Moderate AI in Dark Age Arabia with standard resources, normal fog, and
-Conquest victory. Player-count text describes each size's conventional
-multiplayer capacity; current match remains 1v1.
+`Arabia vs AI` opens six map-size choices: Tiny (120), Small (144), Medium
+(168), Normal (200), Large (220), and Giant (240 tiles per side). Each starts
+one human against one Moderate AI in Dark Age Arabia with standard resources,
+normal fog, and Conquest victory; current match remains 1v1.
 
 ## Scenario editing
 

@@ -23,15 +23,11 @@ enum class RandomMapSize {
     normal,
     large,
     giant,
-    // Index 6 in the original switch: 255 tiles, no recovered name string.
-    maximum,
 };
 
 struct RandomMapSettings {
     RandomMapKind kind{RandomMapKind::arabia};
-    // Modern choice: the recovered index-6 maximum (255 tiles). No original
-    // default index was recovered; see ../../docs/fidelity/RANDOM_MAP_FIDELITY.md.
-    RandomMapSize size{RandomMapSize::maximum};
+    RandomMapSize size{RandomMapSize::normal};
     std::uint64_t seed{};
     Civilization blue_civilization{Civilization::generic};
     Civilization red_civilization{Civilization::generic};
@@ -43,6 +39,9 @@ struct RandomMapValidation {
 };
 
 [[nodiscard]] int random_map_dimension(RandomMapSize size);
+[[nodiscard]] int random_map_dimension(
+    RandomMapKind kind, RandomMapSize size
+);
 [[nodiscard]] Scenario generate_random_map(
     const RandomMapSettings& settings
 );

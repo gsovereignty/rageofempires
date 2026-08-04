@@ -285,7 +285,7 @@ std::size_t count_terrain(
 void rms_resource_terrain_retains_gatherable_amounts() {
     aoe::RandomMapSettings settings;
     settings.kind = aoe::RandomMapKind::arabia;
-    settings.size = aoe::RandomMapSize::maximum;
+    settings.size = aoe::RandomMapSize::giant;
     settings.seed = 1;
     settings.blue_civilization = aoe::Civilization::britons;
     const aoe::RmsMapResult generated = aoe::generate_rms_map(settings);

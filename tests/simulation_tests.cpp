@@ -11287,11 +11287,11 @@ void technology_replay_command_reproduces_research() {
 void scenario_resource_round_trip() {
     const aoe::Scenario scenario = aoe::generate_random_map({
         aoe::RandomMapKind::rivers,
-        aoe::RandomMapSize::maximum,
+        aoe::RandomMapSize::giant,
         9173,
     });
-    require(scenario.map.width() == 255);
-    require(scenario.map.height() == 255);
+    require(scenario.map.width() == 240);
+    require(scenario.map.height() == 240);
     require(!scenario.units.empty());
     require(!scenario.buildings.empty());
     require(aoe::validate_random_map(
@@ -11456,16 +11456,15 @@ void scenario_resource_round_trip() {
     require(corrupt_rejected);
 }
 
-void generated_startup_map_is_engine_maximum_and_ticks() {
-    // Default settings use the maximum dimension recovered from the original
-    // size switch (255 tiles square, index 6) and must still simulate.
+void generated_startup_map_uses_original_default_and_ticks() {
+    // Default settings use original Normal preset and must still simulate.
     const aoe::Scenario scenario = aoe::generate_random_map({});
-    require(scenario.map.width() == 255);
-    require(scenario.map.height() == 255);
+    require(scenario.map.width() == 200);
+    require(scenario.map.height() == 200);
     require(
         static_cast<long long>(scenario.map.width()) *
             scenario.map.height() ==
-        65025
+        40000
     );
     for (const aoe::UnitPlacement& unit : scenario.units) {
         require(scenario.map.contains(unit.position));
@@ -11478,8 +11477,8 @@ void generated_startup_map_is_engine_maximum_and_ticks() {
         }));
     }
     aoe::Simulation simulation = aoe::create_simulation(scenario);
-    require(simulation.map().width() == 255);
-    require(simulation.map().height() == 255);
+    require(simulation.map().width() == 200);
+    require(simulation.map().height() == 200);
     const std::uint64_t before = simulation.tick_number();
     for (int tick = 0; tick < 8; ++tick) {
         simulation.update();
@@ -24300,8 +24299,8 @@ int main() {
     );
     run("scenario round trip", scenario_resource_round_trip);
     run(
-        "generated startup map maximum",
-        generated_startup_map_is_engine_maximum_and_ticks
+        "generated startup map original default",
+        generated_startup_map_uses_original_default_and_ticks
     );
     run(
         "town center garrison",

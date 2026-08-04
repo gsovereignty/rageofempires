@@ -542,6 +542,7 @@ std::string random_map_hash(const Scenario& scenario) {
             add(static_cast<std::uint64_t>(
                 scenario.map.resource_amount_at(tile)
             ));
+            add(static_cast<std::uint64_t>(scenario.map.cliff_at(tile)));
         }
     }
     for (const UnitPlacement& unit : scenario.units) {

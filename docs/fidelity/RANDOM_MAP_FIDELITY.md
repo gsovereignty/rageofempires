@@ -1,7 +1,8 @@
 # Deterministic random maps
 
-This module generates reconstruction-native two-player scenarios. It does not
-parse or claim compatibility with Ensemble random-map scripts (`.rms`).
+This module parses bounded classic random-map scripts and generates
+two-player scenarios through recovered RMS semantics. Caller-owned include
+payloads are explicit; runtime performs no filesystem or parent fallback.
 
 ## Historical shape used
 
@@ -47,10 +48,22 @@ python3 tools/audit_builtin_random_maps.py \
 `FUN_00622010` proves frontend size selection and dispatch into the map engine,
 but does not expose that engine's placement implementation. It invokes map
 creation through an indirect method after selecting the RMS and size. Exact
-original scripts alone therefore cannot prove output parity. Current evaluator
-gaps are tracked by `BUG-RMS-001` through `BUG-RMS-004`: includes, conditions,
-constants, cliffs, placement directives, original RNG consumption, and several
-generation algorithms remain absent or reconstruction-native.
+original scripts alone therefore cannot prove output parity. Decompiled
+evidence at `FUN_005278d0` proves MSVCRT seeding before engine construction,
+one ordered RNG stream through engine modules, and a final `_rand()` after
+generation. Evaluator now uses recovered
+`state = state * 214013 + 2531011`, `(state >> 16) & 0x7fff` behavior.
+
+`generated/builtin_random_map_parity.txt` pins all four exposed families at
+two seeds and Tiny/Normal/Giant sizes. `aoe_rms_parity_probe` checks these
+family/seed/size hashes in CTest. Repository stores semantic definitions,
+hashes, counts, and fingerprints only—not proprietary RMS text. User-owned
+DRS resources can be audited and supplied through caller-owned include maps.
+
+Recovered language support covers includes, constants, defines, nested
+conditions, weighted random blocks, land IDs, specific-land placement, zones,
+scaling, flat-terrain filters, terrain replacements, connections, elevation,
+cliffs, and classic object aliases used by pinned built-in resources.
 
 ## Observed map-size ladder
 
@@ -178,16 +191,17 @@ requiring only the maximum was recovered.
   index-6 maximum, square tiles.
 - Optional blue/red civilization selections flow into generated scenarios;
   defaults remain generic.
-- Fixed SplitMix64-derived PRNG; no platform RNG or floating random source.
+- Recovered 32-bit MSVCRT `srand`/`rand` stream; no host-platform RNG.
 - Blue/red starts use 180-degree paired placement.
 - Each player receives one Town Center, three villagers, one scout, sheep,
   hunt, berries, gold, and stone.
 - Arabia is open land with sparse forests; Black Forest has clearings joined
   by a narrow route; Islands has separate shore-ringed land masses and fish;
   Rivers has winding water, beaches, and shallow crossings.
-- Elevation patches are deterministic and starting footprints are flattened.
-  Blob count and radius are fixed rather than scaled by dimension, so larger
-  presets are flatter; no original scaling rule was recovered.
+- Distinct ground, water-depth, tree-family, and fish identities plus cliff
+  topology survive Scenario68 and Save116 round trips. Replay resets use same
+  scenario schema. Renderer distinguishes ground/water/tree/fish and visible
+  cliff edges; pathfinding blocks cliff tiles.
 - Validation checks start buildings/units, legal land, and expected land
   connectivity. Generation retries at most 16 derived seeds, then fails.
 - `random_map_hash` covers dimensions, every terrain/elevation/resource tile,

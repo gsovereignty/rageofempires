@@ -6,6 +6,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <unordered_map>
 
 #include "aoe/random_map.hpp"
 
@@ -24,6 +25,10 @@ struct RmsDirective {
     std::size_t random_group{};
     std::size_t random_branch{};
     int random_weight{100};
+    // Nested classic `if`/`elseif`/`else` predicates. Symbols are stored in
+    // lowercase; `expected == false` represents an else/preceding-branch
+    // exclusion. Evaluation resolves these after random #define branches.
+    std::vector<std::pair<std::string, bool>> conditions;
     // Nonzero only for create_object and directives lexically owned by its
     // brace-delimited body. IDs are document-local and source ordered.
     std::size_t object_block{};
@@ -60,6 +65,18 @@ struct RmsMapResult {
 [[nodiscard]] RmsDocument parse_rms(
     std::string_view source,
     const RmsImportLimits& limits = {}
+);
+
+// Resolves caller-owned include names before parsing. No filesystem lookup is
+// performed; built/runtime code therefore cannot escape packaged inputs.
+[[nodiscard]] RmsDocument parse_rms(
+    std::string_view source,
+    const std::unordered_map<std::string, std::string>& includes,
+    const RmsImportLimits& limits = {}
+);
+
+[[nodiscard]] std::vector<int> msvcrt_rms_random_sequence(
+    std::uint32_t seed, std::size_t count
 );
 
 [[nodiscard]] std::optional<Scenario> evaluate_rms(

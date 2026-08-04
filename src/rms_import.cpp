@@ -82,6 +82,9 @@ bool supported_directive(const std::string& name) {
         "max_distance_to_other_zones", "set_tight_grouping",
         "set_loose_grouping", "resource_delta", "second_object",
         "set_gaia_object_only", "set_gaia_unconvertible",
+        "set_scaling_to_map_size", "set_flat_terrain_only",
+        "land_id", "place_on_specific_land_id",
+        "#define",
     };
     return names.contains(name);
 }
@@ -106,7 +109,8 @@ bool object_attribute(const std::string& name) {
         "max_distance_to_other_zones",
         "set_tight_grouping", "set_loose_grouping", "resource_delta",
         "second_object", "set_gaia_object_only",
-        "set_gaia_unconvertible",
+        "set_gaia_unconvertible", "set_scaling_to_map_size",
+        "place_on_specific_land_id",
     };
     return names.contains(name);
 }
@@ -121,7 +125,8 @@ bool valid_object_arity(
         name == "set_tight_grouping" ||
         name == "set_loose_grouping" ||
         name == "set_gaia_object_only" ||
-        name == "set_gaia_unconvertible") {
+        name == "set_gaia_unconvertible" ||
+        name == "set_scaling_to_map_size") {
         return parts.size() == 1;
     }
     if (!object_attribute(name)) return true;
@@ -141,7 +146,9 @@ bool implemented_object_attribute(const std::string& name) {
         "min_distance_group_placement",
         "temp_min_distance_group_placement", "set_tight_grouping",
         "set_loose_grouping", "resource_delta", "second_object",
-        "set_gaia_object_only",
+        "set_gaia_object_only", "set_scaling_to_map_size",
+        "place_on_specific_land_id", "max_distance_to_other_zones",
+        "set_gaia_unconvertible",
     };
     return names.contains(name);
 }
@@ -149,50 +156,57 @@ bool implemented_object_attribute(const std::string& name) {
 bool implemented_object_name(const std::string& text) {
     static const std::set<std::string> names{
         "town_center", "villager", "scout", "gold", "stone",
-        "berries", "sheep", "boar", "deer", "relic",
+        "berries", "forage", "sheep", "turkey", "boar", "javelina",
+        "deer", "relic", "king", "castle", "wolf", "jaguar",
+        "hawk", "macaw", "oaktree", "pinetree", "snowpinetree",
+        "palmtree", "bamboo_tree", "jungletree", "shore_fish",
+        "salmon", "tuna", "snapper", "marlin1", "marlin2", "dorado",
     };
     return names.contains(lower(text));
 }
 
-std::uint64_t mix(std::uint64_t value) {
-    value += 0x9e3779b97f4a7c15ULL;
-    value = (value ^ (value >> 30)) * 0xbf58476d1ce4e5b9ULL;
-    value = (value ^ (value >> 27)) * 0x94d049bb133111ebULL;
-    return value ^ (value >> 31);
-}
-
 class RmsRandom {
 public:
-    explicit RmsRandom(std::uint64_t seed) : state_(seed) {}
+    explicit RmsRandom(std::uint64_t seed)
+        : state_(static_cast<std::uint32_t>(seed)) {}
 
-    std::uint64_t next() {
-        state_ = mix(state_);
-        return state_;
+    int next() {
+        state_ = state_ * 214013U + 2531011U;
+        return static_cast<int>((state_ >> 16U) & 0x7fffU);
     }
 
     int between(int low, int high) {
         if (high <= low) return low;
-        return low + static_cast<int>(
-            next() % static_cast<std::uint64_t>(high - low + 1)
-        );
+        return low + next() * (high - low + 1) / 32768;
     }
 
 private:
-    std::uint64_t state_;
+    std::uint32_t state_;
 };
 
 std::optional<Terrain> rms_terrain(std::string text) {
     text = lower(std::move(text));
-    if (text == "grass" || text == "grass1" || text == "grass2" ||
-        text == "dirt" || text == "dirt2" || text == "dirt3" ||
-        text == "road" || text == "farm") return Terrain::grass;
-    if (text == "water" || text == "water_deep" ||
-        text == "deep_water" || text == "ocean") return Terrain::water;
+    if (text == "grass" || text == "grass1" || text == "farm") return Terrain::grass;
+    if (text == "grass2") return Terrain::grass2;
+    if (text == "grass3" || text == "leaves") return Terrain::grass2;
+    if (text == "dirt" || text == "desert" || text == "palm_desert") return Terrain::dirt;
+    if (text == "dirt2") return Terrain::dirt2;
+    if (text == "dirt3") return Terrain::dirt3;
+    if (text == "road") return Terrain::road;
+    if (text == "snow" || text == "grass_snow") return Terrain::snow;
+    if (text == "ice") return Terrain::ice;
+    if (text == "water") return Terrain::water;
+    if (text == "med_water") return Terrain::water;
+    if (text == "water_deep" || text == "deep_water" ||
+        text == "ocean") return Terrain::deep_water;
     if (text == "shallows" || text == "shallow") return Terrain::shallows;
     if (text == "beach") return Terrain::beach;
-    if (text == "forest" || text == "pine_forest" ||
-        text == "oak_forest" || text == "bamboo" ||
-        text == "palm_forest") return Terrain::forest;
+    if (text == "forest") return Terrain::forest;
+    if (text == "pine_forest" || text == "snow_forest") return Terrain::pine_forest;
+    if (text == "oak_forest") return Terrain::oak_forest;
+    if (text == "bamboo" || text == "bamboo_forest") return Terrain::bamboo_forest;
+    if (text == "palm_forest") return Terrain::palm_forest;
+    if (text == "jungle" || text == "jungle_forest") return Terrain::jungle_forest;
     return std::nullopt;
 }
 
@@ -280,6 +294,7 @@ struct LandGeneration {
     int top_border{};
     int bottom_border{};
     int zone{-10};
+    int id{-1};
     std::optional<TilePosition> position_percent;
     std::optional<int> player;
     bool player_lands{};
@@ -297,6 +312,7 @@ struct TerrainGeneration {
     int spacing{};
     Scale scale{Scale::none};
     bool avoid_starts{};
+    bool flat_only{};
 };
 
 struct ElevationGeneration {
@@ -309,6 +325,57 @@ struct ElevationGeneration {
     int spacing{1};
     Scale scale{Scale::none};
 };
+
+struct CliffGeneration {
+    int minimum_count{};
+    int maximum_count{};
+    int minimum_length{3};
+    int maximum_length{6};
+    int curliness{};
+    int minimum_spacing{};
+    int minimum_terrain_distance{};
+};
+
+template <typename Active>
+std::optional<CliffGeneration> cliff_generation(
+    const RmsDocument& document, const Active& active
+) {
+    std::optional<CliffGeneration> result;
+    for (const RmsDirective& directive : document.directives) {
+        if (!active(directive) ||
+            directive.section != "cliff_generation") continue;
+        if (directive.name == "create_cliffs") {
+            result.emplace();
+            continue;
+        }
+        if (!result) continue;
+        const int value = directive_value(directive, 0);
+        if (directive.name == "min_number_of_cliffs") {
+            result->minimum_count = std::max(0, value);
+        } else if (directive.name == "max_number_of_cliffs") {
+            result->maximum_count = std::max(0, value);
+        } else if (directive.name == "min_length_of_cliff") {
+            result->minimum_length = std::max(1, value);
+        } else if (directive.name == "max_length_of_cliff") {
+            result->maximum_length = std::max(1, value);
+        } else if (directive.name == "cliff_curliness") {
+            result->curliness = std::clamp(value, 0, 100);
+        } else if (directive.name == "min_distance_cliffs") {
+            result->minimum_spacing = std::max(0, value);
+        } else if (directive.name == "min_terrain_distance") {
+            result->minimum_terrain_distance = std::max(0, value);
+        }
+    }
+    if (result) {
+        result->maximum_count = std::max(
+            result->minimum_count, result->maximum_count
+        );
+        result->maximum_length = std::max(
+            result->minimum_length, result->maximum_length
+        );
+    }
+    return result;
+}
 
 struct ConnectionGeneration {
     enum class Kind {
@@ -332,6 +399,7 @@ struct LandSite {
     TilePosition origin;
     std::optional<Player> player;
     int zone{-10};
+    int id{-1};
 };
 
 template <typename Active>
@@ -382,6 +450,8 @@ std::vector<LandGeneration> land_generations(
             current->player = directive_value(directive, 0);
         } else if (directive.name == "zone") {
             current->zone = directive_value(directive, -10);
+        } else if (directive.name == "land_id") {
+            current->id = directive_value(directive, -1);
         } else if (directive.name == "land_position" &&
                    directive.arguments.size() >= 2) {
             const auto x = integer(directive.arguments[0]);
@@ -441,6 +511,8 @@ std::vector<TerrainGeneration> terrain_generations(
             current->scale = TerrainGeneration::Scale::groups;
         } else if (directive.name == "set_avoid_player_start_areas") {
             current->avoid_starts = true;
+        } else if (directive.name == "set_flat_terrain_only") {
+            current->flat_only = true;
         }
     }
     return result;
@@ -550,6 +622,9 @@ struct ObjectGeneration {
     int resource_delta{};
     bool every_player{};
     bool gaia_only{};
+    bool scale_to_map_size{};
+    std::optional<int> land_id;
+    std::optional<int> maximum_other_zone_distance;
 };
 
 std::vector<ObjectGeneration> object_generations(
@@ -600,6 +675,12 @@ std::vector<ObjectGeneration> object_generations(
             object.resource_delta = value;
         } else if (directive.name == "second_object") {
             object.second_name = lower(directive.arguments.front());
+        } else if (directive.name == "set_scaling_to_map_size") {
+            object.scale_to_map_size = true;
+        } else if (directive.name == "place_on_specific_land_id") {
+            object.land_id = value;
+        } else if (directive.name == "max_distance_to_other_zones") {
+            object.maximum_other_zone_distance = value;
         }
     }
     return result;
@@ -711,7 +792,8 @@ TilePosition nearest_available_tile(
 void apply_object_generations(
     Scenario& scenario,
     const std::vector<ObjectGeneration>& objects,
-    std::uint64_t seed
+    const std::vector<LandSite>& land_sites,
+    RmsRandom& random
 ) {
     const auto blue_start = start_for(scenario, Player::blue);
     const auto red_start = start_for(scenario, Player::red);
@@ -719,23 +801,44 @@ void apply_object_generations(
     const std::array<std::pair<Player, TilePosition>, 2> players{{
         {Player::blue, *blue_start}, {Player::red, *red_start},
     }};
-    RmsRandom random(seed ^ 0x6f626a656374ULL);
 
-    for (const ObjectGeneration& object : objects) {
+    for (const ObjectGeneration& source_object : objects) {
+        ObjectGeneration effective = source_object;
+        if (effective.scale_to_map_size) {
+            const double scale = static_cast<double>(
+                scenario.map.width() * scenario.map.height()
+            ) / 10000.0;
+            effective.objects = std::max(
+                1, static_cast<int>(std::lround(effective.objects * scale))
+            );
+        }
+        const ObjectGeneration& object = effective;
         const int total = object.objects * object.groups;
         const auto unit_kind = [&]() -> std::optional<UnitKind> {
             if (object.name == "villager") return UnitKind::villager;
             if (object.name == "scout") return UnitKind::scout_cavalry;
-            if (object.name == "sheep") return UnitKind::sheep;
-            if (object.name == "boar") return UnitKind::boar;
+            if (object.name == "sheep" || object.name == "turkey") return UnitKind::sheep;
+            if (object.name == "boar" || object.name == "javelina" ||
+                object.name == "wolf" || object.name == "jaguar") return UnitKind::boar;
             if (object.name == "deer") return UnitKind::deer;
             if (object.name == "relic") return UnitKind::relic;
+            if (object.name == "king") return UnitKind::king;
+            if (object.name == "hawk" || object.name == "macaw") return UnitKind::deer;
             return std::nullopt;
         }();
         const auto terrain_kind = [&]() -> std::optional<Terrain> {
             if (object.name == "gold") return Terrain::gold_mine;
             if (object.name == "stone") return Terrain::stone_mine;
-            if (object.name == "berries") return Terrain::berry_bush;
+            if (object.name == "berries" || object.name == "forage") return Terrain::berry_bush;
+            if (object.name == "oaktree") return Terrain::oak_forest;
+            if (object.name == "pinetree" || object.name == "snowpinetree") return Terrain::pine_forest;
+            if (object.name == "palmtree") return Terrain::palm_forest;
+            if (object.name == "bamboo_tree") return Terrain::bamboo_forest;
+            if (object.name == "jungletree") return Terrain::jungle_forest;
+            if (object.name == "shore_fish" || object.name == "salmon") return Terrain::fish_shore;
+            if (object.name == "tuna" || object.name == "snapper" ||
+                object.name == "marlin1" || object.name == "marlin2" ||
+                object.name == "dorado") return Terrain::fish_deep;
             return std::nullopt;
         }();
         const auto second_unit_kind = [&]() -> std::optional<UnitKind> {
@@ -777,12 +880,13 @@ void apply_object_generations(
                 ),
                 scenario.units.end()
             );
-        } else if (object.name == "town_center") {
+        } else if (object.name == "town_center" || object.name == "castle") {
             scenario.buildings.erase(
                 std::remove_if(
                     scenario.buildings.begin(), scenario.buildings.end(),
-                    [](const BuildingPlacement& building) {
-                        return building.kind == BuildingKind::town_center;
+                    [&](const BuildingPlacement& building) {
+                        return building.kind == (object.name == "castle"
+                            ? BuildingKind::castle : BuildingKind::town_center);
                     }
                 ),
                 scenario.buildings.end()
@@ -833,6 +937,14 @@ void apply_object_generations(
                         if (object.maximum_player_distance &&
                             nearest_player >
                                 *object.maximum_player_distance) continue;
+                        if (object.maximum_other_zone_distance &&
+                            std::ranges::none_of(
+                                land_sites,
+                                [&](const LandSite& site) {
+                                    return std::abs(candidate.x - site.origin.x) +
+                                        std::abs(candidate.y - site.origin.y) <=
+                                        *object.maximum_other_zone_distance;
+                                })) continue;
                         const bool separated = std::ranges::all_of(
                             group_centers,
                             [&](TilePosition existing) {
@@ -903,9 +1015,11 @@ void apply_object_generations(
                             std::nullopt, std::nullopt, std::nullopt,
                             false, {}, UnitStance::aggressive, std::nullopt,
                         });
-                    } else if (object.name == "town_center") {
+                    } else if (object.name == "town_center" || object.name == "castle") {
+                        const BuildingKind building_kind = object.name == "castle"
+                            ? BuildingKind::castle : BuildingKind::town_center;
                         const BuildingRules& rules =
-                            rules_for(BuildingKind::town_center);
+                            rules_for(building_kind);
                         for (int y = 0; y < rules.footprint_height; ++y) {
                             for (int x = 0; x < rules.footprint_width; ++x) {
                                 const TilePosition tile{
@@ -918,7 +1032,7 @@ void apply_object_generations(
                             }
                         }
                         scenario.buildings.push_back({
-                            BuildingKind::town_center, owner, position,
+                            building_kind, owner, position,
                             std::nullopt, std::nullopt, std::nullopt,
                         });
                     } else if (terrain_kind) {
@@ -964,9 +1078,19 @@ void apply_object_generations(
             place_for(players[0].first, players[0].second, false);
             place_for(players[1].first, players[1].second, true);
         } else {
+            TilePosition neutral_center{
+                scenario.map.width() / 2, scenario.map.height() / 2
+            };
+            if (object.land_id) {
+                const auto site = std::ranges::find_if(
+                    land_sites, [&](const LandSite& candidate) {
+                        return candidate.id == *object.land_id;
+                    });
+                if (site == land_sites.end()) continue;
+                neutral_center = site->origin;
+            }
             place_for(
-                Player::neutral,
-                {scenario.map.width() / 2, scenario.map.height() / 2},
+                Player::neutral, neutral_center,
                 false
             );
         }
@@ -975,6 +1099,65 @@ void apply_object_generations(
 }
 
 }  // namespace
+
+std::vector<int> msvcrt_rms_random_sequence(
+    std::uint32_t seed, std::size_t count
+) {
+    RmsRandom random(seed);
+    std::vector<int> result;
+    result.reserve(count);
+    while (result.size() < count) result.push_back(random.next());
+    return result;
+}
+
+RmsDocument parse_rms(
+    std::string_view source,
+    const std::unordered_map<std::string, std::string>& includes,
+    const RmsImportLimits& limits
+) {
+    std::set<std::string> active;
+    const auto expand = [&](auto&& self, std::string_view text,
+                            std::size_t depth) -> std::optional<std::string> {
+        if (depth > limits.maximum_nesting) return std::nullopt;
+        std::istringstream input{std::string(text)};
+        std::ostringstream output;
+        std::string line;
+        while (std::getline(input, line)) {
+            const std::vector<std::string> parts = words(trim(line));
+            if (!parts.empty() &&
+                (lower(parts[0]) == "#include" ||
+                 lower(parts[0]) == "#include_drs")) {
+                if (parts.size() < 2) return std::nullopt;
+                const std::string key = lower(parts[1]);
+                const auto found = std::ranges::find_if(
+                    includes, [&key](const auto& entry) {
+                        return lower(entry.first) == key;
+                    });
+                if (found == includes.end() || active.contains(key)) {
+                    return std::nullopt;
+                }
+                active.insert(key);
+                const auto nested = self(self, found->second, depth + 1);
+                active.erase(key);
+                if (!nested) return std::nullopt;
+                output << *nested;
+                if (!nested->empty() && nested->back() != '\n') output << '\n';
+            } else {
+                output << line << '\n';
+            }
+            if (static_cast<std::size_t>(output.tellp()) >
+                limits.maximum_bytes) return std::nullopt;
+        }
+        return output.str();
+    };
+    const auto expanded = expand(expand, source, 0);
+    if (!expanded) {
+        RmsDocument failed;
+        failed.error = "unresolved or cyclic RMS include";
+        return failed;
+    }
+    return parse_rms(*expanded, limits);
+}
 
 bool RmsDocument::playable() const {
     return syntactically_valid &&
@@ -1013,6 +1196,13 @@ RmsDocument parse_rms(
     std::size_t pending_object_block{};
     std::size_t object_block_depth{};
     int random_weight{100};
+    struct ConditionalFrame {
+        std::vector<std::string> prior_symbols;
+        std::optional<std::string> current_symbol;
+        bool else_branch{};
+    };
+    std::vector<ConditionalFrame> conditions;
+    std::unordered_map<std::string, std::string> constants;
     for (std::size_t index = 0; index < lines.size(); ++index) {
         std::string cleaned;
         const std::string& original = lines[index];
@@ -1095,6 +1285,61 @@ RmsDocument parse_rms(
         }
         if (parts.empty()) continue;
         const std::string name = lower(parts.front());
+        if (name == "#const") {
+            if (parts.size() != 3 || !integer(parts[2])) {
+                document.error = "invalid #const";
+                return document;
+            }
+            constants[lower(parts[1])] = parts[2];
+            continue;
+        }
+        if (name == "if") {
+            if (parts.size() != 2) {
+                document.error = "invalid if";
+                return document;
+            }
+            if (conditions.size() >= limits.maximum_nesting) {
+                document.error = "RMS exceeds nesting limit";
+                return document;
+            }
+            conditions.push_back({{}, lower(parts[1]), false});
+            continue;
+        }
+        if (name == "elseif") {
+            if (parts.size() != 2 || conditions.empty() ||
+                conditions.back().else_branch) {
+                document.error = "invalid elseif";
+                return document;
+            }
+            ConditionalFrame& frame = conditions.back();
+            if (frame.current_symbol) {
+                frame.prior_symbols.push_back(*frame.current_symbol);
+            }
+            frame.current_symbol = lower(parts[1]);
+            continue;
+        }
+        if (name == "else") {
+            if (parts.size() != 1 || conditions.empty() ||
+                conditions.back().else_branch) {
+                document.error = "invalid else";
+                return document;
+            }
+            ConditionalFrame& frame = conditions.back();
+            if (frame.current_symbol) {
+                frame.prior_symbols.push_back(*frame.current_symbol);
+            }
+            frame.current_symbol.reset();
+            frame.else_branch = true;
+            continue;
+        }
+        if (name == "endif") {
+            if (parts.size() != 1 || conditions.empty()) {
+                document.error = "endif without if";
+                return document;
+            }
+            conditions.pop_back();
+            continue;
+        }
         if (name == "start_random") {
             if (random_group != 0) {
                 document.error = "nested start_random is unsupported";
@@ -1173,7 +1418,12 @@ RmsDocument parse_rms(
                 document.error = "nested create_object is unsupported";
                 return document;
             }
-            if (!valid_object_arity(name, parts)) {
+            std::vector<std::string> validated_parts = parts;
+            for (std::size_t part = 2; part < validated_parts.size(); ++part) {
+                if (const auto found = constants.find(lower(validated_parts[part]));
+                    found != constants.end()) validated_parts[part] = found->second;
+            }
+            if (!valid_object_arity(name, validated_parts)) {
                 document.error = "invalid create_object arity";
                 return document;
             }
@@ -1191,7 +1441,13 @@ RmsDocument parse_rms(
                     "object attribute outside create_object block";
                 return document;
             }
-            if (!valid_object_arity(name, parts)) {
+            std::vector<std::string> validated_parts = parts;
+            for (std::size_t part = 1; part < validated_parts.size(); ++part) {
+                if (name == "second_object") break;
+                if (const auto found = constants.find(lower(validated_parts[part]));
+                    found != constants.end()) validated_parts[part] = found->second;
+            }
+            if (!valid_object_arity(name, validated_parts)) {
                 document.error = "invalid object attribute " + name;
                 return document;
             }
@@ -1223,6 +1479,16 @@ RmsDocument parse_rms(
         directive.random_group = random_group;
         directive.random_branch = random_branch;
         directive.random_weight = random_weight;
+        for (const ConditionalFrame& frame : conditions) {
+            for (const std::string& symbol : frame.prior_symbols) {
+                directive.conditions.emplace_back(symbol, false);
+            }
+            if (frame.current_symbol) {
+                directive.conditions.emplace_back(
+                    *frame.current_symbol, true
+                );
+            }
+        }
         if (name == "create_object") {
             directive.object_block = next_object_block++;
             if (opens_block) {
@@ -1235,7 +1501,15 @@ RmsDocument parse_rms(
             directive.object_block = current_object_block;
         }
         for (std::size_t part = 1; part < parts.size(); ++part) {
-            directive.arguments.push_back(parts[part]);
+            const auto constant = constants.find(lower(parts[part]));
+            const bool semantic_name =
+                name == "create_object" || name == "second_object" ||
+                name == "create_terrain" || name == "terrain_type" ||
+                name == "base_terrain" || name == "replace_terrain";
+            directive.arguments.push_back(
+                constant == constants.end() || semantic_name
+                    ? parts[part] : constant->second
+            );
         }
         document.directives.push_back(std::move(directive));
     }
@@ -1249,6 +1523,10 @@ RmsDocument parse_rms(
     }
     if (random_group != 0) {
         document.error = "unterminated start_random";
+        return document;
+    }
+    if (!conditions.empty()) {
+        document.error = "unterminated if";
         return document;
     }
     if (pending_object_block != 0 || current_object_block != 0) {
@@ -1266,6 +1544,7 @@ std::optional<Scenario> evaluate_rms(
     Civilization red
 ) {
     if (!document.playable()) return std::nullopt;
+    RmsRandom random(seed);
     std::unordered_map<std::size_t, std::size_t> selected;
     for (const RmsDirective& directive : document.directives) {
         if (directive.random_group == 0 ||
@@ -1287,9 +1566,7 @@ std::optional<Scenario> evaluate_rms(
         }
         int total{};
         for (const auto& branch : branches) total += branch.second;
-        int choice = total > 0
-            ? static_cast<int>(mix(seed ^ directive.random_group) % total)
-            : 0;
+        int choice = total > 0 ? random.between(0, total - 1) : 0;
         selected[directive.random_group] =
             branches.empty() ? 0 : branches.front().first;
         for (const auto& branch : branches) {
@@ -1300,13 +1577,41 @@ std::optional<Scenario> evaluate_rms(
             choice -= branch.second;
         }
     }
+    std::set<std::string> definitions;
+    const auto random_active = [&](const RmsDirective& directive) {
+        return directive.random_group == 0 ||
+            selected[directive.random_group] == directive.random_branch;
+    };
+    const auto conditions_active = [&](const RmsDirective& directive) {
+        return std::ranges::all_of(
+            directive.conditions,
+            [&definitions](const auto& condition) {
+                return definitions.contains(condition.first) ==
+                    condition.second;
+            }
+        );
+    };
+    // Defines can themselves be conditional. Iterate to a fixed point; RMS
+    // symbols are monotonic because classic scripts only define, never undef.
+    bool changed{};
+    do {
+        changed = false;
+        for (const RmsDirective& directive : document.directives) {
+            if (directive.name != "#define" ||
+                directive.arguments.empty() ||
+                !random_active(directive) ||
+                !conditions_active(directive)) continue;
+            changed |= definitions.insert(
+                lower(directive.arguments.front())
+            ).second;
+        }
+    } while (changed);
     // No override_map_size directive means the script inherits the
     // lobby-selected size, so track the shared default.
     RandomMapSize size = RandomMapSettings{}.size;
     const auto active = [&](const RmsDirective& directive) {
-        if (directive.random_group == 0) return true;
-        return selected[directive.random_group] ==
-            directive.random_branch;
+        return random_active(directive) && conditions_active(directive) &&
+            directive.name != "#define";
     };
     for (const RmsDirective& directive : document.directives) {
         if (!active(directive)) continue;
@@ -1343,7 +1648,6 @@ std::optional<Scenario> evaluate_rms(
     }
     fill_map(scenario.map, base);
 
-    RmsRandom random(seed);
     const TilePosition blue_start{dimension / 4, dimension / 2};
     const TilePosition red_start{
         dimension - 1 - blue_start.x,
@@ -1370,11 +1674,11 @@ std::optional<Scenario> evaluate_rms(
             paint_disc(scenario.map, red_start, radius, land.terrain);
             land_sites.push_back({
                 blue_start, Player::blue,
-                land.zone == -10 ? -9 : land.zone,
+                land.zone == -10 ? -9 : land.zone, land.id,
             });
             land_sites.push_back({
                 red_start, Player::red,
-                land.zone == -10 ? -8 : land.zone,
+                land.zone == -10 ? -8 : land.zone, land.id,
             });
         } else {
             const int minimum_x = std::max(
@@ -1416,12 +1720,12 @@ std::optional<Scenario> evaluate_rms(
                 land.player == 1 ? std::optional{Player::blue} :
                 land.player == 2 ? std::optional{Player::red} :
                                    std::nullopt;
-            land_sites.push_back({center, owner, land.zone});
+            land_sites.push_back({center, owner, land.zone, land.id});
         }
     }
     if (land_sites.empty()) {
-        land_sites.push_back({blue_start, Player::blue, -9});
-        land_sites.push_back({red_start, Player::red, -8});
+        land_sites.push_back({blue_start, Player::blue, -9, -1});
+        land_sites.push_back({red_start, Player::red, -8, -1});
     }
 
     // Starts are anchors for every-player object placement. Explicit
@@ -1585,29 +1889,80 @@ std::optional<Scenario> evaluate_rms(
                     const int irregularity = std::max(
                         0, (20 - terrain.clumping) / 4
                     );
-                    const std::uint64_t noise = mix(
-                        seed ^
-                        (static_cast<std::uint64_t>(
-                            static_cast<std::uint32_t>(x)
-                        ) << 32) ^
-                        static_cast<std::uint32_t>(y) ^
-                        static_cast<std::uint64_t>(clump)
-                    );
                     const int edge_noise = irregularity == 0 ? 0 :
-                        static_cast<int>(
-                            noise %
-                            static_cast<std::uint64_t>(
-                                irregularity * 2 + 1
-                            )
-                        ) - irregularity;
+                        random.between(-irregularity, irregularity);
                     const int edge = std::max(1, radius + edge_noise);
                     if (dx * dx + dy * dy > edge * edge) continue;
                     if (terrain.base &&
                         scenario.map.terrain_at(tile) != *terrain.base) {
                         continue;
                     }
+                    if (terrain.flat_only &&
+                        scenario.map.elevation_at(tile) != 0) continue;
                     scenario.map.set_terrain(tile, terrain.terrain);
                 }
+            }
+        }
+    }
+
+    if (const auto cliffs = cliff_generation(document, active)) {
+        const int count = random.between(
+            cliffs->minimum_count, cliffs->maximum_count
+        );
+        std::vector<TilePosition> occupied;
+        constexpr std::array<TilePosition, 8> directions{{
+            {1, 0}, {1, 1}, {0, 1}, {-1, 1},
+            {-1, 0}, {-1, -1}, {0, -1}, {1, -1},
+        }};
+        for (int index = 0; index < count; ++index) {
+            TilePosition position;
+            bool accepted{};
+            for (int attempt = 0; attempt < 128; ++attempt) {
+                position = {
+                    random.between(2, dimension - 3),
+                    random.between(2, dimension - 3),
+                };
+                const bool spaced = std::ranges::all_of(
+                    occupied, [&](TilePosition existing) {
+                        return std::abs(existing.x - position.x) +
+                            std::abs(existing.y - position.y) >=
+                            cliffs->minimum_spacing;
+                    });
+                const auto clear_of_water = [&](TilePosition tile) {
+                    for (int y = -cliffs->minimum_terrain_distance;
+                         y <= cliffs->minimum_terrain_distance; ++y) {
+                        for (int x = -cliffs->minimum_terrain_distance;
+                             x <= cliffs->minimum_terrain_distance; ++x) {
+                            const TilePosition nearby{tile.x + x, tile.y + y};
+                            if (!scenario.map.contains(nearby)) return false;
+                            const Terrain terrain =
+                                scenario.map.terrain_at(nearby);
+                            if (terrain == Terrain::water ||
+                                terrain == Terrain::deep_water ||
+                                terrain == Terrain::shallows) return false;
+                        }
+                    }
+                    return true;
+                };
+                if (spaced && clear_of_water(position)) {
+                    accepted = true;
+                    break;
+                }
+            }
+            if (!accepted) continue;
+            int direction = random.between(0, 7);
+            const int length = random.between(
+                cliffs->minimum_length, cliffs->maximum_length
+            );
+            for (int step = 0; step < length; ++step) {
+                if (!scenario.map.contains(position)) break;
+                scenario.map.set_cliff(position, true);
+                occupied.push_back(position);
+                if (random.between(0, 99) < cliffs->curliness) {
+                    direction = (direction + random.between(0, 1) * 2 - 1 + 8) % 8;
+                }
+                position.x += directions[direction].x;
+                position.y += directions[direction].y;
             }
         }
     }
@@ -1660,7 +2015,7 @@ std::optional<Scenario> evaluate_rms(
     paint_disc(scenario.map, red_start, 3, Terrain::grass);
 
     apply_object_generations(
-        scenario, object_generations(document, active), seed
+        scenario, object_generations(document, active), land_sites, random
     );
     return scenario;
 }
@@ -1685,8 +2040,17 @@ create_elevation 3 {
  number_of_tiles 700
  set_scale_by_size
 }
+<CLIFF_GENERATION>
+create_cliffs
+min_number_of_cliffs 3
+max_number_of_cliffs 7
+min_length_of_cliff 4
+max_length_of_cliff 12
+cliff_curliness 35
+min_distance_cliffs 6
+min_terrain_distance 2
 <TERRAIN_GENERATION>
-create_terrain FOREST {
+create_terrain PALM_FOREST {
  base_terrain GRASS
  land_percent 7
  number_of_clumps 18
@@ -1775,6 +2139,13 @@ create_connect_all_players_land {
  replace_terrain FOREST GRASS
  terrain_size 7
 }
+<TERRAIN_GENERATION>
+create_terrain PINE_FOREST {
+ base_terrain GRASS
+ land_percent 3
+ number_of_clumps 8
+ set_avoid_player_start_areas
+}
 <OBJECTS_GENERATION>
 create_object TOWN_CENTER {
  set_place_for_every_player
@@ -1826,7 +2197,7 @@ create_player_lands {
  clumping_factor 18
 }
 <TERRAIN_GENERATION>
-create_terrain FOREST {
+create_terrain JUNGLE_FOREST {
  base_terrain GRASS
  land_percent 8
  number_of_clumps 10
@@ -1872,6 +2243,13 @@ create_object SHEEP {
  number_of_objects 4
  min_distance_to_players 5
 }
+create_object SHORE_FISH {
+ set_gaia_object_only
+ number_of_groups 12
+ number_of_objects 3
+ min_distance_to_players 10
+ set_scaling_to_map_size
+}
 )rms";
     static constexpr std::string_view rivers = R"rms(
 <LAND_GENERATION>
@@ -1895,7 +2273,7 @@ create_elevation 3 {
  number_of_tiles 600
 }
 <TERRAIN_GENERATION>
-create_terrain FOREST {
+create_terrain OAK_FOREST {
  base_terrain GRASS
  land_percent 6
  number_of_clumps 14
@@ -1919,6 +2297,13 @@ create_object VILLAGER {
 create_object SCOUT {
  set_place_for_every_player
  min_distance_to_players 5
+}
+create_object SALMON {
+ set_gaia_object_only
+ number_of_groups 8
+ number_of_objects 2
+ min_distance_to_players 12
+ set_scaling_to_map_size
 }
 create_object BERRIES {
  set_place_for_every_player

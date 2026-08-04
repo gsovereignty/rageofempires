@@ -2049,13 +2049,26 @@ SDL_Color terrain_color(Terrain terrain) {
     switch (terrain) {
         case Terrain::grass:
             return {92, 138, 74, 255};
+        case Terrain::grass2: return {76, 126, 65, 255};
+        case Terrain::dirt: return {174, 145, 91, 255};
+        case Terrain::dirt2: return {154, 124, 76, 255};
+        case Terrain::dirt3: return {131, 104, 67, 255};
+        case Terrain::road: return {137, 116, 83, 255};
+        case Terrain::snow: return {214, 222, 218, 255};
+        case Terrain::ice: return {162, 202, 217, 255};
         case Terrain::water:
             return {65, 110, 170, 255};
+        case Terrain::deep_water: return {42, 78, 142, 255};
         case Terrain::beach:
             return {208, 177, 135, 255};
         case Terrain::shallows:
             return {26, 124, 124, 255};
         case Terrain::forest:
+        case Terrain::pine_forest:
+        case Terrain::oak_forest:
+        case Terrain::bamboo_forest:
+        case Terrain::palm_forest:
+        case Terrain::jungle_forest:
             return {92, 138, 74, 255};
         case Terrain::berry_bush:
             return {82, 126, 66, 255};
@@ -2064,6 +2077,8 @@ SDL_Color terrain_color(Terrain terrain) {
         case Terrain::stone_mine:
             return {112, 116, 112, 255};
         case Terrain::fish:
+        case Terrain::fish_shore:
+        case Terrain::fish_deep:
             return {58, 103, 163, 255};
     }
     return {255, 0, 255, 255};
@@ -2082,14 +2097,22 @@ SDL_Color shade_color(SDL_Color color, int amount) {
 
 bool is_resource_terrain(Terrain terrain) {
     return terrain == Terrain::forest ||
+           terrain == Terrain::pine_forest ||
+           terrain == Terrain::oak_forest ||
+           terrain == Terrain::bamboo_forest ||
+           terrain == Terrain::palm_forest ||
+           terrain == Terrain::jungle_forest ||
            terrain == Terrain::berry_bush ||
            terrain == Terrain::gold_mine ||
            terrain == Terrain::stone_mine ||
-           terrain == Terrain::fish;
+           terrain == Terrain::fish || terrain == Terrain::fish_shore ||
+           terrain == Terrain::fish_deep;
 }
 
 bool is_water_surface(Terrain terrain) {
-    return terrain == Terrain::water || terrain == Terrain::fish ||
+    return terrain == Terrain::water || terrain == Terrain::deep_water ||
+           terrain == Terrain::fish || terrain == Terrain::fish_shore ||
+           terrain == Terrain::fish_deep ||
            terrain == Terrain::shallows;
 }
 
@@ -2714,7 +2737,9 @@ TerrainTextures load_local_terrain_textures(SDL_Renderer* renderer) {
 }
 
 const std::vector<RgbaFrame>* terrain_archive_rgba(Terrain terrain) {
-    if (terrain == Terrain::water || terrain == Terrain::fish) {
+    if (terrain == Terrain::water || terrain == Terrain::deep_water ||
+        terrain == Terrain::fish || terrain == Terrain::fish_shore ||
+        terrain == Terrain::fish_deep) {
         return &active_terrain_textures.water_archive_rgba;
     }
     if (terrain == Terrain::beach) {
@@ -6798,7 +6823,8 @@ void render_resource_node(
     bool visible,
     int remaining
 ) {
-    if (terrain == Terrain::fish) {
+    if (terrain == Terrain::fish || terrain == Terrain::fish_shore ||
+        terrain == Terrain::fish_deep) {
         if (render_legacy_sprite(
                 renderer,
                 active_legacy_sprites.fish,
@@ -14967,7 +14993,10 @@ std::size_t render(
                 const std::vector<SDL_Texture*>* archive_frames =
                     &active_terrain_textures.grass_archive_frames;
                 if (terrain == Terrain::water ||
-                    terrain == Terrain::fish) {
+                    terrain == Terrain::deep_water ||
+                    terrain == Terrain::fish ||
+                    terrain == Terrain::fish_shore ||
+                    terrain == Terrain::fish_deep) {
                     texture = active_terrain_textures.water;
                     archive_frames =
                         &active_terrain_textures.water_archive_frames;
@@ -15032,6 +15061,19 @@ std::size_t render(
                 position,
                 full_texture_diamond
             );
+            if (explored && simulation.map().cliff_at(position)) {
+                set_color(renderer, visible
+                    ? SDL_Color{73, 54, 38, 255}
+                    : SDL_Color{34, 30, 26, 255});
+                const std::array<SDL_FPoint, 5> edge{{
+                    top,
+                    {top.x + half_tile_width, top.y + half_tile_height},
+                    {top.x, top.y + 2.0F * half_tile_height},
+                    {top.x - half_tile_width, top.y + half_tile_height},
+                    top,
+                }};
+                SDL_RenderLines(renderer, edge.data(), edge.size());
+            }
             if (visible && texture == nullptr) {
                 render_procedural_terrain_transitions(
                     renderer, simulation, position, top, color
@@ -15083,7 +15125,12 @@ std::size_t render(
                     "standing",
                     0
                 );
-                if (terrain == Terrain::forest) {
+                if (terrain == Terrain::forest ||
+                    terrain == Terrain::pine_forest ||
+                    terrain == Terrain::oak_forest ||
+                    terrain == Terrain::bamboo_forest ||
+                    terrain == Terrain::palm_forest ||
+                    terrain == Terrain::jungle_forest) {
                     render_tree(
                         renderer,
                         simulation,

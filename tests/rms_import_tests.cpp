@@ -8,6 +8,7 @@
 #include "aoe/computer_player.hpp"
 #include "aoe/format_versions.hpp"
 #include "aoe/rms_import.hpp"
+#include "aoe/save_game.hpp"
 
 namespace {
 
@@ -290,14 +291,29 @@ void rms_resource_terrain_retains_gatherable_amounts() {
     const aoe::RmsMapResult generated = aoe::generate_rms_map(settings);
     require(generated.scenario.has_value(), generated.error);
 
-    const aoe::TilePosition live_regression_tree{51, 125};
+    std::optional<aoe::TilePosition> live_regression_tree;
+    std::optional<aoe::TilePosition> worker_origin;
+    for (int y = 1; y + 1 < generated.scenario->map.height() &&
+         !live_regression_tree; ++y) {
+        for (int x = 1; x + 1 < generated.scenario->map.width(); ++x) {
+            const aoe::TilePosition tile{x, y};
+            if (generated.scenario->map.terrain_at(tile) !=
+                aoe::Terrain::palm_forest) continue;
+            for (const aoe::TilePosition neighbor : {
+                     aoe::TilePosition{x - 1, y}, {x + 1, y},
+                     {x, y - 1}, {x, y + 1}}) {
+                if (generated.scenario->map.walkable(neighbor)) {
+                    live_regression_tree = tile;
+                    worker_origin = neighbor;
+                    break;
+                }
+            }
+            if (live_regression_tree) break;
+        }
+    }
+    require(live_regression_tree.has_value(), "seed-1 Arabia has no reachable palm tree");
     require(
-        generated.scenario->map.terrain_at(live_regression_tree) ==
-            aoe::Terrain::forest,
-        "seed-1 live regression tile stopped being forest"
-    );
-    require(
-        generated.scenario->map.resource_amount_at(live_regression_tree) ==
+        generated.scenario->map.resource_amount_at(*live_regression_tree) ==
             100,
         "RMS forest terrain must retain default gatherable wood"
     );
@@ -308,6 +324,11 @@ void rms_resource_terrain_retains_gatherable_amounts() {
             const aoe::Terrain terrain =
                 generated.scenario->map.terrain_at(tile);
             if (terrain == aoe::Terrain::forest ||
+                terrain == aoe::Terrain::pine_forest ||
+                terrain == aoe::Terrain::oak_forest ||
+                terrain == aoe::Terrain::bamboo_forest ||
+                terrain == aoe::Terrain::palm_forest ||
+                terrain == aoe::Terrain::jungle_forest ||
                 terrain == aoe::Terrain::berry_bush ||
                 terrain == aoe::Terrain::gold_mine ||
                 terrain == aoe::Terrain::stone_mine ||
@@ -325,12 +346,12 @@ void rms_resource_terrain_retains_gatherable_amounts() {
     const aoe::EntityId worker = simulation.add_unit(
         aoe::UnitKind::villager,
         aoe::Player::blue,
-        {63, 126}
+        *worker_origin
     );
     const int starting_wood =
         simulation.economy(aoe::Player::blue).wood;
     require(
-        simulation.command_unit(worker, live_regression_tree),
+        simulation.command_unit(worker, *live_regression_tree),
         "live RMS forest gathering command was rejected"
     );
     for (int tick = 0; tick < 500; ++tick) simulation.update();
@@ -340,7 +361,7 @@ void rms_resource_terrain_retains_gatherable_amounts() {
     );
     require(worker_state != simulation.units().end(), "worker disappeared");
     require(
-        worker_state->position != aoe::TilePosition(63, 126) &&
+        worker_state->position != *worker_origin &&
         (worker_state->carried_amount > 0 ||
          simulation.economy(aoe::Player::blue).wood > starting_wood),
         "worker did not move and gather from live RMS forest"
@@ -397,7 +418,7 @@ create_object VILLAGER {
         "land generation did not paint player lands over base terrain"
     );
     require(
-        count_terrain(*scenario, aoe::Terrain::forest) > 0,
+        count_terrain(*scenario, aoe::Terrain::pine_forest) > 0,
         "terrain generation did not paint requested terrain"
     );
     require(
@@ -428,7 +449,7 @@ create_object VILLAGER {
     );
     require(plain.has_value(), "plain land fixture refused");
     require(
-        count_terrain(*plain, aoe::Terrain::forest) == 0 &&
+        count_terrain(*plain, aoe::Terrain::pine_forest) == 0 &&
         count_elevated(*plain) == 0 &&
         aoe::random_map_hash(*plain) != aoe::random_map_hash(*scenario),
         "section changes still collapse to same hard-coded recipe"
@@ -454,7 +475,7 @@ create_terrain PINE_FOREST {
     require(scoped_map.has_value(), "scoped base-terrain fixture refused");
     require(
         count_terrain(*scoped_map, aoe::Terrain::water) == 0 &&
-        count_terrain(*scoped_map, aoe::Terrain::forest) == 0,
+        count_terrain(*scoped_map, aoe::Terrain::pine_forest) == 0,
         "create_terrain base_terrain leaked into map base or ignored filter"
     );
 
@@ -728,7 +749,7 @@ void object_validation_fails_closed() {
         );
     }
     const aoe::RmsDocument unsupported = aoe::parse_rms(
-        "<OBJECTS_GENERATION>\ncreate_object WOLF {\n"
+        "<OBJECTS_GENERATION>\ncreate_object DRAGON {\n"
         " number_of_objects 2\n}\n"
     );
     require(
@@ -738,7 +759,7 @@ void object_validation_fails_closed() {
     );
     const aoe::RmsDocument unproved = aoe::parse_rms(
         "<OBJECTS_GENERATION>\ncreate_object VILLAGER {\n"
-        " max_distance_to_other_zones 2\n}\n"
+        " max_distance_to_map_edge 2\n}\n"
     );
     require(
         unproved.syntactically_valid && !unproved.playable(),
@@ -926,6 +947,78 @@ create_object RELIC {
     }
 }
 
+void recovered_rng_include_cliff_and_variant_contracts() {
+    require(
+        aoe::msvcrt_rms_random_sequence(1, 5) ==
+            std::vector<int>{41, 18467, 6334, 26500, 19169},
+        "MSVCRT srand/rand sequence changed"
+    );
+    const std::unordered_map<std::string, std::string> includes{{
+        "shared.inc", "#const COUNT 2\n#define ENABLED\n"}};
+    constexpr std::string_view source = R"rms(
+#include shared.inc
+<PLAYER_SETUP>
+override_map_size 48
+<LAND_GENERATION>
+base_terrain DIRT3
+<CLIFF_GENERATION>
+create_cliffs
+min_number_of_cliffs 2
+max_number_of_cliffs 2
+min_length_of_cliff 4
+max_length_of_cliff 4
+<TERRAIN_GENERATION>
+if ENABLED
+create_terrain PINE_FOREST {
+ number_of_clumps COUNT
+ number_of_tiles 40
+}
+endif
+<OBJECTS_GENERATION>
+create_object TOWN_CENTER {
+ set_place_for_every_player
+}
+create_object SHORE_FISH {
+ number_of_objects COUNT
+ set_gaia_object_only
+}
+)rms";
+    const aoe::RmsDocument document = aoe::parse_rms(source, includes);
+    require(document.playable(), document.error);
+    const auto generated = aoe::evaluate_rms(document, 77);
+    require(generated.has_value(), "expanded RMS did not evaluate");
+    require(count_terrain(*generated, aoe::Terrain::dirt3) > 0,
+            "classic dirt identity collapsed");
+    require(count_terrain(*generated, aoe::Terrain::pine_forest) > 0,
+            "classic tree identity collapsed");
+    require(count_terrain(*generated, aoe::Terrain::fish_shore) > 0,
+            "classic fish identity collapsed");
+    std::optional<aoe::TilePosition> first_cliff;
+    for (int y = 0; y < generated->map.height() && !first_cliff; ++y) {
+        for (int x = 0; x < generated->map.width(); ++x) {
+            if (generated->map.cliff_at({x, y})) {
+                first_cliff = aoe::TilePosition{x, y};
+                break;
+            }
+        }
+    }
+    require(first_cliff.has_value(), "cliff topology absent");
+    const auto scenario_path = std::filesystem::temp_directory_path() /
+        "aoe-rms-cliff-roundtrip.scenario";
+    aoe::save_scenario(*generated, scenario_path);
+    const aoe::Scenario scenario_roundtrip = aoe::load_scenario(scenario_path);
+    std::filesystem::remove(scenario_path);
+    require(scenario_roundtrip.map.cliff_at(*first_cliff),
+            "scenario lost cliff topology");
+    const auto save_path = std::filesystem::temp_directory_path() /
+        "aoe-rms-cliff-roundtrip.save";
+    aoe::save_game(aoe::create_simulation(*generated), save_path);
+    const aoe::Simulation save_roundtrip = aoe::load_game(save_path);
+    std::filesystem::remove(save_path);
+    require(save_roundtrip.map().cliff_at(*first_cliff),
+            "save lost cliff topology");
+}
+
 }  // namespace
 
 int main() {
@@ -966,6 +1059,8 @@ int main() {
             neutral_objects_honor_player_and_group_distances);
         run("temporary group distance",
             supplied_temporary_group_distance_is_bounded_alias);
+        run("recovered RNG/include/cliff/variant contracts",
+            recovered_rng_include_cliff_and_variant_contracts);
         std::cout << "All RMS import tests passed\n";
         return 0;
     } catch (const std::exception& error) {

@@ -215,10 +215,23 @@ int encode(Terrain terrain) {
     switch (terrain) {
         case Terrain::grass:
             return 0;
+        case Terrain::grass2: return 9;
+        case Terrain::dirt: return 10;
+        case Terrain::dirt2: return 11;
+        case Terrain::dirt3: return 12;
+        case Terrain::road: return 13;
+        case Terrain::snow: return 14;
+        case Terrain::ice: return 15;
         case Terrain::water:
             return 1;
+        case Terrain::deep_water: return 16;
         case Terrain::forest:
             return 2;
+        case Terrain::pine_forest: return 17;
+        case Terrain::oak_forest: return 18;
+        case Terrain::bamboo_forest: return 19;
+        case Terrain::palm_forest: return 20;
+        case Terrain::jungle_forest: return 21;
         case Terrain::berry_bush:
             return 3;
         case Terrain::gold_mine:
@@ -227,6 +240,8 @@ int encode(Terrain terrain) {
             return 5;
         case Terrain::fish:
             return 6;
+        case Terrain::fish_shore: return 22;
+        case Terrain::fish_deep: return 23;
         case Terrain::beach:
             return 7;
         case Terrain::shallows:
@@ -638,7 +653,8 @@ void save_game(const Simulation& simulation, const std::filesystem::path& path) 
             output << "tile " << x << ' ' << y << ' '
                    << encode(simulation.map().terrain_at(position)) << ' '
                    << simulation.map().resource_amount_at(position) << ' '
-                   << simulation.map().elevation_at(position) << '\n';
+                   << simulation.map().elevation_at(position) << ' '
+                   << simulation.map().cliff_at(position) << '\n';
         }
     }
     for (Player player : {Player::blue, Player::red}) {
@@ -1463,6 +1479,8 @@ Simulation load_game(const std::filesystem::path& path) {
             input >> position.x >> position.y >> terrain >> resources;
             int elevation{};
             if (version >= 103) input >> elevation;
+            bool cliff{};
+            if (version >= 116) input >> cliff;
             const Terrain decoded =
                 terrain == 1 ? Terrain::water :
                 terrain == 2 ? Terrain::forest :
@@ -1472,10 +1490,26 @@ Simulation load_game(const std::filesystem::path& path) {
                 terrain == 6 && version >= 66 ? Terrain::fish :
                 terrain == 7 && version >= 98 ? Terrain::beach :
                 terrain == 8 && version >= 98 ? Terrain::shallows :
+                terrain == 9 && version >= 116 ? Terrain::grass2 :
+                terrain == 10 && version >= 116 ? Terrain::dirt :
+                terrain == 11 && version >= 116 ? Terrain::dirt2 :
+                terrain == 12 && version >= 116 ? Terrain::dirt3 :
+                terrain == 13 && version >= 116 ? Terrain::road :
+                terrain == 14 && version >= 116 ? Terrain::snow :
+                terrain == 15 && version >= 116 ? Terrain::ice :
+                terrain == 16 && version >= 116 ? Terrain::deep_water :
+                terrain == 17 && version >= 116 ? Terrain::pine_forest :
+                terrain == 18 && version >= 116 ? Terrain::oak_forest :
+                terrain == 19 && version >= 116 ? Terrain::bamboo_forest :
+                terrain == 20 && version >= 116 ? Terrain::palm_forest :
+                terrain == 21 && version >= 116 ? Terrain::jungle_forest :
+                terrain == 22 && version >= 116 ? Terrain::fish_shore :
+                terrain == 23 && version >= 116 ? Terrain::fish_deep :
                 Terrain::grass;
             map->set_terrain(position, decoded);
             map->set_resource_amount(position, resources);
             map->set_elevation(position, elevation);
+            map->set_cliff(position, cliff);
         } else if (record == "explored" && version >= 5) {
             int player{};
             TilePosition position;

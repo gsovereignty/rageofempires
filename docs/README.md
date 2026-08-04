@@ -12,6 +12,9 @@ Reader-facing setup, controls, architecture, content, and status:
 
 ## Contracts
 
+- [Commercial multiplayer adapter ABI](contracts/COMMERCIAL_MULTIPLAYER_ADAPTER.md)
+  defines opt-in licensed-service loading without SDK redistribution.
+
 Durable reconstruction-native behavior:
 [contracts/](contracts/).
 

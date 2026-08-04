@@ -46,9 +46,14 @@ Recovered `AoK-HD-patched.c` behavior:
   presentation exposes eight player slots. It rejects creation outside the
   join window and duplicate slot assignment.
 
-These facts prove framing and dependency boundaries. They do not recover the
-inner game-message schemas routed by `FUN_0049c470`, Steam lobby ownership
-policy, or Steam service behavior.
+These facts prove framing and dependency boundaries. Further inspection shows
+that `FUN_0049c470` is not an inner Steam-message dispatcher: after accounting
+and a receive guard it forwards the sender, byte count, peer identifiers, and
+flags into legacy network core `FUN_0049b4f0`. `FUN_004a3c30` passes every P2P
+record not consumed as `0x1f5`, `0x1f8`, or `0x259` through that same boundary.
+Consequently Steam adds authentication and transport around the pre-existing
+legacy game protocol; recovering its packet schemas requires the legacy send,
+receive, acknowledgement, and command dispatch graph, not more Steam framing.
 
 ## Reconstruction artifact
 
@@ -58,6 +63,14 @@ goldens pin byte order, sizes, offsets, maximum ticket length, truncation, and
 wrong-kind rejection. No original binary, Steam ticket, credential, or service
 secret is copied into the repository.
 
+`commercial_multiplayer_service` adds a runtime-loaded adapter boundary for
+locally licensed Steamworks integration. Its hermetic backend proves eight
+accounts, discovery/full-lobby behavior, owner-only metadata, identity tickets,
+authentication rejection, reliable channel-0 P2P ordering, explicit and
+automatic host migration, and leave/rejoin. ABI and ownership rules are in
+`../contracts/COMMERCIAL_MULTIPLAYER_ADAPTER.md`. This is service-boundary
+coverage, not evidence of byte-compatible inner gameplay packets.
+
 ## Irreducible interoperability gap
 
 An original-client proof needs all of:
@@ -65,8 +78,8 @@ An original-client proof needs all of:
 1. a licensed, authenticated 32-bit Windows Steam environment running the
    supplied client;
 2. a Steam application identity accepted by that client and service;
-3. valid Steam lobby callbacks, P2P session establishment, and per-peer auth
-   tickets;
+3. a locally licensed ABI-v1 Steam adapter and live callbacks proving lobby,
+   P2P session establishment, and per-peer auth tickets;
 4. recovered inner lobby/game packet schemas and behavior;
 5. a two-client capture proving discovery/join, eight-slot lobby state,
    match start, commands, synchronization, disconnect behavior, cooperative

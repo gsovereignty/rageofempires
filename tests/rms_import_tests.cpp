@@ -1,3 +1,5 @@
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -17,7 +19,6 @@ void require(bool condition, const std::string& message) {
 }
 
 constexpr std::string_view common_script = R"rms(
-#include_drs random_map.def 54000
 <PLAYER_SETUP>
 random_placement
 override_map_size 48
@@ -87,13 +88,7 @@ void common_subset_parses_and_evaluates() {
     const aoe::RmsDocument document = aoe::parse_rms(common_script);
     require(document.syntactically_valid, document.error);
     require(document.playable(), "common subset unexpectedly refused");
-    require(document.unsupported.size() == 1, "include not preserved");
-    require(
-        !document.unsupported.front().affects_map &&
-        document.unsupported.front().exact_text ==
-            "#include_drs random_map.def 54000",
-        "include preservation mismatch"
-    );
+    require(document.unsupported.empty(), "common subset gained unsupported syntax");
     const auto first = aoe::evaluate_rms(
         document, 77, aoe::Civilization::chinese,
         aoe::Civilization::mayans
@@ -1113,9 +1108,136 @@ create_object VILLAGER {
     );
     require(
         !too_deep.syntactically_valid &&
-        too_deep.error == "unresolved or cyclic RMS include",
+        too_deep.error == "too many nested #includes",
         "classic include nesting limit was ignored"
     );
+}
+
+void put_u32(
+    std::vector<std::byte>& bytes, std::size_t offset, std::uint32_t value
+) {
+    for (std::size_t index = 0; index < 4; ++index) {
+        bytes[offset + index] = static_cast<std::byte>(
+            (value >> (index * 8)) & 0xffU
+        );
+    }
+}
+
+void write_bina_drs(
+    const std::filesystem::path& path, std::string_view payload,
+    std::int32_t resource_id
+) {
+    std::vector<std::byte> archive(88 + payload.size());
+    constexpr std::string_view copyright =
+        "Copyright (c) 1997 Ensemble Studios";
+    for (std::size_t index = 0; index < copyright.size(); ++index) {
+        archive[index] = static_cast<std::byte>(copyright[index]);
+    }
+    archive[40] = std::byte{'1'};
+    archive[41] = std::byte{'.'};
+    archive[42] = std::byte{'0'};
+    archive[43] = std::byte{'0'};
+    put_u32(archive, 56, 1);
+    put_u32(archive, 60, 88);
+    for (std::size_t index = 0; index < 4; ++index) {
+        archive[64 + index] = static_cast<std::byte>("anib"[index]);
+    }
+    put_u32(archive, 68, 76);
+    put_u32(archive, 72, 1);
+    put_u32(archive, 76, static_cast<std::uint32_t>(resource_id));
+    put_u32(archive, 80, 88);
+    put_u32(archive, 84, static_cast<std::uint32_t>(payload.size()));
+    for (std::size_t index = 0; index < payload.size(); ++index) {
+        archive[88 + index] = static_cast<std::byte>(payload[index]);
+    }
+    std::ofstream output(path, std::ios::binary | std::ios::trunc);
+    output.write(
+        reinterpret_cast<const char*>(archive.data()),
+        static_cast<std::streamsize>(archive.size())
+    );
+}
+
+void live_file_and_drs_includes_expand_or_refuse_atomically() {
+    const auto root = std::filesystem::temp_directory_path() /
+        "aoe-rms-include-contract";
+    std::filesystem::remove_all(root);
+    std::filesystem::create_directories(root / "maps" / "parts");
+    std::filesystem::create_directories(root / "install" / "Data");
+    {
+        std::ofstream output(root / "maps" / "parts" / "objects.inc");
+        output << "/* included comment */\n#define ENABLED\n";
+    }
+    write_bina_drs(
+        root / "install" / "Data" / "gamedata_x1.drs",
+        "#const COUNT 3\n", 54000
+    );
+    const auto script = root / "maps" / "root.rms";
+    {
+        std::ofstream output(script);
+        output << "/* #include missing-comment.inc */\n"
+                  "#include parts/objects.inc\n"
+                  "#include parts/objects.inc /* duplicate is ordered */\n"
+                  "#include_drs random_map.def 54000\n"
+                  "<OBJECTS_GENERATION>\n"
+                  "if ENABLED\n"
+                  "create_object VILLAGER {\n"
+                  " set_place_for_every_player\n"
+                  " number_of_objects COUNT\n"
+                  "}\nendif\n";
+    }
+    const aoe::RmsDocument document = aoe::parse_rms_file(
+        script, root / "install"
+    );
+    require(document.playable(), document.error);
+    const auto first = aoe::evaluate_rms(document, 177);
+    const auto repeat = aoe::evaluate_rms(document, 177);
+    require(
+        first && repeat &&
+        count_units(*first, aoe::UnitKind::villager, aoe::Player::blue) == 3 &&
+        aoe::random_map_hash(*first) == aoe::random_map_hash(*repeat),
+        "live include constants/order were not deterministic"
+    );
+    aoe::RandomMapSettings settings;
+    settings.seed = 177;
+    const auto live = aoe::generate_rms_map_file(
+        settings, script, root / "install"
+    );
+    require(
+        live.scenario &&
+        count_units(*live.scenario, aoe::UnitKind::villager,
+                    aoe::Player::blue) == 3,
+        "frontend file bridge bypassed include expansion"
+    );
+
+    const aoe::RmsDocument unresolved = aoe::parse_rms(
+        "#include missing.inc\n<LAND_GENERATION>\nbase_terrain GRASS\n"
+    );
+    require(
+        unresolved.syntactically_valid && !unresolved.playable() &&
+        unresolved.unsupported.size() == 1 &&
+        unresolved.unsupported.front().affects_map,
+        "resolver-free include remained silently playable"
+    );
+    const auto no_drs = aoe::parse_rms_file(script);
+    require(
+        !no_drs.syntactically_valid &&
+        no_drs.error.find("root.rms:4: random_map.def") !=
+            std::string::npos,
+        "missing DRS resolver lacked source-line refusal"
+    );
+    {
+        std::ofstream output(root / "maps" / "cycle.inc");
+        output << "#include root.rms\n";
+    }
+    {
+        std::ofstream output(script, std::ios::app);
+        output << "#include cycle.inc\n";
+    }
+    require(
+        !aoe::parse_rms_file(script, root / "install").syntactically_valid,
+        "filesystem include cycle did not refuse whole RMS"
+    );
+    std::filesystem::remove_all(root);
 }
 
 }  // namespace
@@ -1164,6 +1286,8 @@ int main() {
             classic_context_symbols_and_percent_table_are_exact);
         run("DRS include identity and depth",
             drs_resource_id_and_include_depth_are_enforced);
+        run("live filesystem and DRS includes",
+            live_file_and_drs_includes_expand_or_refuse_atomically);
         std::cout << "All RMS import tests passed\n";
         return 0;
     } catch (const std::exception& error) {

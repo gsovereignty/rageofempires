@@ -16965,30 +16965,20 @@ int SdlApp::run() {
         try {
             RandomMapSettings settings = active_random_settings;
             settings.blue_civilization = active_setup_civilization;
-            std::optional<std::string> custom_source;
+            std::optional<std::filesystem::path> custom_path;
             if (const char* path = SDL_getenv("AOE_RMS_PATH");
                 path != nullptr && path[0] != '\0') {
-                std::ifstream input(path, std::ios::binary);
-                if (!input) {
-                    throw std::runtime_error(
-                        std::string{"could not open RMS: "} + path
-                    );
-                }
-                custom_source.emplace(
-                    std::istreambuf_iterator<char>{input},
-                    std::istreambuf_iterator<char>{}
-                );
+                custom_path = std::filesystem::path(path);
                 active_random_map_source =
                     "RMS " + std::filesystem::path(path).filename().string();
             } else {
                 active_random_map_source = "CLASSIC RMS";
             }
-            const RmsMapResult generated = generate_rms_map(
-                settings,
-                custom_source
-                    ? std::optional<std::string_view>{*custom_source}
-                    : std::nullopt
-            );
+            const RmsMapResult generated = custom_path
+                ? generate_rms_map_file(
+                    settings, *custom_path, configured_asset_root()
+                )
+                : generate_rms_map(settings);
             if (!generated.scenario) {
                 throw std::runtime_error(generated.error);
             }

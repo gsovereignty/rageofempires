@@ -1,4 +1,5 @@
 #include <array>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -8,6 +9,20 @@
 #include "aoe/rms_import.hpp"
 
 int main(int argc, char** argv) {
+    if (argc == 4 && std::string_view(argv[1]) == "--script") {
+        aoe::RandomMapSettings settings;
+        settings.seed = 1;
+        const auto result = aoe::generate_rms_map_file(
+            settings, std::filesystem::path(argv[2]),
+            std::filesystem::path(argv[3])
+        );
+        if (!result.scenario) {
+            std::cerr << result.error << '\n';
+            return 1;
+        }
+        std::cout << aoe::random_map_hash(*result.scenario) << '\n';
+        return 0;
+    }
     constexpr std::array families{
         std::pair{std::string_view{"arabia"}, aoe::RandomMapKind::arabia},
         std::pair{std::string_view{"black_forest"}, aoe::RandomMapKind::black_forest},

@@ -1,11 +1,13 @@
 #include "aoe/rms_import.hpp"
 #include "aoe/game_rules.hpp"
+#include "aoe/legacy_assets.hpp"
 
 #include <algorithm>
 #include <array>
 #include <charconv>
 #include <cctype>
 #include <cmath>
+#include <fstream>
 #include <set>
 #include <sstream>
 #include <unordered_map>
@@ -40,6 +42,27 @@ std::vector<std::string> words(const std::string& line) {
     std::istringstream input(line);
     std::string word;
     while (input >> word) result.push_back(std::move(word));
+    return result;
+}
+
+std::string without_block_comments(
+    std::string_view line, bool& in_comment
+) {
+    std::string result;
+    for (std::size_t column = 0; column < line.size();) {
+        if (!in_comment && column + 1 < line.size() &&
+            line[column] == '/' && line[column + 1] == '*') {
+            in_comment = true;
+            column += 2;
+        } else if (in_comment && column + 1 < line.size() &&
+                   line[column] == '*' && line[column + 1] == '/') {
+            in_comment = false;
+            column += 2;
+        } else {
+            if (!in_comment) result.push_back(line[column]);
+            ++column;
+        }
+    }
     return result;
 }
 
@@ -1110,43 +1133,209 @@ std::vector<int> msvcrt_rms_random_sequence(
     return result;
 }
 
+namespace {
+
+RmsDocument include_failure(std::string message) {
+    RmsDocument failed;
+    failed.error = std::move(message);
+    return failed;
+}
+
+std::optional<std::string> read_text_file(
+    const std::filesystem::path& path
+) {
+    std::ifstream input(path, std::ios::binary);
+    if (!input) return std::nullopt;
+    return std::string(
+        std::istreambuf_iterator<char>{input},
+        std::istreambuf_iterator<char>{}
+    );
+}
+
+std::optional<std::string> read_drs_include(
+    const std::filesystem::path& root, int resource_id
+) {
+    // Expansion archives override base data, matching other legacy resource
+    // lookup in this reconstruction.
+    constexpr std::array<std::string_view, 3> names{
+        "gamedata_x1_p1.drs", "gamedata_x1.drs", "gamedata.drs"
+    };
+    for (const std::string_view name : names) {
+        const auto archive_path = root / "Data" / name;
+        if (!std::filesystem::is_regular_file(archive_path)) continue;
+        try {
+            const DrsArchive archive{archive_path};
+            if (!archive.contains("bina", resource_id)) continue;
+            const auto bytes = archive.read("bina", resource_id);
+            return std::string(
+                reinterpret_cast<const char*>(bytes.data()), bytes.size()
+            );
+        } catch (const LegacyAssetError&) {
+            return std::nullopt;
+        }
+    }
+    return std::nullopt;
+}
+
+}  // namespace
+
+RmsDocument parse_rms_file(
+    const std::filesystem::path& path,
+    const std::optional<std::filesystem::path>& installation_root,
+    const RmsImportLimits& limits
+) {
+    std::set<std::string> active;
+    std::string expansion_error;
+    const auto expand = [&](auto&& self, std::string_view text,
+                            const std::filesystem::path& source_path,
+                            std::size_t depth) -> std::optional<std::string> {
+        if (depth > limits.maximum_include_depth) {
+            expansion_error = "too many nested #includes";
+            return std::nullopt;
+        }
+        std::istringstream input{std::string(text)};
+        std::ostringstream output;
+        std::string line;
+        std::size_t line_number{};
+        bool comment{};
+        while (std::getline(input, line)) {
+            ++line_number;
+            const auto parts = words(trim(without_block_comments(
+                line, comment
+            )));
+            if (parts.empty() ||
+                (lower(parts[0]) != "#include" &&
+                 lower(parts[0]) != "#include_drs")) {
+                output << line << '\n';
+                continue;
+            }
+            const bool drs = lower(parts[0]) == "#include_drs";
+            if ((!drs && parts.size() != 2) ||
+                (drs && (parts.size() != 3 || !integer(parts[2])))) {
+                expansion_error = "invalid RMS include at " +
+                    source_path.string() + ":" +
+                    std::to_string(line_number);
+                return std::nullopt;
+            }
+            std::string identity;
+            std::optional<std::string> body;
+            std::filesystem::path nested_path = source_path;
+            if (drs) {
+                identity = "drs:" + parts[2];
+                if (installation_root) {
+                    body = read_drs_include(
+                        *installation_root, *integer(parts[2])
+                    );
+                }
+            } else {
+                nested_path = std::filesystem::path(parts[1]);
+                if (nested_path.is_relative()) {
+                    nested_path = source_path.parent_path() / nested_path;
+                }
+                nested_path = std::filesystem::weakly_canonical(nested_path);
+                identity = "file:" + nested_path.generic_string();
+                body = read_text_file(nested_path);
+            }
+            if (!body) {
+                expansion_error = "RMS include not found at " +
+                    source_path.string() + ":" +
+                    std::to_string(line_number) + ": " + parts[1];
+                return std::nullopt;
+            }
+            if (active.contains(identity)) {
+                expansion_error = "cyclic RMS include at " +
+                    source_path.string() + ":" +
+                    std::to_string(line_number) + ": " + parts[1];
+                return std::nullopt;
+            }
+            active.insert(identity);
+            const auto nested = self(
+                self, *body, nested_path, depth + 1
+            );
+            active.erase(identity);
+            if (!nested) return std::nullopt;
+            output << *nested;
+            if (!nested->empty() && nested->back() != '\n') output << '\n';
+            if (static_cast<std::size_t>(output.tellp()) >
+                limits.maximum_bytes) {
+                expansion_error = "RMS exceeds byte limit";
+                return std::nullopt;
+            }
+        }
+        return output.str();
+    };
+
+    const auto canonical = std::filesystem::weakly_canonical(path);
+    const auto source = read_text_file(canonical);
+    if (!source) return include_failure("could not open RMS: " + path.string());
+    active.insert("file:" + canonical.generic_string());
+    const auto expanded = expand(expand, *source, canonical, 0);
+    if (!expanded) {
+        return include_failure(expansion_error.empty()
+            ? "RMS include expansion failed" : expansion_error);
+    }
+    return parse_rms(*expanded, limits);
+}
+
 RmsDocument parse_rms(
     std::string_view source,
     const std::unordered_map<std::string, std::string>& includes,
     const RmsImportLimits& limits
 ) {
     std::set<std::string> active;
+    std::string expansion_error;
     const auto expand = [&](auto&& self, std::string_view text,
                             std::size_t depth) -> std::optional<std::string> {
-        if (depth > limits.maximum_include_depth) return std::nullopt;
+        if (depth > limits.maximum_include_depth) {
+            expansion_error = "too many nested #includes";
+            return std::nullopt;
+        }
         std::istringstream input{std::string(text)};
         std::ostringstream output;
         std::string line;
+        bool comment{};
         while (std::getline(input, line)) {
-            const std::vector<std::string> parts = words(trim(line));
+            const std::vector<std::string> parts = words(trim(
+                without_block_comments(line, comment)
+            ));
             if (!parts.empty() &&
                 (lower(parts[0]) == "#include" ||
                  lower(parts[0]) == "#include_drs")) {
                 const bool drs = lower(parts[0]) == "#include_drs";
                 if ((!drs && parts.size() != 2) ||
                     (drs && (parts.size() != 3 || !integer(parts[2])))) {
+                    expansion_error = "invalid RMS include";
                     return std::nullopt;
                 }
                 const std::string key = lower(parts[1]);
                 const std::string resource_key = drs ? parts[2] : "";
-                const auto found = std::ranges::find_if(
-                    includes, [&key, &resource_key](const auto& entry) {
-                        const std::string entry_key = lower(entry.first);
-                        return entry_key == key ||
-                            (!resource_key.empty() &&
-                             entry_key == resource_key);
-                    });
-                if (found == includes.end() || active.contains(key)) {
+                auto found = includes.end();
+                std::string selected_key;
+                for (auto candidate = includes.begin();
+                     candidate != includes.end(); ++candidate) {
+                    const std::string candidate_key = lower(candidate->first);
+                    const bool numeric_match = !resource_key.empty() &&
+                        candidate_key == resource_key;
+                    const bool name_match = candidate_key == key;
+                    if (!numeric_match && !name_match) continue;
+                    if (found == includes.end() ||
+                        (numeric_match && selected_key != resource_key) ||
+                        (candidate_key == selected_key &&
+                         candidate->first < found->first)) {
+                        found = candidate;
+                        selected_key = candidate_key;
+                    }
+                }
+                const std::string identity = drs ? resource_key : key;
+                if (found == includes.end() || active.contains(identity)) {
+                    expansion_error = found == includes.end()
+                        ? "RMS include not found: " + parts[1]
+                        : "cyclic RMS include: " + parts[1];
                     return std::nullopt;
                 }
-                active.insert(key);
+                active.insert(identity);
                 const auto nested = self(self, found->second, depth + 1);
-                active.erase(key);
+                active.erase(identity);
                 if (!nested) return std::nullopt;
                 output << *nested;
                 if (!nested->empty() && nested->back() != '\n') output << '\n';
@@ -1154,14 +1343,18 @@ RmsDocument parse_rms(
                 output << line << '\n';
             }
             if (static_cast<std::size_t>(output.tellp()) >
-                limits.maximum_bytes) return std::nullopt;
+                limits.maximum_bytes) {
+                expansion_error = "RMS exceeds byte limit";
+                return std::nullopt;
+            }
         }
         return output.str();
     };
     const auto expanded = expand(expand, source, 0);
     if (!expanded) {
         RmsDocument failed;
-        failed.error = "unresolved or cyclic RMS include";
+        failed.error = expansion_error.empty()
+            ? "RMS include expansion failed" : expansion_error;
         return failed;
     }
     return parse_rms(*expanded, limits);
@@ -1378,8 +1571,6 @@ RmsDocument parse_rms(
             random_weight = 100;
             continue;
         }
-        const bool include =
-            name == "#include_drs" || name == "#include";
         if (!supported_directive(name)) {
             const std::size_t first = index;
             std::size_t last = index;
@@ -1412,7 +1603,7 @@ RmsDocument parse_rms(
             }
             document.unsupported.push_back({
                 {first + 1, last + 1}, std::move(exact),
-                "unsupported directive " + name, !include,
+                "unsupported directive " + name, true,
             });
             index = last;
             continue;
@@ -2386,6 +2577,32 @@ create_object STONE {
         settings.seed,
         context,
         settings.blue_civilization,
+        settings.red_civilization
+    );
+    if (!scenario) return {std::nullopt, "RMS evaluation failed"};
+    return {std::move(scenario), {}};
+}
+
+RmsMapResult generate_rms_map_file(
+    const RandomMapSettings& settings,
+    const std::filesystem::path& path,
+    const std::optional<std::filesystem::path>& installation_root
+) {
+    const RmsDocument document = parse_rms_file(path, installation_root);
+    if (!document.syntactically_valid) {
+        return {std::nullopt, document.error};
+    }
+    if (!document.playable()) {
+        const std::string reason = document.unsupported.empty()
+            ? "RMS refused"
+            : document.unsupported.front().reason + " at line " +
+                std::to_string(document.unsupported.front().span.first_line);
+        return {std::nullopt, reason};
+    }
+    RmsEvaluationContext context;
+    context.map_size = settings.size;
+    auto scenario = evaluate_rms(
+        document, settings.seed, context, settings.blue_civilization,
         settings.red_civilization
     );
     if (!scenario) return {std::nullopt, "RMS evaluation failed"};

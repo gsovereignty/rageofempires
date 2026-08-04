@@ -64,9 +64,15 @@ open `aoe2-rms-lib` reference:
 - Caller-owned `#include` and `#include_drs` bodies expand recursively before
   parsing. DRS bodies may be keyed by case-insensitive filename or numeric
   resource ID. Cycles, missing inputs, invalid include forms, and nesting past
-  the original 32-level ceiling fail atomically. The no-resolver overload still
-  preserves includes for inspection; `BUG-RMS-002` separately tracks that
-  legacy overload's permissive playability result.
+  the original 32-level ceiling fail atomically. Resolver-free parsing marks
+  either include form map-affecting and nonplayable, preventing omitted content
+  from silently producing a different map.
+- Live `AOE_RMS_PATH` loading expands `#include` relative to each including
+  file. `#include_drs` reads BINA resources by numeric ID from an explicitly
+  configured, packaged `game_data/Data/gamedata*.drs` root. Expansion archives
+  take precedence over base data. Runtime never probes parent workspace paths.
+  Missing resources report including filename and line; cycles and excess
+  nesting report distinct failures.
 
 Evaluation constructs a blank map at the selected size, fills base terrain,
 then applies active land, elevation, terrain, connection, and object
@@ -99,6 +105,16 @@ include depth,
 same-seed output identity, civilization flow, exact unsupported spans,
 closed failure for malformed/oversized input, live simulation construction,
 and Scenario66 serialization.
+
+Include regression additionally covers relative and duplicate filesystem
+includes, block-comment suppression, DRS resource 54000, included constants
+and definitions, source-ordered evaluation, same-seed identity, missing
+resolver diagnostics, cycles, and depth failure. A read-only validation against
+the seven supplied HD scripts that use `#include_drs random_map.def 54000`
+confirmed every script consumes the expansion resource: Capricious and Moats
+generate deterministic maps, while five scripts refuse on their later,
+independently unsupported semantics instead of running with the include
+discarded.
 
 ## Supplied-package audit
 

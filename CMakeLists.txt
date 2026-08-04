@@ -275,6 +275,13 @@ add_test(
     NAME render_asset_coverage_tests
     COMMAND render_asset_coverage_tests
 )
+add_test(
+    NAME villager_death_sdl_smoke
+    COMMAND bash
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/villager_death_sdl_smoke.sh
+        $<TARGET_FILE:aoe_reconstruction>
+)
+set_tests_properties(villager_death_sdl_smoke PROPERTIES TIMEOUT 30)
 
 add_executable(
     renderer_asset_coverage_audit

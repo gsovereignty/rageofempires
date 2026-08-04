@@ -672,6 +672,22 @@ const UnitDeathAnimationSet* unit_death_animation_set(UnitKind kind) {
         : &*found;
 }
 
+std::size_t unit_death_animation_frame(
+    UnitKind kind,
+    int elapsed_simulation_ticks
+) {
+    const UnitDeathAnimationSet* animation =
+        unit_death_animation_set(kind);
+    if (animation == nullptr || animation->frames <= 0) return 0;
+    const std::size_t elapsed_frames = static_cast<std::size_t>(
+        std::max(elapsed_simulation_ticks, 0)
+    ) * 2U;
+    return std::min(
+        elapsed_frames,
+        static_cast<std::size_t>(animation->frames - 1)
+    );
+}
+
 std::span<const NavalCompositeSet> canonical_naval_composite_sets() {
     return naval_composite_sets;
 }

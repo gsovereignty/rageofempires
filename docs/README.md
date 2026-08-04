@@ -38,6 +38,8 @@ Sprite, technology, civilization, renderer, and asset-coverage mappings:
 
 ## Evidence
 
+- [Villager death presentation evidence](evidence/VILLAGER_DEATH_PRESENTATION_EVIDENCE.md)
+  proves exact VMBAS_DN frames, hotspots, corpse hold, and unit/rubble split.
 - [Market standing runtime evidence](evidence/MARKET_STANDING_RUNTIME_EVIDENCE.md)
   isolates fixed completed-Market frames from moving Trade Cart overlap.
 - [Trade Cart selection portrait evidence](evidence/TRADE_CART_SELECTION_PORTRAIT_EVIDENCE.md)

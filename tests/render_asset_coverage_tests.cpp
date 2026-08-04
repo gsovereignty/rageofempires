@@ -440,6 +440,13 @@ void canonical_resolver_selects_exact_actions() {
         villager_death.request.required_frame_count == 15,
         "villager death must use exact live DAT/DRS animation"
     );
+    require(
+        aoe::unit_death_animation_frame(aoe::UnitKind::villager, 0) == 0 &&
+        aoe::unit_death_animation_frame(aoe::UnitKind::villager, 1) == 2 &&
+        aoe::unit_death_animation_frame(aoe::UnitKind::villager, 7) == 14 &&
+        aoe::unit_death_animation_frame(aoe::UnitKind::villager, 17) == 14,
+        "villager death must play once then hold corpse frame 14"
+    );
 }
 
 void canonical_unit_states_cover_runtime_special_actions() {

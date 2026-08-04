@@ -36,6 +36,9 @@ struct LegacyGraphic {
     std::int16_t player_color{};
     std::int16_t frame_count{};
     std::int16_t angle_count{};
+    float speed_adjust{};
+    float frame_rate{};
+    float replay_delay{};
     std::int16_t graphic_id{};
     std::uint8_t mirroring_mode{};
     std::vector<LegacyGraphicDelta> deltas;

@@ -381,6 +381,14 @@ render_component_animation_frame(
     std::uint64_t animation_tick,
     bool active
 );
+[[nodiscard]] std::optional<std::size_t>
+render_component_animation_frame_at_time(
+    std::size_t frames_per_angle,
+    std::uint64_t elapsed_milliseconds,
+    float frame_rate_seconds,
+    float replay_delay_seconds,
+    bool active
+);
 [[nodiscard]] std::string render_unit_kind_name(UnitKind kind);
 [[nodiscard]] std::string render_building_kind_name(BuildingKind kind);
 [[nodiscard]] std::string asset_coverage_status_name(

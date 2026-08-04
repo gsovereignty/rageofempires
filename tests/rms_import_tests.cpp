@@ -1019,6 +1019,105 @@ create_object SHORE_FISH {
             "save lost cliff topology");
 }
 
+void classic_context_symbols_and_percent_table_are_exact() {
+    constexpr std::string_view conditional = R"rms(
+<LAND_GENERATION>
+base_terrain GRASS
+<OBJECTS_GENERATION>
+if TINY_MAP
+create_object VILLAGER {
+ set_place_for_every_player
+ number_of_objects 2
+}
+else
+create_object VILLAGER {
+ set_place_for_every_player
+ number_of_objects 5
+}
+endif
+if REGICIDE
+create_object KING {
+ set_place_for_every_player
+}
+endif
+)rms";
+    aoe::RmsEvaluationContext context;
+    context.map_size = aoe::RandomMapSize::tiny;
+    context.definitions.insert("ReGiCiDe");
+    const auto scenario = aoe::evaluate_rms(
+        aoe::parse_rms(conditional), 1, context
+    );
+    require(scenario.has_value(), "context-conditional RMS refused");
+    require(
+        scenario->map.width() == 120 &&
+        count_units(*scenario, aoe::UnitKind::villager,
+                    aoe::Player::blue) == 2 &&
+        count_units(*scenario, aoe::UnitKind::king,
+                    aoe::Player::blue) == 1,
+        "map-size or caller game-mode definition was not applied"
+    );
+
+    constexpr std::string_view residual = R"rms(
+<LAND_GENERATION>
+base_terrain GRASS
+<OBJECTS_GENERATION>
+start_random
+percent_chance 1
+create_object KING {
+ set_place_for_every_player
+}
+end_random
+)rms";
+    const auto no_branch = aoe::evaluate_rms(
+        aoe::parse_rms(residual), 100
+    );
+    require(no_branch.has_value(), "residual random fixture refused");
+    require(
+        count_units(*no_branch, aoe::UnitKind::king,
+                    aoe::Player::blue) == 0,
+        "percent_chance remainder was renormalized into selected branch"
+    );
+}
+
+void drs_resource_id_and_include_depth_are_enforced() {
+    const std::unordered_map<std::string, std::string> by_id{{
+        "54000", "#const COUNT 3\n"
+    }};
+    constexpr std::string_view source = R"rms(
+#include_drs random_map.def 54000
+<OBJECTS_GENERATION>
+create_object VILLAGER {
+ set_place_for_every_player
+ number_of_objects COUNT
+}
+)rms";
+    const auto scenario = aoe::evaluate_rms(
+        aoe::parse_rms(source, by_id), 9
+    );
+    require(
+        scenario && count_units(*scenario, aoe::UnitKind::villager,
+                                aoe::Player::blue) == 3,
+        "DRS include did not resolve through classic numeric resource ID"
+    );
+
+    std::unordered_map<std::string, std::string> chain;
+    for (int index = 0; index < 33; ++index) {
+        chain["i" + std::to_string(index)] = index == 32
+            ? "<LAND_GENERATION>\nbase_terrain GRASS\n"
+            : "#include i" + std::to_string(index + 1) + "\n";
+    }
+    aoe::RmsImportLimits limits;
+    limits.maximum_include_depth = 31;
+    const aoe::RmsDocument too_deep = aoe::parse_rms(
+        "#include i0\n", chain, limits
+    );
+    require(
+        !too_deep.syntactically_valid &&
+        too_deep.error == "unresolved or cyclic RMS include",
+        "classic include nesting limit was ignored"
+    );
+}
+
 }  // namespace
 
 int main() {
@@ -1061,6 +1160,10 @@ int main() {
             supplied_temporary_group_distance_is_bounded_alias);
         run("recovered RNG/include/cliff/variant contracts",
             recovered_rng_include_cliff_and_variant_contracts);
+        run("classic context and percent table",
+            classic_context_symbols_and_percent_table_are_exact);
+        run("DRS include identity and depth",
+            drs_resource_id_and_include_depth_are_enforced);
         std::cout << "All RMS import tests passed\n";
         return 0;
     } catch (const std::exception& error) {

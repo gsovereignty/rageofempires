@@ -206,6 +206,31 @@ FrontendLogicalTransform frontend_logical_transform(
     };
 }
 
+FrontendLogicalTransform native_frontend_logical_transform(
+    int window_width,
+    int window_height
+) {
+    if (window_width <= 0 || window_height <= 0) {
+        return {0.0F, 0.0F, 0.0F, native_frontend_logical_width,
+                native_frontend_logical_height};
+    }
+    const float scale = std::min(
+        static_cast<float>(window_width) /
+            static_cast<float>(native_frontend_logical_width),
+        static_cast<float>(window_height) /
+            static_cast<float>(native_frontend_logical_height)
+    );
+    return {
+        scale,
+        (static_cast<float>(window_width) -
+            static_cast<float>(native_frontend_logical_width) * scale) * 0.5F,
+        (static_cast<float>(window_height) -
+            static_cast<float>(native_frontend_logical_height) * scale) * 0.5F,
+        native_frontend_logical_width,
+        native_frontend_logical_height,
+    };
+}
+
 std::span<const FrontendMenuItem> main_menu_items() {
     return main_items;
 }

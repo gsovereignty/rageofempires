@@ -37,6 +37,18 @@ capture original 800x600 env \
     AOE_DISABLE_LEGACY_ASSETS=0 \
     AOE_MENU_REFERENCE=1 \
     AOE_MENU_FOCUS=0
+capture native-normal 1366x768 env \
+    AOE_DISABLE_LEGACY_ASSETS=0 AOE_MAIN_MENU=1 AOE_MENU_FOCUS=4
+capture native-focused 1366x768 env \
+    AOE_DISABLE_LEGACY_ASSETS=0 AOE_MAIN_MENU=1 AOE_MENU_FOCUS=1
+capture native-pressed 1366x768 env \
+    AOE_DISABLE_LEGACY_ASSETS=0 AOE_MAIN_MENU=1 AOE_MENU_FOCUS=1 \
+    AOE_NATIVE_MENU_PRESSED=0
+capture native-four-three 1024x768 env \
+    AOE_DISABLE_LEGACY_ASSETS=0 AOE_MAIN_MENU=1 AOE_MENU_FOCUS=1
+capture native-click 1366x768 env \
+    AOE_DISABLE_LEGACY_ASSETS=0 AOE_MAIN_MENU=1 \
+    AOE_MENU_ACTIVATION_PROOF=native-single
 
 python3 - "$smoke_dir" <<'PY'
 import pathlib
@@ -124,4 +136,32 @@ if original(200, 300) == main(200, 300):
 log = (root / "original.log").read_text(errors="replace")
 if "using original menu SLP" not in log:
     raise SystemExit("original menu SLP load not confirmed")
+
+native_normal_path = root / "native-normal.bmp"
+native_focused_path = root / "native-focused.bmp"
+native_pressed_path = root / "native-pressed.bmp"
+width, height, native_normal = read(native_normal_path)
+if (width, height) != (1366, 768):
+    raise SystemExit("native menu did not retain exact design canvas")
+for name in ("native-normal", "native-focused", "native-pressed",
+             "native-four-three", "native-click"):
+    if "using original menu SLP" not in (
+        root / f"{name}.log"
+    ).read_text(errors="replace"):
+        raise SystemExit(f"{name}: archive-backed proof did not opt in")
+if native_normal_path.read_bytes() == native_focused_path.read_bytes():
+    raise SystemExit("native focused frame did not change pixels")
+if native_focused_path.read_bytes() == native_pressed_path.read_bytes():
+    raise SystemExit("native pressed frame did not change pixels")
+
+width, height, native_four_three = read(root / "native-four-three.bmp")
+if (width, height) != (1024, 768):
+    raise SystemExit("native alternate-resolution capture dimensions wrong")
+if native_four_three(512, 20) != (10, 9, 7):
+    raise SystemExit("native alternate-resolution top letterbox absent")
+if native_four_three(512, 384) == (10, 9, 7):
+    raise SystemExit("native alternate-resolution canvas absent")
+
+if (root / "native-click.bmp").read_bytes() == native_focused_path.read_bytes():
+    raise SystemExit("native alpha-mask click did not open Single Player")
 PY

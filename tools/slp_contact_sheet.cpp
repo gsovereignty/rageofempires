@@ -95,12 +95,19 @@ int main(int argc, char** argv) {
             frames.push_back(aoe::decode_slp_frame(
                 bytes, palette, index
             ));
+            std::size_t opaque{};
+            for (std::size_t component = 3;
+                 component < frames.back().rgba.size();
+                 component += 4) {
+                opaque += frames.back().rgba[component] != 0 ? 1U : 0U;
+            }
             cell_width = std::max(cell_width, frames.back().width);
             cell_height = std::max(cell_height, frames.back().height);
             std::cout << index << '\t' << frames.back().width << 'x'
                       << frames.back().height << '\t'
                       << frames.back().hotspot_x << ','
-                      << frames.back().hotspot_y << '\n';
+                      << frames.back().hotspot_y << '\t'
+                      << opaque << " opaque pixels\n";
         }
         constexpr int columns = 4;
         const int rows =

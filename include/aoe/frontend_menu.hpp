@@ -106,8 +106,14 @@ struct FrontendHitMask {
 
 inline constexpr int frontend_logical_width = 800;
 inline constexpr int frontend_logical_height = 600;
+inline constexpr int native_frontend_logical_width = 1366;
+inline constexpr int native_frontend_logical_height = 768;
 
 [[nodiscard]] FrontendLogicalTransform frontend_logical_transform(
+    int window_width,
+    int window_height
+);
+[[nodiscard]] FrontendLogicalTransform native_frontend_logical_transform(
     int window_width,
     int window_height
 );

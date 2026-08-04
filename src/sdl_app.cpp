@@ -255,6 +255,8 @@ FrontendMenuScreen frontend_menu_screen(FrontendScreen screen) {
 FrontendScreen active_frontend_screen{FrontendScreen::main_menu};
 std::string active_frontend_status{"SELECT A MODE"};
 std::size_t active_frontend_focus{1};
+std::optional<std::size_t> active_native_frontend_hover;
+std::optional<std::size_t> active_native_frontend_pressed;
 RandomMapSettings active_random_settings{
     RandomMapKind::arabia, RandomMapSize::normal, 1
 };
@@ -653,6 +655,9 @@ struct LegacySprites {
     SDL_Texture* frontend_background{};
     LegacySprite original_frontend_background;
     LegacySprite original_frontend_logo;
+    std::array<std::array<LegacySprite, 4>, 7>
+        original_frontend_controls;
+    std::array<FrontendHitMask, 7> original_frontend_hit_masks;
     LegacySprite statistics_background;
     LegacySprite statistics_decal;
     LegacySprite statistics_banner_blue;
@@ -744,6 +749,9 @@ struct LegacySprites {
         frontend_background = nullptr;
         original_frontend_background.destroy();
         original_frontend_logo.destroy();
+        for (auto& states : original_frontend_controls) {
+            for (LegacySprite& sprite : states) sprite.destroy();
+        }
         statistics_background.destroy();
         statistics_decal.destroy();
         statistics_banner_blue.destroy();
@@ -3455,6 +3463,60 @@ LegacySprites load_local_legacy_sprites(
                     menu_palette,
                     49
                 );
+            const std::vector<std::byte> menu_bytes = read_binary_file(
+                data_root / "Slp" / "main_32.slp"
+            );
+            const auto controls = native_main_menu_controls();
+            for (std::size_t index = 0; index < controls.size(); ++index) {
+                FrontendHitMask& mask =
+                    sprites.original_frontend_hit_masks[index];
+                mask.width = static_cast<int>(controls[index].bounds.width);
+                mask.height = static_cast<int>(controls[index].bounds.height);
+                mask.opaque.assign(
+                    static_cast<std::size_t>(mask.width * mask.height), 0
+                );
+                for (std::size_t state = 0; state < 4; ++state) {
+                    // Exit has three archive frames and is never disabled.
+                    const std::size_t frame_index =
+                        index == controls.size() - 1 && state == 3
+                        ? controls[index].first_frame
+                        : controls[index].first_frame + state;
+                    RgbaFrame frame = decode_slp_frame(
+                        menu_bytes, menu_palette, frame_index, 1
+                    );
+                    SDL_Surface* surface = SDL_CreateSurfaceFrom(
+                        frame.width, frame.height, SDL_PIXELFORMAT_RGBA32,
+                        frame.rgba.data(), frame.width * 4
+                    );
+                    if (surface == nullptr) throw LegacyAssetError{SDL_GetError()};
+                    SDL_Texture* texture = SDL_CreateTextureFromSurface(
+                        renderer, surface
+                    );
+                    SDL_DestroySurface(surface);
+                    if (texture == nullptr) throw LegacyAssetError{SDL_GetError()};
+                    SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST);
+                    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+                    sprites.original_frontend_controls[index][state] = {
+                        texture, frame.width, frame.height,
+                        frame.hotspot_x, frame.hotspot_y,
+                        -1, frame_index, 1,
+                    };
+                    // Native image-control region is union of every supplied
+                    // state, so rollover-only pixels remain interactive.
+                    for (int y = 0; y < frame.height; ++y) {
+                        for (int x = 0; x < frame.width; ++x) {
+                            const std::size_t pixel = static_cast<std::size_t>(
+                                (y * frame.width + x) * 4
+                            );
+                            if (frame.rgba[pixel + 3] != 0) {
+                                mask.opaque[static_cast<std::size_t>(
+                                    y * mask.width + x
+                                )] = 1;
+                            }
+                        }
+                    }
+                }
+            }
             SDL_Log(
                 "using original menu SLP from %s",
                 (data_root / "Slp" / "main_32.slp")
@@ -13109,8 +13171,17 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
         active_frontend_screen == FrontendScreen::single_player_menu ||
         active_frontend_screen == FrontendScreen::ai_arabia_size_menu;
     if (classic_menu) {
+        const bool native_main_menu =
+            active_frontend_screen == FrontendScreen::main_menu &&
+            active_legacy_sprites.original_frontend_background.texture !=
+                nullptr;
         const FrontendLogicalTransform transform =
-            frontend_logical_transform(
+            native_main_menu
+            ? native_frontend_logical_transform(
+                view_pixel_width,
+                view_pixel_height + hud_height
+            )
+            : frontend_logical_transform(
                 view_pixel_width,
                 view_pixel_height + hud_height
             );
@@ -13120,10 +13191,10 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
             static_cast<int>(std::lround(transform.offset_x)),
             static_cast<int>(std::lround(transform.offset_y)),
             static_cast<int>(std::lround(
-                frontend_logical_width * transform.scale
+                transform.logical_width * transform.scale
             )),
             static_cast<int>(std::lround(
-                frontend_logical_height * transform.scale
+                transform.logical_height * transform.scale
             )),
         };
         SDL_SetRenderViewport(renderer, &viewport);
@@ -13132,19 +13203,16 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
         );
         const SDL_FRect canvas{
             0.0F, 0.0F,
-            static_cast<float>(frontend_logical_width),
-            static_cast<float>(frontend_logical_height),
+            static_cast<float>(transform.logical_width),
+            static_cast<float>(transform.logical_height),
         };
         if (active_legacy_sprites
                 .original_frontend_background.texture != nullptr) {
-            const SDL_FRect source{
-                342.0F, 0.0F, 1024.0F, 768.0F
-            };
             SDL_RenderTexture(
                 renderer,
                 active_legacy_sprites
                     .original_frontend_background.texture,
-                &source,
+                nullptr,
                 &canvas
             );
         } else if (active_legacy_sprites.frontend_background != nullptr) {
@@ -13161,7 +13229,7 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
             set_color(renderer, {61, 51, 34, 255});
             SDL_RenderFillRect(renderer, &street);
         }
-        if (active_legacy_sprites
+        if (!native_main_menu && active_legacy_sprites
                 .original_frontend_logo.texture != nullptr) {
             const SDL_FRect logo{
                 -130.0F, 4.0F, 435.0F, 135.0F
@@ -13193,7 +13261,43 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
             frontend_menu_screen(active_frontend_screen);
         const auto items = frontend_menu_items(model_screen);
 
-        for (std::size_t index = 0; index < main_menu_items().size();
+        if (native_main_menu) {
+            const auto controls = native_main_menu_controls();
+            for (std::size_t index = 0; index < controls.size(); ++index) {
+                const auto item = std::ranges::find_if(
+                    main_menu_items(),
+                    [&](const FrontendMenuItem& candidate) {
+                        return candidate.command == controls[index].command;
+                    }
+                );
+                const bool enabled =
+                    item != main_menu_items().end() && item->enabled;
+                FrontendControlState state = FrontendControlState::normal;
+                if (!enabled) {
+                    state = FrontendControlState::disabled;
+                } else if (active_native_frontend_pressed == index) {
+                    state = FrontendControlState::pressed;
+                } else if (active_native_frontend_hover == index ||
+                           (active_frontend_focus < items.size() &&
+                            items[active_frontend_focus].command ==
+                                controls[index].command)) {
+                    state = FrontendControlState::focused;
+                }
+                const LegacySprite& sprite =
+                    active_legacy_sprites.original_frontend_controls[index]
+                        [static_cast<std::size_t>(state)];
+                const SDL_FRect target{
+                    controls[index].bounds.x,
+                    controls[index].bounds.y,
+                    controls[index].bounds.width,
+                    controls[index].bounds.height,
+                };
+                SDL_RenderTexture(renderer, sprite.texture, nullptr, &target);
+            }
+        }
+
+        for (std::size_t index = 0;
+             !native_main_menu && index < main_menu_items().size();
              ++index) {
             const FrontendMenuItem& item = main_menu_items()[index];
             const bool focused =
@@ -13313,7 +13417,7 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
                     y += 14.0F;
                 }
             }
-        } else if (active_frontend_focus < items.size()) {
+        } else if (!native_main_menu && active_frontend_focus < items.size()) {
             const FrontendMenuItem& item = items[active_frontend_focus];
             const SDL_FRect help{326, 394, 438, 128};
             render_beveled_panel(renderer, help, {151, 98, 48, 245});
@@ -16099,6 +16203,12 @@ int SdlApp::run() {
             )
         );
     }
+    if (const char* pressed = SDL_getenv("AOE_NATIVE_MENU_PRESSED");
+        pressed != nullptr && pressed[0] != '\0') {
+        active_native_frontend_pressed = static_cast<std::size_t>(
+            std::clamp(SDL_atoi(pressed), 0, 6)
+        );
+    }
     if (const char* setup = SDL_getenv("AOE_RANDOM_MAP_SETUP");
         setup != nullptr && setup[0] != '0') {
         active_frontend_screen = FrontendScreen::single_player_setup;
@@ -16769,6 +16879,17 @@ int SdlApp::run() {
         } else if (std::string_view{proof} == "enter") {
             activation.type = SDL_EVENT_KEY_DOWN;
             activation.key.key = SDLK_RETURN;
+            SDL_PushEvent(&activation);
+        } else if (std::string_view{proof} == "native-single") {
+            const auto transform = native_frontend_logical_transform(
+                view_pixel_width, view_pixel_height + hud_height
+            );
+            activation.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
+            activation.button.button = SDL_BUTTON_LEFT;
+            activation.button.x = transform.offset_x + 600.0F * transform.scale;
+            activation.button.y = transform.offset_y + 100.0F * transform.scale;
+            SDL_PushEvent(&activation);
+            activation.type = SDL_EVENT_MOUSE_BUTTON_UP;
             SDL_PushEvent(&activation);
         }
     }
@@ -17656,16 +17777,53 @@ int SdlApp::run() {
                     FrontendScreen::ai_arabia_size_menu)
             ) {
                 mouse_position = {event.motion.x, event.motion.y};
+                const bool native_main =
+                    active_frontend_screen == FrontendScreen::main_menu &&
+                    active_legacy_sprites.original_frontend_background
+                        .texture != nullptr;
                 const auto logical =
-                    frontend_logical_transform(
+                    (native_main
+                     ? native_frontend_logical_transform(
+                         view_pixel_width,
+                         view_pixel_height + hud_height
+                     )
+                     : frontend_logical_transform(
                         view_pixel_width,
                         view_pixel_height + hud_height
-                    ).window_to_logical(
+                     )).window_to_logical(
                         event.motion.x, event.motion.y
                     );
                 if (logical) {
                     const FrontendMenuScreen screen =
                         frontend_menu_screen(active_frontend_screen);
+                    if (native_main) {
+                        active_native_frontend_hover =
+                            native_frontend_hit_test(
+                                native_main_menu_controls(),
+                                active_legacy_sprites
+                                    .original_frontend_hit_masks,
+                                (*logical)[0], (*logical)[1]
+                            );
+                        if (active_native_frontend_hover) {
+                            const auto command = native_main_menu_controls()
+                                [*active_native_frontend_hover].command;
+                            const auto item = std::ranges::find_if(
+                                main_menu_items(),
+                                [&](const FrontendMenuItem& candidate) {
+                                    return candidate.command == command;
+                                }
+                            );
+                            if (item != main_menu_items().end()) {
+                                active_frontend_focus =
+                                    static_cast<std::size_t>(
+                                        item - main_menu_items().begin()
+                                    );
+                                active_frontend_status =
+                                    std::string{item->help};
+                            }
+                        }
+                        continue;
+                    }
                     if (const auto hit = frontend_menu_hit_test(
                             screen, (*logical)[0], (*logical)[1])) {
                         active_frontend_focus = *hit;
@@ -17711,6 +17869,54 @@ int SdlApp::run() {
                     multiplayer_presentation->chat_feedback =
                         "MESSAGE LIMIT: 4096 UTF-8 BYTES";
                 }
+            } else if (
+                event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
+                event.button.button == SDL_BUTTON_LEFT &&
+                active_frontend_screen == FrontendScreen::main_menu &&
+                active_legacy_sprites.original_frontend_background.texture !=
+                    nullptr
+            ) {
+                const auto logical = native_frontend_logical_transform(
+                    view_pixel_width, view_pixel_height + hud_height
+                ).window_to_logical(event.button.x, event.button.y);
+                active_native_frontend_pressed = logical
+                    ? native_frontend_hit_test(
+                        native_main_menu_controls(),
+                        active_legacy_sprites.original_frontend_hit_masks,
+                        (*logical)[0], (*logical)[1]
+                    )
+                    : std::nullopt;
+            } else if (
+                event.type == SDL_EVENT_MOUSE_BUTTON_UP &&
+                event.button.button == SDL_BUTTON_LEFT &&
+                active_frontend_screen == FrontendScreen::main_menu &&
+                active_legacy_sprites.original_frontend_background.texture !=
+                    nullptr
+            ) {
+                const auto logical = native_frontend_logical_transform(
+                    view_pixel_width, view_pixel_height + hud_height
+                ).window_to_logical(event.button.x, event.button.y);
+                const auto released = logical
+                    ? native_frontend_hit_test(
+                        native_main_menu_controls(),
+                        active_legacy_sprites.original_frontend_hit_masks,
+                        (*logical)[0], (*logical)[1]
+                    )
+                    : std::nullopt;
+                if (released && released == active_native_frontend_pressed) {
+                    const auto& control =
+                        native_main_menu_controls()[*released];
+                    const auto item = std::ranges::find_if(
+                        main_menu_items(),
+                        [&](const FrontendMenuItem& candidate) {
+                            return candidate.command == control.command;
+                        }
+                    );
+                    if (item != main_menu_items().end() && item->enabled) {
+                        activate_frontend_command(control.command);
+                    }
+                }
+                active_native_frontend_pressed.reset();
             } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
                 mouse_position = {event.button.x, event.button.y};
                 if (event.button.button == SDL_BUTTON_LEFT &&

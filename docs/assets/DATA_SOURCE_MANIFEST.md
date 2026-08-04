@@ -7,11 +7,10 @@ used only as research evidence. It compares tracked `game_data/` tree with
 supplied HD Edition tree and supplied 1999 retail tree by file size and SHA-256,
 not by filename alone.
 
-Of 1,440 packaged files, 1,438 match HD tree byte-for-byte. Of those, 530 also
-match at least one 1999 file byte-for-byte; 908 differ from every supplied
-1999 file. Two reconstruction-authored Town Center annex PNGs have no exact
-source-tree match. No packaged file is 1999-only or loaded from either external
-research directory at build or runtime.
+All 1,438 packaged files match HD tree byte-for-byte. Of those, 530 also match
+at least one 1999 file byte-for-byte; 908 differ from every supplied 1999 file.
+No packaged file is reconstruction-authored, 1999-only, or loaded from either
+external research directory at build or runtime.
 
 Machine-readable, per-file results live in
 [`generated/data_source_manifest.json`](../../generated/data_source_manifest.json).
@@ -44,7 +43,7 @@ macOS bundle. Product code resolves this local copy only.
 | `Data/sounds.drs`, `sounds_x1.drs` | DAT-selected WAV resources; later archive wins duplicate IDs | HD set; base `sounds.drs` has byte-identical 1999 copy, expansion archive does not |
 | `Sound/music`, `Sound/stream`, `Sound/terrain` | Music, frontend streams, and terrain ambience | Mixed by file: exact classification recorded per file; many base tracks are byte-identical to 1999, expansion tracks are HD-only |
 | `Campaign`, `Scenario`, `Random`, `AI` | Legacy campaign/media loading and import-compatible content | HD tree; shared base files recorded as byte-identical to 1999 |
-| `Data/Slp`, `Data/*.Dat`, palettes, blend/filter/mask data | Loose UI/media and renderer support data | HD tree except two reconstruction-authored Town Center annex repair PNGs; shared files recorded individually |
+| `Data/Slp`, `Data/*.Dat`, palettes, blend/filter/mask data | Loose UI/media and renderer support data | HD tree; shared files recorded individually |
 | `Bin` language files | Legacy localized string lookup | HD tree; `language.dll` payload also exists in 1999 |
 
 Not every packaged file is currently opened during an ordinary match. It is
@@ -92,11 +91,6 @@ No reconstruction rule table, generated metadata catalog, executable behavior
 claim, or packaged file is presently proved to come exclusively from supplied
 1999 data. Shared bytes support classic provenance claims, but cannot reveal
 which edition first authored them.
-
-The two `Data/Slp/town-center-dark-annexes-*.png` files are local renderer
-repairs, not 1999 payloads or substitutes selected from the classic tree. Their
-`no_exact_source_match` classification prevents reconstruction-native art from
-being mistaken for an exact HD import.
 
 ## Source-loading boundary
 

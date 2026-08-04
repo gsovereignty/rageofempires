@@ -688,8 +688,6 @@ struct LegacySprites {
     std::array<std::array<LegacySprite, 5>, 4> house_red;
     std::array<std::array<LegacySprite, 5>, 4> town_center_age_blue;
     std::array<std::array<LegacySprite, 5>, 4> town_center_age_red;
-    LegacySprite town_center_dark_annexes_blue;
-    LegacySprite town_center_dark_annexes_red;
     std::array<std::array<LegacySprite, 5>, 2> blacksmith_blue;
     std::array<std::array<LegacySprite, 5>, 2> blacksmith_red;
     std::array<LegacySprite, 5> lumber_camp_blue;
@@ -875,8 +873,6 @@ struct LegacySprites {
         for (auto& age : town_center_age_red) {
             for (LegacySprite& sprite : age) sprite.destroy();
         }
-        town_center_dark_annexes_blue.destroy();
-        town_center_dark_annexes_red.destroy();
         for (auto& age : blacksmith_blue) {
             for (LegacySprite& sprite : age) sprite.destroy();
         }
@@ -3365,43 +3361,11 @@ LegacySprites load_local_legacy_sprites(
             }
             return texture;
         };
-    const auto load_packaged_sprite =
-        [&load_packaged_texture](
-            const std::filesystem::path& path,
-            int width,
-            int height,
-            int hotspot_x,
-            int hotspot_y
-        ) {
-            LegacySprite sprite;
-            sprite.texture = load_packaged_texture(path, true);
-            if (sprite.texture != nullptr) {
-                sprite.width = width;
-                sprite.height = height;
-                sprite.hotspot_x = hotspot_x;
-                sprite.hotspot_y = hotspot_y;
-            }
-            return sprite;
-        };
     sprites.frontend_background = load_packaged_texture(
         *requested_root / "launcher_res" / "background.png", true
     );
     sprites.scenario_background = load_packaged_texture(
         *requested_root / "scenariobkg.bmp", false
-    );
-    sprites.town_center_dark_annexes_blue = load_packaged_sprite(
-        data_root / "Slp" / "town-center-dark-annexes-blue.png",
-        394,
-        102,
-        204,
-        68
-    );
-    sprites.town_center_dark_annexes_red = load_packaged_sprite(
-        data_root / "Slp" / "town-center-dark-annexes-red.png",
-        394,
-        102,
-        204,
-        68
     );
     if (sprites.frontend_background != nullptr) {
         SDL_Log(
@@ -4277,7 +4241,8 @@ LegacySprites load_local_legacy_sprites(
             }};
         constexpr std::array<std::array<std::int32_t, 5>, 4>
             town_center_age_slps{{
-                {{891, 891, 891, 891, 891}},
+                // Unit 109 root graphic 3241 is complete composite SLP 3596.
+                {{3596, 3596, 3596, 3596, 3596}},
                 {{903, 900, 902, 901, 903}},
                 {{915, 912, 914, 913, 915}},
                 {{927, 924, 926, 925, 927}},
@@ -7277,13 +7242,6 @@ void render_building(
             const SDL_FPoint ground{
                 top.x, top.y + half_tile_height
             };
-            if (age == 0) {
-                const LegacySprite& annexes =
-                    building.owner == Player::blue
-                    ? active_legacy_sprites.town_center_dark_annexes_blue
-                    : active_legacy_sprites.town_center_dark_annexes_red;
-                render_legacy_sprite(renderer, annexes, ground);
-            }
             // Age/family base is already a coherent rendered Town Center.
             // Neighboring DAT component SLPs have independent displaced art;
             // drawing them here adds unrelated poles and fragments.

@@ -14009,15 +14009,10 @@ void render_options_overlay(SDL_Renderer* renderer) {
         draft_settings.game_speed == SinglePlayerSpeed::slow ? "SLOW" :
         draft_settings.game_speed == SinglePlayerSpeed::fast ? "FAST" :
         "NORMAL";
-    const std::array<std::string, 13> lines{{
+    const std::array<std::string, 10> lines{{
         std::string{"G  SINGLE-PLAYER SPEED: "} + speed,
         "M  MUSIC VOLUME: " + std::to_string(draft_settings.music_volume),
         "E  EFFECTS VOLUME: " + std::to_string(draft_settings.effects_volume),
-        "C  COMBAT CATEGORY: " + std::to_string(draft_settings.combat_volume),
-        "I  INTERFACE CATEGORY: " +
-            std::to_string(draft_settings.interface_volume),
-        "B  AMBIENT CATEGORY: " +
-            std::to_string(draft_settings.ambient_volume),
         std::string{"F  FULLSCREEN: "} + on_off(draft_settings.fullscreen),
         "R  SCROLL SPEED: " + std::to_string(draft_settings.scroll_speed) + "%",
         std::string{"X  EDGE SCROLL: "} + on_off(draft_settings.edge_scroll),
@@ -14043,7 +14038,7 @@ void render_options_overlay(SDL_Renderer* renderer) {
     set_color(renderer, {158, 137, 91, 255});
     SDL_RenderDebugText(
         renderer, panel.x + 34.0F, panel.y + 588.0F,
-        "AUDIO MIX APPLIES LIVE; FOCUS LOSS MUTES ALL CATEGORIES"
+        "MUSIC/SOUND ATTENUATION APPLIES LIVE; PAUSE/FOCUS PRESERVE AUDIO"
     );
 }
 
@@ -17201,6 +17196,16 @@ int SdlApp::run() {
                 SDL_getenv("AOE_AUDIO_PROOF_NARRATION")) {
             audio->play_narration(requested);
         }
+        if (const char* proof =
+                SDL_getenv("AOE_AUDIO_PROOF_RUNTIME_EVENTS");
+            proof != nullptr && proof[0] != '0') {
+            audio->set_paused(true);
+            audio->set_paused(false);
+            audio->set_focused(false);
+            audio->set_focused(true);
+            audio->set_muted(true);
+            audio->set_muted(false);
+        }
     }
     Replay replay;
     bool replaying = false;
@@ -20178,7 +20183,7 @@ int SdlApp::run() {
                         continue;
                     }
                     auto step_volume = [](int& value) {
-                        value = value >= 100 ? 0 : value + 10;
+                        value = value >= 90 ? 99 : value + 10;
                     };
                     if (event.key.key == SDLK_ESCAPE) {
                         draft_settings = active_settings;
@@ -20197,12 +20202,6 @@ int SdlApp::run() {
                         step_volume(draft_settings.music_volume);
                     } else if (event.key.key == SDLK_E) {
                         step_volume(draft_settings.effects_volume);
-                    } else if (event.key.key == SDLK_C) {
-                        step_volume(draft_settings.combat_volume);
-                    } else if (event.key.key == SDLK_I) {
-                        step_volume(draft_settings.interface_volume);
-                    } else if (event.key.key == SDLK_B) {
-                        step_volume(draft_settings.ambient_volume);
                     } else if (event.key.key == SDLK_F) {
                         draft_settings.fullscreen =
                             !draft_settings.fullscreen;

@@ -242,11 +242,23 @@ support, parent-`app` root handling, case-insensitive ordering, and nested or
 unsupported-file exclusion. Filename ties after case folding use exact
 filename as deterministic secondary order. `AOE_AUDIO_TRACE=1` logs each selected music
 filename, making playlist transitions observable without bundling audio.
-## Reconstruction-native mixing policy
+## Recovered mixing policy
 
-Runtime now composes persisted master music/effects values with combat,
-interface, and ambient category values. Options apply gains to live SDL audio
-streams. Pause silences music and ambience while retaining interface feedback;
-window focus loss and explicit mute silence every bus. These deterministic
-rules are reconstruction-native: original volume scale, focus behavior, and
-bus topology remain unproved by supplied executable evidence.
+`FUN_004b2690`, `FUN_004b3030`, and `FUN_006013e0` expose exactly two option
+controls: `Music Volume` and `Sound Volume`, each storing integer attenuation
+from 0 through 99. `FUN_004ddd70` clamps the music backend to -10000..0
+hundredths of a decibel; its MP3 path divides slider attenuation by five, and
+the 99 endpoint disables music playback. `FUN_004e2160` applies the sound
+slider directly as -100 times its value. DirectSound effects, interface
+feedback, and terrain ambience share that sound control; no combat,
+interface, ambient, or additional master option bus exists.
+
+Pause paths contain no audio gain or transport call. `WM_ACTIVATEAPP` handling
+in `FUN_004f1600` suspends/restores display state but does not alter either
+audio backend. Music, ambience, interface feedback, and other effects therefore
+retain their configured gains across simulation pause and focus loss. Explicit
+runtime mute remains an outer all-audio override and does not rewrite either
+persisted attenuation value. Runtime defaults match recovered initialization:
+music attenuation 50 and sound attenuation 0. `AOE_AUDIO_VOLUME` remains an
+optional reconstruction test/operator override, now neutral at its default
+gain of 1.0.

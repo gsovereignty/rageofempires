@@ -21,6 +21,7 @@ env \
     AOE_AUDIO_PROOF_CONTEXT=gameplay \
     AOE_AUDIO_PROOF_TAUNT=1 \
     AOE_AUDIO_PROOF_NARRATION=A1AA.mp3 \
+    AOE_AUDIO_PROOF_RUNTIME_EVENTS=1 \
     AOE_EXIT_AFTER_SCREENSHOT=1 \
     "AOE_SCREENSHOT_PATH=$smoke_dir/audio.bmp" \
     "$app_path" >"$smoke_dir/audio.log" 2>&1
@@ -34,6 +35,15 @@ grep -q '^Audio loose effect A1AA.mp3$' "$smoke_dir/audio.log"
 ! grep -Eq '^Audio music (Countdwn|lost|won1|won2|credits|xcredits)\\.mp3$' \
     "$smoke_dir/audio.log"
 ! grep -q '^Music unavailable:' "$smoke_dir/audio.log"
+pause_on=$(grep '^Audio runtime pause 1 ' "$smoke_dir/audio.log")
+pause_off=$(grep '^Audio runtime pause 0 ' "$smoke_dir/audio.log")
+focus_off=$(grep '^Audio runtime focus 0 ' "$smoke_dir/audio.log")
+focus_on=$(grep '^Audio runtime focus 1 ' "$smoke_dir/audio.log")
+test "${pause_on#* music }" = "${pause_off#* music }"
+test "${focus_off#* music }" = "${focus_on#* music }"
+grep -q '^Audio runtime mute 1 music 0 sound 0$' "$smoke_dir/audio.log"
+grep -q '^Audio runtime mute 0 music 0.316228 sound 1$' \
+    "$smoke_dir/audio.log"
 
 env \
     SDL_VIDEODRIVER=dummy \

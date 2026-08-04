@@ -79,12 +79,12 @@ std::int16_t legacy_civilization_id(Civilization civilization) {
 float requested_gain() {
     const char* value = SDL_getenv("AOE_AUDIO_VOLUME");
     if (value == nullptr) {
-        return 0.35F;
+        return 1.0F;
     }
     char* end{};
     const float parsed = std::strtof(value, &end);
     if (end == value) {
-        return 0.35F;
+        return 1.0F;
     }
     return std::clamp(parsed, 0.0F, 1.0F);
 }
@@ -618,7 +618,7 @@ struct AudioSystem::Impl {
     bool expansion_content{true};
     std::optional<std::pair<AudioMusicContext, bool>> queued_music;
     AudioMix mix;
-    float environment_gain{0.35F};
+    float environment_gain{1.0F};
     bool trace{};
     bool reported_music_failure{};
     std::mt19937 sound_random{std::random_device{}()};
@@ -663,7 +663,7 @@ void AudioSystem::Impl::apply_stream_gains() {
     if (water_ambience.stream != nullptr) {
         SDL_SetAudioStreamGain(
             water_ambience.stream,
-            environment_gain * 0.45F * mix.ambience_gain()
+            environment_gain * mix.ambience_gain()
         );
     }
     for (auto& effect : effects) {
@@ -1083,8 +1083,7 @@ void AudioSystem::set_terrain_ambience(
         load_wav_track(
             impl_->water_ambience,
             path,
-            impl_->environment_gain * 0.45F *
-                impl_->mix.ambience_gain(),
+            impl_->environment_gain * impl_->mix.ambience_gain(),
             true
         )) {
         impl_->ambience_path = path;
@@ -1105,6 +1104,11 @@ void AudioSystem::set_focused(bool focused) {
     if (impl_->mix.focused == focused) return;
     impl_->mix.focused = focused;
     impl_->apply_stream_gains();
+    if (impl_->trace) {
+        std::cerr << "Audio runtime focus " << focused << " music "
+                  << impl_->mix.music_gain() << " sound "
+                  << impl_->mix.ambience_gain() << '\n';
+    }
 }
 
 void AudioSystem::set_paused(bool paused) {
@@ -1112,6 +1116,11 @@ void AudioSystem::set_paused(bool paused) {
     if (impl_->mix.paused == paused) return;
     impl_->mix.paused = paused;
     impl_->apply_stream_gains();
+    if (impl_->trace) {
+        std::cerr << "Audio runtime pause " << paused << " music "
+                  << impl_->mix.music_gain() << " sound "
+                  << impl_->mix.ambience_gain() << '\n';
+    }
 }
 
 void AudioSystem::set_muted(bool muted) {
@@ -1119,6 +1128,11 @@ void AudioSystem::set_muted(bool muted) {
     if (impl_->mix.muted == muted) return;
     impl_->mix.muted = muted;
     impl_->apply_stream_gains();
+    if (impl_->trace) {
+        std::cerr << "Audio runtime mute " << muted << " music "
+                  << impl_->mix.music_gain() << " sound "
+                  << impl_->mix.ambience_gain() << '\n';
+    }
 }
 
 void AudioSystem::play_effect(

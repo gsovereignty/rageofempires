@@ -8,14 +8,12 @@ namespace aoe {
 enum class SinglePlayerSpeed { slow, normal, fast };
 
 struct ReconstructionSettings {
-    static constexpr int current_version = 2;
+    static constexpr int current_version = 3;
 
     SinglePlayerSpeed game_speed{SinglePlayerSpeed::normal};
-    int music_volume{70};
-    int effects_volume{70};
-    int combat_volume{100};
-    int interface_volume{100};
-    int ambient_volume{100};
+    // Original sliders store attenuation: 0 is loudest, 99 is quietest.
+    int music_volume{50};
+    int effects_volume{0};
     bool fullscreen{};
     int scroll_speed{100};
     bool edge_scroll{true};

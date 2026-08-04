@@ -50,14 +50,11 @@ bool validate_settings(
     std::string& error
 ) {
     const auto valid_volume = [](int value) {
-        return value >= 0 && value <= 100;
+        return value >= 0 && value <= 99;
     };
     if (!valid_volume(settings.music_volume) ||
-        !valid_volume(settings.effects_volume) ||
-        !valid_volume(settings.combat_volume) ||
-        !valid_volume(settings.interface_volume) ||
-        !valid_volume(settings.ambient_volume)) {
-        error = "volume must be between 0 and 100";
+        !valid_volume(settings.effects_volume)) {
+        error = "volume attenuation must be between 0 and 99";
         return false;
     }
     if (settings.scroll_speed < 25 || settings.scroll_speed > 400) {
@@ -92,7 +89,7 @@ SettingsLoadResult load_settings(const std::filesystem::path& path) {
     constexpr std::string_view prefix{"aoe-reconstruction-settings "};
     if (!header.starts_with(prefix) ||
         !parse_int(std::string_view{header}.substr(prefix.size()), version) ||
-        (version != 1 && version != ReconstructionSettings::current_version)) {
+        (version < 1 || version > ReconstructionSettings::current_version)) {
         result.status = SettingsLoadStatus::invalid;
         result.message = "unsupported settings header";
         return result;
@@ -139,22 +136,13 @@ SettingsLoadResult load_settings(const std::filesystem::path& path) {
     if (const std::string* file = required("language_file")) {
         result.settings.language_file = *file;
     }
-    if (version == 2) {
-        const std::string* combat = required("combat_volume");
-        const std::string* interface = required("interface_volume");
-        const std::string* ambient = required("ambient_volume");
-        if (!combat || !interface || !ambient ||
-            !parse_int(*combat, result.settings.combat_volume) ||
-            !parse_int(*interface, result.settings.interface_volume) ||
-            !parse_int(*ambient, result.settings.ambient_volume)) {
-            result.status = SettingsLoadStatus::invalid;
-            result.message = "missing or malformed category volume";
-            return result;
-        }
-    } else {
-        result.settings.combat_volume = result.settings.effects_volume;
-        result.settings.interface_volume = result.settings.effects_volume;
-        result.settings.ambient_volume = result.settings.effects_volume;
+    if (version < 3) {
+        // Versions 1-2 stored linear loudness percentages. Preserve their
+        // audible direction while migrating to original attenuation sliders.
+        result.settings.music_volume =
+            std::min(99, 100 - result.settings.music_volume);
+        result.settings.effects_volume =
+            std::min(99, 100 - result.settings.effects_volume);
     }
     std::string error;
     if (!validate_settings(result.settings, error)) {
@@ -163,8 +151,9 @@ SettingsLoadResult load_settings(const std::filesystem::path& path) {
         return result;
     }
     result.status =
-        version == 1 ? SettingsLoadStatus::migrated
-                     : SettingsLoadStatus::current;
+        version < ReconstructionSettings::current_version
+            ? SettingsLoadStatus::migrated
+            : SettingsLoadStatus::current;
     return result;
 }
 
@@ -188,13 +177,10 @@ bool save_settings_atomic(
             error = "could not create temporary settings file";
             return false;
         }
-        output << "aoe-reconstruction-settings 2\n"
+        output << "aoe-reconstruction-settings 3\n"
                << "game_speed=" << speed_name(settings.game_speed) << '\n'
                << "music_volume=" << settings.music_volume << '\n'
                << "effects_volume=" << settings.effects_volume << '\n'
-               << "combat_volume=" << settings.combat_volume << '\n'
-               << "interface_volume=" << settings.interface_volume << '\n'
-               << "ambient_volume=" << settings.ambient_volume << '\n'
                << "fullscreen=" << settings.fullscreen << '\n'
                << "scroll_speed=" << settings.scroll_speed << '\n'
                << "edge_scroll=" << settings.edge_scroll << '\n'

@@ -52,15 +52,14 @@ int main() {
         "version one migrated"
     );
     expect(
-        migrated.settings.combat_volume == 55 &&
-        migrated.settings.interface_volume == 55 &&
-        migrated.settings.ambient_volume == 55,
-        "migration derives category volumes"
+        migrated.settings.music_volume == 60 &&
+        migrated.settings.effects_volume == 45,
+        "migration converts loudness percentages to attenuation"
     );
 
     {
         std::ofstream output{path};
-        output << "aoe-reconstruction-settings 2\nscroll_speed=999\n";
+        output << "aoe-reconstruction-settings 3\nscroll_speed=999\n";
     }
     expect(
         aoe::load_settings(path).status == aoe::SettingsLoadStatus::invalid,

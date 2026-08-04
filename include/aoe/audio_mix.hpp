@@ -3,58 +3,53 @@
 #include "aoe/settings.hpp"
 
 #include <algorithm>
+#include <cmath>
 
 namespace aoe {
 
 enum class AudioCategory { combat, interface, ambient };
 
 struct AudioMix {
-    float music{0.7F};
-    float effects{0.7F};
-    float combat{1.0F};
-    float interface{1.0F};
-    float ambient{1.0F};
+    int music_attenuation{50};
+    int sound_attenuation{};
     bool muted{};
     bool focused{true};
     bool paused{};
 
     static AudioMix from_settings(const ReconstructionSettings& settings) {
-        constexpr float scale = 0.01F;
         return {
-            settings.music_volume * scale,
-            settings.effects_volume * scale,
-            settings.combat_volume * scale,
-            settings.interface_volume * scale,
-            settings.ambient_volume * scale,
+            settings.music_volume,
+            settings.effects_volume,
         };
     }
 
     [[nodiscard]] float music_gain() const noexcept {
-        return enabled() && !paused ? clamp(music) : 0.0F;
+        if (muted || music_attenuation >= 99) return 0.0F;
+        // Original MP3 music path converts slider attenuation to DirectSound
+        // hundredths of a decibel, then divides it by five.
+        return decibel_gain(-clamp_setting(music_attenuation) * 20);
     }
 
-    [[nodiscard]] float category_gain(AudioCategory category) const noexcept {
-        if (!enabled()) return 0.0F;
-        float category_value{};
-        switch (category) {
-            case AudioCategory::combat: category_value = combat; break;
-            case AudioCategory::interface: category_value = interface; break;
-            case AudioCategory::ambient: category_value = ambient; break;
-        }
-        return clamp(effects) * clamp(category_value);
+    [[nodiscard]] float category_gain(AudioCategory) const noexcept {
+        if (muted) return 0.0F;
+        // Original has one sound control for combat, interface, and ambience.
+        return decibel_gain(-clamp_setting(sound_attenuation) * 100);
     }
 
     [[nodiscard]] float ambience_gain() const noexcept {
-        return paused ? 0.0F : category_gain(AudioCategory::ambient);
+        return category_gain(AudioCategory::ambient);
     }
+
+    [[nodiscard]] bool focus_changes_gain() const noexcept { return false; }
+    [[nodiscard]] bool pause_changes_gain() const noexcept { return false; }
 
 private:
-    [[nodiscard]] bool enabled() const noexcept {
-        return !muted && focused;
+    static int clamp_setting(int value) noexcept {
+        return std::clamp(value, 0, 99);
     }
 
-    static float clamp(float value) noexcept {
-        return std::clamp(value, 0.0F, 1.0F);
+    static float decibel_gain(int hundredths_db) noexcept {
+        return std::pow(10.0F, static_cast<float>(hundredths_db) / 2000.0F);
     }
 };
 

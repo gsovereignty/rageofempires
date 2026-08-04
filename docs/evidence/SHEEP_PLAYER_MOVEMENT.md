@@ -26,11 +26,14 @@ rejects Deer and Boar, while Sheep is classified separately by `is_herdable`.
 Sheep uses normal land passability and collision with a movement interval of
 three simulation ticks.
 
-The fix captures a living neutral herdable when its tile enters exactly one
-player's existing deterministic line of sight. Capture keeps Sheep alive and
-anchors its passive stance at the capture tile. If both players discover the
-same Sheep simultaneously, it remains neutral because recovered evidence does
-not prove original contested-capture priority.
+The capture update now follows the recovered native get-auto-converted action.
+Each living herdable scans the inclusive seven-by-seven tile box centered on
+itself. A nearby unit belonging to the current owner preserves ownership. With
+no current-owner unit nearby, the player whose qualifying unit is nearest
+captures it; equal-distance ties use the lower player-slot index. Capture keeps
+Sheep alive, anchors its passive stance, and claims nearby neutral herdables as
+the native ownership-change path does. An undefended owned Sheep can therefore
+be stolen.
 
 Two states remain intentionally not commandable:
 
@@ -51,17 +54,25 @@ identifies Sheep with movement speed `0.699999988079071`, walking graphics,
 7 HP, and herdable task metadata. This proves that original Sheep is a mobile,
 player-interactable herdable.
 
-Recovered decompiled source does not yet identify exact source-level command
-eligibility, formation-slot policy, invalid-destination fallback, or save-path
-serialization for Sheep. Those details remain uncertain and are not claimed
-as exact original behavior.
+`FUN_0040fad0` recovers the owner-choice scan: three tiles in each axis,
+current-owner retention, nearest-player selection, and lower player index on
+an exact distance tie. `FUN_00410080` changes ownership, selects Sheep-specific
+versus generic-Gaia feedback, and recursively changes nearby neutral livestock.
+The reconstruction maps the native active mobile-object eligibility check to a
+living, ungarrisoned, non-relic, non-herdable unit because its native runtime
+class byte has no direct reconstruction field. Exact sound dispatch remains a
+separate audio-presentation seam.
 
 ## Regression coverage
 
 `simulation_tests.cpp` now proves:
 
 - a visible neutral sheep becomes owned, remains alive, and then moves;
-- a simultaneously visible contested sheep remains neutral;
+- a contested sheep chooses the nearest player and a distance tie chooses the
+  lower player slot;
+- a current owner nearby blocks theft, while an undefended Sheep can be stolen;
+- capture uses the native three-tile-per-axis boundary and chains to nearby
+  neutral Sheep;
 - one owned sheep accepts a selected-unit move and arrives;
 - two selected sheep move in formation;
 - a mixed Villager/Sheep selection moves consistently;

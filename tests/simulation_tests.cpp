@@ -13315,23 +13315,107 @@ void visible_neutral_sheep_becomes_owned_alive_and_moves() {
     require(arrived != simulation.units().end());
     require(arrived->position == aoe::TilePosition{8, 3});
     require(!arrived->moving);
+}
 
-    aoe::Simulation contested(aoe::GameMap(10, 6));
+void sheep_capture_uses_native_radius_priority_and_chaining() {
+    const auto owner_of = [](const aoe::Simulation& simulation,
+                             aoe::EntityId id) {
+        const auto unit = std::ranges::find(
+            simulation.units(), id, &aoe::Unit::id
+        );
+        require(unit != simulation.units().end());
+        return unit->owner;
+    };
+
+    aoe::Simulation boundary(aoe::GameMap(14, 8));
+    boundary.add_unit(
+        aoe::UnitKind::villager, aoe::Player::blue, {1, 1}
+    );
+    const auto inside = boundary.add_unit(
+        aoe::UnitKind::sheep, aoe::Player::neutral, {4, 4}
+    );
+    const auto outside = boundary.add_unit(
+        aoe::UnitKind::sheep, aoe::Player::neutral, {8, 1}
+    );
+    boundary.add_unit(
+        aoe::UnitKind::villager, aoe::Player::red, {13, 7}
+    );
+    boundary.update();
+    require(owner_of(boundary, inside) == aoe::Player::blue);
+    require(owner_of(boundary, outside).is_neutral());
+
+    aoe::Simulation contested(aoe::GameMap(12, 8));
     contested.add_unit(
         aoe::UnitKind::villager, aoe::Player::blue, {2, 3}
     );
-    const aoe::EntityId contested_sheep = contested.add_unit(
+    const auto nearer = contested.add_unit(
         aoe::UnitKind::sheep, aoe::Player::neutral, {5, 3}
     );
     contested.add_unit(
-        aoe::UnitKind::villager, aoe::Player::red, {8, 3}
+        aoe::UnitKind::villager, aoe::Player::red, {6, 3}
     );
     contested.update();
-    const auto still_neutral = std::ranges::find(
-        contested.units(), contested_sheep, &aoe::Unit::id
+    require(owner_of(contested, nearer) == aoe::Player::red);
+
+    aoe::Simulation tied(aoe::GameMap(10, 6));
+    tied.add_unit(
+        aoe::UnitKind::villager, aoe::Player::blue, {2, 3}
     );
-    require(still_neutral != contested.units().end());
-    require(still_neutral->owner == aoe::Player::neutral);
+    const auto equal = tied.add_unit(
+        aoe::UnitKind::sheep, aoe::Player::neutral, {5, 3}
+    );
+    tied.add_unit(
+        aoe::UnitKind::villager, aoe::Player::red, {8, 3}
+    );
+    tied.update();
+    require(owner_of(tied, equal) == aoe::Player::blue);
+
+    aoe::Simulation defended(aoe::GameMap(12, 8));
+    defended.add_unit(
+        aoe::UnitKind::villager, aoe::Player::blue, {2, 3}
+    );
+    const auto retained = defended.add_unit(
+        aoe::UnitKind::sheep, aoe::Player::blue, {5, 3}
+    );
+    defended.add_unit(
+        aoe::UnitKind::villager, aoe::Player::red, {5, 2}
+    );
+    defended.update();
+    require(owner_of(defended, retained) == aoe::Player::blue);
+
+    aoe::Simulation stolen(aoe::GameMap(14, 8));
+    stolen.add_unit(
+        aoe::UnitKind::villager, aoe::Player::blue, {0, 0}
+    );
+    const auto undefended = stolen.add_unit(
+        aoe::UnitKind::sheep, aoe::Player::blue, {7, 3}
+    );
+    stolen.add_unit(
+        aoe::UnitKind::villager, aoe::Player::red, {8, 3}
+    );
+    stolen.update();
+    require(owner_of(stolen, undefended) == aoe::Player::red);
+
+    aoe::Simulation chained(aoe::GameMap(16, 8));
+    chained.add_unit(
+        aoe::UnitKind::villager, aoe::Player::blue, {1, 3}
+    );
+    const auto first = chained.add_unit(
+        aoe::UnitKind::sheep, aoe::Player::neutral, {4, 3}
+    );
+    const auto second = chained.add_unit(
+        aoe::UnitKind::sheep, aoe::Player::neutral, {7, 3}
+    );
+    const auto third = chained.add_unit(
+        aoe::UnitKind::sheep, aoe::Player::neutral, {10, 3}
+    );
+    chained.add_unit(
+        aoe::UnitKind::villager, aoe::Player::red, {15, 7}
+    );
+    chained.update();
+    require(owner_of(chained, first) == aoe::Player::blue);
+    require(owner_of(chained, second) == aoe::Player::blue);
+    require(owner_of(chained, third) == aoe::Player::blue);
 }
 
 void sheep_player_movement_groups_are_deterministic_and_persistent() {
@@ -24145,6 +24229,10 @@ int main() {
     run(
         "visible neutral sheep capture and movement",
         visible_neutral_sheep_becomes_owned_alive_and_moves
+    );
+    run(
+        "sheep native capture policy",
+        sheep_capture_uses_native_radius_priority_and_chaining
     );
     run(
         "sheep movement groups replay and save",

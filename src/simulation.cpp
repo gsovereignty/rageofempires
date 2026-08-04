@@ -5695,24 +5695,87 @@ void Simulation::update() {
     if (evaluate_scenario_triggers()) {
         return;
     }
+    const auto qualifying_herdable_captor = [](const Unit& candidate) {
+        return !candidate.owner.is_neutral() &&
+            candidate.hit_points > 0 && candidate.garrisoned_in == 0 &&
+            !is_herdable(candidate.kind) && !is_relic(candidate.kind);
+    };
+    const auto capture_owner = [&](const Unit& herdable) {
+        std::array<int, 8> nearest_distance_squared;
+        nearest_distance_squared.fill(std::numeric_limits<int>::max());
+        std::array<int, 8> nearby_counts{};
+        bool current_owner_nearby = false;
+
+        for (const Unit& candidate : units_) {
+            if (!qualifying_herdable_captor(candidate)) continue;
+            const int dx = candidate.position.x - herdable.position.x;
+            const int dy = candidate.position.y - herdable.position.y;
+            // Native get-auto-converted action scans the inclusive seven by
+            // seven tile box centered on the herdable.
+            if (std::abs(dx) > 3 || std::abs(dy) > 3) continue;
+            const auto slot = entity_owner_slot(candidate.owner);
+            if (!slot || slot->is_neutral() ||
+                !roster_.slot(*slot).occupied) {
+                continue;
+            }
+            const std::size_t index = *slot->index();
+            ++nearby_counts[index];
+            nearest_distance_squared[index] = std::min(
+                nearest_distance_squared[index], dx * dx + dy * dy
+            );
+            current_owner_nearby = current_owner_nearby ||
+                candidate.owner == herdable.owner;
+        }
+        if (current_owner_nearby) return herdable.owner;
+
+        std::optional<std::size_t> selected;
+        for (std::size_t index = 0; index < nearby_counts.size(); ++index) {
+            if (nearby_counts[index] == 0) continue;
+            if (!selected ||
+                nearest_distance_squared[index] <
+                    nearest_distance_squared[*selected]) {
+                selected = index;
+            }
+        }
+        return selected
+            ? entity_owner_from_slot(*PlayerSlotId::from_index(*selected))
+            : herdable.owner;
+    };
+    const auto capture_nearby_neutral_herdables =
+        [&](Unit& captured, EntityOwner owner) {
+            std::vector<Unit*> changed{&captured};
+            for (std::size_t index = 0; index < changed.size(); ++index) {
+                const Unit& source = *changed[index];
+                for (Unit& candidate : units_) {
+                    if (!is_herdable(candidate.kind) ||
+                        !candidate.owner.is_neutral() ||
+                        candidate.hit_points <= 0 ||
+                        candidate.garrisoned_in != 0) {
+                        continue;
+                    }
+                    if (std::abs(
+                            candidate.position.x - source.position.x
+                        ) <= 3 &&
+                        std::abs(
+                            candidate.position.y - source.position.y
+                        ) <= 3) {
+                        candidate.owner = owner;
+                        candidate.stance_anchor = candidate.position;
+                        changed.push_back(&candidate);
+                    }
+                }
+            }
+        };
     for (Unit& unit : units_) {
-        if (!is_herdable(unit.kind) || !unit.owner.is_neutral() ||
-            unit.hit_points <= 0 || unit.garrisoned_in != 0) {
+        if (!is_herdable(unit.kind) || unit.hit_points <= 0 ||
+            unit.garrisoned_in != 0) {
             continue;
         }
-        const bool visible_to_blue = is_visible(Player::blue, unit.position);
-        const bool visible_to_red = is_visible(Player::red, unit.position);
-        // Original runtime contains distinct Sheep/Gaia capture feedback and
-        // DAT identifies Sheep as herdable, but recovered source does not
-        // prove contested-capture priority. Use existing deterministic LOS
-        // as capture boundary; leave simultaneous discovery neutral rather
-        // than invent a player-order advantage.
-        if (visible_to_blue != visible_to_red) {
-            unit.owner = visible_to_blue
-                ? EntityOwner{Player::blue}
-                : EntityOwner{Player::red};
-            unit.stance_anchor = unit.position;
-        }
+        const EntityOwner owner = capture_owner(unit);
+        if (owner == unit.owner) continue;
+        unit.owner = owner;
+        unit.stance_anchor = unit.position;
+        capture_nearby_neutral_herdables(unit, owner);
     }
     for (Unit& unit : units_) {
         if (!is_animal(unit.kind) || unit.hit_points > 0 ||

@@ -359,6 +359,38 @@ struct CliffGeneration {
     int minimum_terrain_distance{};
 };
 
+bool cliff_forbidden_terrain(Terrain terrain) {
+    switch (terrain) {
+        case Terrain::water:
+        case Terrain::deep_water:
+        case Terrain::shallows:
+        case Terrain::beach:
+        case Terrain::forest:
+        case Terrain::pine_forest:
+        case Terrain::oak_forest:
+        case Terrain::bamboo_forest:
+        case Terrain::palm_forest:
+        case Terrain::jungle_forest:
+        case Terrain::berry_bush:
+        case Terrain::gold_mine:
+        case Terrain::stone_mine:
+        case Terrain::fish:
+        case Terrain::fish_shore:
+        case Terrain::fish_deep:
+            return true;
+        case Terrain::grass:
+        case Terrain::grass2:
+        case Terrain::dirt:
+        case Terrain::dirt2:
+        case Terrain::dirt3:
+        case Terrain::road:
+        case Terrain::snow:
+        case Terrain::ice:
+            return false;
+    }
+    return true;
+}
+
 template <typename Active>
 std::optional<CliffGeneration> cliff_generation(
     const RmsDocument& document, const Active& active
@@ -2033,6 +2065,115 @@ std::optional<Scenario> evaluate_rms(
         }
     }
 
+    // Classic module order is land, elevation, cliffs, terrain,
+    // connections, then objects. A cliff line is accepted atomically: a
+    // failed tail never leaves a shorter line or consumes spacing for later
+    // lines.
+    if (const auto cliffs = cliff_generation(document, active)) {
+        const int count = random.between(
+            cliffs->minimum_count, cliffs->maximum_count
+        );
+        std::vector<std::vector<TilePosition>> placed_lines;
+        constexpr std::array<TilePosition, 8> directions{{
+            {1, 0}, {1, 1}, {0, 1}, {-1, 1},
+            {-1, 0}, {-1, -1}, {0, -1}, {1, -1},
+        }};
+        const int edge_clearance = std::max(
+            2, cliffs->minimum_terrain_distance
+        );
+        const auto clear_of_player_land = [&](TilePosition tile) {
+            return std::ranges::all_of(
+                land_sites, [&](const LandSite& land) {
+                    if (!land.player) return true;
+                    return std::max(
+                        std::abs(tile.x - land.origin.x),
+                        std::abs(tile.y - land.origin.y)
+                    ) > 8;
+                }
+            );
+        };
+        const auto clear_of_terrain = [&](TilePosition tile) {
+            for (int y = -cliffs->minimum_terrain_distance;
+                 y <= cliffs->minimum_terrain_distance; ++y) {
+                for (int x = -cliffs->minimum_terrain_distance;
+                     x <= cliffs->minimum_terrain_distance; ++x) {
+                    const TilePosition nearby{tile.x + x, tile.y + y};
+                    if (!scenario.map.contains(nearby) ||
+                        cliff_forbidden_terrain(
+                            scenario.map.terrain_at(nearby)
+                        )) return false;
+                }
+            }
+            return true;
+        };
+        const auto clear_of_other_lines = [&](TilePosition tile) {
+            return std::ranges::all_of(
+                placed_lines, [&](const auto& line) {
+                    return std::ranges::all_of(
+                        line, [&](TilePosition existing) {
+                            return std::max(
+                                std::abs(existing.x - tile.x),
+                                std::abs(existing.y - tile.y)
+                            ) >= cliffs->minimum_spacing;
+                        }
+                    );
+                }
+            );
+        };
+        for (int index = 0; index < count; ++index) {
+            bool accepted{};
+            for (int attempt = 0; attempt < 1000 && !accepted; ++attempt) {
+                TilePosition position{
+                    random.between(
+                        edge_clearance,
+                        dimension - edge_clearance - 1
+                    ),
+                    random.between(
+                        edge_clearance,
+                        dimension - edge_clearance - 1
+                    ),
+                };
+                int direction = random.between(0, 7);
+                const int length = random.between(
+                    cliffs->minimum_length, cliffs->maximum_length
+                );
+                std::vector<TilePosition> candidate;
+                candidate.reserve(static_cast<std::size_t>(length));
+                for (int step = 0; step < length; ++step) {
+                    const bool duplicate = std::ranges::find(
+                        candidate, position
+                    ) != candidate.end();
+                    if (duplicate ||
+                        position.x < edge_clearance ||
+                        position.y < edge_clearance ||
+                        position.x >= dimension - edge_clearance ||
+                        position.y >= dimension - edge_clearance ||
+                        !clear_of_player_land(position) ||
+                        !clear_of_terrain(position) ||
+                        !clear_of_other_lines(position)) {
+                        candidate.clear();
+                        break;
+                    }
+                    candidate.push_back(position);
+                    if (random.between(0, 99) < cliffs->curliness) {
+                        direction = (
+                            direction +
+                            (random.between(0, 1) == 0 ? -1 : 1) + 8
+                        ) % 8;
+                    }
+                    position.x += directions[direction].x;
+                    position.y += directions[direction].y;
+                }
+                if (static_cast<int>(candidate.size()) != length) continue;
+                for (TilePosition tile : candidate) {
+                    scenario.map.set_cliff(tile, true);
+                }
+                placed_lines.push_back(std::move(candidate));
+                accepted = true;
+            }
+        }
+    }
+
     for (const TerrainGeneration& terrain :
          terrain_generations(document, active)) {
         const double size_scale =
@@ -2123,68 +2264,6 @@ std::optional<Scenario> evaluate_rms(
                         scenario.map.elevation_at(tile) != 0) continue;
                     scenario.map.set_terrain(tile, terrain.terrain);
                 }
-            }
-        }
-    }
-
-    if (const auto cliffs = cliff_generation(document, active)) {
-        const int count = random.between(
-            cliffs->minimum_count, cliffs->maximum_count
-        );
-        std::vector<TilePosition> occupied;
-        constexpr std::array<TilePosition, 8> directions{{
-            {1, 0}, {1, 1}, {0, 1}, {-1, 1},
-            {-1, 0}, {-1, -1}, {0, -1}, {1, -1},
-        }};
-        for (int index = 0; index < count; ++index) {
-            TilePosition position;
-            bool accepted{};
-            for (int attempt = 0; attempt < 128; ++attempt) {
-                position = {
-                    random.between(2, dimension - 3),
-                    random.between(2, dimension - 3),
-                };
-                const bool spaced = std::ranges::all_of(
-                    occupied, [&](TilePosition existing) {
-                        return std::abs(existing.x - position.x) +
-                            std::abs(existing.y - position.y) >=
-                            cliffs->minimum_spacing;
-                    });
-                const auto clear_of_water = [&](TilePosition tile) {
-                    for (int y = -cliffs->minimum_terrain_distance;
-                         y <= cliffs->minimum_terrain_distance; ++y) {
-                        for (int x = -cliffs->minimum_terrain_distance;
-                             x <= cliffs->minimum_terrain_distance; ++x) {
-                            const TilePosition nearby{tile.x + x, tile.y + y};
-                            if (!scenario.map.contains(nearby)) return false;
-                            const Terrain terrain =
-                                scenario.map.terrain_at(nearby);
-                            if (terrain == Terrain::water ||
-                                terrain == Terrain::deep_water ||
-                                terrain == Terrain::shallows) return false;
-                        }
-                    }
-                    return true;
-                };
-                if (spaced && clear_of_water(position)) {
-                    accepted = true;
-                    break;
-                }
-            }
-            if (!accepted) continue;
-            int direction = random.between(0, 7);
-            const int length = random.between(
-                cliffs->minimum_length, cliffs->maximum_length
-            );
-            for (int step = 0; step < length; ++step) {
-                if (!scenario.map.contains(position)) break;
-                scenario.map.set_cliff(position, true);
-                occupied.push_back(position);
-                if (random.between(0, 99) < cliffs->curliness) {
-                    direction = (direction + random.between(0, 1) * 2 - 1 + 8) % 8;
-                }
-                position.x += directions[direction].x;
-                position.y += directions[direction].y;
             }
         }
     }

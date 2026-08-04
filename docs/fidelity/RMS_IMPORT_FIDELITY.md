@@ -41,6 +41,15 @@ open `aoe2-rms-lib` reference:
 - Elevation clumps write requested height, count, tile coverage, level spacing,
   and map-size/group scaling. They honor block-local base terrain and avoid
   player-land origins.
+- Cliff generation consumes `create_cliffs` plus minimum/maximum count and
+  length, curliness, inter-line spacing, and terrain distance. It runs after
+  elevation and before terrain regardless of script source order. Candidate
+  lines are committed only at full requested length; every tile observes map
+  edge, player-land, pre-terrain water/resource, and prior-line clearances.
+  Curl decisions and retry candidates share the evaluator's recovered MSVCRT
+  stream, so identical script/context/seed inputs reproduce identical cliff
+  topology. Later terrain painting changes cliff top surfaces without erasing
+  their topology.
 - Connections operate on recorded player and neutral land origins. Supported
   connection kinds select origin pairs, while
   `default_terrain_replacement`, `replace_terrain`, and `terrain_size`
@@ -98,13 +107,15 @@ evaluate that script through the same gameplay path.
 - Later-engine extensions and unresolved semantic object/terrain identities are
   preserved or rejected; they are never guessed.
 
-Hermetic tests cover direct section-driven tile/elevation/entity placement,
+Hermetic tests cover direct section-driven tile/elevation/cliff/entity placement,
 common sections/directives, classic 100-slot random selection and remainder,
 case-insensitive match/map-size conditions, filename/resource-ID includes and
 include depth,
 same-seed output identity, civilization flow, exact unsupported spans,
 closed failure for malformed/oversized input, live simulation construction,
-and Scenario66 serialization.
+and current Scenario serialization. Cliff coverage fixes count and length,
+edge and player-land avoidance, classic section ordering, impassability,
+same-seed identity, and Scenario68/Save116 round trips.
 
 Include regression additionally covers relative and duplicate filesystem
 includes, block-comment suppression, DRS resource 54000, included constants

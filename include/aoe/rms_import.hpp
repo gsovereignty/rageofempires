@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <optional>
 #include <set>
 #include <string>
@@ -77,6 +78,17 @@ struct RmsEvaluationContext {
     const RmsImportLimits& limits = {}
 );
 
+// Loads a root RMS and expands filesystem includes relative to each including
+// file. When installation_root is supplied, #include_drs resources are read
+// from its Data/gamedata*.drs archives; no installation is discovered or
+// probed implicitly.
+[[nodiscard]] RmsDocument parse_rms_file(
+    const std::filesystem::path& path,
+    const std::optional<std::filesystem::path>& installation_root =
+        std::nullopt,
+    const RmsImportLimits& limits = {}
+);
+
 // Resolves caller-owned include names before parsing. No filesystem lookup is
 // performed; built/runtime code therefore cannot escape packaged inputs.
 [[nodiscard]] RmsDocument parse_rms(
@@ -110,6 +122,13 @@ struct RmsEvaluationContext {
 [[nodiscard]] RmsMapResult generate_rms_map(
     const RandomMapSettings& settings,
     std::optional<std::string_view> source = std::nullopt
+);
+
+[[nodiscard]] RmsMapResult generate_rms_map_file(
+    const RandomMapSettings& settings,
+    const std::filesystem::path& path,
+    const std::optional<std::filesystem::path>& installation_root =
+        std::nullopt
 );
 
 }  // namespace aoe

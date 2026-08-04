@@ -111,6 +111,7 @@ endif()
 add_library(aoe_core
     src/building_damage.cpp
     src/campaign.cpp
+    src/commercial_multiplayer_protocol.cpp
     src/localization.cpp
     src/multiplayer.cpp
     src/multiplayer_checkpoint.cpp
@@ -464,6 +465,19 @@ set_tests_properties(
     PROPERTIES
         TIMEOUT 20
         RESOURCE_LOCK localhost_multiplayer_port
+)
+
+add_executable(
+    commercial_multiplayer_protocol_tests
+    tests/commercial_multiplayer_protocol_tests.cpp
+)
+target_link_libraries(commercial_multiplayer_protocol_tests PRIVATE aoe_core)
+target_compile_options(
+    commercial_multiplayer_protocol_tests PRIVATE -Wall -Wextra -Wpedantic
+)
+add_test(
+    NAME commercial_multiplayer_protocol_tests
+    COMMAND commercial_multiplayer_protocol_tests
 )
 
 add_executable(player_roster_tests tests/player_roster_tests.cpp)

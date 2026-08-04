@@ -971,6 +971,17 @@ add_test(NAME aoe_legacy_assets_tests COMMAND aoe_legacy_assets_tests)
 add_test(NAME aoe_legacy_dat_tests COMMAND aoe_legacy_dat_tests)
 add_test(NAME aoe_legacy_scenario_tests COMMAND aoe_legacy_scenario_tests)
 add_test(
+    NAME classic_campaign_sdl_smoke
+    COMMAND
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/classic_campaign_sdl_smoke.sh
+        $<TARGET_FILE:aoe_reconstruction>
+        $<TARGET_FILE:aoe_legacy_scenario_tests>
+)
+set_tests_properties(
+    classic_campaign_sdl_smoke
+    PROPERTIES TIMEOUT 30 ENVIRONMENT "AOE_DISABLE_LEGACY_ASSETS=0"
+)
+add_test(
     NAME aoe_legacy_recorded_game_tests
     COMMAND aoe_legacy_recorded_game_tests
 )
@@ -1279,6 +1290,7 @@ set_tests_properties(
     aoe_packaged_audio_sdl_smoke
     battering_ram_composite_sdl_smoke
     building_contact_layering_sdl_smoke
+    classic_campaign_sdl_smoke
     PROPERTIES ENVIRONMENT
         "AOE_DISABLE_LEGACY_ASSETS=0;AOE_MAIN_MENU=0"
 )

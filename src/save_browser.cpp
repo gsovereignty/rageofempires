@@ -10,6 +10,7 @@
 #include <ctime>
 
 #include "aoe/format_versions.hpp"
+#include "aoe/legacy_campaign.hpp"
 #include "aoe/save_game.hpp"
 
 namespace aoe {
@@ -53,6 +54,25 @@ BrowserEntry inspect(const std::filesystem::path& path) {
     entry.filename = path.filename().string();
     entry.modified_time = formatted_time(path);
     const std::string extension = path.extension().string();
+    if (extension == ".cpn" || extension == ".cpx" ||
+        extension == ".cpx2") {
+        entry.kind = BrowserFileKind::campaign;
+        const LegacyCampaignImportResult campaign = inspect_legacy_campaign(path);
+        if (campaign.status == LegacyCampaignImportStatus::inspected) {
+            entry.status = BrowserFileStatus::compatible;
+            entry.diagnostic = campaign.name + " (" +
+                std::to_string(campaign.entries.size()) + " SCENARIOS)";
+        } else if (campaign.status ==
+                   LegacyCampaignImportStatus::unsupported_version) {
+            entry.status = BrowserFileStatus::incompatible;
+            entry.diagnostic = campaign.diagnostic;
+        } else {
+            entry.status = BrowserFileStatus::corrupt;
+            entry.diagnostic = std::string{"CORRUPT CAMPAIGN: "} +
+                campaign.diagnostic;
+        }
+        return entry;
+    }
     if (extension == ".mgz" || extension == ".mgl" ||
         extension == ".aoe2record" || extension == ".sav") {
         entry.kind = BrowserFileKind::legacy_commercial;
@@ -166,6 +186,8 @@ std::vector<BrowserEntry> browse_user_data_files(
         }
         const std::string extension = item.path().extension().string();
         if (extension == ".save" || extension == ".replay" ||
+            extension == ".cpn" || extension == ".cpx" ||
+            extension == ".cpx2" ||
             extension == ".mgz" || extension == ".mgl" ||
             extension == ".aoe2record" || extension == ".sav") {
             entries.push_back(inspect(item.path()));

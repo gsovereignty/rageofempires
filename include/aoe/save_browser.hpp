@@ -10,7 +10,7 @@
 
 namespace aoe {
 
-enum class BrowserFileKind { save, replay, legacy_commercial, unknown };
+enum class BrowserFileKind { save, replay, campaign, legacy_commercial, unknown };
 enum class BrowserFileStatus { compatible, incompatible, corrupt, inspect_only };
 
 struct BrowserEntry {

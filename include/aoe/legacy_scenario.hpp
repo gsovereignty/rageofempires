@@ -211,7 +211,8 @@ audit_legacy_scenario_triggers(const LegacyScenarioMetadata& source);
 // unsupported objects remain explicit while supported content is converted.
 LegacyScenarioConversionReport convert_legacy_scenario(
     const LegacyScenarioMetadata& source,
-    const LegacyDatFile& dat
+    const LegacyDatFile& dat,
+    bool allow_preserved_unsupported_semantics = false
 );
 
 }  // namespace aoe

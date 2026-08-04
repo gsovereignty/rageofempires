@@ -1519,7 +1519,8 @@ std::optional<std::string> translate_trigger_effect(
 
 LegacyScenarioConversionReport convert_legacy_scenario(
     const LegacyScenarioMetadata& source,
-    const LegacyDatFile& dat
+    const LegacyDatFile& dat,
+    bool allow_preserved_unsupported_semantics
 ) {
     LegacyScenarioConversionReport report;
     report.trigger_audit = audit_legacy_scenario_triggers(source);
@@ -1545,7 +1546,7 @@ LegacyScenarioConversionReport convert_legacy_scenario(
         static_cast<int>(source.map_width),
         static_cast<int>(source.map_height)
     );
-    const auto terrain = [&dat](std::uint8_t id)
+    const auto terrain = [&dat, allow_preserved_unsupported_semantics](std::uint8_t id)
         -> std::optional<Terrain> {
         if (id >= dat.terrain_count()) return std::nullopt;
         switch (id) {
@@ -1553,7 +1554,17 @@ LegacyScenarioConversionReport convert_legacy_scenario(
             case 1: return Terrain::water;
             case 2: return Terrain::beach;
             case 4: return Terrain::shallows;
-            default: return std::nullopt;
+            case 10: case 13: case 17: case 18: case 19: case 20:
+            case 21: case 40:
+                return Terrain::forest;
+            case 15: case 22: case 23:
+                return Terrain::water;
+            default:
+                // Import mode keeps valid commercial maps playable while
+                // strict archaeology conversion still reports unproved IDs.
+                return allow_preserved_unsupported_semantics
+                    ? std::optional<Terrain>{Terrain::grass}
+                    : std::nullopt;
         }
     };
     for (std::size_t index = 0; index < source.map_tiles.size(); ++index) {
@@ -1919,7 +1930,8 @@ LegacyScenarioConversionReport convert_legacy_scenario(
         );
         return report;
     }
-    if (report.unsupported_triggers != 0) {
+    if (report.unsupported_triggers != 0 &&
+        !allow_preserved_unsupported_semantics) {
         report.diagnostics.push_back(
             std::to_string(report.unsupported_triggers) +
             " triggers contain semantics without a lossless reconstruction "
@@ -1927,6 +1939,19 @@ LegacyScenarioConversionReport convert_legacy_scenario(
             "was returned"
         );
         return report;
+    }
+    if (report.unsupported_triggers != 0) {
+        // A translated trigger may target one of preserved unsupported
+        // triggers. Keep import graph valid by omitting whole partial graph;
+        // source records remain in report for later fidelity expansion.
+        converted.triggers.clear();
+        report.translated_triggers = 0;
+        report.translated_conditions = 0;
+        report.translated_effects = 0;
+        report.diagnostics.push_back(
+            std::to_string(report.unsupported_triggers) +
+            " unsupported triggers preserved in import report and skipped"
+        );
     }
     if (report.unsupported_objects != 0) {
         report.diagnostics.push_back(

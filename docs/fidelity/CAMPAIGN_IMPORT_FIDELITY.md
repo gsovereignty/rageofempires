@@ -1,23 +1,25 @@
 # Commercial Campaign Import Fidelity
 
-## Non-requirement
+## Runtime contract
 
-Commercial campaign compatibility is not required for this project. This
-module is optional, bounded archaeology tooling; incomplete containers,
-branching, briefings, and cinematics do not block releases or project
-completion. Native Campaign files are the supported runtime contract.
+Classic campaign containers are supported user-owned runtime inputs. The game
+inspects and losslessly preserves each container, converts its ordered embedded
+scenarios into a private native cache, and uses normal campaign progression.
+Native manifests remain supported authoring inputs.
 
 ## Supported slice
 
-`inspect_legacy_campaign` recognizes classic AoE/AoC campaign container version
-`1.00`, used by `.cpn` and `.cpx`. It parses the fixed campaign header and
+`inspect_legacy_campaign` recognizes `1.00`, `1.10`, and `2.00` campaign
+container headers used by `.cpn`, `.cpx`, and `.cpx2`. It parses fixed and
+tagged variable-length index layouts, the campaign header and
 ordered scenario index, extracts every embedded payload byte-for-byte, and
 passes each payload to the bounded commercial scenario inspector.
 
-This is container inspection, not reconstruction campaign progression.
-Branching, unlocks, briefings, cinematics, difficulty changes, completion
-state, and original-runtime ordering beyond physical index order are not
-inferred.
+`import_legacy_campaign` converts decoded payloads with user-supplied packaged
+`VER 5.7` DAT data. Import publishes atomically into user data. Physical index
+order becomes linear play order. Victories unlock the next scenario and write
+atomic digest-bound progress. Defeats retain the current scenario. Briefing,
+debrief, completion, and next-unlocked states use the campaign presentation.
 
 ## Commit-pinned evidence
 
@@ -63,16 +65,18 @@ inputs and are not bundled.
 Fixed classic names are retained as raw byte strings in `std::string`; the
 inspector does not guess a locale or transcode uncertain legacy encodings.
 
-Versions `1.10` and `2.00` return `unsupported_version`. Their string and index
-layouts differ, and they are outside the requested classic AoE/AoC slice.
+Unknown signatures return `unsupported_version`. Truncated strings, indexes,
+invalid signed ranges, overlaps, and out-of-file payloads return bounded
+product errors.
 
-## Not claimed
+## Preserved conversion limits
 
-The container does not by itself prove a campaign graph, scenario prerequisites,
-unlock policy, briefing order, cinematic association, save/progress schema, or
-original menu behavior. No such semantics are synthesized. Importing extracted
-scenarios into current `Scenario` remains subject to
-`SCENARIO_IMPORT_FIDELITY.md` and its explicit unsupported-content report.
+Container bytes remain exact and serializer round-trip byte-for-byte. Native
+runtime currently maps additional valid commercial ground textures to closest
+gameplay terrain, omits a partial trigger graph when unsupported trigger nodes
+would leave dangling references, and rejects independently invalid entity
+placements. These choices permit bounded play while preserving raw evidence;
+they do not claim exact scenario-script or texture fidelity.
 
 ## Tests
 
@@ -84,6 +88,12 @@ Hermetic tests prove:
 - preservation of an unindexed gap;
 - overlapping-range rejection;
 - unsupported-version reporting.
+- exact serializer round trips;
+- synthetic `.cpx2` tagged metadata and payload parsing;
+- `.cpx2` install, launchable native scenario generation, victory completion,
+  and progress reload.
 
-Pinned real `.cpn` and `.cpx` fixtures prove classic index and embedded-scenario
-compatibility.
+All nine supplied original `.cpn` and `.cpx` containers parse with every
+embedded scenario decoded. Background SDL runtime smoke launches supplied
+campaign containers through packaged local DAT/assets. Synthetic fixtures avoid
+tracking proprietary bytes.

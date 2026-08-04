@@ -141,6 +141,7 @@ int encode(UnitKind kind) {
         case UnitKind::trade_cog: return 93;
         case UnitKind::woad_raider: return 94;
         case UnitKind::elite_woad_raider: return 95;
+        case UnitKind::king: return 96;
     }
     return 0;
 }
@@ -437,7 +438,8 @@ void save_game(const Simulation& simulation, const std::filesystem::path& path) 
               ) << ' '
            << static_cast<int>(
                 simulation.countdown_kind(Player::red)
-              ) << '\n';
+              ) << ' ' << match.regicide_enabled << ' '
+           << match.blue_king << ' ' << match.red_king << '\n';
     output << "ages " << static_cast<int>(simulation.age(Player::blue))
            << ' ' << static_cast<int>(simulation.age(Player::red)) << '\n';
     output << "market-prices "
@@ -1399,6 +1401,10 @@ Simulation load_game(const std::filesystem::path& path) {
             int blue_kind{};
             int red_kind{};
             input >> blue_kind >> red_kind;
+            if (version >= 115) {
+                input >> match_rules.regicide_enabled >>
+                    match_rules.blue_king >> match_rules.red_king;
+            }
             if (version >= 94) {
                 blue_countdown_kind =
                     static_cast<VictoryCountdownKind>(blue_kind);
@@ -1790,6 +1796,7 @@ Simulation load_game(const std::filesystem::path& path) {
                 kind == 93 && version >= 90 ? UnitKind::trade_cog :
                 kind == 94 && version >= 110 ? UnitKind::woad_raider :
                 kind == 95 && version >= 110 ? UnitKind::elite_woad_raider :
+                kind == 96 && version >= 115 ? UnitKind::king :
                 kind == 3 && version >= 13
                     ? UnitKind::scout_cavalry
                     : UnitKind::knight;

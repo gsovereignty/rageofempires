@@ -39,9 +39,9 @@ than treating image bounds as rectangular controls.
 `FUN_005c4180` writes rollover index at `0x630`; `FUN_005c41a0` switches live
 index between those fields. Construction supplies consecutive normal and
 rollover frames. Adjacent native button input paths select next pressed frame;
-fourth frame is disabled presentation. Learn to Play is reachable disabled
-control. Exit supplies only three frames and is always enabled, so runtime does
-not invent a fourth image. `slp_contact_sheet` now reports per-frame opaque
+fourth frame is disabled presentation. Learn to Play is reachable and enabled
+now that its guided scenario exists. Exit supplies only three frames, so
+runtime does not invent a fourth image. `slp_contact_sheet` now reports per-frame opaque
 counts; deterministic captures also prove equal-count state pairs differ in
 their pixels.
 
@@ -72,12 +72,15 @@ procedural plaques. Both paths preserve simulation state.
 Main, Single Player, and Arabia-vs-AI size-menu focus use data-driven ordered
 item tables. Mouse motion,
 click, Up/Down wrapping, Enter/Space, Escape, and close-button input share one
-command dispatcher. Unsupported Learn to Play, Regicide, and Death Match
-remain legible but disabled. Zone only reports service unavailability.
+command dispatcher. Learn to Play launches guided playable content. Regicide
+and Death Match share random-map setup but apply distinct rules, units, ages,
+technologies, and resources before simulation creation. Zone opens a dedicated
+retired-service presentation with historical URL and supported alternative.
+See `docs/evidence/FRONTEND_GAME_MODES_EVIDENCE.md`.
 
 `frontend_menu_tests` covers geometry, transforms, hit testing, wrapping,
-routing, four Arabia size presets, disabled entries, and flyout close.
+routing, four Arabia size presets, restored mode entries, and flyout close.
 `legacy_assets_tests` covers
 truncated SLP rejection. `frontend_menu_sdl_smoke` captures fallback states,
 native normal/focused/pressed states at 1366×768, alpha-mask activation, and
-native 1024×768 letterboxing.
+native 1024×768 letterboxing, playable-mode launches, and Zone presentation.

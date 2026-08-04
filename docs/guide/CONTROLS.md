@@ -6,9 +6,11 @@ Mouse motion changes focus; left click activates. Up/Down wraps focus,
 Enter/Space activates, and Escape or flyout `X` returns to main menu.
 
 Main choices retain supported Campaign, Random Map, multiplayer, editor,
-Options, Custom Scenario, and Saved Game routes. Learn to Play, Regicide, and
-Death Match remain disabled until native behavior exists. Zone displays an
-offline-service notice and makes no network request.
+Options, Custom Scenario, and Saved Game routes. Learn to Play launches guided
+objectives. Regicide and Death Match open setup, then launch their distinct
+King-survival or post-Imperial/high-resource rules. Zone opens a retired-service
+screen, names its historical URL and supported Multiplayer alternative, and
+makes no network request.
 
 `Arabia vs AI` opens four map-size choices: Tiny (120), Small (144), Medium
 (168), and Large (220 tiles per side). Each starts one human against one

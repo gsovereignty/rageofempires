@@ -28,6 +28,14 @@ capture proof-enter 800x600 env \
     AOE_MAIN_MENU=1 AOE_MENU_ACTIVATION_PROOF=enter
 capture proof-ai-tiny 800x600 env \
     AOE_MAIN_MENU=1 AOE_MENU_ACTIVATION_PROOF=ai-tiny
+capture proof-learn 800x600 env \
+    AOE_MAIN_MENU=1 AOE_MENU_ACTIVATION_PROOF=learn
+capture proof-regicide 800x600 env \
+    AOE_MAIN_MENU=1 AOE_MENU_ACTIVATION_PROOF=regicide
+capture proof-death-match 800x600 env \
+    AOE_MAIN_MENU=1 AOE_MENU_ACTIVATION_PROOF=death-match
+capture proof-zone 800x600 env \
+    AOE_MAIN_MENU=1 AOE_MENU_ACTIVATION_PROOF=zone
 for focus in 0 1 2 3 4 5 6; do
     capture "single-$focus" 800x600 env \
         AOE_MENU_REFERENCE=1 "AOE_MENU_FOCUS=$focus"
@@ -98,6 +106,13 @@ if "launched 1v1 Arabia vs AI: TINY" not in (
     root / "proof-ai-tiny.log"
 ).read_text(errors="replace"):
     raise SystemExit("ai-tiny: exact map-size launch not confirmed")
+for proof in ("proof-learn", "proof-regicide", "proof-death-match"):
+    if (root / f"{proof}.bmp").read_bytes() == (
+        root / "main.bmp"
+    ).read_bytes():
+        raise SystemExit(f"{proof}: playable mode did not replace menu")
+if (root / "proof-zone.bmp").read_bytes() == (root / "main.bmp").read_bytes():
+    raise SystemExit("zone: retired-service presentation did not open")
 
 buttons = [
     (476, 89, 260, 39),
@@ -170,8 +185,8 @@ if color_count(native_normal, single_label, (217, 208, 176)) < 2:
 _, _, native_focused = read(native_focused_path)
 if color_count(native_focused, single_label, (202, 207, 1)) < 2:
     raise SystemExit("native focused label color/geometry absent")
-if color_count(native_normal, learn_label, (255, 255, 255)) < 2:
-    raise SystemExit("native disabled label color/geometry absent")
+if color_count(native_normal, learn_label, (217, 208, 176)) < 2:
+    raise SystemExit("native enabled Learn to Play label absent")
 if color_count(native_normal, single_label, (0, 0, 0)) < 2:
     raise SystemExit("native label shadow absent")
 

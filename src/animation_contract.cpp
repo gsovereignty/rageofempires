@@ -54,6 +54,12 @@ std::optional<Binding> binding(UnitKind kind, State state) {
         case State::attack: return make(927, 663, 10, 0.1350000054, 50);
         default: return std::nullopt;
         }
+    case UnitKind::king:
+        switch (state) {
+        case State::idle: return make(1851, 1767, 6, 1.0, 30);
+        case State::move: return make(1855, 1771, 10, 0.1, 50);
+        default: return std::nullopt;
+        }
     default:
         return std::nullopt;
     }

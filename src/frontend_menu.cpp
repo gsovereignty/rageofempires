@@ -8,7 +8,7 @@ namespace {
 constexpr std::array main_items{
     FrontendMenuItem{
         "Learn to Play", {42, 104, 250, 42},
-        FrontendMenuCommand::learn_to_play, false,
+        FrontendMenuCommand::learn_to_play, true,
         "Learn the basics of commanding an empire.",
     },
     FrontendMenuItem{
@@ -139,12 +139,12 @@ constexpr std::array single_player_items{
     },
     FrontendMenuItem{
         "Regicide", {476, 204, 260, 39},
-        FrontendMenuCommand::open_regicide, false,
+        FrontendMenuCommand::open_regicide, true,
         "Protect your king and defeat every enemy king.",
     },
     FrontendMenuItem{
         "Death Match", {476, 254, 260, 39},
-        FrontendMenuCommand::open_death_match, false,
+        FrontendMenuCommand::open_death_match, true,
         "Begin with high resources for a fast-start battle.",
     },
     FrontendMenuItem{

@@ -378,6 +378,7 @@ std::string_view name(UnitKind kind) {
         case UnitKind::elite_tarkan: return "elite tarkan";
         case UnitKind::woad_raider: return "woad raider";
         case UnitKind::elite_woad_raider: return "elite woad raider";
+        case UnitKind::king: return "king";
         case UnitKind::eagle_warrior: return "eagle warrior";
         case UnitKind::elite_eagle_warrior: return "elite eagle warrior";
         case UnitKind::scorpion: return "scorpion";
@@ -2005,6 +2006,7 @@ EntityId Simulation::add_unit(
         unit.stance = UnitStance::passive;
     }
     if (kind == UnitKind::scout_cavalry ||
+        kind == UnitKind::king ||
         kind == UnitKind::knight ||
         kind == UnitKind::cavalier ||
         kind == UnitKind::paladin ||
@@ -3167,6 +3169,7 @@ bool Simulation::command_attack_move(
     }
     Unit* unit = find_unit(unit_id);
     if (unit == nullptr || unit->garrisoned_in != 0 ||
+        rules_for(unit->kind).attack <= 0 ||
         (is_animal(unit->kind) || is_relic(unit->kind)) ||
         !route_unit(*unit, destination)) {
         return false;
@@ -4129,7 +4132,7 @@ void Simulation::validate_loaded_state() const {
         if (static_cast<int>(unit.kind) <
                 static_cast<int>(UnitKind::villager) ||
             static_cast<int>(unit.kind) >
-                static_cast<int>(UnitKind::elite_woad_raider)) {
+                static_cast<int>(UnitKind::king)) {
             throw std::runtime_error("invalid unit kind in save");
         }
         const bool trader =
@@ -11605,7 +11608,8 @@ bool Simulation::acquire_nearby_target(
     Unit& unit,
     bool allow_chase
 ) {
-    if (unit.trebuchet_transform_ticks_remaining > 0 ||
+    if (rules_for(unit.kind).attack <= 0 ||
+        unit.trebuchet_transform_ticks_remaining > 0 ||
         unit.kind == UnitKind::packed_trebuchet) {
         return false;
     }
@@ -11768,6 +11772,20 @@ void Simulation::update_match_outcome() {
         blue_wins = blue_alive && !red_alive;
         red_wins = red_alive && !blue_alive;
         if (!blue_alive && !red_alive) {
+            finish(MatchOutcome::draw);
+            return;
+        }
+    }
+    if (match_rules_.regicide_enabled && !allied) {
+        const Unit* blue_king = find_unit(match_rules_.blue_king);
+        const Unit* red_king = find_unit(match_rules_.red_king);
+        const bool blue_king_alive = blue_king != nullptr &&
+            blue_king->owner == Player::blue && blue_king->hit_points > 0;
+        const bool red_king_alive = red_king != nullptr &&
+            red_king->owner == Player::red && red_king->hit_points > 0;
+        blue_wins = blue_king_alive && !red_king_alive;
+        red_wins = red_king_alive && !blue_king_alive;
+        if (!blue_king_alive && !red_king_alive) {
             finish(MatchOutcome::draw);
             return;
         }

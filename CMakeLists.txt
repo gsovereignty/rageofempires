@@ -133,6 +133,7 @@ add_library(aoe_core
     src/settings.cpp
     src/frame_timing.cpp
     src/frontend_menu.cpp
+    src/frontend_game_modes.cpp
     src/statistics_view.cpp
     src/save_browser.cpp
     src/command_panel.cpp
@@ -241,6 +242,15 @@ target_compile_options(
     frontend_menu_tests PRIVATE -Wall -Wextra -Wpedantic
 )
 add_test(NAME frontend_menu_tests COMMAND frontend_menu_tests)
+
+add_executable(
+    frontend_game_modes_tests tests/frontend_game_modes_tests.cpp
+)
+target_link_libraries(frontend_game_modes_tests PRIVATE aoe_core)
+target_compile_options(
+    frontend_game_modes_tests PRIVATE -Wall -Wextra -Wpedantic
+)
+add_test(NAME frontend_game_modes_tests COMMAND frontend_game_modes_tests)
 
 add_executable(world_tile_picker_tests tests/world_tile_picker_tests.cpp)
 target_link_libraries(world_tile_picker_tests PRIVATE aoe_core)

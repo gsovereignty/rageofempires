@@ -6209,6 +6209,32 @@ void skirmishers_train_counter_archers_and_persist() {
     require(upgraded.units().front().attack == 3);
 }
 
+void production_buildings_accept_fifteen_queued_units() {
+    aoe::Simulation simulation(aoe::GameMap(12, 8));
+    const aoe::EntityId barracks = simulation.add_building(
+        aoe::BuildingKind::barracks, aoe::Player::blue, {3, 3}
+    );
+    simulation.replace_civilizations(
+        aoe::Civilization::huns, aoe::Civilization::generic
+    );
+    simulation.add_unit(
+        aoe::UnitKind::villager, aoe::Player::red, {10, 7}
+    );
+    simulation.replace_ages(aoe::Age::dark, aoe::Age::dark);
+    simulation.replace_state(
+        simulation.units(), simulation.buildings(),
+        {10000, 10000, 10000, 10000},
+        simulation.economy(aoe::Player::red), 0
+    );
+
+    for (int order = 0; order < 15; ++order) {
+        require(simulation.queue_unit_at(barracks, aoe::UnitKind::militia));
+    }
+    require(simulation.buildings().front().production_queue.size() == 15);
+    require(!simulation.queue_unit_at(barracks, aoe::UnitKind::militia));
+    require(simulation.buildings().front().production_queue.size() == 15);
+}
+
 void mangonel_automatic_targets_avoid_friendly_splash() {
     for (aoe::UnitKind kind : {
              aoe::UnitKind::mangonel,
@@ -23877,6 +23903,10 @@ int main() {
     run(
         "skirmishers",
         skirmishers_train_counter_archers_and_persist
+    );
+    run(
+        "fifteen-unit production queue",
+        production_buildings_accept_fifteen_queued_units
     );
     run(
         "mangonel automatic target safety",

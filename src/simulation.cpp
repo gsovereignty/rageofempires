@@ -4583,12 +4583,13 @@ bool Simulation::construct_building(
 }
 
 bool Simulation::queue_unit_at(EntityId building_id, UnitKind kind) {
+    constexpr std::size_t production_queue_limit = 15;
     if (outcome_ != MatchOutcome::ongoing) {
         return false;
     }
     Building* building = find_building(building_id);
     if (building == nullptr || !building->completed() ||
-        building->production_queue.size() >= 5) {
+        building->production_queue.size() >= production_queue_limit) {
         return false;
     }
     if (!civilization_has_unit(civilization(building->owner), kind)) {

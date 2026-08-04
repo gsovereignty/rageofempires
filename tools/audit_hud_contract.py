@@ -11,6 +11,7 @@ from pathlib import Path
 
 
 HUD_SLP = 51141
+BUTTON_GAME_SLP = 50751
 PINNED_EXECUTABLE_SHA256 = (
     "e23272e21014fb281f71a21ef96a6437ab8b322f4978fd4998be835be219edcc"
 )
@@ -114,6 +115,12 @@ def make_catalog(interface_drs: Path, executable: Path) -> dict:
     )
     executable_report = executable_evidence(executable)
     pinned = executable_report["pinned_executable"]
+    try:
+        button_game = slp_metadata(
+            drs_resource(interface_drs, BUTTON_GAME_SLP)
+        )
+    except ValueError:
+        button_game = None
     return {
         "schema": "aoe-hud-layout-contract-v3",
         "sources": {
@@ -181,6 +188,12 @@ def make_catalog(interface_drs: Path, executable: Path) -> dict:
                     "index 0..4"
                 ),
             },
+            "resource_status_cells": {
+                "count": 5,
+                "roles": ["wood", "food", "gold", "stone", "population"],
+                "weight_partition": [3, 3, 3, 3, 4],
+                "classification": "exact_strip_and_interface_sheet_partition",
+            },
             "limits": (
                 "stored field producers, absolute world/HUD split, semantic "
                 "resolution labels, and panel roles remain unproved"
@@ -190,13 +203,25 @@ def make_catalog(interface_drs: Path, executable: Path) -> dict:
             "classification": (
                 "exact_relative" if pinned else "unproved_non_pinned_executable"
             ),
+            "sheet": "btngame.shp",
+            "resource_id": BUTTON_GAME_SLP,
+            "archive_frame_count": (
+                button_game["frame_count"] if button_game else None
+            ),
             "normal_frame": 36,
             "pressed_frame": 37,
             "pressed_icon_offset": {"x": 1, "y": 1},
+            "disabled_state": "hidden",
+            "hover_state": "normal",
+            "frame_metrics": (
+                [button_game["frames"][index] for index in (36, 37)]
+                if button_game and button_game["frame_count"] > 37
+                else None
+            ),
             "limits": (
-                "FUN_005c5e40 proves generic pressed rendering only; it does "
-                "not prove command-slot semantics, hover/disabled frames, or "
-                "archive-backed layout"
+                "FUN_005c5e40 proves btngame frames 36/37, one-pixel pressed "
+                "icon offset, and unchanged normal hover; FUN_005c6050 proves "
+                "inactive controls clear capture and remain hidden"
             ),
         },
         "proved": {
@@ -232,8 +257,9 @@ def make_catalog(interface_drs: Path, executable: Path) -> dict:
                 "semantic panel roles"
             ) if pinned else "unproved for non-pinned executable",
             "button_chrome": (
-                "runtime artwork inspection rejects action frames 36 and 37 "
-                "as reusable button chrome"
+                "frames 36 and 37 belong to btngame resource 50751, not "
+                "btncmd resource 50721; archive metadata and executable "
+                "dispatch agree"
             ) if pinned else "unproved for non-pinned executable",
         },
         "unproved": {

@@ -2,8 +2,8 @@
 
 ## Verdict
 
-No exact classic Age of Conquerors font contract is proved by supplied assets.
-Do not bind a guessed font family, size, weight, line height, or color.
+Exact claims below cover supplied HD executable/resources. They do not
+automatically establish classic Age of Conquerors font values.
 
 The supplied `Data/interfac.drs` contains 221 `slp`, 126 `bina`, and 50 `wav`
 entries. It contains no bitmap-font or outline-font entry. Pinned openage commit
@@ -38,17 +38,16 @@ three adjacent localized strings per slot: family, numeric height, and style.
 The exact base IDs are 110, 113, 134, 137, then 116, with subsequent groups
 through 209; slot 5 is left empty. Slot names include
 `RGE_FONT_BUTTON1`, `RGE_FONT_GAME`, `RGE_FONT_TEXT`,
-`RGE_FONT_TECH_TREE_NODE`, and history/config variants. Exact family, height,
-weight, and italic values for these 35 slots live in resource strings not
-present in current extracted evidence. Slot 36 alone is directly constructed as
-Georgia, height 14, weight 700.
+`RGE_FONT_TECH_TREE_NODE`, and history/config variants. Supplied English
+`language.dll` RT_STRING blocks recover all 35 triplets. Slot 7
+`RGE_FONT_GAME` is Georgia, height 9, weight 700, non-italic. Slot 0
+`RGE_FONT_BUTTON1` is Lucida Blackletter, height 14, weight 400, non-italic.
+Slot 36 is directly constructed as Georgia, height 14, weight 700.
 
 The parser in `FUN_004f3010` proves the string grammar: the family string is
 passed to the font constructor; the second string is parsed by `atol`; the
 third maps `B`/`b` to weight 700 instead of 400 and `I`/`i` to the italic
-flag. Strikeout is supplied separately by the slot table. Because the
-localized string provider is absent, those values remain unresolved rather
-than inferred from slot labels.
+flag. Strikeout is supplied separately by the slot table.
 
 After creating each font, code selects it into an HDC and records
 `tmAveCharWidth` plus `tmHeight + max(1, tmExternalLeading)`. This proves HD
@@ -61,13 +60,12 @@ GDI metrics, and imported drawing APIs. Regenerate it from user-owned inputs:
 ```sh
 python3 tools/dat_metadata/generate_ui_executable_evidence.py \
   /path/to/AoK-HD-patched.c /path/to/AoK-HD.exe \
-  /path/to/Data/interfac.drs
+  /path/to/Data/interfac.drs --language-dll /path/to/Bin/en/language.dll
 ```
 
-These findings are exact for supplied HD decompilation, not automatically
-portable to classic AoC. Referenced TTF files are absent from supplied asset
-tree, so no file hash, OpenType family metadata, glyph coverage, or measured
-metrics can be validated.
+These findings are exact for supplied HD decompilation and English language
+resources, not automatically portable to classic AoC. Font bytes remain
+user-owned and untracked.
 
 ## Colors
 
@@ -78,8 +76,7 @@ global text palette or associate exact colors with all UI roles.
 
 ## Bounded fallback
 
-Until user-owned font files and matching executable resource strings are
-available:
+When matching user-owned font files are unavailable:
 
 1. Keep font selection configurable and classify it `fallback`, never `exact`.
 2. Use platform text shaping and measured glyph advances; do not invent fixed
@@ -90,11 +87,9 @@ available:
    fidelity, or from the 19 listed TTF files plus resource strings for HD
    fidelity.
 
-No exact-font renderer patch was added: current evidence supplies neither font bytes nor
-the 35 localized slot-value triplets. A safe future renderer API should accept
-an explicit font file plus measured point/pixel size and role colors, and keep
-its evidence classification visible; binding Georgia 14 bold globally would
-misapply the one proved special-purpose slot.
+Gameplay HUD now accepts user-owned `Data/fonts/GEORGIAB.TTF`, verifies Georgia
+family, and renders resource, Age, and selection text with exact
+`RGE_FONT_GAME` family/height/weight. Missing bytes fail to debug-text fallback.
 
 ## Implemented bounded text fallback
 
@@ -104,8 +99,8 @@ Strict known-key validation and English fallback remain. Count text uses
 explicit singular/other keys with bounded `{count}` interpolation; this is a
 declared grammar boundary, not complete locale-specific plural equivalence.
 
-No matching supplied font bytes exist, so current SDL debug font remains
-ASCII-only. Localized browser chrome uses explicit fallback behavior: ASCII
+Without matching user-owned bytes, SDL debug font remains ASCII-only.
+Localized browser chrome uses explicit fallback behavior: ASCII
 remains unchanged, common Latin diacritics fold to base glyphs, and unsupported
 code points render `?` rather than disappearing or producing malformed text.
 This remains classified `fallback`, not exact font selection or shaping.

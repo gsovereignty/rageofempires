@@ -654,6 +654,7 @@ struct LegacySprites {
     LegacySprite hud_background;
     std::array<LegacyHudBackground, 19> civilization_hud_backgrounds;
     LegacySprite hud_actions;
+    std::array<LegacySprite, 2> command_chrome;
     std::map<std::int32_t, LegacySprite> action_command_icons;
     std::map<std::int32_t, LegacySprite> unit_command_icons;
     std::map<std::int32_t, LegacySprite> technology_command_icons;
@@ -830,6 +831,7 @@ struct LegacySprites {
             background.destroy();
         }
         hud_actions.destroy();
+        for (LegacySprite& sprite : command_chrome) sprite.destroy();
         for (auto& [frame, icon] : action_command_icons) {
             static_cast<void>(frame);
             icon.destroy();
@@ -3499,7 +3501,154 @@ SDL_Texture* create_native_frontend_label(
     }
     return texture;
 }
+
+SDL_Texture* create_native_hud_label(
+    SDL_Renderer* renderer,
+    const std::filesystem::path& font_path,
+    std::string_view text,
+    int width,
+    int height,
+    SDL_Color color,
+    bool centered
+) {
+    if (width <= 0 || height <= 0 ||
+        !std::filesystem::is_regular_file(font_path)) {
+        return nullptr;
+    }
+    const std::string native_path = font_path.string();
+    CFURLRef url = CFURLCreateFromFileSystemRepresentation(
+        nullptr, reinterpret_cast<const UInt8*>(native_path.c_str()),
+        native_path.size(), false
+    );
+    CGDataProviderRef provider = url == nullptr
+        ? nullptr : CGDataProviderCreateWithURL(url);
+    CGFontRef graphic = provider == nullptr
+        ? nullptr : CGFontCreateWithDataProvider(provider);
+    CTFontRef font = graphic == nullptr
+        ? nullptr : CTFontCreateWithGraphicsFont(graphic, 9.0, nullptr, nullptr);
+    if (graphic != nullptr) CGFontRelease(graphic);
+    if (provider != nullptr) CGDataProviderRelease(provider);
+    if (url != nullptr) CFRelease(url);
+    if (font == nullptr) return nullptr;
+
+    CFStringRef family = CTFontCopyFamilyName(font);
+    char family_name[64]{};
+    const bool exact_family = family != nullptr && CFStringGetCString(
+        family, family_name, sizeof(family_name), kCFStringEncodingUTF8
+    ) && std::string_view{family_name} == "Georgia";
+    if (family != nullptr) CFRelease(family);
+    if (!exact_family) {
+        CFRelease(font);
+        return nullptr;
+    }
+
+    std::vector<std::uint8_t> pixels(
+        static_cast<std::size_t>(width * height * 4), 0
+    );
+    CGColorSpaceRef color_space = CGColorSpaceCreateDeviceRGB();
+    CGContextRef context = CGBitmapContextCreate(
+        pixels.data(), width, height, 8, width * 4, color_space,
+        static_cast<CGBitmapInfo>(
+            static_cast<std::uint32_t>(kCGImageAlphaPremultipliedLast) |
+            static_cast<std::uint32_t>(kCGBitmapByteOrder32Big)
+        )
+    );
+    if (context == nullptr) {
+        CGColorSpaceRelease(color_space);
+        CFRelease(font);
+        return nullptr;
+    }
+    CGContextSetShouldAntialias(context, true);
+    CGContextSetShouldSmoothFonts(context, false);
+    CFStringRef string = CFStringCreateWithBytes(
+        nullptr, reinterpret_cast<const UInt8*>(text.data()), text.size(),
+        kCFStringEncodingUTF8, false
+    );
+    const CGFloat components[]{
+        color.r / 255.0, color.g / 255.0, color.b / 255.0, color.a / 255.0
+    };
+    CGColorRef cg_color = CGColorCreate(color_space, components);
+    const void* keys[]{kCTFontAttributeName, kCTForegroundColorAttributeName};
+    const void* values[]{font, cg_color};
+    CFDictionaryRef attributes = CFDictionaryCreate(
+        nullptr, keys, values, 2, &kCFTypeDictionaryKeyCallBacks,
+        &kCFTypeDictionaryValueCallBacks
+    );
+    CFAttributedStringRef attributed = CFAttributedStringCreate(
+        nullptr, string, attributes
+    );
+    CTLineRef line = CTLineCreateWithAttributedString(attributed);
+    CGFloat ascent{}, descent{}, leading{};
+    const CGFloat line_width = static_cast<CGFloat>(
+        CTLineGetTypographicBounds(line, &ascent, &descent, &leading)
+    );
+    CGContextSetTextPosition(
+        context, centered ? std::floor((width - line_width) * 0.5) : 0.0,
+        std::floor((height - ascent - descent) * 0.5 + descent)
+    );
+    CTLineDraw(line, context);
+    CFRelease(line);
+    CFRelease(attributed);
+    CFRelease(attributes);
+    CGColorRelease(cg_color);
+    CFRelease(string);
+    CGContextRelease(context);
+    CGColorSpaceRelease(color_space);
+    CFRelease(font);
+
+    SDL_Surface* surface = SDL_CreateSurfaceFrom(
+        width, height, SDL_PIXELFORMAT_RGBA32, pixels.data(), width * 4
+    );
+    SDL_Texture* texture = surface == nullptr
+        ? nullptr : SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_DestroySurface(surface);
+    if (texture != nullptr) {
+        SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST);
+        SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+    }
+    return texture;
+}
 #endif
+
+void render_hud_text(
+    SDL_Renderer* renderer,
+    float x,
+    float y,
+    int width,
+    std::string_view text,
+    SDL_Color color,
+    bool centered = false
+) {
+#if defined(__APPLE__)
+    if (const auto root = configured_asset_root()) {
+        SDL_Texture* texture = create_native_hud_label(
+            renderer, *root / "Data" / "fonts" / "GEORGIAB.TTF",
+            text, width, 14, color, centered
+        );
+        if (texture != nullptr) {
+            const SDL_FRect destination{
+                x, y, static_cast<float>(width), 14.0F
+            };
+            SDL_RenderTexture(renderer, texture, nullptr, &destination);
+            SDL_DestroyTexture(texture);
+            return;
+        }
+    }
+#endif
+    set_color(renderer, color);
+    SDL_RenderDebugText(
+        renderer,
+        centered
+            ? x + std::max(
+                0.0F,
+                (static_cast<float>(width) -
+                 static_cast<float>(text.size() *
+                     hud_layout::debug_glyph_width)) * 0.5F
+            )
+            : x,
+        y + 3.0F, std::string{text}.c_str()
+    );
+}
 
 LegacySprites load_local_legacy_sprites(
     SDL_Renderer* renderer,
@@ -4432,6 +4581,11 @@ LegacySprites load_local_legacy_sprites(
             sprites.hud_actions,
             ui_asset_mapping(UiAssetRole::action_sheet).resource_id
         );
+        // FUN_005c5e40 draws btngame.shp (50751) frame 36 normally and
+        // frame 37 while pressed.  These are 54x54 border tiles clipped by
+        // each 40x40 command control; they are not btncmd action frames.
+        attempt_interface(sprites.command_chrome[0], 50751, 36);
+        attempt_interface(sprites.command_chrome[1], 50751, 37);
         for (std::int32_t frame = 0; frame < 69; ++frame) {
             attempt_interface(
                 sprites.action_command_icons[frame],
@@ -11146,11 +11300,10 @@ void render_hud(
                 hud_layout::truncate_debug_text(
                     amount.str(), field.text.width
                 );
-            SDL_RenderDebugText(
-                renderer,
-                static_cast<float>(field.text.x),
-                static_cast<float>(field.text.y),
-                amount_text.c_str()
+            render_hud_text(
+                renderer, static_cast<float>(field.text.x),
+                static_cast<float>(field.bounds.y + 1), field.text.width,
+                amount_text, {239, 226, 185, 255}
             );
         } else if (index == 4) {
             const bool show_paused =
@@ -11163,30 +11316,12 @@ void render_hud(
                     stress_resource_values ? 999999 :
                     simulation.population_capacity(active_view_player)
                 ) + (show_paused ? " PAUSED" : "");
-            SDL_RenderDebugText(
-                renderer,
-                static_cast<float>(field.text.x),
-                static_cast<float>(field.text.y),
+            render_hud_text(
+                renderer, static_cast<float>(field.text.x),
+                static_cast<float>(field.bounds.y + 1), field.text.width,
                 hud_layout::truncate_debug_text(
                     population_text, field.text.width
-                ).c_str()
-            );
-        } else {
-            const std::string idle_text =
-                "V" + std::to_string(
-                    stress_resource_values ? 9999 :
-                    simulation.idle_villagers(active_view_player).size()
-                ) + " M" + std::to_string(
-                    stress_resource_values ? 9999 :
-                    simulation.idle_military(active_view_player).size()
-                );
-            SDL_RenderDebugText(
-                renderer,
-                static_cast<float>(field.text.x),
-                static_cast<float>(field.text.y),
-                hud_layout::truncate_debug_text(
-                    idle_text, field.text.width
-                ).c_str()
+                ), {239, 226, 185, 255}
             );
         }
         SDL_SetRenderClipRect(renderer, nullptr);
@@ -11196,16 +11331,13 @@ void render_hud(
         )) {
         const std::string age{name(simulation.age(active_view_player))};
         set_color(renderer, {54, 38, 23, 255});
-        SDL_RenderDebugText(
+        render_hud_text(
             renderer,
             static_cast<float>(
-                age_control->x +
-                (age_control->width -
-                 static_cast<int>(age.size()) *
-                     hud_layout::debug_glyph_width) / 2
+                age_control->x
             ),
-            static_cast<float>(age_control->y + 6),
-            age.c_str()
+            static_cast<float>(age_control->y + 3),
+            age_control->width, age, {54, 38, 23, 255}, true
         );
     }
     SDL_SetRenderClipRect(renderer, &information_clip);
@@ -11369,17 +11501,20 @@ void render_hud(
             const std::string title = hud_layout::truncate_debug_text(
                 display_title, text_width
             );
-            SDL_RenderDebugText(
-                renderer, text_x, top + 20.0F, title.c_str()
+            render_hud_text(
+                renderer, text_x, top + 17.0F, text_width, title,
+                original_background ? SDL_Color{54, 38, 23, 255}
+                                    : SDL_Color{239, 226, 185, 255}
             );
             std::ostringstream hit_points;
             hit_points << "HP " << selection_panel.hit_points << '/'
                        << selection_panel.maximum_hit_points;
-            SDL_RenderDebugText(
-                renderer, text_x, top + 42.0F,
+            render_hud_text(
+                renderer, text_x, top + 39.0F, text_width,
                 hud_layout::truncate_debug_text(
                     hit_points.str(), text_width
-                ).c_str()
+                ), original_background ? SDL_Color{54, 38, 23, 255}
+                                       : SDL_Color{239, 226, 185, 255}
             );
             std::ostringstream detail;
             detail << "STATUS  " << selection_panel.status;
@@ -11393,8 +11528,10 @@ void render_hud(
             const std::string detail_text = hud_layout::truncate_debug_text(
                 detail.str(), text_width
             );
-            SDL_RenderDebugText(
-                renderer, text_x, top + 63.0F, detail_text.c_str()
+            render_hud_text(
+                renderer, text_x, top + 60.0F, text_width, detail_text,
+                original_background ? SDL_Color{54, 38, 23, 255}
+                                    : SDL_Color{239, 226, 185, 255}
             );
             if (selection_panel.progress_percent >= 0) {
                 const SDL_FRect track{
@@ -11415,19 +11552,6 @@ void render_hud(
             }
         }
         SDL_SetRenderClipRect(renderer, nullptr);
-        for (int slot = 0; slot < 15; ++slot) {
-            const hud_layout::Rect layout_slot =
-                hud_layout::command_button(static_cast<int>(top), slot);
-            const SDL_FRect empty_slot{
-                static_cast<float>(layout_slot.x),
-                static_cast<float>(layout_slot.y),
-                static_cast<float>(layout_slot.width),
-                static_cast<float>(layout_slot.height),
-            };
-            render_beveled_panel(renderer, empty_slot, {38, 32, 25, 210});
-            set_color(renderer, {91, 75, 52, 255});
-            SDL_RenderRect(renderer, &empty_slot);
-        }
         for (std::size_t index = 0;
              index < selection_panel.commands.size();
              ++index) {
@@ -11447,21 +11571,56 @@ void render_hud(
             };
             const bool command_enabled =
                 command.enabled && !observer_mode;
+            const std::string_view visual_proof =
+                SDL_getenv("AOE_COMMAND_VISUAL_PROOF") != nullptr
+                ? SDL_getenv("AOE_COMMAND_VISUAL_PROOF") : "";
+            const bool proof_target = index == 0;
             const bool pressed =
                 command_enabled &&
-                active_command_hover ==
-                    static_cast<int>(command.grid_slot) &&
-                (SDL_GetMouseState(nullptr, nullptr) &
-                 SDL_BUTTON_MASK(SDL_BUTTON_LEFT)) != 0;
-            render_beveled_panel(
-                renderer, button,
-                !command_enabled ? SDL_Color{45, 43, 39, 255} :
-                command.selected ? SDL_Color{128, 91, 31, 255} :
-                active_command_hover ==
-                    static_cast<int>(command.grid_slot)
-                    ? SDL_Color{104, 78, 38, 255}
-                    : SDL_Color{64, 51, 34, 255}
-            );
+                ((proof_target && visual_proof == "pressed") ||
+                 (active_command_hover ==
+                      static_cast<int>(command.grid_slot) &&
+                  (SDL_GetMouseState(nullptr, nullptr) &
+                   SDL_BUTTON_MASK(SDL_BUTTON_LEFT)) != 0));
+            const hud_layout::CommandVisual visual =
+                hud_layout::command_visual(
+                    command_enabled &&
+                        !(proof_target && visual_proof == "disabled"),
+                    pressed, command.selected
+                );
+            // Native disabled state removes the control from hit testing and
+            // drawing (FUN_005c6050); it does not tint a substitute button.
+            if (visual.state == hud_layout::CommandVisualState::hidden) {
+                continue;
+            }
+            const bool depressed =
+                visual.state == hud_layout::CommandVisualState::pressed;
+            const LegacySprite& chrome =
+                active_legacy_sprites.command_chrome[
+                    visual.chrome_frame == 37 ? 1 : 0
+                ];
+            if (chrome.texture != nullptr) {
+                const SDL_Rect clip{
+                    layout_button.x, layout_button.y,
+                    layout_button.width, layout_button.height,
+                };
+                SDL_SetRenderClipRect(renderer, &clip);
+                const SDL_FRect chrome_destination{
+                    button.x, button.y,
+                    static_cast<float>(chrome.width),
+                    static_cast<float>(chrome.height),
+                };
+                SDL_RenderTexture(
+                    renderer, chrome.texture, nullptr, &chrome_destination
+                );
+                SDL_SetRenderClipRect(renderer, nullptr);
+            } else {
+                render_beveled_panel(
+                    renderer, button,
+                    depressed ? SDL_Color{128, 91, 31, 255}
+                              : SDL_Color{64, 51, 34, 255}
+                );
+            }
             set_color(
                 renderer,
                 command_enabled ? SDL_Color{236, 220, 178, 255}
@@ -11514,37 +11673,22 @@ void render_hud(
             if (icon_sprite != nullptr && icon_sprite->texture != nullptr) {
                 SDL_SetTextureColorMod(
                     icon_sprite->texture,
-                    command_enabled ? 255 : 112,
-                    command_enabled ? 255 : 112,
-                    command_enabled ? 255 : 112
+                    255, 255, 255
                 );
                 const SDL_FRect icon_box{
-                    button.x + 5.0F + (pressed ? 1.0F : 0.0F),
-                    button.y + 4.0F + (pressed ? 1.0F : 0.0F),
-                    button.w - 10.0F,
-                    button.h - 17.0F,
+                    button.x + 2.0F + visual.icon_offset,
+                    button.y + 2.0F + visual.icon_offset,
+                    button.w - 4.0F,
+                    button.h - 4.0F,
                 };
                 SDL_RenderTexture(
                     renderer, icon_sprite->texture, nullptr, &icon_box
                 );
                 SDL_SetTextureColorMod(icon_sprite->texture, 255, 255, 255);
             }
-            const std::string hotkey = command.hotkey.substr(0, 1);
-            const SDL_FRect hotkey_badge{
-                label_x - 1.0F, button.y + button.h - 11.0F,
-                11.0F, 10.0F,
-            };
-            set_color(renderer, {18, 14, 10, 220});
-            SDL_RenderFillRect(renderer, &hotkey_badge);
-            set_color(
-                renderer,
-                command_enabled ? SDL_Color{245, 228, 178, 255}
-                                : SDL_Color{117, 112, 102, 255}
-            );
-            SDL_RenderDebugText(
-                renderer, label_x, button.y + button.h - 10.0F,
-                hotkey.c_str()
-            );
+            // Original command cells contain artwork only. Hotkeys and help
+            // belong to tooltip/help dispatch, not permanent badge chrome.
+            static_cast<void>(label_x);
         }
         const auto hovered_command = std::ranges::find_if(
             selection_panel.commands,
@@ -18124,6 +18268,22 @@ int SdlApp::run() {
                     static_cast<int>(event.motion.x),
                     static_cast<int>(event.motion.y)
                 );
+                if (active_command_hover >= 0) {
+                    const SelectionPanelModel panel = build_selection_panel(
+                        simulation, active_view_player,
+                        active_command_page, active_command_subpage
+                    );
+                    const bool active = std::ranges::any_of(
+                        panel.commands,
+                        [](const CommandButtonModel& button) {
+                            return button.enabled &&
+                                button.grid_slot == static_cast<std::size_t>(
+                                    active_command_hover
+                                );
+                        }
+                    );
+                    if (!active) active_command_hover = -1;
+                }
             } else if (
                 event.type == SDL_EVENT_TEXT_INPUT &&
                 active_save_browser_visible &&

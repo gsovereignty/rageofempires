@@ -10,7 +10,8 @@ capture() {
     local assets=$2
     local scale=$3
     local panel=${4:-unit}
-    local name="${size}-${assets}-${scale}x-${panel}"
+    local proof=${5:-}
+    local name="${size}-${assets}-${scale}x-${panel}${proof:+-$proof}"
     local disabled=1
     if [[ "$assets" == icons ]]; then
         disabled=0
@@ -24,6 +25,7 @@ capture() {
         "AOE_WINDOW_SIZE=$size" \
         "AOE_HUD_OUTPUT_SCALE=$scale" \
         AOE_HUD_STRESS_VALUES=1 \
+        "AOE_COMMAND_VISUAL_PROOF=$proof" \
         "AOE_COMMAND_PANEL=$panel" \
         AOE_SELECTION_PROOF=1 \
         AOE_EXIT_AFTER_SCREENSHOT=1 \
@@ -37,9 +39,18 @@ done
 capture 640x480 fallback 2
 capture 1280x720 fallback 1 building
 capture 1280x720 icons 1
+capture 1280x720 icons 1 unit normal
+capture 1280x720 icons 1 unit pressed
+capture 1280x720 icons 1 unit disabled
 ! cmp -s \
     "$smoke_dir/1280x720-fallback-1x-unit.bmp" \
     "$smoke_dir/1280x720-fallback-1x-building.bmp"
+! cmp -s \
+    "$smoke_dir/1280x720-icons-1x-unit-normal.bmp" \
+    "$smoke_dir/1280x720-icons-1x-unit-pressed.bmp"
+! cmp -s \
+    "$smoke_dir/1280x720-icons-1x-unit-normal.bmp" \
+    "$smoke_dir/1280x720-icons-1x-unit-disabled.bmp"
 
 python3 - "$smoke_dir" <<'PY'
 import pathlib
@@ -72,8 +83,8 @@ def layout(screen_width, icons):
     margin = 2
     gap = 2
     row_width = min(420, max(0, screen_width - margin * 2))
-    available = max(0, row_width - gap * 5)
-    weights = (2, 2, 2, 2, 3, 2)
+    available = max(0, row_width - gap * 4)
+    weights = (3, 3, 3, 3, 4)
     fields = []
     x = margin
     assigned = 0

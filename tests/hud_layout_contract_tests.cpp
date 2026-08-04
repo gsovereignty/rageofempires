@@ -41,6 +41,18 @@ int main() {
     assert((anchored_large_panel(1024, 768) ==
            Rect{688, 599, 326, 164}));
     assert((top_status_strip() == Rect{2, 2, 420, 16}));
+    assert((command_visual(true, false, false) == CommandVisual{
+        CommandVisualState::normal, 50751, 36, 0
+    }));
+    assert((command_visual(true, true, false) == CommandVisual{
+        CommandVisualState::pressed, 50751, 37, 1
+    }));
+    assert((command_visual(true, false, true) == CommandVisual{
+        CommandVisualState::pressed, 50751, 37, 1
+    }));
+    assert((command_visual(false, true, true) == CommandVisual{
+        CommandVisualState::hidden, -1, -1, 0
+    }));
     for (const int width : {640, 800, 1024, 1280, 1920}) {
         for (const bool icons : {false, true}) {
             const ResourceStatusLayout layout =
@@ -104,10 +116,8 @@ int main() {
             }
             const Rect& stone = layout.fields[3].bounds;
             const Rect& population = layout.fields[4].bounds;
-            const Rect& idle = layout.fields[5].bounds;
             assert(stone.x + stone.width < population.x);
-            assert(population.x + population.width < idle.x);
-            assert(idle.x + idle.width <= width - 2);
+            assert(population.x + population.width <= width - 2);
             if (width >= 640) {
                 assert(layout.row.width == 420);
             }

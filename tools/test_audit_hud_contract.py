@@ -81,6 +81,11 @@ class HudContractTests(unittest.TestCase):
             self.assertEqual(relative["command_grid"]["columns"], 5)
             self.assertEqual(relative["command_grid"]["rows"], 3)
             self.assertEqual(relative["command_grid"]["count"], 15)
+            self.assertEqual(relative["resource_status_cells"]["count"], 5)
+            self.assertEqual(
+                relative["resource_status_cells"]["weight_partition"],
+                [3, 3, 3, 3, 4],
+            )
             self.assertIn("stored_bottom_height",
                           relative["vertical_layout"]["bottom"])
             self.assertEqual(
@@ -95,7 +100,9 @@ class HudContractTests(unittest.TestCase):
             )
             self.assertEqual(report["button_chrome"]["normal_frame"], 36)
             self.assertEqual(report["button_chrome"]["pressed_frame"], 37)
-            self.assertIn("generic", report["button_chrome"]["limits"])
+            self.assertEqual(report["button_chrome"]["resource_id"], 50751)
+            self.assertEqual(report["button_chrome"]["hover_state"], "normal")
+            self.assertEqual(report["button_chrome"]["disabled_state"], "hidden")
 
     def test_pinned_identity_enables_relative_contract(self):
         original = MODULE.PINNED_EXECUTABLE_SHA256

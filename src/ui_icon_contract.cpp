@@ -41,6 +41,7 @@ std::optional<Binding> training_unit(UnitKind kind) {
     case UnitKind::mangonel: return ordinary_unit(27);
     case UnitKind::scorpion: return ordinary_unit(80);
     case UnitKind::monk: return ordinary_unit(33);
+    case UnitKind::trade_cart: return ordinary_unit(34);
     case UnitKind::fishing_ship: return ordinary_unit(24);
     case UnitKind::galley: return ordinary_unit(87);
     case UnitKind::transport_ship: return ordinary_unit(95);

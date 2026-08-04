@@ -1,0 +1,12 @@
+# Deterministic HUD regression: selected Trade Cart uses DAT unit icon 34.
+AOE-ARCHAEOLOGY-SCENARIO 30
+map 255 255
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue feudal
+age red feudal
+diplomacy ally
+
+unit trade_cart blue 128 128 stance passive
+building market blue 124 128
+building market red 132 128

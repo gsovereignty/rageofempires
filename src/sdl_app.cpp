@@ -10907,11 +10907,26 @@ void render_hud(
                     &Unit::id
                 );
                 if (selected != simulation.units().end()) {
-                    const LegacyAnimation* animation =
-                        legacy_action_for(simulation, *selected, false);
-                    if (animation != nullptr && !animation->frames.empty() &&
-                        animation->frames.front().texture != nullptr) {
-                        portrait_sprite = &animation->frames.front();
+                    const auto binding =
+                        ui_icons::training_unit(selected->kind);
+                    if (binding) {
+                        const auto icon =
+                            active_legacy_sprites.unit_command_icons.find(
+                                binding->frame
+                            );
+                        if (icon !=
+                            active_legacy_sprites.unit_command_icons.end()) {
+                            portrait_sprite = &icon->second;
+                        }
+                    }
+                    if (portrait_sprite == nullptr) {
+                        const LegacyAnimation* animation =
+                            legacy_action_for(simulation, *selected, false);
+                        if (animation != nullptr &&
+                            !animation->frames.empty() &&
+                            animation->frames.front().texture != nullptr) {
+                            portrait_sprite = &animation->frames.front();
+                        }
                     }
                 }
             } else if (simulation.selected_building()) {
@@ -16534,7 +16549,7 @@ int SdlApp::run() {
     if (const char* panel = SDL_getenv("AOE_COMMAND_PANEL")) {
         const std::string_view panel_name{panel};
         if (panel_name == "unit" || panel_name == "villager" ||
-            panel_name == "scout") {
+            panel_name == "scout" || panel_name == "trade_cart") {
             const auto unit = std::ranges::find_if(
                 simulation.units(),
                 [panel_name](const Unit& candidate) {
@@ -16543,7 +16558,9 @@ int SdlApp::run() {
                         (panel_name == "villager" &&
                          candidate.kind == UnitKind::villager) ||
                         (panel_name == "scout" &&
-                         candidate.kind == UnitKind::scout_cavalry);
+                         candidate.kind == UnitKind::scout_cavalry) ||
+                        (panel_name == "trade_cart" &&
+                         candidate.kind == UnitKind::trade_cart);
                     return candidate.owner == active_view_player &&
                         requested_kind;
                 }

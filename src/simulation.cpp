@@ -803,6 +803,42 @@ int damage_after_armor(
     return std::max(1, attack - armor);
 }
 
+float commercial_conversion_class_resistance(UnitKind kind) {
+    switch (kind) {
+        // Live VER 5.7 unit classes recovered as 2, 20, 21, or 22.
+        case UnitKind::fishing_ship:
+        case UnitKind::galley:
+        case UnitKind::war_galley:
+        case UnitKind::galleon:
+        case UnitKind::transport_ship:
+        case UnitKind::fire_ship:
+        case UnitKind::fast_fire_ship:
+        case UnitKind::demolition_ship:
+        case UnitKind::heavy_demolition_ship:
+        case UnitKind::cannon_galleon:
+        case UnitKind::elite_cannon_galleon:
+        case UnitKind::longboat:
+        case UnitKind::elite_longboat:
+        case UnitKind::turtle_ship:
+        case UnitKind::elite_turtle_ship:
+        case UnitKind::trade_cog:
+            return 3.0F;
+        default:
+            break;
+    }
+    switch (kind) {
+        // Commercial IDs 448, 546, 441, 751, and 752 add eight.
+        case UnitKind::scout_cavalry:
+        case UnitKind::light_cavalry:
+        case UnitKind::hussar:
+        case UnitKind::eagle_warrior:
+        case UnitKind::elite_eagle_warrior:
+            return 8.0F;
+        default:
+            return 0.0F;
+    }
+}
+
 Simulation::Simulation(GameMap map)
     : map_(std::move(map)) {
     const auto tile_count =
@@ -814,6 +850,13 @@ Simulation::Simulation(GameMap map)
             state.controller = PlayerControllerState::observer;
         }
     }
+}
+
+int Simulation::consume_commercial_random() {
+    // Microsoft CRT used by AoK HD: state is shared by every rand() consumer.
+    commercial_random_state_ =
+        commercial_random_state_ * 214013U + 2531011U;
+    return static_cast<int>((commercial_random_state_ >> 16U) & 0x7fffU);
 }
 
 Simulation Simulation::create_demo() {
@@ -6162,17 +6205,32 @@ void Simulation::update() {
                 unit.path.clear();
                 unit.next_path_step = 0;
                 ++unit.conversion_progress;
-                // DAT proves resistance resources, not original random
-                // selection. This reconstruction uses a stable per-pair
-                // spread so replay and save/load need no hidden RNG state.
-                const int resistance_spread = static_cast<int>(
-                    (unit.id * 17 + target->id * 29) % 3
+                // FUN_00413a80 checks once per active action update and draws
+                // from the process-wide MSVCRT stream even while minimum time
+                // forces failure. Faith and Teuton team effect 404 supply the
+                // recovered target resource 77/178/179 contributions.
+                float resistance =
+                    commercial_conversion_class_resistance(target->kind);
+                float minimum_time = 4.0F;
+                float maximum_time = 10.0F;
+                if (has_technology(target->owner, Technology::faith)) {
+                    resistance += 3.0F;
+                    minimum_time += 2.0F;
+                    maximum_time += 4.0F;
+                }
+                if (team_has_civilization(
+                        target->owner, Civilization::teutons
+                    )) {
+                    resistance += 2.0F;
+                    minimum_time += 1.0F;
+                    maximum_time += 2.0F;
+                }
+                const ConversionCheck check = evaluate_conversion_check(
+                    consume_commercial_random(), resistance, 25,
+                    static_cast<float>(unit.conversion_progress),
+                    minimum_time, maximum_time
                 );
-                const int required_progress =
-                    8 + resistance_spread +
-                    (has_technology(target->owner, Technology::faith)
-                        ? 4 : 0);
-                if (unit.conversion_progress >= required_progress) {
+                if (check.succeeds) {
                     const EntityId converted_target = target->id;
                     const Player new_owner = unit.owner;
                     const bool heresy =

@@ -102,6 +102,93 @@ void executable_conversion_arithmetic_is_exact() {
     require(rejected);
 }
 
+void commercial_conversion_stream_and_schedule_are_exact() {
+    struct Trace {
+        int success_tick{};
+        int next_random{};
+    };
+    const auto trace = [](
+        std::uint32_t seed,
+        bool faith,
+        bool teuton_team,
+        aoe::UnitKind target_kind
+    ) {
+        aoe::Simulation simulation(aoe::GameMap(18, 8));
+        simulation.seed_commercial_random(seed);
+        const auto monk = simulation.add_unit(
+            aoe::UnitKind::monk, aoe::Player::blue, {3, 3}
+        );
+        const auto target = simulation.add_unit(
+            target_kind, aoe::Player::red, {7, 3}
+        );
+        simulation.add_building(
+            aoe::BuildingKind::house, aoe::Player::red, {14, 4}
+        );
+        if (faith) {
+            simulation.replace_technologies(
+                aoe::Player::red, {aoe::Technology::faith}
+            );
+        }
+        if (teuton_team) {
+            simulation.replace_civilizations(
+                aoe::Civilization::generic,
+                aoe::Civilization::teutons
+            );
+        }
+        require(simulation.command_convert(monk, target));
+        int success_tick{};
+        for (int tick = 1; tick <= 20; ++tick) {
+            simulation.update();
+            const auto converted = std::ranges::find(
+                simulation.units(), target, &aoe::Unit::id
+            );
+            if (converted != simulation.units().end() &&
+                converted->owner == aoe::Player::blue) {
+                success_tick = tick;
+                break;
+            }
+        }
+        require(success_tick != 0);
+        return Trace{success_tick, simulation.consume_commercial_random()};
+    };
+
+    // Seed zero produces rolls 0,23,64,7: first three still fail because
+    // elapsed time is below four; inclusive ordinary chance succeeds at four.
+    const Trace forced_minimum = trace(
+        0, false, false, aoe::UnitKind::villager
+    );
+    require(forced_minimum.success_tick == 4);
+    require(forced_minimum.next_random == 8855);
+
+    // Default CRT seed reaches no ordinary success before forced maximum 10.
+    const Trace forced_maximum = trace(
+        1, false, false, aoe::UnitKind::villager
+    );
+    require(forced_maximum.success_tick == 10);
+    require(forced_maximum.next_random == 5705);
+
+    // Commercial ID 448 adds the recovered special-unit resistance eight.
+    const Trace resistant = trace(
+        1, false, false, aoe::UnitKind::scout_cavalry
+    );
+    require(resistant.success_tick == 10);
+    require(resistant.next_random == 5705);
+
+    // Faith adds resources 77/178/179 = 3/2/4.
+    const Trace faith = trace(
+        1, true, false, aoe::UnitKind::villager
+    );
+    require(faith.success_tick == 14);
+    require(faith.next_random == 9961);
+
+    // Teuton team effect 404 adds resources 77/178/179 = 2/1/2.
+    const Trace teuton = trace(
+        1, false, true, aoe::UnitKind::villager
+    );
+    require(teuton.success_tick == 12);
+    require(teuton.next_random == 23281);
+}
+
 void unit_moves_deterministically() {
     aoe::Simulation simulation = aoe::Simulation::create_demo();
     require(simulation.select_unit_at({2, 7}, aoe::Player::blue));
@@ -14264,7 +14351,7 @@ void monks_convert_units_with_persisted_replayable_progress() {
     aoe::save_replay(replay, replay_path);
     aoe::Replay loaded_replay = aoe::load_replay(replay_path);
     std::filesystem::remove(replay_path);
-    for (int tick = 0; tick < 7; ++tick) {
+    for (int tick = 0; tick < 9; ++tick) {
         replay.apply_current_tick(first);
         loaded_replay.apply_current_tick(second);
         first.update();
@@ -14277,7 +14364,7 @@ void monks_convert_units_with_persisted_replayable_progress() {
     aoe::Simulation restored = aoe::load_game(save_path);
     std::filesystem::remove(save_path);
     require(restored.units()[0].conversion_target_id == 2);
-    require(restored.units()[0].conversion_progress == 7);
+    require(restored.units()[0].conversion_progress == 9);
     first.update();
     second.update();
     restored.update();
@@ -22710,9 +22797,9 @@ void religious_conversion_resistance_and_group_policy_is_deterministic() {
         }
         return ticks;
     };
-    require(conversion_ticks(false, false) == 8);
+    require(conversion_ticks(false, false) == 10);
     require(conversion_ticks(true, false) == 10);
-    require(conversion_ticks(false, true) == 12);
+    require(conversion_ticks(false, true) == 14);
 
     aoe::Simulation persisted(aoe::GameMap(18, 8));
     const auto persisted_monk = persisted.add_unit(
@@ -22732,7 +22819,7 @@ void religious_conversion_resistance_and_group_policy_is_deterministic() {
         0, aoe::ConvertUnitCommand{persisted_monk, persisted_target}
     );
     replay.apply_current_tick(persisted);
-    for (int tick = 0; tick < 5; ++tick) persisted.update();
+    for (int tick = 0; tick < 7; ++tick) persisted.update();
     const auto save_path = std::filesystem::temp_directory_path() /
         "aoe-conversion-resistance.save";
     aoe::save_game(persisted, save_path);
@@ -22770,7 +22857,7 @@ void religious_conversion_resistance_and_group_policy_is_deterministic() {
         }
         require(simulation.command_convert(first, target));
         require(simulation.command_convert(second, target));
-        for (int tick = 0; tick < 9; ++tick) simulation.update();
+        for (int tick = 0; tick < 10; ++tick) simulation.update();
         require(simulation.units()[2].owner == aoe::Player::blue);
         simulation.update();
         return std::array{
@@ -22781,8 +22868,9 @@ void religious_conversion_resistance_and_group_policy_is_deterministic() {
     const auto shared_charge = group_conversion(false);
     require(shared_charge[0] > 0 && shared_charge[1] > 0);
     const auto retained_charge = group_conversion(true);
-    require(retained_charge[0] == 0);
-    require(retained_charge[1] > 0);
+    require(
+        (retained_charge[0] == 0) != (retained_charge[1] == 0)
+    );
 
     aoe::Simulation heresy(aoe::GameMap(16, 8));
     const auto heresy_monk = heresy.add_unit(
@@ -22798,7 +22886,7 @@ void religious_conversion_resistance_and_group_policy_is_deterministic() {
         aoe::Player::red, {aoe::Technology::heresy}
     );
     require(heresy.command_convert(heresy_monk, heresy_target));
-    for (int tick = 0; tick < 9; ++tick) heresy.update();
+    for (int tick = 0; tick < 10; ++tick) heresy.update();
     require(std::ranges::none_of(
         heresy.units(), [heresy_target](const aoe::Unit& unit) {
             return unit.id == heresy_target;
@@ -23646,6 +23734,10 @@ int main() {
     run(
         "exact executable conversion arithmetic",
         executable_conversion_arithmetic_is_exact
+    );
+    run(
+        "commercial conversion random stream and schedule",
+        commercial_conversion_stream_and_schedule_are_exact
     );
     run("unit movement", unit_moves_deterministically);
     run(

@@ -250,6 +250,8 @@ void save_game(const Simulation& simulation, const std::filesystem::path& path) 
     output << "AOE-ARCHAEOLOGY-SAVE "
            << reconstruction_save_version << '\n';
     output << "tick " << simulation.tick_number() << '\n';
+    output << "commercial-random-state "
+           << simulation.commercial_random_state() << '\n';
     output << "controllers "
            << static_cast<int>(
                 simulation.controller_state(Player::blue)
@@ -829,6 +831,7 @@ Simulation load_game(const std::filesystem::path& path) {
     }
 
     std::uint64_t tick{};
+    std::uint32_t commercial_random_state{1};
     Economy blue;
     Economy red;
     Age blue_age{Age::dark};
@@ -890,6 +893,8 @@ Simulation load_game(const std::filesystem::path& path) {
     while (input >> record) {
         if (record == "tick") {
             input >> tick;
+        } else if (record == "commercial-random-state" && version >= 113) {
+            input >> commercial_random_state;
         } else if (record == "controllers" && version >= 106) {
             int blue_value{};
             int red_value{};
@@ -2609,6 +2614,7 @@ Simulation load_game(const std::filesystem::path& path) {
         red,
         tick
     );
+    simulation.replace_commercial_random_state(commercial_random_state);
     if (version >= 109) {
         for (std::size_t index = 0; index < 8; ++index) {
             simulation.replace_player_state(

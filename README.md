@@ -36,7 +36,6 @@ Controls and content:
 - [Background gameplay automation](docs/guide/GAMEPLAY_AUTOMATION.md)
 - [Random maps](docs/guide/RANDOM_MAPS.md)
 - [Civilization content](docs/guide/CIVILIZATION_CONTENT.md)
-- [Current implementation status](docs/guide/IMPLEMENTATION_STATUS.md)
 
 ## Documentation
 
@@ -50,6 +49,3 @@ Project reconstructs behavior from bounded evidence while keeping native
 formats and implementation independent. Exact-original claims require pinned
 data, executable control flow, or reproducible runtime evidence. Unknown
 commercial behavior remains explicit instead of inferred.
-
-Full scope and implemented-feature catalog:
-[project status](docs/guide/STATUS.md).

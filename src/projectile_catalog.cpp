@@ -166,6 +166,10 @@ std::optional<ProjectileAssetKind> impact_asset_kind_for(
         : std::nullopt;
 }
 
+bool projectile_impact_is_visible(const ImpactEffect& impact) {
+    return impact.splash || impact_asset_kind_for(impact).has_value();
+}
+
 std::optional<ProjectileFrameSelection>
 select_projectile_frame(
     TilePosition origin,

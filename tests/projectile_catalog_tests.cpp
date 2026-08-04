@@ -83,6 +83,38 @@ int main() {
         "short Arrow SLP layout rejected"
     );
 
+    aoe::ImpactEffect crossbow_arrow;
+    crossbow_arrow.source_kind = aoe::UnitKind::crossbowman;
+    expect(
+        !aoe::impact_asset_kind_for(crossbow_arrow) &&
+            !aoe::projectile_impact_is_visible(crossbow_arrow),
+        "ordinary unit arrow has no borrowed siege impact"
+    );
+    aoe::ImpactEffect tower_arrow;
+    tower_arrow.source_is_building = true;
+    tower_arrow.source_building_kind = aoe::BuildingKind::watch_tower;
+    expect(
+        !aoe::impact_asset_kind_for(tower_arrow) &&
+            !aoe::projectile_impact_is_visible(tower_arrow),
+        "ordinary building arrow has no borrowed siege impact"
+    );
+    aoe::ImpactEffect onager_impact;
+    onager_impact.source_kind = aoe::UnitKind::onager;
+    expect(
+        aoe::impact_asset_kind_for(onager_impact) ==
+                aoe::ProjectileAssetKind::cannonball &&
+            aoe::projectile_impact_is_visible(onager_impact),
+        "proved siege impact remains visible"
+    );
+    aoe::ImpactEffect petard_impact;
+    petard_impact.source_kind = aoe::UnitKind::petard;
+    petard_impact.splash = true;
+    expect(
+        !aoe::impact_asset_kind_for(petard_impact) &&
+            aoe::projectile_impact_is_visible(petard_impact),
+        "procedural splash impact remains visible"
+    );
+
     const auto front = aoe::select_projectile_frame(
         {0, 0}, {-1, 1}, 1, 18, 10, 0
     );

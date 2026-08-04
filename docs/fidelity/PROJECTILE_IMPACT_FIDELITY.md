@@ -51,6 +51,9 @@ half-plus-center layout. Runtime selects the nearest logical direction and
 mirrors directions above 180 degrees. Expansion graphic 3378 / SLP 3799
 remains unsuitable because its 176 frames do not match its declared
 11-by-32 layout; renderer deliberately selects the complete static arrow.
+Ordinary non-splash arrow hits have no linked impact graphic and render no
+impact layer. They never borrow standard siege impact 1744 / SLP 416; doing so
+produced the former large white dithered cloud over each arrow destination.
 
 Machine-readable before/after inventory lives in
 `generated/projectile_impact_coverage.json`; regenerate with:
@@ -67,7 +70,8 @@ installer SLP counts, payload hashes, and hotspot bounds in
 
 `projectile_catalog_tests` covers exact body/shadow/impact resolution, wrong
 shadow-layer rejection, impact-cadence drift rejection, Scorpion front/back/
-mirrored selection, and static Arrow direction selection.
+mirrored selection, static Arrow direction selection, silent Crossbowman and
+Watch Tower arrow hits, and retained siege/procedural splash impacts.
 
 Paired original-runtime captures remain needed for projectile hotspot, arc,
 shadow offset, action cadence, and impact timing.

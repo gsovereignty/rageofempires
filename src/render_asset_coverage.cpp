@@ -72,6 +72,7 @@ constexpr UnitAnimationSet unit_animation_sets[] = {
     {UnitKind::elite_war_elephant, 801, 7, 805, 10, 795, 7, 798, 15},
     {UnitKind::woad_raider, 1598, 8, 1602, 12, 1592, 12, 1595, 10},
     {UnitKind::elite_woad_raider, 1598, 8, 1602, 12, 1592, 12, 1595, 10},
+    {UnitKind::king, 1851, 6, 1855, 10, 1851, 6, 1848, 10},
     {UnitKind::cavalry_archer, 326, 10, 330, 10, 320, 13, 323, 10},
     {UnitKind::heavy_cavalry_archer, 3763, 10, 3767, 10, 3757, 13, 3760, 10},
     {UnitKind::mameluke, 357, 6, 361, 10, 351, 10, 354, 10},
@@ -1992,6 +1993,7 @@ std::string render_unit_kind_name(UnitKind kind) {
         "siege_ram", "halberdier", "hand_cannoneer", "bombard_cannon",
         "petard", "missionary", "trade_cog", "woad_raider",
         "elite_woad_raider",
+        "king",
     };
     const auto index = static_cast<std::size_t>(kind);
     if (index >= std::size(names)) {

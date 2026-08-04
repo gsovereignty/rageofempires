@@ -161,17 +161,20 @@ int main() {
     const auto regicide = activate_frontend_menu_item(
         FrontendMenuScreen::single_player_menu, 2
     );
-    assert(!regicide.activate);
+    assert(regicide.activate);
+    assert(regicide.screen == FrontendMenuScreen::random_map_setup);
 
     const auto death_match = activate_frontend_menu_item(
         FrontendMenuScreen::single_player_menu, 3
     );
-    assert(!death_match.activate);
+    assert(death_match.activate);
+    assert(death_match.screen == FrontendMenuScreen::random_map_setup);
 
-    const auto disabled = activate_frontend_menu_item(
+    const auto learn = activate_frontend_menu_item(
         FrontendMenuScreen::main_menu, 0
     );
-    assert(!disabled.activate);
+    assert(learn.activate);
+    assert(learn.command == FrontendMenuCommand::learn_to_play);
 
     const auto closed = close_frontend_menu(
         FrontendMenuScreen::single_player_menu

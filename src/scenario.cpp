@@ -642,6 +642,7 @@ UnitKind parse_unit(const std::string& value, int line) {
     if (value == "camel_rider") return UnitKind::camel_rider;
     if (value == "woad_raider") return UnitKind::woad_raider;
     if (value == "elite_woad_raider") return UnitKind::elite_woad_raider;
+    if (value == "king") return UnitKind::king;
     if (value == "heavy_camel") return UnitKind::heavy_camel;
     if (value == "capped_ram") return UnitKind::capped_ram;
     if (value == "siege_ram") return UnitKind::siege_ram;
@@ -1064,6 +1065,7 @@ std::string unit_name(UnitKind kind) {
         case UnitKind::trade_cog: return "trade_cog";
         case UnitKind::woad_raider: return "woad_raider";
         case UnitKind::elite_woad_raider: return "elite_woad_raider";
+        case UnitKind::king: return "king";
     }
     return "villager";
 }
@@ -1313,6 +1315,11 @@ Scenario load_scenario(const std::filesystem::path& path) {
                 scenario->match_rules.relics_required >>
                 scenario->match_rules.score_limit >>
                 scenario->match_rules.time_limit_ticks;
+            if (scenario_version >= 67) {
+                record >> scenario->match_rules.regicide_enabled >>
+                    scenario->match_rules.blue_king >>
+                    scenario->match_rules.red_king;
+            }
         } else if (type == "age" && scenario_version >= 3) {
             std::string player_name;
             std::string age;
@@ -1846,7 +1853,10 @@ void save_scenario(
            << scenario.match_rules.relic_countdown_ticks << ' '
            << scenario.match_rules.relics_required << ' '
            << scenario.match_rules.score_limit << ' '
-           << scenario.match_rules.time_limit_ticks << '\n';
+           << scenario.match_rules.time_limit_ticks << ' '
+           << scenario.match_rules.regicide_enabled << ' '
+           << scenario.match_rules.blue_king << ' '
+           << scenario.match_rules.red_king << '\n';
     std::vector<ScenarioRosterEntry> roster_entries =
         scenario.roster_entries;
     std::vector<DirectedDiplomacyRecord> diplomacy_records =

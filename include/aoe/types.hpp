@@ -311,10 +311,11 @@ enum class UnitKind {
     trade_cog,
     woad_raider,
     elite_woad_raider,
+    king,
 };
 
 inline constexpr std::size_t unit_kind_count =
-    static_cast<std::size_t>(UnitKind::elite_woad_raider) + 1;
+    static_cast<std::size_t>(UnitKind::king) + 1;
 
 enum class Player {
     blue,
@@ -459,6 +460,9 @@ struct MatchRules {
     int relics_required{5};
     int score_limit{};
     std::uint64_t time_limit_ticks{};
+    bool regicide_enabled{};
+    EntityId blue_king{};
+    EntityId red_king{};
 };
 
 enum class VictoryCountdownKind {

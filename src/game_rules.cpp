@@ -584,6 +584,17 @@ constexpr UnitRules elite_woad_raider_rules{
     .movement_speed_percent = 120,
     .trained_at = BuildingKind::castle, .minimum_age = Age::imperial,
 };
+// Live VER 5.7 DAT unit 434: non-combatant Regicide King.
+constexpr UnitRules king_rules{
+    .hit_points = 75, .attack = 0, .attack_interval_ticks = 1,
+    .movement_interval_ticks = 1, .attack_range = 0,
+    .damage_class = DamageClass::melee, .bonus_vs_cavalry = 0,
+    .melee_armor = 0, .pierce_armor = 0,
+    .wood_cost = 0, .food_cost = 0, .gold_cost = 0,
+    .training_ticks = 30, .vision_range = 6,
+    .movement_speed_percent = 132,
+    .trained_at = BuildingKind::castle, .minimum_age = Age::castle,
+};
 constexpr UnitRules mangudai_rules{
     .hit_points = 60, .attack = 6, .attack_interval_ticks = 2,
     .movement_interval_ticks = 1, .attack_range = 4,
@@ -2850,6 +2861,7 @@ const UnitRules& rules_for(UnitKind kind) {
         case UnitKind::elite_tarkan: return elite_tarkan_rules;
         case UnitKind::woad_raider: return woad_raider_rules;
         case UnitKind::elite_woad_raider: return elite_woad_raider_rules;
+        case UnitKind::king: return king_rules;
     }
     return villager_rules;
 }
@@ -3156,6 +3168,7 @@ bool available(const AvailabilityWords& words, std::size_t index) {
 
 bool civilization_has_unit(Civilization civilization, UnitKind unit) {
     if (civilization == Civilization::generic) return true;
+    if (unit == UnitKind::king) return true;
     if (unit == UnitKind::woad_raider ||
         unit == UnitKind::elite_woad_raider) {
         return civilization == Civilization::celts;

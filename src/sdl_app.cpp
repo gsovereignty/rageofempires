@@ -36,6 +36,7 @@
 #include "aoe/command_panel.hpp"
 #include "aoe/cursor_contract.hpp"
 #include "aoe/frontend_audio.hpp"
+#include "aoe/frontend_game_modes.hpp"
 #include "aoe/frontend_menu.hpp"
 #include "aoe/frame_timing.hpp"
 #include "aoe/computer_player.hpp"
@@ -246,6 +247,7 @@ enum class FrontendScreen {
     single_player_menu,
     ai_arabia_size_menu,
     single_player_setup,
+    zone_service,
 };
 
 FrontendMenuScreen frontend_menu_screen(FrontendScreen screen) {
@@ -307,6 +309,7 @@ RandomMapSize next_random_map_size(RandomMapSize size) {
 Civilization active_setup_civilization{Civilization::britons};
 ComputerDifficulty active_setup_difficulty{ComputerDifficulty::moderate};
 int active_setup_victory{};  // 0 conquest, 1 wonder, 2 relic.
+FrontendGameMode active_frontend_game_mode{FrontendGameMode::standard};
 bool active_technology_tree_visible{};
 TechnologyTreeLayout active_technology_tree =
     build_technology_tree(Civilization::britons);
@@ -13668,6 +13671,33 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
     );
     set_color(renderer, {238, 230, 198, 255});
     {
+        if (active_frontend_screen == FrontendScreen::zone_service) {
+            const ZoneServiceContract& zone = zone_service_contract();
+            SDL_RenderDebugText(
+                renderer, panel.x + 70.0F, panel.y + 122.0F,
+                "MSN GAMING ZONE"
+            );
+            SDL_RenderDebugText(
+                renderer, panel.x + 70.0F, panel.y + 178.0F,
+                std::string{zone.status}.c_str()
+            );
+            const std::string original_service =
+                std::string{"ORIGINAL SERVICE: "} +
+                std::string{zone.original_url};
+            SDL_RenderDebugText(
+                renderer, panel.x + 70.0F, panel.y + 214.0F,
+                original_service.c_str()
+            );
+            SDL_RenderDebugText(
+                renderer, panel.x + 70.0F, panel.y + 270.0F,
+                std::string{zone.supported_alternative}.c_str()
+            );
+            SDL_RenderDebugText(
+                renderer, panel.x + 70.0F, panel.y + 326.0F,
+                "ESC: MAIN MENU"
+            );
+            return;
+        }
         const char* map_kind =
             active_random_settings.kind == RandomMapKind::arabia
                 ? "ARABIA" :
@@ -13687,7 +13717,11 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
                 ? "HARD" : "HARDEST";
         SDL_RenderDebugText(
             renderer, panel.x + 70.0F, panel.y + 122.0F,
-            "SINGLE PLAYER RANDOM MAP"
+            active_frontend_game_mode == FrontendGameMode::regicide
+                ? "SINGLE PLAYER REGICIDE"
+                : active_frontend_game_mode == FrontendGameMode::death_match
+                    ? "SINGLE PLAYER DEATH MATCH"
+                    : "SINGLE PLAYER RANDOM MAP"
         );
         const std::string map_line =
             std::string{"M MAP: "} + map_kind +
@@ -13715,7 +13749,9 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
             active_setup_victory == 0 ? "CONQUEST" :
             active_setup_victory == 1 ? "WONDER" : "RELIC";
         const std::string victory_line =
-            std::string{"V VICTORY: "} + victory;
+            active_frontend_game_mode == FrontendGameMode::regicide
+                ? "VICTORY: DEFEAT ENEMY KING"
+                : std::string{"V VICTORY: "} + victory;
         SDL_RenderDebugText(
             renderer, panel.x + 70.0F, panel.y + 274.0F,
             victory_line.c_str()
@@ -17075,6 +17111,41 @@ int SdlApp::run() {
             SDL_PushEvent(&activation);
             activation.type = SDL_EVENT_MOUSE_BUTTON_UP;
             SDL_PushEvent(&activation);
+        } else if (std::string_view{proof} == "learn") {
+            activation.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
+            activation.button.button = SDL_BUTTON_LEFT;
+            activation.button.x = 100.0F;
+            activation.button.y = 120.0F;
+            SDL_PushEvent(&activation);
+            activation.type = SDL_EVENT_MOUSE_BUTTON_UP;
+            SDL_PushEvent(&activation);
+        } else if (std::string_view{proof} == "zone") {
+            activation.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
+            activation.button.button = SDL_BUTTON_LEFT;
+            activation.button.x = 100.0F;
+            activation.button.y = 470.0F;
+            SDL_PushEvent(&activation);
+            activation.type = SDL_EVENT_MOUSE_BUTTON_UP;
+            SDL_PushEvent(&activation);
+        } else if (std::string_view{proof} == "regicide" ||
+                   std::string_view{proof} == "death-match") {
+            activation.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
+            activation.button.button = SDL_BUTTON_LEFT;
+            activation.button.x = 100.0F;
+            activation.button.y = 170.0F;
+            SDL_PushEvent(&activation);
+            activation.type = SDL_EVENT_MOUSE_BUTTON_UP;
+            SDL_PushEvent(&activation);
+            activation.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
+            activation.button.x = 520.0F;
+            activation.button.y = std::string_view{proof} == "regicide"
+                ? 220.0F : 270.0F;
+            SDL_PushEvent(&activation);
+            activation.type = SDL_EVENT_MOUSE_BUTTON_UP;
+            SDL_PushEvent(&activation);
+            activation.type = SDL_EVENT_KEY_DOWN;
+            activation.key.key = SDLK_RETURN;
+            SDL_PushEvent(&activation);
         } else if (std::string_view{proof} == "enter") {
             activation.type = SDL_EVENT_KEY_DOWN;
             activation.key.key = SDLK_RETURN;
@@ -17562,8 +17633,13 @@ int SdlApp::run() {
             case FrontendMenuCommand::none:
                 return;
             case FrontendMenuCommand::learn_to_play:
-                active_frontend_status =
-                    "LEARN TO PLAY IS NOT YET AVAILABLE";
+                demo_scenario = make_learn_to_play_scenario();
+                simulation = create_simulation(demo_scenario);
+                center_camera_on_local_start();
+                computer = ComputerPlayer(
+                    Player::red, ComputerDifficulty::easiest
+                );
+                active_frontend_screen = FrontendScreen::hidden;
                 return;
             case FrontendMenuCommand::open_single_player:
                 active_frontend_screen =
@@ -17600,8 +17676,7 @@ int SdlApp::run() {
                 active_options_visible = true;
                 return;
             case FrontendMenuCommand::show_zone_unavailable:
-                active_frontend_status =
-                    "MSN GAMING ZONE SERVICE IS UNAVAILABLE";
+                active_frontend_screen = FrontendScreen::zone_service;
                 return;
             case FrontendMenuCommand::exit_game:
                 running = false;
@@ -17618,17 +17693,21 @@ int SdlApp::run() {
                 }
                 return;
             case FrontendMenuCommand::open_random_map:
+                active_frontend_game_mode = FrontendGameMode::standard;
                 active_frontend_screen =
                     FrontendScreen::single_player_setup;
                 refresh_random_map_preview();
                 return;
             case FrontendMenuCommand::open_regicide:
-                active_frontend_status =
-                    "REGICIDE RULES ARE NOT YET AVAILABLE";
+                active_frontend_game_mode = FrontendGameMode::regicide;
+                active_setup_victory = 0;
+                active_frontend_screen = FrontendScreen::single_player_setup;
+                refresh_random_map_preview();
                 return;
             case FrontendMenuCommand::open_death_match:
-                active_frontend_status =
-                    "DEATH MATCH RULES ARE NOT YET AVAILABLE";
+                active_frontend_game_mode = FrontendGameMode::death_match;
+                active_frontend_screen = FrontendScreen::single_player_setup;
+                refresh_random_map_preview();
                 return;
             case FrontendMenuCommand::open_custom_campaign:
                 active_frontend_status =
@@ -17829,7 +17908,9 @@ int SdlApp::run() {
                     rules.conquest_enabled = active_setup_victory == 0;
                     rules.wonder_enabled = active_setup_victory == 1;
                     rules.relic_enabled = active_setup_victory == 2;
-                    demo_scenario = *random_map_preview;
+                    demo_scenario = configure_frontend_game_mode(
+                        *random_map_preview, active_frontend_game_mode
+                    );
                     simulation = create_simulation(demo_scenario);
                     center_camera_on_local_start();
                     computer = ComputerPlayer(
@@ -18535,7 +18616,10 @@ int SdlApp::run() {
                                     active_setup_victory == 1;
                                 rules.relic_enabled =
                                     active_setup_victory == 2;
-                                demo_scenario = *random_map_preview;
+                                demo_scenario = configure_frontend_game_mode(
+                                    *random_map_preview,
+                                    active_frontend_game_mode
+                                );
                                 simulation =
                                     create_simulation(demo_scenario);
                                 center_camera_on_local_start();
@@ -20123,6 +20207,14 @@ int SdlApp::run() {
                 if (active_frontend_screen != FrontendScreen::hidden &&
                     !event.key.repeat) {
                     if (active_frontend_screen ==
+                            FrontendScreen::zone_service) {
+                        if (event.key.key == SDLK_ESCAPE ||
+                            event.key.key == SDLK_RETURN ||
+                            event.key.key == SDLK_KP_ENTER) {
+                            active_frontend_screen =
+                                FrontendScreen::main_menu;
+                        }
+                    } else if (active_frontend_screen ==
                         FrontendScreen::single_player_setup) {
                         if (event.key.key == SDLK_ESCAPE) {
                             active_frontend_screen =
@@ -20204,7 +20296,10 @@ int SdlApp::run() {
                                     active_setup_victory == 1;
                                 rules.relic_enabled =
                                     active_setup_victory == 2;
-                                demo_scenario = *random_map_preview;
+                                demo_scenario = configure_frontend_game_mode(
+                                    *random_map_preview,
+                                    active_frontend_game_mode
+                                );
                                 simulation =
                                     create_simulation(demo_scenario);
                                 center_camera_on_local_start();

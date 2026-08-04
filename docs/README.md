@@ -38,6 +38,9 @@ Sprite, technology, civilization, renderer, and asset-coverage mappings:
 
 ## Evidence
 
+- [Frontend game-mode evidence](evidence/FRONTEND_GAME_MODES_EVIDENCE.md)
+  proves restored Learn to Play, Regicide, Death Match, and retired Zone
+  contracts plus persistence and background SDL coverage.
 - [Villager death presentation evidence](evidence/VILLAGER_DEATH_PRESENTATION_EVIDENCE.md)
   proves exact VMBAS_DN frames, hotspots, corpse hold, and unit/rubble split.
 - [Market standing runtime evidence](evidence/MARKET_STANDING_RUNTIME_EVIDENCE.md)

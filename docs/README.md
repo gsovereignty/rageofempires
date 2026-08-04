@@ -38,6 +38,8 @@ Sprite, technology, civilization, renderer, and asset-coverage mappings:
 
 ## Evidence
 
+- [Market standing runtime evidence](evidence/MARKET_STANDING_RUNTIME_EVIDENCE.md)
+  isolates fixed completed-Market frames from moving Trade Cart overlap.
 - [Sheep player movement](evidence/SHEEP_PLAYER_MOVEMENT.md) records command,
   pathing, replay/save, SDL, and original-evidence findings.
 

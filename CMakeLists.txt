@@ -519,6 +519,13 @@ set_tests_properties(
     PROPERTIES TIMEOUT 30
 )
 add_test(
+    NAME market_standing_sdl_smoke
+    COMMAND bash
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/market_standing_sdl_smoke.sh
+        $<TARGET_FILE:aoe_reconstruction>
+)
+set_tests_properties(market_standing_sdl_smoke PROPERTIES TIMEOUT 30)
+add_test(
     NAME frontend_menu_sdl_smoke
     COMMAND bash
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/frontend_menu_sdl_smoke.sh

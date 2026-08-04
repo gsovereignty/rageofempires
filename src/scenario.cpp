@@ -1555,6 +1555,7 @@ Scenario load_scenario(const std::filesystem::path& path) {
                 {},
                 UnitStance::aggressive,
                 std::nullopt,
+                false,
             };
             if (scenario_version >= 20) {
                 record >> std::ws;
@@ -1588,6 +1589,12 @@ Scenario load_scenario(const std::filesystem::path& path) {
                             );
                         }
                         placement.food_remaining = amount;
+                        record >> std::ws;
+                        continue;
+                    }
+                    if (marker == "unconvertible" &&
+                        scenario_version >= 69) {
+                        placement.unconvertible = true;
                         record >> std::ws;
                         continue;
                     }
@@ -2096,6 +2103,7 @@ void save_scenario(
         if (unit.food_remaining) {
             output << " food " << *unit.food_remaining;
         }
+        if (unit.unconvertible) output << " unconvertible";
         if (unit.garrisoned_in) {
             output << " garrison " << unit.garrisoned_in->x << ' '
                    << unit.garrisoned_in->y;
@@ -2284,6 +2292,7 @@ Simulation create_simulation(const Scenario& scenario) {
          ++unit_index) {
         const UnitPlacement& placement = scenario.units[unit_index];
         units[unit_index].stance = placement.stance;
+        units[unit_index].unconvertible = placement.unconvertible;
         units[unit_index].stance_anchor = placement.position;
         if (placement.food_remaining) {
             units[unit_index].food_remaining =

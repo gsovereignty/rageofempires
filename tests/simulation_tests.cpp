@@ -23585,7 +23585,7 @@ void slot_indexed_entity_ownership_and_diplomacy_are_checked() {
     );
     std::filesystem::remove(scenario_path);
     require(roster_bytes.starts_with(
-        "AOE-ARCHAEOLOGY-SCENARIO 67\n"
+        "AOE-ARCHAEOLOGY-SCENARIO 69\n"
     ));
     require(loaded_roster.roster_schema);
     require(loaded_roster.roster_entries.size() == 3);

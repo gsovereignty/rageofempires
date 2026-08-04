@@ -8,6 +8,8 @@
 #include <cctype>
 #include <cmath>
 #include <fstream>
+#include <limits>
+#include <queue>
 #include <set>
 #include <sstream>
 #include <unordered_map>
@@ -263,22 +265,77 @@ void paint_disc(
 void paint_connection(
     GameMap& map, TilePosition from, TilePosition to, int radius,
     Terrain fallback,
-    const std::vector<std::pair<Terrain, Terrain>>& replacements
+    const std::vector<std::pair<Terrain, Terrain>>& replacements,
+    const std::vector<std::pair<Terrain, int>>& costs
 ) {
-    const int steps = std::max(
-        std::abs(to.x - from.x), std::abs(to.y - from.y)
-    );
-    for (int step = 0; step <= steps; ++step) {
-        const double fraction = steps == 0
-            ? 0.0 : static_cast<double>(step) / steps;
-        const TilePosition center{
-            static_cast<int>(std::lround(
-                from.x + (to.x - from.x) * fraction
-            )),
-            static_cast<int>(std::lround(
-                from.y + (to.y - from.y) * fraction
-            )),
+    std::vector<TilePosition> path;
+    if (costs.empty()) {
+        const int steps = std::max(
+            std::abs(to.x - from.x), std::abs(to.y - from.y)
+        );
+        for (int step = 0; step <= steps; ++step) {
+            const double fraction = steps == 0 ? 0.0 :
+                static_cast<double>(step) / steps;
+            path.push_back({
+                static_cast<int>(std::lround(
+                    from.x + (to.x - from.x) * fraction
+                )),
+                static_cast<int>(std::lround(
+                    from.y + (to.y - from.y) * fraction
+                )),
+            });
+        }
+    } else {
+        const int width = map.width();
+        const int count = width * map.height();
+        const auto index = [width](TilePosition tile) {
+            return tile.y * width + tile.x;
         };
+        std::vector<int> distance(count, std::numeric_limits<int>::max());
+        std::vector<int> previous(count, -1);
+        using QueueItem = std::pair<int, int>;
+        std::priority_queue<QueueItem, std::vector<QueueItem>,
+                            std::greater<QueueItem>> queue;
+        distance[index(from)] = 0;
+        queue.emplace(0, index(from));
+        constexpr std::array<TilePosition, 4> steps{{
+            {1, 0}, {0, 1}, {-1, 0}, {0, -1},
+        }};
+        while (!queue.empty()) {
+            const auto [current_distance, current_index] = queue.top();
+            queue.pop();
+            if (current_distance != distance[current_index]) continue;
+            if (current_index == index(to)) break;
+            const TilePosition current{
+                current_index % width, current_index / width
+            };
+            for (TilePosition step : steps) {
+                const TilePosition next{current.x + step.x, current.y + step.y};
+                if (!map.contains(next)) continue;
+                int cost = 1;
+                const Terrain terrain = map.terrain_at(next);
+                const auto found = std::ranges::find_if(
+                    costs, [terrain](const auto& item) {
+                        return item.first == terrain;
+                    }
+                );
+                if (found != costs.end()) cost = found->second;
+                const int next_index = index(next);
+                const int candidate = current_distance + cost;
+                if (candidate >= distance[next_index]) continue;
+                distance[next_index] = candidate;
+                previous[next_index] = current_index;
+                queue.emplace(candidate, next_index);
+            }
+        }
+        for (int cursor = index(to); cursor >= 0;
+             cursor = previous[cursor]) {
+            path.push_back({cursor % width, cursor / width});
+            if (cursor == index(from)) break;
+        }
+        std::ranges::reverse(path);
+    }
+    for (TilePosition center : path) {
         for (int y = center.y - radius; y <= center.y + radius; ++y) {
             for (int x = center.x - radius; x <= center.x + radius; ++x) {
                 const TilePosition tile{x, y};
@@ -316,11 +373,14 @@ struct LandGeneration {
     int right_border{};
     int top_border{};
     int bottom_border{};
+    int border_fuzziness{};
+    int other_zone_avoidance{};
     int zone{-10};
     int id{-1};
     std::optional<TilePosition> position_percent;
     std::optional<int> player;
     bool player_lands{};
+    bool zone_by_team{};
 };
 
 struct TerrainGeneration {
@@ -448,6 +508,7 @@ struct ConnectionGeneration {
     std::optional<int> zone_one;
     std::optional<int> zone_two;
     std::vector<std::pair<Terrain, Terrain>> replacements;
+    std::vector<std::pair<Terrain, int>> costs;
 };
 
 struct LandSite {
@@ -501,6 +562,16 @@ std::vector<LandGeneration> land_generations(
             current->bottom_border = std::clamp(
                 directive_value(directive, 0), 0, 49
             );
+        } else if (directive.name == "border_fuzziness") {
+            current->border_fuzziness = std::clamp(
+                directive_value(directive, 0), 0, 100
+            );
+        } else if (directive.name == "other_zone_avoidance_distance") {
+            current->other_zone_avoidance = std::max(
+                0, directive_value(directive, 0)
+            );
+        } else if (directive.name == "set_zone_by_team") {
+            current->zone_by_team = true;
         } else if (directive.name == "assign_to_player") {
             current->player = directive_value(directive, 0);
         } else if (directive.name == "zone") {
@@ -659,6 +730,13 @@ std::vector<ConnectionGeneration> connection_generations(
             current->width = std::max(
                 1, directive_value(directive, 1) / 2
             );
+        } else if (directive.name == "terrain_cost" &&
+                   directive.arguments.size() >= 2) {
+            const auto terrain = rms_terrain(directive.arguments[0]);
+            const auto cost = integer(directive.arguments[1]);
+            if (terrain && cost) {
+                current->costs.emplace_back(*terrain, std::max(0, *cost));
+            }
         }
     }
     return result;
@@ -678,6 +756,7 @@ struct ObjectGeneration {
     bool every_player{};
     bool gaia_only{};
     bool scale_to_map_size{};
+    bool gaia_unconvertible{};
     std::optional<int> land_id;
     std::optional<int> maximum_other_zone_distance;
 };
@@ -732,6 +811,8 @@ std::vector<ObjectGeneration> object_generations(
             object.second_name = lower(directive.arguments.front());
         } else if (directive.name == "set_scaling_to_map_size") {
             object.scale_to_map_size = true;
+        } else if (directive.name == "set_gaia_unconvertible") {
+            object.gaia_unconvertible = true;
         } else if (directive.name == "place_on_specific_land_id") {
             object.land_id = value;
         } else if (directive.name == "max_distance_to_other_zones") {
@@ -1069,6 +1150,7 @@ void apply_object_generations(
                             placed_kind, owner, position, std::nullopt,
                             std::nullopt, std::nullopt, std::nullopt,
                             false, {}, UnitStance::aggressive, std::nullopt,
+                            object.gaia_unconvertible,
                         });
                     } else if (object.name == "town_center" || object.name == "castle") {
                         const BuildingKind building_kind = object.name == "castle"
@@ -1108,6 +1190,7 @@ void apply_object_generations(
                             std::nullopt, std::nullopt,
                             std::nullopt, std::nullopt, false, {},
                             UnitStance::aggressive, std::nullopt,
+                            object.gaia_unconvertible,
                         });
                     } else if (second_terrain_kind) {
                         scenario.map.set_terrain(position, *second_terrain_kind);
@@ -1902,11 +1985,40 @@ std::optional<Scenario> evaluate_rms(
     }
     fill_map(scenario.map, base);
 
-    const TilePosition blue_start{dimension / 4, dimension / 2};
-    const TilePosition red_start{
+    bool random_placement{};
+    bool grouped_by_team{};
+    bool direct_placement{};
+    for (const RmsDirective& directive : document.directives) {
+        if (!active(directive) || directive.section != "player_setup") {
+            continue;
+        }
+        random_placement |= directive.name == "random_placement";
+        grouped_by_team |= directive.name == "grouped_by_team";
+        direct_placement |= directive.name == "direct_placement";
+    }
+    // Classic player setup consumes the shared RNG before land generation.
+    // Direct placement keeps authored quarter points. Random placement rotates
+    // the opposed pair around the map; grouped_by_team preserves adjacency
+    // within teams (one member per team in this two-player runtime).
+    const int margin = std::max(12, dimension / 8);
+    TilePosition blue_start{dimension / 4, dimension / 2};
+    TilePosition red_start{
         dimension - 1 - blue_start.x,
         dimension - 1 - blue_start.y,
     };
+    if (random_placement && !direct_placement) {
+        const int side = random.between(0, 3);
+        const int along = random.between(margin, dimension - margin - 1);
+        if (side == 0) blue_start = {margin, along};
+        else if (side == 1) blue_start = {dimension - margin - 1, along};
+        else if (side == 2) blue_start = {along, margin};
+        else blue_start = {along, dimension - margin - 1};
+        red_start = {
+            dimension - 1 - blue_start.x,
+            dimension - 1 - blue_start.y,
+        };
+    }
+    (void)grouped_by_team;
     std::vector<LandSite> land_sites;
 
     for (const LandGeneration& land :
@@ -1928,11 +2040,13 @@ std::optional<Scenario> evaluate_rms(
             paint_disc(scenario.map, red_start, radius, land.terrain);
             land_sites.push_back({
                 blue_start, Player::blue,
-                land.zone == -10 ? -9 : land.zone, land.id,
+                land.zone_by_team ? 1 :
+                    (land.zone == -10 ? -9 : land.zone), land.id,
             });
             land_sites.push_back({
                 red_start, Player::red,
-                land.zone == -10 ? -8 : land.zone, land.id,
+                land.zone_by_team ? 2 :
+                    (land.zone == -10 ? -8 : land.zone), land.id,
             });
         } else {
             const int minimum_x = std::max(
@@ -1963,13 +2077,52 @@ std::optional<Scenario> evaluate_rms(
             }
             if (land.player == 1) center = blue_start;
             else if (land.player == 2) center = red_start;
+            if (land.other_zone_avoidance > 0 && !land.position_percent &&
+                !land.player) {
+                for (int attempt = 0; attempt < 256; ++attempt) {
+                    const TilePosition candidate{
+                        random.between(minimum_x, maximum_x),
+                        random.between(minimum_y, maximum_y),
+                    };
+                    const bool separated = std::ranges::all_of(
+                        land_sites, [&](const LandSite& existing) {
+                            if (existing.zone == land.zone) return true;
+                            return std::max(
+                                std::abs(candidate.x - existing.origin.x),
+                                std::abs(candidate.y - existing.origin.y)
+                            ) >= land.other_zone_avoidance;
+                        }
+                    );
+                    if (separated) { center = candidate; break; }
+                }
+            }
             const int radius = std::max(
                 land.base_size,
                 static_cast<int>(std::sqrt(
                     static_cast<double>(wanted) / 3.141592653589793
                 ))
             );
-            paint_disc(scenario.map, center, radius, land.terrain);
+            if (land.border_fuzziness == 0) {
+                paint_disc(scenario.map, center, radius, land.terrain);
+            } else {
+                for (int y = center.y - radius; y <= center.y + radius; ++y) {
+                    for (int x = center.x - radius; x <= center.x + radius; ++x) {
+                        const TilePosition tile{x, y};
+                        if (!scenario.map.contains(tile)) continue;
+                        const int noise = random.between(
+                            -land.border_fuzziness,
+                            land.border_fuzziness
+                        ) * radius / 100;
+                        const int edge = std::max(1, radius + noise);
+                        const int dx = x - center.x;
+                        const int dy = y - center.y;
+                        if (dx * dx + dy * dy <= edge * edge) {
+                            scenario.map.set_terrain(tile, land.terrain);
+                            scenario.map.set_resource_amount(tile, 0);
+                        }
+                    }
+                }
+            }
             const std::optional<Player> owner =
                 land.player == 1 ? std::optional{Player::blue} :
                 land.player == 2 ? std::optional{Player::red} :
@@ -2307,7 +2460,8 @@ std::optional<Scenario> evaluate_rms(
                     land_sites[second].origin,
                     connection.width,
                     connection.terrain,
-                    connection.replacements
+                    connection.replacements,
+                    connection.costs
                 );
             }
         }

@@ -756,7 +756,8 @@ void save_game(const Simulation& simulation, const std::filesystem::path& path) 
         }
         output << ' ' << unit.relic_target_id
                << ' ' << unit.relic_deposit_target_id
-               << ' ' << unit.food_decay_remainder;
+               << ' ' << unit.food_decay_remainder
+               << ' ' << unit.unconvertible;
         output << '\n';
     }
     for (const Building& building : simulation.buildings()) {
@@ -1711,6 +1712,9 @@ Simulation load_game(const std::filesystem::path& path) {
                         "invalid food decay remainder in save"
                     );
                 }
+            }
+            if (version >= 117) {
+                input >> unit.unconvertible;
             }
             }
             unit.kind =

@@ -1664,6 +1664,24 @@ constexpr BuildingRules watch_tower_rules{
     .bonus_vs_ships = 7,
 };
 
+constexpr BuildingRules guard_tower_building_rules{
+    .hit_points = 1500, .melee_armor = 2, .pierce_armor = 8,
+    .wood_cost = 25, .stone_cost = 125, .construction_ticks = 16,
+    .vision_range = 10, .population_support = 0, .minimum_age = Age::castle,
+    .attack = 7, .attack_interval_ticks = 10, .attack_range = 8,
+    .minimum_attack_range = 1, .projectile_count = 1,
+    .damage_class = DamageClass::pierce, .bonus_vs_ships = 7,
+};
+
+constexpr BuildingRules keep_building_rules{
+    .hit_points = 2250, .melee_armor = 3, .pierce_armor = 9,
+    .wood_cost = 25, .stone_cost = 125, .construction_ticks = 16,
+    .vision_range = 10, .population_support = 0, .minimum_age = Age::imperial,
+    .attack = 8, .attack_interval_ticks = 10, .attack_range = 8,
+    .minimum_attack_range = 1, .projectile_count = 1,
+    .damage_class = DamageClass::pierce, .bonus_vs_ships = 7,
+};
+
 constexpr BuildingRules stone_wall_rules{
     .hit_points = 1800,
     .melee_armor = 8,
@@ -1702,6 +1720,26 @@ constexpr BuildingRules stone_gate_y_rules{
     .minimum_age = Age::feudal,
     .footprint_width = 1,
     .footprint_height = 4,
+};
+
+constexpr BuildingRules fortified_wall_building_rules{
+    .hit_points = 3000, .melee_armor = 12, .pierce_armor = 12,
+    .wood_cost = 0, .stone_cost = 5, .construction_ticks = 10,
+    .vision_range = 2, .population_support = 0, .minimum_age = Age::castle,
+};
+
+constexpr BuildingRules fortified_gate_x_rules{
+    .hit_points = 4000, .melee_armor = 6, .pierce_armor = 6,
+    .wood_cost = 0, .stone_cost = 30, .construction_ticks = 14,
+    .vision_range = 5, .population_support = 0, .minimum_age = Age::castle,
+    .footprint_width = 4, .footprint_height = 1,
+};
+
+constexpr BuildingRules fortified_gate_y_rules{
+    .hit_points = 4000, .melee_armor = 6, .pierce_armor = 6,
+    .wood_cost = 0, .stone_cost = 30, .construction_ticks = 14,
+    .vision_range = 5, .population_support = 0, .minimum_age = Age::castle,
+    .footprint_width = 1, .footprint_height = 4,
 };
 
 constexpr AgeRules dark_age_rules{
@@ -2872,6 +2910,16 @@ const BuildingRules& rules_for(BuildingKind kind) {
             return outpost_rules;
         case BuildingKind::wonder:
             return wonder_rules;
+        case BuildingKind::guard_tower:
+            return guard_tower_building_rules;
+        case BuildingKind::keep:
+            return keep_building_rules;
+        case BuildingKind::fortified_wall:
+            return fortified_wall_building_rules;
+        case BuildingKind::fortified_gate_x:
+            return fortified_gate_x_rules;
+        case BuildingKind::fortified_gate_y:
+            return fortified_gate_y_rules;
     }
     return town_center_rules;
 }

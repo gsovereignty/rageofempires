@@ -79,11 +79,17 @@ std::optional<Binding> building(BuildingKind kind) {
     case BuildingKind::siege_workshop: return icon(22);
     case BuildingKind::palisade_wall: return icon(30);
     case BuildingKind::watch_tower: return icon(25);
+    case BuildingKind::guard_tower: return icon(25);
+    case BuildingKind::keep: return icon(26);
     case BuildingKind::stone_wall: return icon(31);
+    case BuildingKind::fortified_wall: return icon(31);
     case BuildingKind::palisade_gate_x:
     case BuildingKind::palisade_gate_y:
     case BuildingKind::stone_gate_x:
     case BuildingKind::stone_gate_y:
+        return icon(36);
+    case BuildingKind::fortified_gate_x:
+    case BuildingKind::fortified_gate_y:
         return icon(36);
     case BuildingKind::monastery: return icon(10);
     case BuildingKind::market: return icon(16);

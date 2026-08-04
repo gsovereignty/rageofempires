@@ -168,8 +168,13 @@ int selected_sound(BuildingKind kind) noexcept {
         case BuildingKind::stone_wall:
         case BuildingKind::stone_gate_x:
         case BuildingKind::stone_gate_y:
+        case BuildingKind::fortified_wall:
+        case BuildingKind::fortified_gate_x:
+        case BuildingKind::fortified_gate_y:
             return 412;
         case BuildingKind::watch_tower:
+        case BuildingKind::guard_tower:
+        case BuildingKind::keep:
         case BuildingKind::bombard_tower:
         case BuildingKind::outpost:
             return 23;

@@ -675,6 +675,11 @@ BuildingKind parse_building(const std::string& value, int line) {
     if (value == "palisade_gate_y") return BuildingKind::palisade_gate_y;
     if (value == "stone_gate_x") return BuildingKind::stone_gate_x;
     if (value == "stone_gate_y") return BuildingKind::stone_gate_y;
+    if (value == "guard_tower") return BuildingKind::guard_tower;
+    if (value == "keep") return BuildingKind::keep;
+    if (value == "fortified_wall") return BuildingKind::fortified_wall;
+    if (value == "fortified_gate_x") return BuildingKind::fortified_gate_x;
+    if (value == "fortified_gate_y") return BuildingKind::fortified_gate_y;
     if (value == "monastery") return BuildingKind::monastery;
     if (value == "market") return BuildingKind::market;
     if (value == "dock") return BuildingKind::dock;
@@ -1092,6 +1097,11 @@ std::string building_name(BuildingKind kind) {
         case BuildingKind::fish_trap: return "fish_trap";
         case BuildingKind::outpost: return "outpost";
         case BuildingKind::wonder: return "wonder";
+        case BuildingKind::guard_tower: return "guard_tower";
+        case BuildingKind::keep: return "keep";
+        case BuildingKind::fortified_wall: return "fortified_wall";
+        case BuildingKind::fortified_gate_x: return "fortified_gate_x";
+        case BuildingKind::fortified_gate_y: return "fortified_gate_y";
     }
     return "town_center";
 }

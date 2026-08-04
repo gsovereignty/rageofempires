@@ -2474,6 +2474,10 @@ void fortified_wall_upgrades_existing_future_walls_and_gates() {
     ));
     require(simulation.buildings()[1].hit_points == 2200);
     require(simulation.buildings()[2].hit_points == 3250);
+    require(simulation.buildings()[1].kind ==
+            aoe::BuildingKind::fortified_wall);
+    require(simulation.buildings()[2].kind ==
+            aoe::BuildingKind::fortified_gate_x);
     require(simulation.maximum_hit_points(simulation.buildings()[1]) == 3000);
     require(simulation.maximum_hit_points(simulation.buildings()[2]) == 4000);
     require(simulation.melee_armor(simulation.buildings()[1]) == 12);
@@ -2489,6 +2493,10 @@ void fortified_wall_upgrades_existing_future_walls_and_gates() {
     );
     require(simulation.buildings()[4].hit_points == 3000);
     require(simulation.buildings()[5].hit_points == 4000);
+    require(simulation.buildings()[4].kind ==
+            aoe::BuildingKind::fortified_wall);
+    require(simulation.buildings()[5].kind ==
+            aoe::BuildingKind::fortified_gate_y);
 
     const auto save_path = std::filesystem::temp_directory_path() /
         "aoe-fortified-wall-test.save";
@@ -2500,6 +2508,10 @@ void fortified_wall_upgrades_existing_future_walls_and_gates() {
     ));
     require(loaded.maximum_hit_points(loaded.buildings()[4]) == 3000);
     require(loaded.maximum_hit_points(loaded.buildings()[5]) == 4000);
+    require(loaded.buildings()[4].kind ==
+            aoe::BuildingKind::fortified_wall);
+    require(loaded.buildings()[5].kind ==
+            aoe::BuildingKind::fortified_gate_y);
 }
 
 void guard_tower_upgrades_existing_future_towers_and_attack() {
@@ -2544,6 +2556,8 @@ void guard_tower_upgrades_existing_future_towers_and_attack() {
         aoe::Player::blue, aoe::Technology::guard_tower
     ));
     require(simulation.buildings()[1].hit_points == 1280);
+    require(simulation.buildings()[1].kind ==
+            aoe::BuildingKind::guard_tower);
     require(simulation.maximum_hit_points(simulation.buildings()[1]) == 1500);
     require(simulation.melee_armor(simulation.buildings()[1]) == 2);
     require(simulation.pierce_armor(simulation.buildings()[1]) == 8);
@@ -2559,6 +2573,8 @@ void guard_tower_upgrades_existing_future_towers_and_attack() {
         aoe::BuildingKind::watch_tower, aoe::Player::blue, {11, 2}
     );
     require(simulation.buildings().back().hit_points == 1500);
+    require(simulation.buildings().back().kind ==
+            aoe::BuildingKind::guard_tower);
 
     const auto save_path = std::filesystem::temp_directory_path() /
         "aoe-guard-tower-test.save";
@@ -2571,6 +2587,39 @@ void guard_tower_upgrades_existing_future_towers_and_attack() {
     require(loaded.maximum_hit_points(loaded.buildings().back()) == 1500);
     require(loaded.melee_armor(loaded.buildings().back()) == 2);
     require(loaded.pierce_armor(loaded.buildings().back()) == 8);
+    require(loaded.buildings().back().kind ==
+            aoe::BuildingKind::guard_tower);
+
+    const auto make_replay_simulation = [] {
+        aoe::Simulation candidate(aoe::GameMap(16, 8));
+        candidate.add_building(
+            aoe::BuildingKind::university, aoe::Player::blue, {0, 0});
+        candidate.add_building(
+            aoe::BuildingKind::watch_tower, aoe::Player::blue, {5, 2});
+        candidate.add_building(
+            aoe::BuildingKind::house, aoe::Player::red, {12, 4});
+        candidate.replace_ages(aoe::Age::castle, aoe::Age::dark);
+        candidate.replace_state(
+            candidate.units(), candidate.buildings(), {250, 100, 0, 0},
+            candidate.economy(aoe::Player::red), 0);
+        return candidate;
+    };
+    aoe::Replay replay;
+    replay.record(0, aoe::ResearchTechnologyCommand{
+        1, aoe::Technology::guard_tower});
+    const auto replay_path = std::filesystem::temp_directory_path() /
+        "aoe-guard-tower-identity.replay";
+    aoe::save_replay(replay, replay_path);
+    aoe::Replay loaded_replay = aoe::load_replay(replay_path);
+    std::filesystem::remove(replay_path);
+    aoe::Simulation replayed = make_replay_simulation();
+    for (int tick = 0; tick < technology.research_ticks; ++tick) {
+        loaded_replay.apply_current_tick(replayed);
+        replayed.update();
+    }
+    require(replayed.buildings()[1].kind ==
+            aoe::BuildingKind::guard_tower);
+    require(replayed.maximum_hit_points(replayed.buildings()[1]) == 1500);
 }
 
 void keep_requires_guard_tower_and_upgrades_tower_line() {
@@ -2630,6 +2679,7 @@ void keep_requires_guard_tower_and_upgrades_tower_line() {
         aoe::Player::blue, aoe::Technology::keep
     ));
     require(simulation.buildings()[1].hit_points == 2250);
+    require(simulation.buildings()[1].kind == aoe::BuildingKind::keep);
     require(simulation.maximum_hit_points(simulation.buildings()[1]) == 2250);
     require(simulation.melee_armor(simulation.buildings()[1]) == 3);
     require(simulation.pierce_armor(simulation.buildings()[1]) == 9);
@@ -2655,6 +2705,7 @@ void keep_requires_guard_tower_and_upgrades_tower_line() {
         aoe::BuildingKind::watch_tower, aoe::Player::blue, {11, 2}
     );
     require(simulation.buildings().back().hit_points == 2250);
+    require(simulation.buildings().back().kind == aoe::BuildingKind::keep);
 
     const auto save_path = std::filesystem::temp_directory_path() /
         "aoe-keep-test.save";
@@ -2667,6 +2718,7 @@ void keep_requires_guard_tower_and_upgrades_tower_line() {
     require(loaded.maximum_hit_points(loaded.buildings().back()) == 2250);
     require(loaded.melee_armor(loaded.buildings().back()) == 3);
     require(loaded.pierce_armor(loaded.buildings().back()) == 9);
+    require(loaded.buildings().back().kind == aoe::BuildingKind::keep);
 }
 
 void bodkin_arrow_requires_fletching_and_upgrades_arrow_attacks() {
@@ -14996,6 +15048,7 @@ void conquerors_civilizations_use_supported_exact_bonuses() {
     require(koreans.has_technology(
         aoe::Player::blue, aoe::Technology::guard_tower
     ));
+    require(koreans.buildings()[0].kind == aoe::BuildingKind::guard_tower);
 
     aoe::Simulation aztecs(aoe::GameMap(14, 8));
     aztecs.add_building(

@@ -7,8 +7,8 @@ age blue castle
 age red dark
 technology blue fortified_wall
 
-unit villager blue 4 1 stance passive
 building stone_wall blue 2 2
+unit villager blue 4 1 stance passive
 building stone_gate_x blue 3 2
 building stone_wall blue 7 2
 building stone_wall blue 12 1

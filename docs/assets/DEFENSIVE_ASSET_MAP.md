@@ -172,9 +172,10 @@ and extra-projectile rules remain reconstruction policy:
 - Diplomacy is checked again at projectile impact. A volley fired before an
   enemy becomes allied causes no damage after the transition.
 
-Guard Tower and Keep technologies retain the represented Watch Tower entity
-kind while applying their decoded HP, attack, armor, and technology-dependent
-range rules. This avoids inventing a runtime object replacement step.
+Guard Tower and Keep identities share Watch Tower art-family tables while
+owning decoded HP, attack, armor, icon, and name records. Technology completion
+replaces authoritative building identity; renderer aliasing changes art lookup
+only.
 
 Tests compare Castle volleys with a melee occupant, Villager, and Archer;
 Villager and Archer each add exactly one represented projectile while melee

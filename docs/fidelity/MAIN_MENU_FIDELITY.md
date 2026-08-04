@@ -2,9 +2,9 @@
 
 ## Scope and evidence
 
-Runtime provides a fixed 800×600 classic-style main screen and Single Player
-flyout. Geometry comes from supplied 800×600 screenshot; it is measured
-reference evidence, not recovered executable layout.
+Archive-backed runtime now presents main screen in native 1366×768 design
+space. Archive-absent fallback and Single Player flyout retain reconstruction's
+800×600 layout.
 
 Recovered `FUN_00603970` and `FUN_006042a0` in
 `decompiled/AoK-HD-patched.c` prove focusable/visible controls and named screen
@@ -18,7 +18,7 @@ transitions. They do not prove pixel positions. `main.sin` proves palette
 
 | Source | Decoded frames | Dimensions and hotspots | Runtime role |
 |---|---:|---|---|
-| `Data/Slp/main_32.slp` | 53 | frame 0: 1366×768, hotspot 0,0; frames 1–9, 18–21, 38–45: 1×1; frames 10–13: 192×258; 14–17: 161×188; 22–25: 218×254; 26–29: 123×97; 30–33: 160×147; 34–37: 137×139; 46–48: 230×137; 49–52: 557×173 | Frame 0 supplies Age of Kings background. A 1024×768 source region beginning at x=342 is uniformly scaled to 800×600. Frame 49 visibly supplies matching Age of Empires HD Edition logo art. Other frame semantics are unproved and unused. |
+| `Data/Slp/main_32.slp` | 53 | frame 0: 1366×768, hotspot 0,0; frames 1–9, 18–21, 38–45: 1×1; frames 10–13: 192×258; 14–17: 161×188; 22–25: 218×254; 26–29: 123×97; 30–33: 160×147; 34–37: 137×139; 46–48: 230×137; 49–52: 557×173 | Frame 0 supplies full Age of Kings background. Frames 10–48 supply native main-control states. Frame 49 supplies matching logo art for fallback composition only. |
 | `Data/Slp/xmain_32.slp` | 1 | frame 0: 1067×600, hotspot 0,0 | Visibly Conquerors-branded; audited but rejected for Age of Kings target. |
 | `Data/Slp/btnmain.slp` | 17 | frames 0–15: 39×39, hotspot 0,0; frame 16: 36×36, hotspot -4,-4 | Frame ordering does not prove state semantics; audited but unused. |
 | `Data/interfac.drs` SLP 51000 | 19 | frame 0 previously audited as 24×32 | Normal original cursor when packaged archive loading succeeds. |
@@ -35,16 +35,34 @@ preserved by `native_main_menu_controls()`; first-control bounds
 arguments. Semantic hit-mask infrastructure rejects transparent pixels rather
 than treating image bounds as rectangular controls.
 
-Runtime wiring, exact font rendering, and meanings of group frames 2 and 3
-remain unproved. Runtime therefore still uses English defaults, SDL debug
-glyphs, measured rectangular hit regions, and pale borders. No pixel-parity
-claim and BUG-FRONTEND-001 remains open.
+`FUN_005c4200` writes normal image index at object offsets `0x610` and `0x300`;
+`FUN_005c4180` writes rollover index at `0x630`; `FUN_005c41a0` switches live
+index between those fields. Construction supplies consecutive normal and
+rollover frames. Adjacent native button input paths select next pressed frame;
+fourth frame is disabled presentation. Learn to Play is reachable disabled
+control. Exit supplies only three frames and is always enabled, so runtime does
+not invent a fourth image. `slp_contact_sheet` now reports per-frame opaque
+counts; deterministic captures also prove equal-count state pairs differ in
+their pixels.
+
+Runtime draws archive normal, rollover/focus, pressed, and disabled images,
+activates on matching press/release masks, and uses exact 1366×768 contain
+scaling with inverse input mapping. Recovered string IDs and English meanings
+remain in control contract.
+
+One bounded gap remains: exact original text rendering. Decompiled text-control
+bounds exist for six labels, but first label constructor operands are omitted;
+executable proves font registration, not main-control face and size. No supplied
+original runtime capture currently proves that lookup. Guessed SDL glyphs over
+blank archive plaques would reduce fidelity, so archive-backed path leaves
+label layers untouched pending that proof. BUG-FRONTEND-001 remains open.
 
 ## Runtime and fallback
 
 `configured_asset_root()` only resolves reconstruction-local packaged
 `game_data`, never parent research directories or an external environment
-path. Valid `main_32.slp` plus palette 50589 enables original background art.
+path. Valid `main_32.slp` plus palette 50589 enables original background and
+control-state art.
 Missing, malformed, or truncated input leaves visibly non-equivalent
 procedural plaques. Both paths preserve simulation state.
 
@@ -57,6 +75,6 @@ remain legible but disabled. Zone only reports service unavailability.
 `frontend_menu_tests` covers geometry, transforms, hit testing, wrapping,
 routing, four Arabia size presets, disabled entries, and flyout close.
 `legacy_assets_tests` covers
-truncated SLP rejection. `frontend_menu_sdl_smoke` captures fallback and
-packaged-original 800×600 states, seven focus states, and a letterboxed 16:9
-window.
+truncated SLP rejection. `frontend_menu_sdl_smoke` captures fallback states,
+native normal/focused/pressed states at 1366×768, alpha-mask activation, and
+native 1024×768 letterboxing.

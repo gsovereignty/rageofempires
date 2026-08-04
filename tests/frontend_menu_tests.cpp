@@ -81,6 +81,19 @@ int main() {
     assert(std::abs(ultrawide.scale - 4.3F) < 0.001F);
     assert(std::abs(ultrawide.offset_y + 570.0F) < 0.001F);
 
+    const auto native_exact = native_frontend_logical_transform(1366, 768);
+    assert(native_exact.scale == 1.0F);
+    assert(native_exact.offset_x == 0.0F && native_exact.offset_y == 0.0F);
+    assert(native_exact.logical_width == 1366);
+    assert(native_exact.logical_height == 768);
+    const auto native_four_three =
+        native_frontend_logical_transform(1024, 768);
+    assert(native_four_three.scale > 0.749F &&
+           native_four_three.scale < 0.750F);
+    assert(std::abs(native_four_three.offset_y - 96.0F) < 0.2F);
+    assert(!native_four_three.window_to_logical(512, 40));
+    assert(native_four_three.window_to_logical(512, 384));
+
     assert(frontend_menu_hit_test(
         FrontendMenuScreen::main_menu, 100, 170
     ) == 1);

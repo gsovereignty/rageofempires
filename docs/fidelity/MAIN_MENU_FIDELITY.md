@@ -50,12 +50,15 @@ activates on matching press/release masks, and uses exact 1366×768 contain
 scaling with inverse input mapping. Recovered string IDs and English meanings
 remain in control contract.
 
-One bounded gap remains: exact original text rendering. Decompiled text-control
-bounds exist for six labels, but first label constructor operands are omitted;
-executable proves font registration, not main-control face and size. No supplied
-original runtime capture currently proves that lookup. Guessed SDL glyphs over
-blank archive plaques would reduce fidelity, so archive-backed path leaves
-label layers untouched pending that proof. BUG-FRONTEND-001 remains open.
+Native labels now use recovered English/localized RT_STRING IDs, exact
+`RGE_FONT_BUTTON1` family/height/style, `main.sin` colors and shadow, centered
+alignment, and all seven text rectangles. Six rectangles are direct
+`FUN_006042a0` decompiler constants; Single Player uses the constructor
+rectangle recovered from original executable instructions at `0x00604a3e`-
+`0x00604a62`. Exact-family lookup accepts the
+packaged user-supplied face or a matching installed system face and never
+substitutes an unrelated font. See
+`docs/evidence/MAIN_MENU_TEXT_EVIDENCE.md`.
 
 ## Runtime and fallback
 

@@ -91,9 +91,26 @@ enum class FrontendControlState : std::size_t {
 struct NativeFrontendControl {
     FrontendMenuCommand command{FrontendMenuCommand::none};
     FrontendMenuRect bounds;
+    FrontendMenuRect label_bounds;
     std::size_t first_frame{};
     std::uint32_t label_string_id{};
     std::uint32_t help_string_id{};
+    std::string_view label_key;
+};
+
+struct NativeFrontendFontContract {
+    std::string_view family;
+    int height{};
+    int raster_height{};
+    int weight{};
+    bool italic{};
+    std::array<std::uint8_t, 3> normal_color;
+    std::array<std::uint8_t, 3> shadow_color;
+    std::array<std::uint8_t, 3> focus_color;
+    std::array<std::uint8_t, 3> disabled_color;
+    int horizontal_alignment{};
+    int shadow_offset_x{};
+    int shadow_offset_y{};
 };
 
 struct FrontendHitMask {
@@ -120,6 +137,7 @@ inline constexpr int native_frontend_logical_height = 768;
 [[nodiscard]] std::span<const FrontendMenuItem> main_menu_items();
 [[nodiscard]] std::span<const NativeFrontendControl>
 native_main_menu_controls();
+[[nodiscard]] const NativeFrontendFontContract& native_frontend_font();
 [[nodiscard]] std::optional<std::size_t> native_frontend_hit_test(
     std::span<const NativeFrontendControl> controls,
     std::span<const FrontendHitMask> masks,

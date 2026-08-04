@@ -61,32 +61,45 @@ constexpr std::array main_items{
 constexpr std::array native_main_controls{
     NativeFrontendControl{
         FrontendMenuCommand::open_single_player,
-        {532, 9, 192, 258}, 10, 9500, 31000,
+        {532, 9, 192, 258}, {542, 20, 178, 38}, 10, 9500, 31000,
+        "frontend.main.single_player",
     },
     NativeFrontendControl{
         FrontendMenuCommand::open_multiplayer,
-        {495, 265, 161, 188}, 14, 9501, 31001,
+        {495, 265, 161, 188}, {502, 284, 145, 23}, 14, 9501, 31001,
+        "frontend.main.multiplayer",
     },
     NativeFrontendControl{
         FrontendMenuCommand::learn_to_play,
-        {135, 2, 218, 254}, 22, 9503, 31003,
+        {135, 2, 218, 254}, {150, 13, 188, 40}, 22, 9503, 31003,
+        "frontend.main.learn_to_play",
     },
     NativeFrontendControl{
         FrontendMenuCommand::open_map_editor,
-        {410, 344, 123, 97}, 26, 9504, 31004,
+        {410, 344, 123, 97}, {420, 355, 107, 18}, 26, 9504, 31004,
+        "frontend.main.map_editor",
     },
     NativeFrontendControl{
         FrontendMenuCommand::open_history,
-        {290, 198, 160, 147}, 30, 9505, 31005,
+        {290, 198, 160, 147}, {304, 213, 128, 32}, 30, 9505, 31005,
+        "frontend.main.history",
     },
     NativeFrontendControl{
         FrontendMenuCommand::open_options,
-        {295, 439, 137, 139}, 34, 9506, 31006,
+        {295, 439, 137, 139}, {304, 450, 117, 24}, 34, 9506, 31006,
+        "frontend.main.options",
     },
     NativeFrontendControl{
         FrontendMenuCommand::exit_game,
-        {174, 631, 230, 137}, 46, 9509, 31009,
+        {174, 631, 230, 137}, {200, 704, 160, 26}, 46, 9509, 31009,
+        "frontend.main.exit",
     },
+};
+
+constexpr NativeFrontendFontContract native_main_font{
+    "Lucida Blackletter", 14, 19, 400, false,
+    {217, 208, 176}, {0, 0, 0}, {202, 207, 1}, {255, 255, 255},
+    2, 1, 1,
 };
 
 constexpr std::array ai_arabia_size_items{
@@ -237,6 +250,10 @@ std::span<const FrontendMenuItem> main_menu_items() {
 
 std::span<const NativeFrontendControl> native_main_menu_controls() {
     return native_main_controls;
+}
+
+const NativeFrontendFontContract& native_frontend_font() {
+    return native_main_font;
 }
 
 std::optional<std::size_t> native_frontend_hit_test(

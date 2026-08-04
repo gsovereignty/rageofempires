@@ -1,0 +1,114 @@
+{
+  "schema": "aoe-builtin-random-map-evidence-v1",
+  "archive": {
+    "filename": "gamedata_x1.drs",
+    "bytes": 944156,
+    "sha256": "0773e949fc7267457e25cce0bd8a0b814f1215c23ba5bb167ff009837a9d2c23"
+  },
+  "resources": [
+    {
+      "resource_id": 54000,
+      "name": "random_map.def",
+      "bytes": 18733,
+      "sha256": "9f5026e9246be896354e115346202db561b5c907f1aa533396b28cf1aa493624",
+      "line_count": 447,
+      "sections": [],
+      "includes": []
+    },
+    {
+      "resource_id": 54201,
+      "name": "Arabia",
+      "bytes": 4989,
+      "sha256": "ece1c86f38772a8aab1ca4a65630ee843da6c994458cbfa663b1e1bab34ee31a",
+      "line_count": 233,
+      "sections": [
+        "PLAYER_SETUP",
+        "LAND_GENERATION",
+        "TERRAIN_GENERATION",
+        "OBJECTS_GENERATION",
+        "ELEVATION_GENERATION",
+        "CLIFF_GENERATION"
+      ],
+      "includes": [
+        {
+          "filename": "random_map.def",
+          "resource_id": 54000
+        },
+        {
+          "filename": "land_resources.inc",
+          "resource_id": 54103
+        }
+      ]
+    },
+    {
+      "resource_id": 54204,
+      "name": "Black Forest",
+      "bytes": 7676,
+      "sha256": "d6a177b6905bea8a1323da4d1b38bd6cf73dd3946d8974668565dcff0a162cc0",
+      "line_count": 313,
+      "sections": [
+        "PLAYER_SETUP",
+        "LAND_GENERATION",
+        "TERRAIN_GENERATION",
+        "OBJECTS_GENERATION",
+        "ELEVATION_GENERATION",
+        "ELEVATION_GENERATION",
+        "CONNECTION_GENERATION"
+      ],
+      "includes": [
+        {
+          "filename": "random_map.def",
+          "resource_id": 54000
+        },
+        {
+          "filename": "land_resources.inc",
+          "resource_id": 54103
+        }
+      ]
+    },
+    {
+      "resource_id": 54211,
+      "name": "Islands",
+      "bytes": 23331,
+      "sha256": "13ae8c84dd16502b5ed778e3b6fa3d49e1374b1d9154e4f2c5a9775d521a8f84",
+      "line_count": 1015,
+      "sections": [
+        "PLAYER_SETUP",
+        "LAND_GENERATION",
+        "TERRAIN_GENERATION",
+        "OBJECTS_GENERATION"
+      ],
+      "includes": [
+        {
+          "filename": "random_map.def",
+          "resource_id": 54000
+        }
+      ]
+    },
+    {
+      "resource_id": 54217,
+      "name": "Rivers",
+      "bytes": 9714,
+      "sha256": "36f438566e08f5131e845177050d38ab2bd45639f099f2e47a3cf5d74fdd5fd2",
+      "line_count": 411,
+      "sections": [
+        "PLAYER_SETUP",
+        "LAND_GENERATION",
+        "TERRAIN_GENERATION",
+        "OBJECTS_GENERATION",
+        "ELEVATION_GENERATION",
+        "CONNECTION_GENERATION"
+      ],
+      "includes": [
+        {
+          "filename": "random_map.def",
+          "resource_id": 54000
+        },
+        {
+          "filename": "land_and_water_resources.inc",
+          "resource_id": 54102
+        }
+      ]
+    }
+  ]
+}

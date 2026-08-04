@@ -17,6 +17,41 @@ generation rules:
   families:
   <https://www.ageofempires.com/news/aoe2de-update-34699/>
 
+## Exact built-in script evidence
+
+The supplied expansion `gamedata_x1.drs` contains source text for every map
+family exposed by the reconstruction frontend. `generated/builtin_random_map_evidence.json`
+pins archive and payload hashes without redistributing those scripts:
+
+| Map | DRS resource | Bytes | SHA-256 |
+|---|---:|---:|---|
+| Arabia | 54201 | 4,989 | `ece1c86f38772a8aab1ca4a65630ee843da6c994458cbfa663b1e1bab34ee31a` |
+| Black Forest | 54204 | 7,676 | `d6a177b6905bea8a1323da4d1b38bd6cf73dd3946d8974668565dcff0a162cc0` |
+| Islands | 54211 | 23,331 | `13ae8c84dd16502b5ed778e3b6fa3d49e1374b1d9154e4f2c5a9775d521a8f84` |
+| Rivers | 54217 | 9,714 | `36f438566e08f5131e845177050d38ab2bd45639f099f2e47a3cf5d74fdd5fd2` |
+
+All four include resource 54000 (`random_map.def`); Arabia and Black Forest
+also include land-resource resource 54103, while Rivers includes land-and-water
+resource 54102. Arabia contains a cliff-generation section. These facts rule
+out treating the short strings embedded in `generate_rms_map` as recovered
+original definitions.
+
+Refresh metadata from legally obtained evidence with:
+
+```sh
+python3 tools/audit_builtin_random_maps.py \
+  /path/to/Data/gamedata_x1.drs \
+  generated/builtin_random_map_evidence.json
+```
+
+`FUN_00622010` proves frontend size selection and dispatch into the map engine,
+but does not expose that engine's placement implementation. It invokes map
+creation through an indirect method after selecting the RMS and size. Exact
+original scripts alone therefore cannot prove output parity. Current evaluator
+gaps are tracked by `BUG-RMS-001` through `BUG-RMS-004`: includes, conditions,
+constants, cliffs, placement directives, original RNG consumption, and several
+generation algorithms remain absent or reconstruction-native.
+
 ## Observed map-size ladder
 
 Observed executable evidence:

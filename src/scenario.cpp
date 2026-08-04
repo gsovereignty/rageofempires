@@ -27,14 +27,29 @@ bool valid_scenario_text(const std::string& text) {
 
 Terrain parse_terrain(const std::string& value, int line) {
     if (value == "grass") return Terrain::grass;
+    if (value == "grass2") return Terrain::grass2;
+    if (value == "dirt") return Terrain::dirt;
+    if (value == "dirt2") return Terrain::dirt2;
+    if (value == "dirt3") return Terrain::dirt3;
+    if (value == "road") return Terrain::road;
+    if (value == "snow") return Terrain::snow;
+    if (value == "ice") return Terrain::ice;
     if (value == "water") return Terrain::water;
+    if (value == "deep_water") return Terrain::deep_water;
     if (value == "beach") return Terrain::beach;
     if (value == "shallows") return Terrain::shallows;
     if (value == "forest") return Terrain::forest;
+    if (value == "pine_forest") return Terrain::pine_forest;
+    if (value == "oak_forest") return Terrain::oak_forest;
+    if (value == "bamboo_forest") return Terrain::bamboo_forest;
+    if (value == "palm_forest") return Terrain::palm_forest;
+    if (value == "jungle_forest") return Terrain::jungle_forest;
     if (value == "berries") return Terrain::berry_bush;
     if (value == "gold") return Terrain::gold_mine;
     if (value == "stone") return Terrain::stone_mine;
     if (value == "fish") return Terrain::fish;
+    if (value == "fish_shore") return Terrain::fish_shore;
+    if (value == "fish_deep") return Terrain::fish_deep;
     throw line_error(line, "unknown terrain " + value);
 }
 
@@ -945,14 +960,29 @@ std::optional<TriggerEffect> parse_trigger_effect(
 std::string terrain_name(Terrain terrain) {
     switch (terrain) {
         case Terrain::grass: return "grass";
+        case Terrain::grass2: return "grass2";
+        case Terrain::dirt: return "dirt";
+        case Terrain::dirt2: return "dirt2";
+        case Terrain::dirt3: return "dirt3";
+        case Terrain::road: return "road";
+        case Terrain::snow: return "snow";
+        case Terrain::ice: return "ice";
         case Terrain::water: return "water";
+        case Terrain::deep_water: return "deep_water";
         case Terrain::beach: return "beach";
         case Terrain::shallows: return "shallows";
         case Terrain::forest: return "forest";
+        case Terrain::pine_forest: return "pine_forest";
+        case Terrain::oak_forest: return "oak_forest";
+        case Terrain::bamboo_forest: return "bamboo_forest";
+        case Terrain::palm_forest: return "palm_forest";
+        case Terrain::jungle_forest: return "jungle_forest";
         case Terrain::berry_bush: return "berries";
         case Terrain::gold_mine: return "gold";
         case Terrain::stone_mine: return "stone";
         case Terrain::fish: return "fish";
+        case Terrain::fish_shore: return "fish_shore";
+        case Terrain::fish_deep: return "fish_deep";
     }
     return "grass";
 }
@@ -1498,6 +1528,13 @@ Scenario load_scenario(const std::filesystem::path& path) {
             int elevation{};
             record >> position.x >> position.y >> elevation;
             scenario->map.set_elevation(position, elevation);
+        } else if (type == "cliff" && scenario_version >= 68) {
+            TilePosition position;
+            record >> position.x >> position.y;
+            if (!record || !scenario->map.contains(position)) {
+                throw line_error(line_number, "invalid cliff");
+            }
+            scenario->map.set_cliff(position, true);
         } else if (type == "unit") {
             std::string kind;
             std::string player;
@@ -2045,6 +2082,9 @@ void save_scenario(
             if (elevation != 0) {
                 output << "elevation " << x << ' ' << y << ' '
                        << elevation << '\n';
+            }
+            if (scenario.map.cliff_at({x, y})) {
+                output << "cliff " << x << ' ' << y << '\n';
             }
         }
     }

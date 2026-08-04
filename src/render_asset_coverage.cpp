@@ -926,11 +926,20 @@ std::optional<ResourceRenderKind> resource_render_kind_for(
     Terrain terrain
 ) {
     switch (terrain) {
-        case Terrain::forest: return ResourceRenderKind::forest;
+        case Terrain::forest:
+        case Terrain::pine_forest:
+        case Terrain::oak_forest:
+        case Terrain::bamboo_forest:
+        case Terrain::palm_forest:
+        case Terrain::jungle_forest:
+            return ResourceRenderKind::forest;
         case Terrain::berry_bush: return ResourceRenderKind::berry_bush;
         case Terrain::gold_mine: return ResourceRenderKind::gold_mine;
         case Terrain::stone_mine: return ResourceRenderKind::stone_mine;
-        case Terrain::fish: return ResourceRenderKind::fish;
+        case Terrain::fish:
+        case Terrain::fish_shore:
+        case Terrain::fish_deep:
+            return ResourceRenderKind::fish;
         default: return std::nullopt;
     }
 }

@@ -153,8 +153,14 @@ procedural_transition_band(
 
 std::optional<TerrainBlendEvidence>
 terrain_blend_evidence(Terrain terrain) {
-    if (terrain == Terrain::fish) terrain = Terrain::water;
+    if (terrain == Terrain::fish || terrain == Terrain::fish_shore) terrain = Terrain::water;
+    if (terrain == Terrain::fish_deep) terrain = Terrain::deep_water;
     if (terrain == Terrain::forest ||
+        terrain == Terrain::pine_forest ||
+        terrain == Terrain::oak_forest ||
+        terrain == Terrain::bamboo_forest ||
+        terrain == Terrain::palm_forest ||
+        terrain == Terrain::jungle_forest ||
         terrain == Terrain::berry_bush ||
         terrain == Terrain::gold_mine ||
         terrain == Terrain::stone_mine) {
@@ -163,8 +169,18 @@ terrain_blend_evidence(Terrain terrain) {
     switch (terrain) {
         case Terrain::grass: return TerrainBlendEvidence{
             terrain, 102, 0, 15001};
+        case Terrain::grass2:
+        case Terrain::dirt:
+        case Terrain::dirt2:
+        case Terrain::dirt3:
+        case Terrain::road:
+        case Terrain::snow:
+        case Terrain::ice:
+            return TerrainBlendEvidence{terrain, 102, 0, 15001};
         case Terrain::water: return TerrainBlendEvidence{
             terrain, 139, 3, 15002};
+        case Terrain::deep_water: return TerrainBlendEvidence{
+            terrain, 145, 3, 15002};
         case Terrain::beach: return TerrainBlendEvidence{
             terrain, 110, 2, 15017};
         case Terrain::shallows: return TerrainBlendEvidence{

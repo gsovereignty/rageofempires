@@ -11,7 +11,8 @@ GameMap::GameMap(int width, int height)
       height_(height),
       terrain_(static_cast<std::size_t>(width * height), Terrain::grass),
       elevations_(static_cast<std::size_t>(width * height), 0),
-      resources_(static_cast<std::size_t>(width * height), 0) {
+      resources_(static_cast<std::size_t>(width * height), 0),
+      cliffs_(static_cast<std::size_t>(width * height), false) {
     if (width <= 0 || height <= 0) {
         throw std::invalid_argument("map dimensions must be positive");
     }
@@ -40,16 +41,31 @@ int GameMap::elevation_at(TilePosition position) const {
 bool GameMap::walkable(TilePosition position) const {
     if (!contains(position)) return false;
     switch (terrain_at(position)) {
-        case Terrain::grass:
+    case Terrain::grass:
+        case Terrain::grass2:
+        case Terrain::dirt:
+        case Terrain::dirt2:
+        case Terrain::dirt3:
+        case Terrain::road:
+        case Terrain::snow:
+        case Terrain::ice:
         case Terrain::beach:
         case Terrain::shallows:
             return true;
         case Terrain::water:
+        case Terrain::deep_water:
         case Terrain::forest:
+        case Terrain::pine_forest:
+        case Terrain::oak_forest:
+        case Terrain::bamboo_forest:
+        case Terrain::palm_forest:
+        case Terrain::jungle_forest:
         case Terrain::berry_bush:
         case Terrain::gold_mine:
         case Terrain::stone_mine:
         case Terrain::fish:
+        case Terrain::fish_shore:
+        case Terrain::fish_deep:
             return false;
     }
     return false;
@@ -60,14 +76,16 @@ bool GameMap::sailable(TilePosition position) const {
         return false;
     }
     const Terrain terrain = terrain_at(position);
-    return terrain == Terrain::water || terrain == Terrain::fish ||
+    return terrain == Terrain::water || terrain == Terrain::deep_water ||
+        terrain == Terrain::fish || terrain == Terrain::fish_shore ||
+        terrain == Terrain::fish_deep ||
         terrain == Terrain::beach || terrain == Terrain::shallows;
 }
 
 bool GameMap::traversable(
     TilePosition from, TilePosition to
 ) const {
-    if (!contains(from) || !walkable(to)) return false;
+    if (!contains(from) || !walkable(to) || cliff_at(to)) return false;
     return std::abs(elevation_at(from) - elevation_at(to)) <= 1;
 }
 
@@ -78,6 +96,11 @@ void GameMap::set_terrain(TilePosition position, Terrain terrain) {
     if (terrain != previous) {
         switch (terrain) {
             case Terrain::forest:
+            case Terrain::pine_forest:
+            case Terrain::oak_forest:
+            case Terrain::bamboo_forest:
+            case Terrain::palm_forest:
+            case Terrain::jungle_forest:
                 resources_.at(tile) = 100;
                 break;
             case Terrain::berry_bush:
@@ -90,10 +113,20 @@ void GameMap::set_terrain(TilePosition position, Terrain terrain) {
                 resources_.at(tile) = 350;
                 break;
             case Terrain::fish:
+            case Terrain::fish_shore:
+            case Terrain::fish_deep:
                 resources_.at(tile) = 200;
                 break;
             case Terrain::grass:
+            case Terrain::grass2:
+            case Terrain::dirt:
+            case Terrain::dirt2:
+            case Terrain::dirt3:
+            case Terrain::road:
+            case Terrain::snow:
+            case Terrain::ice:
             case Terrain::water:
+            case Terrain::deep_water:
             case Terrain::beach:
             case Terrain::shallows:
                 resources_.at(tile) = 0;
@@ -119,12 +152,21 @@ int GameMap::resource_amount_at(TilePosition position) const {
     return resources_.at(index(position));
 }
 
+bool GameMap::cliff_at(TilePosition position) const {
+    return cliffs_.at(index(position));
+}
+
+void GameMap::set_cliff(TilePosition position, bool cliff) {
+    cliffs_.at(index(position)) = cliff;
+}
+
 void GameMap::set_resource_amount(TilePosition position, int amount) {
     if (amount < 0) {
         throw std::invalid_argument("resource amount cannot be negative");
     }
     const Terrain terrain = terrain_at(position);
-    if ((terrain == Terrain::grass || terrain == Terrain::water ||
+    if ((walkable(position) || terrain == Terrain::water ||
+         terrain == Terrain::deep_water ||
          terrain == Terrain::beach || terrain == Terrain::shallows) &&
         amount != 0) {
         throw std::invalid_argument("plain terrain cannot contain resources");
@@ -139,8 +181,11 @@ int GameMap::take_resource(TilePosition position, int amount) {
     int& available = resources_.at(index(position));
     const int taken = std::min(available, amount);
     available -= taken;
-    if (available == 0 && terrain_at(position) == Terrain::fish) {
-        set_terrain(position, Terrain::water);
+    if (available == 0 && (terrain_at(position) == Terrain::fish ||
+        terrain_at(position) == Terrain::fish_shore ||
+        terrain_at(position) == Terrain::fish_deep)) {
+        set_terrain(position, terrain_at(position) == Terrain::fish_deep
+            ? Terrain::deep_water : Terrain::water);
     } else if (available == 0 &&
         terrain_at(position) != Terrain::grass &&
         terrain_at(position) != Terrain::water &&

@@ -1057,13 +1057,23 @@ void AudioSystem::set_terrain_ambience(
     if (impl_ == nullptr) return;
     std::string filename;
     if (terrain == Terrain::water ||
+        terrain == Terrain::deep_water ||
         terrain == Terrain::beach ||
         terrain == Terrain::shallows ||
-        terrain == Terrain::fish) {
+        terrain == Terrain::fish || terrain == Terrain::fish_shore ||
+        terrain == Terrain::fish_deep) {
         filename = "Wave" + std::to_string(variation % 5 + 1) + ".wav";
-    } else if (terrain == Terrain::forest) {
+    } else if (terrain == Terrain::forest ||
+        terrain == Terrain::pine_forest ||
+        terrain == Terrain::oak_forest ||
+        terrain == Terrain::bamboo_forest ||
+        terrain == Terrain::palm_forest ||
+        terrain == Terrain::jungle_forest) {
         filename = "jungle" + std::to_string(variation % 4 + 1) + ".wav";
-    } else if (terrain == Terrain::grass) {
+    } else if (terrain == Terrain::grass || terrain == Terrain::grass2 ||
+        terrain == Terrain::dirt || terrain == Terrain::dirt2 ||
+        terrain == Terrain::dirt3 || terrain == Terrain::road ||
+        terrain == Terrain::snow || terrain == Terrain::ice) {
         constexpr std::array names{
             "Cricket.wav", "Wind1.wav", "Wind2.wav", "Wind3.wav"
         };

@@ -1553,12 +1553,20 @@ LegacyScenarioConversionReport convert_legacy_scenario(
             case 0: return Terrain::grass;
             case 1: return Terrain::water;
             case 2: return Terrain::beach;
+            case 3: return Terrain::dirt3;
             case 4: return Terrain::shallows;
-            case 10: case 13: case 17: case 18: case 19: case 20:
-            case 21: case 40:
-                return Terrain::forest;
-            case 15: case 22: case 23:
-                return Terrain::water;
+            case 5: case 9: return Terrain::grass2;
+            case 6: case 14: return Terrain::dirt;
+            case 10: case 40: return Terrain::forest;
+            case 13: return Terrain::palm_forest;
+            case 17: return Terrain::jungle_forest;
+            case 18: return Terrain::bamboo_forest;
+            case 19: case 21: return Terrain::pine_forest;
+            case 20: return Terrain::oak_forest;
+            case 15: case 23: return Terrain::water;
+            case 22: return Terrain::deep_water;
+            case 32: case 34: return Terrain::snow;
+            case 35: return Terrain::ice;
             default:
                 // Import mode keeps valid commercial maps playable while
                 // strict archaeology conversion still reports unproved IDs.

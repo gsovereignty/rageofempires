@@ -224,6 +224,11 @@ bool is_active_builder(
 ResourceKind resource_kind(Terrain terrain) {
     switch (terrain) {
         case Terrain::forest:
+        case Terrain::pine_forest:
+        case Terrain::oak_forest:
+        case Terrain::bamboo_forest:
+        case Terrain::palm_forest:
+        case Terrain::jungle_forest:
             return ResourceKind::wood;
         case Terrain::berry_bush:
             return ResourceKind::food;
@@ -232,9 +237,19 @@ ResourceKind resource_kind(Terrain terrain) {
         case Terrain::stone_mine:
             return ResourceKind::stone;
         case Terrain::fish:
+        case Terrain::fish_shore:
+        case Terrain::fish_deep:
             return ResourceKind::none;
         case Terrain::grass:
+        case Terrain::grass2:
+        case Terrain::dirt:
+        case Terrain::dirt2:
+        case Terrain::dirt3:
+        case Terrain::road:
+        case Terrain::snow:
+        case Terrain::ice:
         case Terrain::water:
+        case Terrain::deep_water:
         case Terrain::beach:
         case Terrain::shallows:
             return ResourceKind::none;

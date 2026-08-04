@@ -22,10 +22,12 @@ public:
         TilePosition from, TilePosition to
     ) const;
     [[nodiscard]] int resource_amount_at(TilePosition position) const;
+    [[nodiscard]] bool cliff_at(TilePosition position) const;
 
     void set_terrain(TilePosition position, Terrain terrain);
     void set_elevation(TilePosition position, int elevation);
     void set_resource_amount(TilePosition position, int amount);
+    void set_cliff(TilePosition position, bool cliff);
     int take_resource(TilePosition position, int amount);
     static GameMap create_demo_map();
 
@@ -37,6 +39,7 @@ private:
     std::vector<Terrain> terrain_;
     std::vector<std::uint8_t> elevations_;
     std::vector<int> resources_;
+    std::vector<bool> cliffs_;
 };
 
 [[nodiscard]] int apply_elevation_damage(

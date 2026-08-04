@@ -812,6 +812,8 @@ target_link_libraries(aoe_random_map_tests PRIVATE aoe_core)
 
 add_executable(aoe_rms_import_tests tests/rms_import_tests.cpp)
 target_link_libraries(aoe_rms_import_tests PRIVATE aoe_core)
+add_executable(aoe_rms_parity_probe tools/rms_parity_probe.cpp)
+target_link_libraries(aoe_rms_parity_probe PRIVATE aoe_core)
 
 add_executable(
     aoe_classic_save_import_tests
@@ -987,6 +989,11 @@ endforeach()
 add_test(NAME aoe_core_tests COMMAND aoe_core_tests)
 add_test(NAME aoe_random_map_tests COMMAND aoe_random_map_tests)
 add_test(NAME aoe_rms_import_tests COMMAND aoe_rms_import_tests)
+add_test(
+    NAME aoe_rms_parity_probe
+    COMMAND aoe_rms_parity_probe
+        ${CMAKE_CURRENT_SOURCE_DIR}/generated/builtin_random_map_parity.txt
+)
 add_test(
     NAME aoe_classic_save_import_tests
     COMMAND aoe_classic_save_import_tests

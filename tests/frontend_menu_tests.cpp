@@ -10,6 +10,37 @@ int main() {
     using namespace aoe;
 
     assert(main_menu_items().size() == 9);
+    const auto native = native_main_menu_controls();
+    assert(native.size() == 7);
+    assert(native[0].bounds == (FrontendMenuRect{532, 9, 192, 258}));
+    assert(native[0].first_frame == 10);
+    assert(native[0].label_string_id == 9500);
+    assert(native[0].help_string_id == 31000);
+    assert(native[1].bounds == (FrontendMenuRect{495, 265, 161, 188}));
+    assert(native[1].first_frame == 14);
+    assert(native[2].first_frame == 22);
+    assert(native[3].first_frame == 26);
+    assert(native[4].first_frame == 30);
+    assert(native[5].first_frame == 34);
+    assert(native[6].bounds == (FrontendMenuRect{174, 631, 230, 137}));
+    assert(native[6].first_frame == 46);
+
+    std::vector<FrontendHitMask> masks;
+    for (const auto& control : native) {
+        FrontendHitMask mask;
+        mask.width = static_cast<int>(control.bounds.width);
+        mask.height = static_cast<int>(control.bounds.height);
+        mask.opaque.assign(
+            static_cast<std::size_t>(mask.width * mask.height), 0
+        );
+        masks.push_back(std::move(mask));
+    }
+    masks[0].opaque[10 * masks[0].width + 20] = 1;
+    assert(native_frontend_hit_test(native, masks, 552, 19) == 0);
+    assert(!native_frontend_hit_test(native, masks, 533, 10));
+    assert(!native_frontend_hit_test(
+        native, std::span<const FrontendHitMask>{masks}.first(6), 552, 19
+    ));
     assert(single_player_menu_items().size() == 7);
     assert(ai_arabia_size_menu_items().size() == 4);
     assert(main_menu_items()[1].bounds ==

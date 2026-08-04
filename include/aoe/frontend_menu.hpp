@@ -2,8 +2,10 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <span>
+#include <vector>
 #include <string_view>
 
 namespace aoe {
@@ -79,6 +81,29 @@ struct FrontendMenuActivation {
     bool activate{};
 };
 
+enum class FrontendControlState : std::size_t {
+    normal = 0,
+    focused = 1,
+    pressed = 2,
+    disabled = 3,
+};
+
+struct NativeFrontendControl {
+    FrontendMenuCommand command{FrontendMenuCommand::none};
+    FrontendMenuRect bounds;
+    std::size_t first_frame{};
+    std::uint32_t label_string_id{};
+    std::uint32_t help_string_id{};
+};
+
+struct FrontendHitMask {
+    int width{};
+    int height{};
+    std::vector<std::uint8_t> opaque;
+
+    [[nodiscard]] bool contains(int x, int y) const;
+};
+
 inline constexpr int frontend_logical_width = 800;
 inline constexpr int frontend_logical_height = 600;
 
@@ -87,6 +112,14 @@ inline constexpr int frontend_logical_height = 600;
     int window_height
 );
 [[nodiscard]] std::span<const FrontendMenuItem> main_menu_items();
+[[nodiscard]] std::span<const NativeFrontendControl>
+native_main_menu_controls();
+[[nodiscard]] std::optional<std::size_t> native_frontend_hit_test(
+    std::span<const NativeFrontendControl> controls,
+    std::span<const FrontendHitMask> masks,
+    float logical_x,
+    float logical_y
+);
 [[nodiscard]] std::span<const FrontendMenuItem> single_player_menu_items();
 [[nodiscard]] std::span<const FrontendMenuItem> ai_arabia_size_menu_items();
 [[nodiscard]] std::span<const FrontendMenuItem> frontend_menu_items(

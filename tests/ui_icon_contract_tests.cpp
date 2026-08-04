@@ -73,6 +73,14 @@ void reconstruction_buildings_use_exact_dat_frames() {
     assert(
         aoe::ui_icons::building(aoe::BuildingKind::farm)->frame == 35
     );
+    assert(aoe::ui_icons::building(
+        aoe::BuildingKind::guard_tower)->frame == 25);
+    assert(aoe::ui_icons::building(
+        aoe::BuildingKind::keep)->frame == 26);
+    assert(aoe::ui_icons::building(
+        aoe::BuildingKind::fortified_wall)->frame == 31);
+    assert(aoe::ui_icons::building(
+        aoe::BuildingKind::fortified_gate_x)->frame == 36);
 }
 
 }  // namespace

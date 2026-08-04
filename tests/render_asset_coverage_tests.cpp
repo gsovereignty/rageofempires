@@ -881,6 +881,22 @@ void building_resolver_selects_age_family_and_reviewed_farm() {
         keep.request.graphic_id == 2407,
         "Keep technology variant must select exact upgraded root"
     );
+    const auto transformed_keep = aoe::resolve_building_asset(
+        state, aoe::BuildingKind::keep
+    );
+    require(
+        transformed_keep.request.graphic_id == 2407,
+        "Keep identity must preserve exact upgraded world root"
+    );
+    state.object_kind = "fortified_wall";
+    state.upgrade_variant = 0;
+    const auto fortified_wall = aoe::resolve_building_asset(
+        state, aoe::BuildingKind::fortified_wall
+    );
+    require(
+        fortified_wall.status == aoe::AssetCoverageStatus::renderable,
+        "Fortified Wall identity must preserve wall renderer binding"
+    );
     require(
         aoe::render_building_composite_variant(
             aoe::BuildingKind::stone_gate_x,

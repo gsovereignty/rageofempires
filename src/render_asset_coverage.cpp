@@ -947,6 +947,15 @@ AssetResolution resolve_building_asset(
     const RenderStateKey& state,
     BuildingKind kind
 ) {
+    kind = kind == BuildingKind::guard_tower || kind == BuildingKind::keep
+        ? BuildingKind::watch_tower
+        : kind == BuildingKind::fortified_wall
+            ? BuildingKind::stone_wall
+            : kind == BuildingKind::fortified_gate_x
+                ? BuildingKind::stone_gate_x
+                : kind == BuildingKind::fortified_gate_y
+                    ? BuildingKind::stone_gate_y
+                    : kind;
     AssetResolution result;
     result.state = state;
     result.request.source_mapping = "canonical building catalog";
@@ -1874,18 +1883,12 @@ Age render_building_visual_age(
 }
 
 int render_building_upgrade_variant(
-    const Simulation& simulation,
+    const Simulation&,
     const Building& building
 ) {
-    if (building.kind != BuildingKind::watch_tower) return 0;
-    if (simulation.has_technology(
-            building.owner, Technology::keep
-        )) {
-        return 2;
-    }
-    return simulation.has_technology(
-        building.owner, Technology::guard_tower
-    ) ? 1 : 0;
+    if (building.kind == BuildingKind::keep) return 2;
+    if (building.kind == BuildingKind::guard_tower) return 1;
+    return 0;
 }
 
 int render_building_composite_variant(
@@ -1893,7 +1896,9 @@ int render_building_composite_variant(
     Age current_age,
     int upgrade_variant
 ) {
-    if (kind == BuildingKind::watch_tower) {
+    if (kind == BuildingKind::watch_tower ||
+        kind == BuildingKind::guard_tower ||
+        kind == BuildingKind::keep) {
         return std::clamp(upgrade_variant, 0, 2);
     }
     int age = static_cast<int>(

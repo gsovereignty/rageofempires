@@ -45,6 +45,28 @@ done
 cmp "$smoke_dir/trade-cart-1.bmp" "$smoke_dir/trade-cart-2.bmp"
 ! cmp -s "$smoke_dir/trade-cart-1.bmp" "$smoke_dir/villager.bmp"
 
+for scenario in guard-tower-render-audit keep-render-audit fortified-wall-render-audit; do
+    for run in 1 2; do
+        env \
+            SDL_VIDEODRIVER=dummy \
+            SDL_AUDIODRIVER=dummy \
+            SDL_RENDER_DRIVER=software \
+            AOE_MAIN_MENU=0 \
+            "AOE_SCENARIO_PATH=$(dirname "$0")/../resources/$scenario.scenario" \
+            AOE_COMMAND_PANEL=building \
+            AOE_SELECTION_PROOF=1 \
+            AOE_EXIT_AFTER_SCREENSHOT=1 \
+            "AOE_SCREENSHOT_PATH=$smoke_dir/$scenario-$run.bmp" \
+            "$app_path" >"$smoke_dir/$scenario-$run.log" 2>&1
+        test -s "$smoke_dir/$scenario-$run.bmp"
+    done
+    cmp "$smoke_dir/$scenario-1.bmp" "$smoke_dir/$scenario-2.bmp"
+done
+! cmp -s "$smoke_dir/guard-tower-render-audit-1.bmp" \
+    "$smoke_dir/keep-render-audit-1.bmp"
+! cmp -s "$smoke_dir/guard-tower-render-audit-1.bmp" \
+    "$smoke_dir/fortified-wall-render-audit-1.bmp"
+
 # Opt-in archive-backed proof: exact 50730:34 artwork has rich color detail.
 # Default CTest deliberately disables optional legacy assets.
 if [[ "${AOE_UI_ICON_VISUAL_PROOF:-0}" != 0 ]]; then

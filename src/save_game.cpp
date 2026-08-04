@@ -201,6 +201,11 @@ int encode(BuildingKind kind) {
             return 25;
         case BuildingKind::wonder:
             return 26;
+        case BuildingKind::guard_tower: return 27;
+        case BuildingKind::keep: return 28;
+        case BuildingKind::fortified_wall: return 29;
+        case BuildingKind::fortified_gate_x: return 30;
+        case BuildingKind::fortified_gate_y: return 31;
     }
     return 0;
 }
@@ -1902,6 +1907,16 @@ Simulation load_game(const std::filesystem::path& path) {
                     ? BuildingKind::outpost :
                 kind == 26 && version >= 93
                     ? BuildingKind::wonder :
+                kind == 27 && version >= 114
+                    ? BuildingKind::guard_tower :
+                kind == 28 && version >= 114
+                    ? BuildingKind::keep :
+                kind == 29 && version >= 114
+                    ? BuildingKind::fortified_wall :
+                kind == 30 && version >= 114
+                    ? BuildingKind::fortified_gate_x :
+                kind == 31 && version >= 114
+                    ? BuildingKind::fortified_gate_y :
                 kind == 9 && version >= 18
                     ? BuildingKind::blacksmith :
                 kind == 8 && version >= 13
@@ -2602,6 +2617,33 @@ Simulation load_game(const std::filesystem::path& path) {
         }
     }
     Simulation simulation(std::move(*map));
+    if (version < 114) {
+        const auto owned_technology = [&](const Building& building,
+                                          Technology technology) {
+            const auto legacy = building.owner.legacy_player();
+            if (!legacy) return false;
+            const auto& technologies = *legacy == Player::blue
+                ? blue_technologies : red_technologies;
+            return std::ranges::find(technologies, technology) !=
+                technologies.end();
+        };
+        for (Building& building : buildings) {
+            if (building.kind == BuildingKind::watch_tower) {
+                building.kind = owned_technology(building, Technology::keep)
+                    ? BuildingKind::keep
+                    : owned_technology(building, Technology::guard_tower)
+                        ? BuildingKind::guard_tower : building.kind;
+            } else if (owned_technology(
+                    building, Technology::fortified_wall)) {
+                building.kind = building.kind == BuildingKind::stone_wall
+                    ? BuildingKind::fortified_wall
+                    : building.kind == BuildingKind::stone_gate_x
+                        ? BuildingKind::fortified_gate_x
+                        : building.kind == BuildingKind::stone_gate_y
+                            ? BuildingKind::fortified_gate_y : building.kind;
+            }
+        }
+    }
     if (native_roster && native_roster_diplomacy) {
         simulation.replace_roster(
             *native_roster, *native_roster_diplomacy

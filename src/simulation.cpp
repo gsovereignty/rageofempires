@@ -429,8 +429,14 @@ std::string_view name(BuildingKind kind) {
             return "palisade wall";
         case BuildingKind::watch_tower:
             return "watch tower";
+        case BuildingKind::guard_tower:
+            return "guard tower";
+        case BuildingKind::keep:
+            return "keep";
         case BuildingKind::stone_wall:
             return "stone wall";
+        case BuildingKind::fortified_wall:
+            return "fortified wall";
         case BuildingKind::palisade_gate_x:
             return "palisade gate (NW-SE)";
         case BuildingKind::palisade_gate_y:
@@ -439,6 +445,10 @@ std::string_view name(BuildingKind kind) {
             return "stone gate (NW-SE)";
         case BuildingKind::stone_gate_y:
             return "stone gate (NE-SW)";
+        case BuildingKind::fortified_gate_x:
+            return "fortified gate (NW-SE)";
+        case BuildingKind::fortified_gate_y:
+            return "fortified gate (NE-SW)";
         case BuildingKind::monastery:
             return "monastery";
         case BuildingKind::market:
@@ -1317,7 +1327,10 @@ bool is_wall(BuildingKind kind) {
            kind == BuildingKind::palisade_gate_x ||
            kind == BuildingKind::palisade_gate_y ||
            kind == BuildingKind::stone_gate_x ||
-           kind == BuildingKind::stone_gate_y;
+           kind == BuildingKind::stone_gate_y ||
+           kind == BuildingKind::fortified_wall ||
+           kind == BuildingKind::fortified_gate_x ||
+           kind == BuildingKind::fortified_gate_y;
 }
 
 bool receives_class_3_or_52_effects(BuildingKind kind) {
@@ -1328,8 +1341,11 @@ bool receives_class_3_or_52_effects(BuildingKind kind) {
 
 bool has_stone_defense_class_13(BuildingKind kind) {
     return kind == BuildingKind::watch_tower ||
+        kind == BuildingKind::guard_tower ||
+        kind == BuildingKind::keep ||
         kind == BuildingKind::bombard_tower ||
-        kind == BuildingKind::stone_wall;
+        kind == BuildingKind::stone_wall ||
+        kind == BuildingKind::fortified_wall;
 }
 
 bool ballistics_tracks(UnitKind kind) {
@@ -1361,6 +1377,8 @@ bool ballistics_tracks(BuildingKind kind) {
     return kind == BuildingKind::town_center ||
         kind == BuildingKind::castle ||
         kind == BuildingKind::watch_tower ||
+        kind == BuildingKind::guard_tower ||
+        kind == BuildingKind::keep ||
         kind == BuildingKind::bombard_tower;
 }
 
@@ -1682,6 +1700,8 @@ int Simulation::defensive_ship_bonus(
     int bonus = rules_for(source).bonus_vs_ships;
     if (!has_technology(player, Technology::heated_shot)) return bonus;
     if (source == BuildingKind::watch_tower ||
+        source == BuildingKind::guard_tower ||
+        source == BuildingKind::keep ||
         source == BuildingKind::bombard_tower) {
         bonus = bonus * 225 / 100;
     }
@@ -2138,6 +2158,21 @@ EntityId Simulation::add_building(
     EntityOwner owner,
     TilePosition position
 ) {
+    if (kind == BuildingKind::watch_tower) {
+        kind = has_technology(owner, Technology::keep)
+            ? BuildingKind::keep
+            : has_technology(owner, Technology::guard_tower)
+                ? BuildingKind::guard_tower
+                : kind;
+    } else if (has_technology(owner, Technology::fortified_wall)) {
+        kind = kind == BuildingKind::stone_wall
+            ? BuildingKind::fortified_wall
+            : kind == BuildingKind::stone_gate_x
+                ? BuildingKind::fortified_gate_x
+                : kind == BuildingKind::stone_gate_y
+                    ? BuildingKind::fortified_gate_y
+                    : kind;
+    }
     if (!footprint_available(kind, position, 0)) {
         throw std::invalid_argument(
             "building requires an empty walkable footprint"
@@ -4032,7 +4067,7 @@ void Simulation::validate_loaded_state() const {
         if (static_cast<int>(building.kind) <
                 static_cast<int>(BuildingKind::town_center) ||
             static_cast<int>(building.kind) >
-                static_cast<int>(BuildingKind::wonder)) {
+                static_cast<int>(BuildingKind::fortified_gate_y)) {
             throw std::runtime_error("invalid building kind in save");
         }
         const BuildingRules& rules = rules_for(building.kind);
@@ -7594,6 +7629,15 @@ void Simulation::replace_technologies(
     if (has_technology(player, Technology::long_swordsman)) {
         apply_long_swordsman_upgrade(player);
     }
+    if (has_technology(player, Technology::fortified_wall)) {
+        apply_fortified_wall_upgrade(player);
+    }
+    if (has_technology(player, Technology::guard_tower)) {
+        apply_guard_tower_upgrade(player);
+    }
+    if (has_technology(player, Technology::keep)) {
+        apply_keep_upgrade(player);
+    }
     refresh_unit_attacks(player);
 }
 
@@ -8229,7 +8273,9 @@ bool Simulation::occupied(
                     building.kind == BuildingKind::palisade_gate_x ||
                     building.kind == BuildingKind::palisade_gate_y ||
                     building.kind == BuildingKind::stone_gate_x ||
-                    building.kind == BuildingKind::stone_gate_y;
+                    building.kind == BuildingKind::stone_gate_y ||
+                    building.kind == BuildingKind::fortified_gate_x ||
+                    building.kind == BuildingKind::fortified_gate_y;
                 const bool gate_passable =
                     gate && mover &&
                     (building.gate_open ||
@@ -8314,7 +8360,9 @@ bool Simulation::route_unit(Unit& unit, TilePosition destination) {
             building.kind == BuildingKind::palisade_gate_x ||
             building.kind == BuildingKind::palisade_gate_y ||
             building.kind == BuildingKind::stone_gate_x ||
-            building.kind == BuildingKind::stone_gate_y;
+            building.kind == BuildingKind::stone_gate_y ||
+            building.kind == BuildingKind::fortified_gate_x ||
+            building.kind == BuildingKind::fortified_gate_y;
         if (gate &&
             (building.gate_open || building.owner == unit.owner)) {
             continue;
@@ -8412,7 +8460,9 @@ void Simulation::update_gate_states() {
         if ((gate.kind != BuildingKind::palisade_gate_x &&
              gate.kind != BuildingKind::palisade_gate_y &&
              gate.kind != BuildingKind::stone_gate_x &&
-             gate.kind != BuildingKind::stone_gate_y) ||
+             gate.kind != BuildingKind::stone_gate_y &&
+             gate.kind != BuildingKind::fortified_gate_x &&
+             gate.kind != BuildingKind::fortified_gate_y) ||
             !gate.completed()) {
             gate.gate_open = false;
             continue;
@@ -10706,15 +10756,10 @@ int Simulation::effective_building_attack(
     const Building& building
 ) const {
     int attack = rules_for(building.kind).attack;
-    if (building.kind == BuildingKind::watch_tower &&
-        has_technology(building.owner, Technology::keep)) {
-        attack += 3;
-    } else if (building.kind == BuildingKind::watch_tower &&
-        has_technology(building.owner, Technology::guard_tower)) {
-        attack += 2;
-    }
     if (building.kind == BuildingKind::castle ||
         building.kind == BuildingKind::watch_tower ||
+        building.kind == BuildingKind::guard_tower ||
+        building.kind == BuildingKind::keep ||
         building.kind == BuildingKind::town_center) {
         attack += has_technology(
             building.owner, Technology::fletching
@@ -10729,7 +10774,9 @@ int Simulation::effective_building_attack(
             building.owner, Technology::chemistry
         ) ? 1 : 0;
     }
-    if (building.kind == BuildingKind::watch_tower &&
+    if ((building.kind == BuildingKind::watch_tower ||
+         building.kind == BuildingKind::guard_tower ||
+         building.kind == BuildingKind::keep) &&
         has_technology(building.owner, Technology::yeomen)) {
         attack += 2;
     }
@@ -10741,7 +10788,9 @@ int Simulation::effective_building_attack_range(
 ) const {
     int range = rules_for(building.kind).attack_range;
     if (building.kind == BuildingKind::castle ||
-        building.kind == BuildingKind::watch_tower) {
+        building.kind == BuildingKind::watch_tower ||
+        building.kind == BuildingKind::guard_tower ||
+        building.kind == BuildingKind::keep) {
         range += has_technology(
             building.owner, Technology::fletching
         ) ? 1 : 0;
@@ -10773,6 +10822,8 @@ int Simulation::effective_building_vision_range(
     }
     if (building.kind == BuildingKind::castle ||
         building.kind == BuildingKind::watch_tower ||
+        building.kind == BuildingKind::guard_tower ||
+        building.kind == BuildingKind::keep ||
         building.kind == BuildingKind::town_center) {
         range += has_technology(
             building.owner, Technology::fletching
@@ -10943,6 +10994,8 @@ int Simulation::garrison_capacity(BuildingKind building) const {
         case BuildingKind::castle:
             return 20;
         case BuildingKind::watch_tower:
+        case BuildingKind::guard_tower:
+        case BuildingKind::keep:
         case BuildingKind::bombard_tower:
             return 5;
         default:
@@ -11389,9 +11442,13 @@ void Simulation::apply_fortified_wall_upgrade(Player player) {
         }
         if (building.kind == BuildingKind::stone_wall) {
             building.hit_points = std::min(3000, building.hit_points + 1200);
+            building.kind = BuildingKind::fortified_wall;
         } else if (building.kind == BuildingKind::stone_gate_x ||
                    building.kind == BuildingKind::stone_gate_y) {
             building.hit_points = std::min(4000, building.hit_points + 1250);
+            building.kind = building.kind == BuildingKind::stone_gate_x
+                ? BuildingKind::fortified_gate_x
+                : BuildingKind::fortified_gate_y;
         }
     }
 }
@@ -11402,6 +11459,7 @@ void Simulation::apply_guard_tower_upgrade(Player player) {
             building.kind == BuildingKind::watch_tower) {
             building.hit_points =
                 std::min(1500, building.hit_points + 480);
+            building.kind = BuildingKind::guard_tower;
         }
     }
 }
@@ -11409,9 +11467,11 @@ void Simulation::apply_guard_tower_upgrade(Player player) {
 void Simulation::apply_keep_upgrade(Player player) {
     for (Building& building : buildings_) {
         if (building.owner == player &&
-            building.kind == BuildingKind::watch_tower) {
+            (building.kind == BuildingKind::watch_tower ||
+             building.kind == BuildingKind::guard_tower)) {
             building.hit_points =
                 std::min(2250, building.hit_points + 750);
+            building.kind = BuildingKind::keep;
         }
     }
 }

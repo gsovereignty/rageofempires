@@ -7,8 +7,8 @@ age blue castle
 age red feudal
 technology blue guard_tower
 
-building university blue 1 1
 building watch_tower blue 6 3
+building university blue 1 1
 unit villager blue 5 4 stance passive
 building watch_tower red 11 4
 unit militia red 10 5 stance passive

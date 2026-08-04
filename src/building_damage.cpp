@@ -75,7 +75,12 @@ std::array<BuildingDamageRecord, 3> canonical_building_damage_records(
         case BuildingKind::watch_tower: roots = family_roots({{
             {5198,5202,5206},{5195,5199,5203},{5196,5200,5204},
             {5197,5201,5205},{7110,7111,7112}}}); break;
+        case BuildingKind::guard_tower:
+        case BuildingKind::keep: roots = family_roots({{
+            {5198,5202,5206},{5195,5199,5203},{5196,5200,5204},
+            {5197,5201,5205},{7110,7111,7112}}}); break;
         case BuildingKind::stone_wall:
+        case BuildingKind::fortified_wall:
             roots = family_roots({{
                 {3794,3798,3802},{3791,3795,3799},{3792,3796,3800},
                 {3793,3797,3801},{7150,7152,7154}}});
@@ -85,6 +90,8 @@ std::array<BuildingDamageRecord, 3> canonical_building_damage_records(
         case BuildingKind::palisade_gate_y: roots = {6530,6531,6532}; break;
         case BuildingKind::stone_gate_x: roots = {6492,6493,6494}; break;
         case BuildingKind::stone_gate_y: roots = {6513,6514,6515}; break;
+        case BuildingKind::fortified_gate_x: roots = {6492,6493,6494}; break;
+        case BuildingKind::fortified_gate_y: roots = {6513,6514,6515}; break;
         case BuildingKind::monastery: roots = family_roots({{
             {4774,4778,4782},{4771,4775,4779},{4772,4776,4780},
             {4773,4777,4781},{6728,6729,6730}}}); break;

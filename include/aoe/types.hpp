@@ -527,10 +527,15 @@ enum class BuildingKind {
     fish_trap,
     outpost,
     wonder,
+    guard_tower,
+    keep,
+    fortified_wall,
+    fortified_gate_x,
+    fortified_gate_y,
 };
 
 inline constexpr std::size_t building_kind_count =
-    static_cast<std::size_t>(BuildingKind::wonder) + 1;
+    static_cast<std::size_t>(BuildingKind::fortified_gate_y) + 1;
 
 enum class TriggerConditionKind {
     elapsed_ticks, unit_exists, unit_destroyed, building_exists,

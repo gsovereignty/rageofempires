@@ -2123,11 +2123,14 @@ SDL_Color building_color(const Building& building) {
                 ? SDL_Color{115, 91, 55, 255}
                 : SDL_Color{128, 75, 53, 255};
         case BuildingKind::watch_tower:
+        case BuildingKind::guard_tower:
+        case BuildingKind::keep:
         case BuildingKind::bombard_tower:
             return blue
                 ? SDL_Color{105, 102, 92, 255}
                 : SDL_Color{125, 88, 78, 255};
         case BuildingKind::stone_wall:
+        case BuildingKind::fortified_wall:
             return blue
                 ? SDL_Color{122, 123, 116, 255}
                 : SDL_Color{137, 108, 101, 255};
@@ -2138,6 +2141,8 @@ SDL_Color building_color(const Building& building) {
                 : SDL_Color{128, 75, 53, 255};
         case BuildingKind::stone_gate_x:
         case BuildingKind::stone_gate_y:
+        case BuildingKind::fortified_gate_x:
+        case BuildingKind::fortified_gate_y:
             return blue
                 ? SDL_Color{122, 123, 116, 255}
                 : SDL_Color{137, 108, 101, 255};
@@ -6709,22 +6714,13 @@ void render_building(
     const int maximum_hit_points =
         simulation.maximum_hit_points(building);
     const bool fortified =
-        simulation.has_technology(
-            building.owner, Technology::fortified_wall
-        ) &&
-        (building.kind == BuildingKind::stone_wall ||
-         building.kind == BuildingKind::stone_gate_x ||
-         building.kind == BuildingKind::stone_gate_y);
+        building.kind == BuildingKind::fortified_wall ||
+        building.kind == BuildingKind::fortified_gate_x ||
+        building.kind == BuildingKind::fortified_gate_y;
     const bool keep =
-        building.kind == BuildingKind::watch_tower &&
-        simulation.has_technology(
-            building.owner, Technology::keep
-        );
+        building.kind == BuildingKind::keep;
     const bool guard_tower =
-        building.kind == BuildingKind::watch_tower &&
-        simulation.has_technology(
-            building.owner, Technology::guard_tower
-        ) && !keep;
+        building.kind == BuildingKind::guard_tower;
     const SDL_FPoint top = building_top(building);
     const auto damage_records = canonical_building_damage_records(
         building.kind,
@@ -7050,6 +7046,8 @@ void render_building(
         building.kind == BuildingKind::mill ||
         building.kind == BuildingKind::archery_range ||
         building.kind == BuildingKind::watch_tower ||
+        building.kind == BuildingKind::guard_tower ||
+        building.kind == BuildingKind::keep ||
         building.kind == BuildingKind::stable ||
         building.kind == BuildingKind::castle ||
         building.kind == BuildingKind::siege_workshop ||
@@ -7059,6 +7057,8 @@ void render_building(
         building.kind == BuildingKind::market ||
         building.kind == BuildingKind::stone_gate_x ||
         building.kind == BuildingKind::stone_gate_y ||
+        building.kind == BuildingKind::fortified_gate_x ||
+        building.kind == BuildingKind::fortified_gate_y ||
         building.kind == BuildingKind::palisade_gate_x ||
         building.kind == BuildingKind::palisade_gate_y;
     if (exact_composite_kind && building.completed()) {
@@ -7078,8 +7078,17 @@ void render_building(
                 )
             )
         );
+        const BuildingKind asset_kind =
+            building.kind == BuildingKind::guard_tower ||
+                    building.kind == BuildingKind::keep
+                ? BuildingKind::watch_tower
+                : building.kind == BuildingKind::fortified_gate_x
+                    ? BuildingKind::stone_gate_x
+                    : building.kind == BuildingKind::fortified_gate_y
+                        ? BuildingKind::stone_gate_y
+                        : building.kind;
         const auto found =
-            active_legacy_sprites.building_composites.find(building.kind);
+            active_legacy_sprites.building_composites.find(asset_kind);
         if (found != active_legacy_sprites.building_composites.end()) {
             const PlayerLegacyComposite& players =
                 found->second[age][family];
@@ -10057,6 +10066,8 @@ std::string selection_text(const Simulation& simulation) {
                     const bool fletching =
                         (building.kind == BuildingKind::castle ||
                          building.kind == BuildingKind::watch_tower ||
+                         building.kind == BuildingKind::guard_tower ||
+                         building.kind == BuildingKind::keep ||
                          building.kind == BuildingKind::town_center) &&
                         simulation.has_technology(
                             building.owner,
@@ -10065,6 +10076,8 @@ std::string selection_text(const Simulation& simulation) {
                     const bool bodkin =
                         (building.kind == BuildingKind::castle ||
                          building.kind == BuildingKind::watch_tower ||
+                         building.kind == BuildingKind::guard_tower ||
+                         building.kind == BuildingKind::keep ||
                          building.kind == BuildingKind::town_center) &&
                         simulation.has_technology(
                             building.owner,
@@ -10073,28 +10086,17 @@ std::string selection_text(const Simulation& simulation) {
                     const bool bracer =
                         (building.kind == BuildingKind::castle ||
                          building.kind == BuildingKind::watch_tower ||
+                         building.kind == BuildingKind::guard_tower ||
+                         building.kind == BuildingKind::keep ||
                          building.kind == BuildingKind::town_center) &&
                         simulation.has_technology(
                             building.owner,
                             Technology::bracer
                         );
-                    const bool guard_tower =
-                        building.kind == BuildingKind::watch_tower &&
-                        simulation.has_technology(
-                            building.owner,
-                            Technology::guard_tower
-                        );
-                    const bool keep =
-                        building.kind == BuildingKind::watch_tower &&
-                        simulation.has_technology(
-                            building.owner,
-                            Technology::keep
-                        );
                     text << "  ATK " << rules.attack +
                             (fletching ? 1 : 0) +
                             (bodkin ? 1 : 0) +
-                            (bracer ? 1 : 0) +
-                            (keep ? 3 : (guard_tower ? 2 : 0))
+                            (bracer ? 1 : 0)
                          << "  RNG "
                          << simulation.effective_building_attack_range(
                                 building
@@ -10106,6 +10108,8 @@ std::string selection_text(const Simulation& simulation) {
                         (building.kind == BuildingKind::town_center ||
                          building.kind == BuildingKind::castle ||
                          building.kind == BuildingKind::watch_tower ||
+                         building.kind == BuildingKind::guard_tower ||
+                         building.kind == BuildingKind::keep ||
                          building.kind ==
                             BuildingKind::bombard_tower)) {
                         text << "  Ballistics tracking";

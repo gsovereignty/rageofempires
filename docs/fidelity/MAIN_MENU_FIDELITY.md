@@ -24,10 +24,21 @@ transitions. They do not prove pixel positions. `main.sin` proves palette
 | `Data/interfac.drs` SLP 51000 | 19 | frame 0 previously audited as 24×32 | Normal original cursor when packaged archive loading succeeds. |
 
 This audit disproves earlier prompt metadata claiming 17 frames for
-`main_32.slp`; live supplied file has 53. Exact localized string IDs, original
-font selection, button-state frames, and classic irregular hit masks remain
-unproved. Runtime therefore uses exact English defaults, SDL debug glyphs,
-measured rectangular hit regions, and pale borders. No pixel-parity claim.
+`main_32.slp`; live supplied file has 53. Executable and packaged PE evidence
+recover visible control dispatch: Single Player `9500/31000`, Multiplayer
+`9501/31001`, Learn to Play `9503/31003`, Map Editor `9504/31004`, History
+`9505/31005`, Options `9506/31006`, and Exit `9509/31009`. Native image groups
+begin at SLP frames 10, 14, 22, 26, 30, 34, and 46. Decompiled bounds are
+preserved by `native_main_menu_controls()`; first-control bounds
+`(532,9,192,258)` come from deterministic alpha-weighted registration of frame
+10 against background frame 0 because decompilation omits that constructor's
+arguments. Semantic hit-mask infrastructure rejects transparent pixels rather
+than treating image bounds as rectangular controls.
+
+Runtime wiring, exact font rendering, and meanings of group frames 2 and 3
+remain unproved. Runtime therefore still uses English defaults, SDL debug
+glyphs, measured rectangular hit regions, and pale borders. No pixel-parity
+claim and BUG-FRONTEND-001 remains open.
 
 ## Runtime and fallback
 

@@ -53,6 +53,42 @@ constexpr std::array main_items{
     },
 };
 
+// AoK-HD-patched FUN_006042a0 creates these image controls. Bounds and
+// normal/focus frame pairs are direct executable constants except first
+// control, whose omitted constructor bounds are recovered by registering
+// frame 10 against background frame 0. Four-frame group inventory is archive
+// evidence; meanings of frames 2 and 3 remain intentionally unassigned.
+constexpr std::array native_main_controls{
+    NativeFrontendControl{
+        FrontendMenuCommand::open_single_player,
+        {532, 9, 192, 258}, 10, 9500, 31000,
+    },
+    NativeFrontendControl{
+        FrontendMenuCommand::open_multiplayer,
+        {495, 265, 161, 188}, 14, 9501, 31001,
+    },
+    NativeFrontendControl{
+        FrontendMenuCommand::learn_to_play,
+        {135, 2, 218, 254}, 22, 9503, 31003,
+    },
+    NativeFrontendControl{
+        FrontendMenuCommand::open_map_editor,
+        {410, 344, 123, 97}, 26, 9504, 31004,
+    },
+    NativeFrontendControl{
+        FrontendMenuCommand::open_history,
+        {290, 198, 160, 147}, 30, 9505, 31005,
+    },
+    NativeFrontendControl{
+        FrontendMenuCommand::open_options,
+        {295, 439, 137, 139}, 34, 9506, 31006,
+    },
+    NativeFrontendControl{
+        FrontendMenuCommand::exit_game,
+        {174, 631, 230, 137}, 46, 9509, 31009,
+    },
+};
+
 constexpr std::array ai_arabia_size_items{
     FrontendMenuItem{
         "Tiny (2 players)", {476, 153, 260, 39},
@@ -122,6 +158,14 @@ bool FrontendMenuRect::contains(float point_x, float point_y) const {
         point_x < x + width && point_y < y + height;
 }
 
+bool FrontendHitMask::contains(int x, int y) const {
+    if (x < 0 || y < 0 || x >= width || y >= height ||
+        opaque.size() != static_cast<std::size_t>(width * height)) {
+        return false;
+    }
+    return opaque[static_cast<std::size_t>(y * width + x)] != 0;
+}
+
 std::optional<std::array<float, 2>>
 FrontendLogicalTransform::window_to_logical(
     float window_x,
@@ -164,6 +208,27 @@ FrontendLogicalTransform frontend_logical_transform(
 
 std::span<const FrontendMenuItem> main_menu_items() {
     return main_items;
+}
+
+std::span<const NativeFrontendControl> native_main_menu_controls() {
+    return native_main_controls;
+}
+
+std::optional<std::size_t> native_frontend_hit_test(
+    std::span<const NativeFrontendControl> controls,
+    std::span<const FrontendHitMask> masks,
+    float logical_x,
+    float logical_y
+) {
+    if (controls.size() != masks.size()) return std::nullopt;
+    for (std::size_t index = controls.size(); index-- > 0;) {
+        const auto& control = controls[index];
+        if (!control.bounds.contains(logical_x, logical_y)) continue;
+        const int x = static_cast<int>(logical_x - control.bounds.x);
+        const int y = static_cast<int>(logical_y - control.bounds.y);
+        if (masks[index].contains(x, y)) return index;
+    }
+    return std::nullopt;
 }
 
 std::span<const FrontendMenuItem> single_player_menu_items() {

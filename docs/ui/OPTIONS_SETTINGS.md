@@ -6,18 +6,19 @@ single-player game. Letter keys shown beside each setting cycle its value.
 draft. `H` opens the hotkey reference.
 
 Settings are stored as `reconstruction-settings.txt` below SDL's user-data
-directory. Format version 2 is validated before use and written through a
-sibling temporary file followed by an atomic rename. Version 1 files migrate
-the three new category volumes from the old effects volume; malformed and
-unsupported files leave safe defaults active.
+directory. Format version 3 is validated before use and written through a
+sibling temporary file followed by an atomic rename. Versions 1 and 2 migrate
+their linear loudness percentages into original 0..99 attenuation direction;
+obsolete category values are discarded. Malformed and unsupported files leave
+recovered defaults active.
 
 Single-player cadence, fullscreen state, camera and edge scrolling, fog
 presentation, and minimap visibility apply at runtime. Multiplayer cadence is
-never changed by local settings. Current audio backend has one startup gain
-and no category mixer, so music/effects/category values persist for later
-audio startup and panel labels this limit. Only windowed/fullscreen modes are
-offered. Panel is procedural because no matching archive options artwork has
-been proven.
+never changed by local settings. Music and Sound use original attenuation
+sliders: 0 is loudest and 99 is quietest. Sound controls combat, interface,
+and ambient playback together. Both persist and apply live. Only
+windowed/fullscreen modes are offered. Panel is procedural because no matching
+archive options artwork has been proven.
 
 The saved fullscreen choice is applied when the SDL window is created.
 `F11` and `Alt+Enter` change the live, active, and draft fullscreen value

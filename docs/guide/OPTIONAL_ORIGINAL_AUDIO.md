@@ -34,7 +34,7 @@ cmake --build build-audio
 
 If packaged files, decoder, or audio device are absent, gameplay
 continues silently. `AOE_MUTE=1` disables all audio. `AOE_AUDIO_VOLUME` accepts
-a master gain from `0.0` through `1.0` and defaults to `0.35`.
+a master gain from `0.0` through `1.0` and defaults to `1.0`.
 
 Match ends after one player loses all units and buildings. Simulation freezes
 at final state; press `R` for a fresh match.

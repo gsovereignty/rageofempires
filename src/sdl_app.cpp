@@ -654,6 +654,9 @@ struct LegacySprites {
     LegacySprite hud_background;
     std::array<LegacyHudBackground, 19> civilization_hud_backgrounds;
     LegacySprite hud_actions;
+    LegacySprite technology_background;
+    LegacySprite technology_ages;
+    LegacySprite technology_node_tile;
     std::array<LegacySprite, 2> command_chrome;
     std::map<std::int32_t, LegacySprite> action_command_icons;
     std::map<std::int32_t, LegacySprite> unit_command_icons;
@@ -831,6 +834,9 @@ struct LegacySprites {
             background.destroy();
         }
         hud_actions.destroy();
+        technology_background.destroy();
+        technology_ages.destroy();
+        technology_node_tile.destroy();
         for (LegacySprite& sprite : command_chrome) sprite.destroy();
         for (auto& [frame, icon] : action_command_icons) {
             static_cast<void>(frame);
@@ -4581,6 +4587,11 @@ LegacySprites load_local_legacy_sprites(
             sprites.hud_actions,
             ui_asset_mapping(UiAssetRole::action_sheet).resource_id
         );
+        // One Button Tech Tree Screen constructor FUN_004bf8d0 loads these
+        // exact interface resources. They remain optional user-archive data.
+        attempt_interface(sprites.technology_background, 50341); // techback
+        attempt_interface(sprites.technology_ages, 50342);       // techages
+        attempt_interface(sprites.technology_node_tile, 50343);  // tech_tile
         // FUN_005c5e40 draws btngame.shp (50751) frame 36 normally and
         // frame 37 while pressed.  These are 54x54 border tiles clipped by
         // each 40x40 command control; they are not btncmd action frames.
@@ -14476,14 +14487,24 @@ void render_technology_tree_overlay(SDL_Renderer* renderer) {
     };
     set_color(renderer, {13, 11, 8, 250});
     SDL_RenderFillRect(renderer, &background);
+    if (active_legacy_sprites.technology_background.texture) {
+        SDL_RenderTexture(
+            renderer,
+            active_legacy_sprites.technology_background.texture,
+            nullptr, &background
+        );
+    }
     set_color(renderer, {238, 214, 145, 255});
     const std::string title =
         debug_font_fallback(ui_text("technology_tree.title")) + ": " +
         std::string{name(active_technology_tree.civilization)};
-    SDL_RenderDebugText(renderer, 24.0F, 18.0F, title.c_str());
-    SDL_RenderDebugText(
-        renderer, 24.0F, 38.0F,
-        ui_debug_text("technology_tree.help").c_str()
+    render_hud_text(
+        renderer, 24.0F, 15.0F, 520, title,
+        {238, 214, 145, 255}
+    );
+    render_hud_text(
+        renderer, 24.0F, 35.0F, 760,
+        ui_text("technology_tree.help"), {238, 214, 145, 255}
     );
     const std::array<std::string, 4> ages{
         ui_debug_text("technology_tree.dark_age"),
@@ -14491,12 +14512,25 @@ void render_technology_tree_overlay(SDL_Renderer* renderer) {
         ui_debug_text("technology_tree.castle_age"),
         ui_debug_text("technology_tree.imperial_age")
     };
+    if (active_legacy_sprites.technology_ages.texture) {
+        const SDL_FRect age_strip{
+            188.0F - active_tree_pan_x, 54.0F,
+            4.0F * 238.0F * active_tree_zoom, 36.0F
+        };
+        SDL_RenderTexture(
+            renderer, active_legacy_sprites.technology_ages.texture,
+            nullptr, &age_strip
+        );
+    }
     for (int age = 0; age < 4; ++age) {
         const float x =
-            80.0F + age * 310.0F * active_tree_zoom -
+            188.0F + age * 238.0F * active_tree_zoom -
             active_tree_pan_x;
         set_color(renderer, {190, 158, 86, 255});
-        SDL_RenderDebugText(renderer, x, 66.0F, ages[age].data());
+        render_hud_text(
+            renderer, x, 62.0F, 180, ages[age],
+            {190, 158, 86, 255}, true
+        );
     }
     set_color(renderer, {91, 78, 54, 150});
     for (const auto& [from_index, to_index] :
@@ -14509,7 +14543,7 @@ void render_technology_tree_overlay(SDL_Renderer* renderer) {
             active_technology_tree.nodes[to_index];
         SDL_RenderLine(
             renderer,
-            24.0F + (from.x + 138) * active_tree_zoom -
+            24.0F + (from.x + 150) * active_tree_zoom -
                 active_tree_pan_x,
             72.0F + (from.y + 21) * active_tree_zoom -
                 active_tree_pan_y,
@@ -14523,8 +14557,8 @@ void render_technology_tree_overlay(SDL_Renderer* renderer) {
         const SDL_FRect box{
             24.0F + node.x * active_tree_zoom - active_tree_pan_x,
             72.0F + node.y * active_tree_zoom - active_tree_pan_y,
-            138.0F * active_tree_zoom,
-            42.0F * active_tree_zoom,
+            150.0F * active_tree_zoom,
+            44.0F * active_tree_zoom,
         };
         if (box.x + box.w < 0.0F ||
             box.y + box.h < 62.0F ||
@@ -14547,13 +14581,74 @@ void render_technology_tree_overlay(SDL_Renderer* renderer) {
                     active_technology_tree.nodes.size() - 1
                 )
             ];
-        render_beveled_panel(
-            renderer, box,
-            focused ? SDL_Color{132, 102, 42, 255} : fill
-        );
+        if (active_legacy_sprites.technology_node_tile.texture) {
+            SDL_SetTextureColorMod(
+                active_legacy_sprites.technology_node_tile.texture,
+                node.state == TechnologyTreeNodeState::disabled ? 95 : 255,
+                node.state == TechnologyTreeNodeState::disabled ? 95 : 255,
+                node.state == TechnologyTreeNodeState::disabled ? 95 : 255
+            );
+            SDL_RenderTexture(
+                renderer,
+                active_legacy_sprites.technology_node_tile.texture,
+                nullptr, &box
+            );
+            SDL_SetTextureColorMod(
+                active_legacy_sprites.technology_node_tile.texture,
+                255, 255, 255
+            );
+        } else {
+            render_beveled_panel(
+                renderer, box,
+                focused ? SDL_Color{132, 102, 42, 255} : fill
+            );
+        }
         if (focused) {
             set_color(renderer, {255, 230, 126, 255});
             SDL_RenderRect(renderer, &box);
+        }
+        const LegacySprite* icon_sprite = nullptr;
+        std::optional<ui_icons::Binding> icon_binding;
+        if (node.kind == TechnologyTreeNodeKind::unit) {
+            icon_binding = ui_icons::training_unit(
+                static_cast<UnitKind>(node.id)
+            );
+        } else if (node.kind == TechnologyTreeNodeKind::technology) {
+            icon_binding = ui_icons::technology_icon(
+                static_cast<Technology>(node.id)
+            );
+        } else {
+            icon_binding = ui_icons::building(
+                static_cast<BuildingKind>(node.id)
+            );
+        }
+        if (icon_binding) {
+            const auto* icons =
+                icon_binding->sheet == ui_icons::unit_sheet
+                    ? &active_legacy_sprites.unit_command_icons
+                : icon_binding->sheet == ui_icons::technology_sheet
+                    ? &active_legacy_sprites.technology_command_icons
+                    : &active_legacy_sprites.building_command_icons;
+            const auto found = icons->find(icon_binding->frame);
+            if (found != icons->end()) icon_sprite = &found->second;
+        }
+        if (icon_sprite && icon_sprite->texture) {
+            const SDL_FRect icon_box{
+                box.x + 3.0F * active_tree_zoom,
+                box.y + 4.0F * active_tree_zoom,
+                36.0F * active_tree_zoom,
+                36.0F * active_tree_zoom,
+            };
+            SDL_SetTextureColorMod(
+                icon_sprite->texture,
+                node.state == TechnologyTreeNodeState::disabled ? 110 : 255,
+                node.state == TechnologyTreeNodeState::disabled ? 110 : 255,
+                node.state == TechnologyTreeNodeState::disabled ? 110 : 255
+            );
+            SDL_RenderTexture(
+                renderer, icon_sprite->texture, nullptr, &icon_box
+            );
+            SDL_SetTextureColorMod(icon_sprite->texture, 255, 255, 255);
         }
         set_color(
             renderer,
@@ -14563,19 +14658,12 @@ void render_technology_tree_overlay(SDL_Renderer* renderer) {
         );
         std::string label = node.label;
         if (label.size() > 19) label.resize(19);
-        SDL_RenderDebugText(
-            renderer, box.x + 5.0F, box.y + 6.0F,
-            label.c_str()
-        );
-        const std::string state =
+        render_hud_text(
+            renderer, box.x + 42.0F * active_tree_zoom,
+            box.y + 12.0F, 104, label,
             node.state == TechnologyTreeNodeState::disabled
-                ? ui_debug_text("technology_tree.disabled")
-            : node.state == TechnologyTreeNodeState::upgraded
-                ? ui_debug_text("technology_tree.researched")
-                : ui_debug_text("technology_tree.available");
-        SDL_RenderDebugText(
-            renderer, box.x + 5.0F, box.y + box.h - 13.0F,
-            state.c_str()
+                ? SDL_Color{132, 128, 118, 255}
+                : SDL_Color{238, 230, 198, 255}
         );
     }
     std::string detail = active_tree_hover;
@@ -14599,17 +14687,11 @@ void render_technology_tree_overlay(SDL_Renderer* renderer) {
         };
         render_beveled_panel(renderer, help, {35, 28, 20, 250});
         set_color(renderer, {238, 230, 198, 255});
-        SDL_RenderDebugText(
-            renderer, help.x + 10.0F, help.y + 11.0F,
-            detail.substr(0, 104).c_str()
+        render_hud_text(
+            renderer, help.x + 10.0F, help.y + 8.0F, 840,
+            detail.substr(0, 104), {238, 230, 198, 255}
         );
     }
-    set_color(renderer, {135, 126, 102, 255});
-    SDL_RenderDebugText(
-        renderer, 900.0F,
-        static_cast<float>(view_pixel_height + hud_height) - 24.0F,
-        ui_debug_text("technology_tree.missing_evidence").c_str()
-    );
 }
 
 void render_diplomacy_panel(
@@ -16823,6 +16905,15 @@ int SdlApp::run() {
         active_technology_tree = build_technology_tree(
             simulation.civilization(active_view_player)
         );
+        if (const char* proof = SDL_getenv("AOE_TECH_TREE_INPUT_PROOF");
+            proof != nullptr && proof[0] != '0') {
+            for (const SDL_Keycode key : {SDLK_E, SDLK_RIGHT, SDLK_DOWN}) {
+                SDL_Event input{};
+                input.type = SDL_EVENT_KEY_DOWN;
+                input.key.key = key;
+                SDL_PushEvent(&input);
+            }
+        }
     }
     if (const char* diplomacy =
             SDL_getenv("AOE_DIPLOMACY_PANEL");
@@ -18174,8 +18265,8 @@ int SdlApp::run() {
                             active_tree_pan_x,
                         72.0F + node.y * active_tree_zoom -
                             active_tree_pan_y,
-                        138.0F * active_tree_zoom,
-                        42.0F * active_tree_zoom,
+                        150.0F * active_tree_zoom,
+                        44.0F * active_tree_zoom,
                     };
                     const SDL_FPoint pointer{
                         event.motion.x, event.motion.y

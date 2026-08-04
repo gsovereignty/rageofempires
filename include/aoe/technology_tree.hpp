@@ -25,6 +25,9 @@ struct TechnologyTreeNode {
     int gold{};
     int stone{};
     std::string requirement;
+    // Producer-family lane. Stable across civilizations and used for
+    // original-style row navigation and graph verification.
+    BuildingKind producer{BuildingKind::town_center};
 };
 
 struct TechnologyTreeLayout {

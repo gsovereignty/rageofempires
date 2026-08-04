@@ -31,5 +31,7 @@ capture() {
 }
 
 capture english env
+capture keyboard env AOE_TECH_TREE_INPUT_PROOF=1
 capture long env AOE_LOCALE=zz "AOE_LANGUAGE_FILE=$language_file"
+! cmp -s "$smoke_dir/english.bmp" "$smoke_dir/keyboard.bmp"
 ! cmp -s "$smoke_dir/english.bmp" "$smoke_dir/long.bmp"

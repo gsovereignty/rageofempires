@@ -1,0 +1,11 @@
+# Static Feudal Markets isolate standing-frame rendering from moving traders.
+AOE-ARCHAEOLOGY-SCENARIO 30
+map 18 10
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue feudal
+age red feudal
+diplomacy ally
+
+building market blue 1 4
+building market red 13 4

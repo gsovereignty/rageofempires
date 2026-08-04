@@ -90,6 +90,9 @@ validated 514 effects and 19 civilizations. Civilization index 1 supplies:
 All six SLPs exist in the supplied `graphics.drs`. Market standing graphic
 2268 is layer 20 with delta stack 2260, absent `-1`, 2264. Unit records are
 per-civilization; these links must not be generalized to every architecture.
+SLP 2278 is the present one-frame complete root. Rendering selects fixed frame
+0 and does not recursively redraw its baked delta stack; see
+`../evidence/MARKET_STANDING_RUNTIME_EVIDENCE.md`.
 
 ## House and Town Center age mappings
 

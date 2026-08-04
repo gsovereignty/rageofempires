@@ -899,6 +899,25 @@ void building_resolver_selects_age_family_and_reviewed_farm() {
             aoe::CompositePolicy::delta_graph,
         "SLP-less Dock root must retain selected-root delta composition"
     );
+    state.object_kind = "market";
+    state.age = aoe::Age::feudal;
+    state.civilization = aoe::Civilization::britons;
+    state.architecture_family = 0;
+    const auto market = aoe::resolve_building_asset(
+        state, aoe::BuildingKind::market
+    );
+    const auto* market_mapping =
+        aoe::building_composite_set(aoe::BuildingKind::market);
+    require(
+        market.status == aoe::AssetCoverageStatus::renderable &&
+        market.request.graphic_id == 2268 &&
+        !market.request.slp_id && market.state.composite &&
+        market_mapping != nullptr &&
+        market_mapping->composition_policy ==
+            aoe::CompositePolicy::complete_root,
+        "Feudal Market must bind fixed graphic 2268 root without "
+        "animating or re-expanding its baked delta stack"
+    );
     require(
         aoe::render_component_animation_frame(1, 999, true) == 0 &&
         aoe::render_component_animation_frame(6, 14, true) == 1 &&

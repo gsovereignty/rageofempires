@@ -662,14 +662,6 @@ struct LegacySprites {
     LegacySprite statistics_team;
     SDL_Texture* scenario_background{};
     LegacySprite campaign_background;
-    LegacySprite market_western_blue;
-    LegacySprite market_western_red;
-    LegacySprite market_eastern_blue;
-    LegacySprite market_eastern_red;
-    LegacySprite market_mediterranean_blue;
-    LegacySprite market_mediterranean_red;
-    LegacySprite market_far_eastern_blue;
-    LegacySprite market_far_eastern_red;
     PlayerLegacySprites trade_cart_standing;
     PlayerLegacySprites trade_cart_moving;
     PlayerLegacySprites fishing_ship_standing;
@@ -698,8 +690,6 @@ struct LegacySprites {
     std::array<LegacySprite, 5> mining_camp_red;
     std::array<std::array<LegacySprite, 5>, 2> university_blue;
     std::array<std::array<LegacySprite, 5>, 2> university_red;
-    std::array<std::array<LegacySprite, 5>, 3> market_age_blue;
-    std::array<std::array<LegacySprite, 5>, 3> market_age_red;
     std::array<
         std::array<std::array<LegacySprite, 5>, 5>,
         8
@@ -837,14 +827,6 @@ struct LegacySprites {
             icon.destroy();
         }
         portrait_frame.destroy();
-        market_western_blue.destroy();
-        market_western_red.destroy();
-        market_eastern_blue.destroy();
-        market_eastern_red.destroy();
-        market_mediterranean_blue.destroy();
-        market_mediterranean_red.destroy();
-        market_far_eastern_blue.destroy();
-        market_far_eastern_red.destroy();
         trade_cart_standing.destroy();
         trade_cart_moving.destroy();
         fishing_ship_standing.destroy();
@@ -891,12 +873,6 @@ struct LegacySprites {
             for (LegacySprite& sprite : age) sprite.destroy();
         }
         for (auto& age : university_red) {
-            for (LegacySprite& sprite : age) sprite.destroy();
-        }
-        for (auto& age : market_age_blue) {
-            for (LegacySprite& sprite : age) sprite.destroy();
-        }
-        for (auto& age : market_age_red) {
             for (LegacySprite& sprite : age) sprite.destroy();
         }
         for (auto& owners : stone_wall_by_owner) {
@@ -4249,16 +4225,6 @@ LegacySprites load_local_legacy_sprites(
             sprites.portrait_frame,
             ui_asset_mapping(UiAssetRole::portrait_frame).resource_id
         );
-        // Strict genie-rs unit links for civilization index 1 (Britons).
-        // Unit 84 MRKT standing graphic 2268 -> composite SLP 2278.
-        attempt(sprites.market_western_blue, 2278, 1);
-        attempt(sprites.market_western_red, 2278, 2);
-        attempt(sprites.market_eastern_blue, 2275, 1);
-        attempt(sprites.market_eastern_red, 2275, 2);
-        attempt(sprites.market_mediterranean_blue, 2277, 1);
-        attempt(sprites.market_mediterranean_red, 2277, 2);
-        attempt(sprites.market_far_eastern_blue, 2276, 1);
-        attempt(sprites.market_far_eastern_red, 2276, 2);
         // Unit 128 TCART: standing 1141 -> 1122, walking 1681 -> 4486.
         attempt_animation(
             sprites.trade_cart_standing, 1122, 10
@@ -4297,12 +4263,6 @@ LegacySprites load_local_legacy_sprites(
             university_slps{{
                 {{3835, 3832, 3834, 3833, 5119}},
                 {{3839, 3836, 3838, 3837, 5122}},
-            }};
-        constexpr std::array<std::array<std::int32_t, 5>, 3>
-            market_age_slps{{
-                {{2278, 2275, 2277, 2276, -1}},
-                {{820, 817, 819, 818, -1}},
-                {{3797, 3794, 3796, 3795, -1}},
             }};
         for (std::size_t age = 0; age < house_slps.size(); ++age) {
             for (std::size_t family = 0;
@@ -4352,18 +4312,6 @@ LegacySprites load_local_legacy_sprites(
                 attempt_building_shadowed(
                     sprites.university_red[age][family],
                     university_slps[age][family],
-                    2
-                );
-            }
-            for (std::size_t age = 0; age < 3; ++age) {
-                attempt_building_shadowed(
-                    sprites.market_age_blue[age][family],
-                    market_age_slps[age][family],
-                    1
-                );
-                attempt_building_shadowed(
-                    sprites.market_age_red[age][family],
-                    market_age_slps[age][family],
                     2
                 );
             }
@@ -4570,6 +4518,13 @@ LegacySprites load_local_legacy_sprites(
                 {{150, 147, 149, 148}},
                 {{150, 147, 149, 148}},
             }};
+        constexpr std::array<std::array<std::int16_t, 5>, 4>
+            market_roots{{
+                {{2268, 2265, 2267, 2266, -1}},
+                {{2268, 2265, 2267, 2266, -1}},
+                {{411, 408, 410, 409, -1}},
+                {{3434, 3431, 3433, 3432, -1}},
+            }};
         constexpr std::array<std::array<std::int16_t, 4>, 4>
             stone_gate_x_roots{{
                 {{-1, -1, -1, -1}},
@@ -4635,6 +4590,7 @@ LegacySprites load_local_legacy_sprites(
         load_building_roots(
             BuildingKind::monastery, monastery_roots
         );
+        load_building_roots(BuildingKind::market, market_roots);
         load_building_roots(
             BuildingKind::stone_gate_x, stone_gate_x_roots
         );
@@ -7055,6 +7011,7 @@ void render_building(
         building.kind == BuildingKind::dock ||
         building.kind == BuildingKind::outpost ||
         building.kind == BuildingKind::monastery ||
+        building.kind == BuildingKind::market ||
         building.kind == BuildingKind::stone_gate_x ||
         building.kind == BuildingKind::stone_gate_y ||
         building.kind == BuildingKind::palisade_gate_x ||
@@ -7302,65 +7259,6 @@ void render_building(
                         ? 82.0F
                         : 48.0F
                     ),
-                    building.hit_points,
-                    maximum_hit_points
-                );
-            }
-            if (simulation.selected_building() == building.id) {
-                for (int y = 0; y < rules.footprint_height; ++y) {
-                    for (int x = 0; x < rules.footprint_width; ++x) {
-                        outline_diamond(
-                            renderer,
-                            tile_top({
-                                building.position.x + x,
-                                building.position.y + y,
-                            }),
-                            {250, 220, 65, 255}
-                        );
-                    }
-                }
-            }
-            return;
-        }
-    }
-    if (legacy_two_player_owner &&
-        building.kind == BuildingKind::market &&
-        building.completed()) {
-        const Civilization civilization =
-            simulation.civilization(building.owner);
-        const std::size_t family =
-            civilization == Civilization::teutons ||
-            civilization == Civilization::goths ||
-            civilization == Civilization::vikings
-            ? 1U
-            : civilization == Civilization::byzantines ||
-              civilization == Civilization::persians ||
-              civilization == Civilization::saracens
-                ? 2U
-                : civilization == Civilization::japanese ||
-                  civilization == Civilization::chinese
-                    ? 3U
-                    : 0U;
-        const std::size_t age = std::clamp(
-            static_cast<std::size_t>(simulation.age(building.owner)),
-            std::size_t{1},
-            std::size_t{3}
-        ) - std::size_t{1};
-        const LegacySprite& market =
-            building.owner == Player::blue
-            ? active_legacy_sprites.market_age_blue[age][family]
-            : active_legacy_sprites.market_age_red[age][family];
-        if (render_legacy_building_sprite(
-                renderer,
-                market,
-                {top.x, top.y + half_tile_height}
-            )) {
-            if (building.hit_points < maximum_hit_points ||
-                simulation.selected_building() == building.id) {
-                render_health_bar(
-                    renderer,
-                    top.x,
-                    top.y - 66.0F,
                     building.hit_points,
                     maximum_hit_points
                 );

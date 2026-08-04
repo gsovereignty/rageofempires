@@ -34,6 +34,7 @@ void reconstruction_training_units_use_exact_dat_frames() {
         std::pair{UnitKind::skirmisher, 20},
         std::pair{UnitKind::mangonel, 27},
         std::pair{UnitKind::monk, 33},
+        std::pair{UnitKind::trade_cart, 34},
         std::pair{UnitKind::fishing_ship, 24},
         std::pair{UnitKind::galley, 87},
         std::pair{UnitKind::transport_ship, 95},

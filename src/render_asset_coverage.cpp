@@ -106,6 +106,16 @@ constexpr UnitAnimationSet unit_animation_sets[] = {
     {UnitKind::relic, 53, 1, 53, 1, -1, 0, -1, 0},
 };
 
+// VER 5.7 Battering Ram graphics are DAT compositions. Root and present child
+// SLPs supply action-synchronized layers at one hotspot-derived ground anchor;
+// some declared child SLPs are intentionally absent from shipped archives.
+constexpr UnitActionCompositeSet unit_action_composite_sets[] = {
+    {UnitKind::battering_ram, RenderAction::idle, 686},
+    {UnitKind::battering_ram, RenderAction::moving, 690},
+    {UnitKind::battering_ram, RenderAction::attacking, 680},
+    {UnitKind::battering_ram, RenderAction::dying, 683},
+};
+
 constexpr UnitDeathAnimationSet unit_death_animation_sets[] = {
     {UnitKind::villager, 1476, 15},
     {UnitKind::archer, 5, 10},
@@ -627,6 +637,25 @@ std::optional<UnitAnimationSet> unit_animation_set(UnitKind kind) {
     return found == std::end(unit_animation_sets)
         ? std::nullopt
         : std::optional<UnitAnimationSet>{*found};
+}
+
+std::span<const UnitActionCompositeSet>
+canonical_unit_action_composite_sets() {
+    return unit_action_composite_sets;
+}
+
+const UnitActionCompositeSet* unit_action_composite_set(
+    UnitKind kind,
+    RenderAction action
+) {
+    const auto found = std::ranges::find_if(
+        unit_action_composite_sets,
+        [kind, action](const UnitActionCompositeSet& set) {
+            return set.kind == kind && set.action == action;
+        }
+    );
+    return found == std::end(unit_action_composite_sets)
+        ? nullptr : &*found;
 }
 
 std::span<const UnitDeathAnimationSet>

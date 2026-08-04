@@ -92,31 +92,21 @@ has no name string and is treated as an engine-internal maximum. Confidence:
 high for indices 0-5, since the count and order match the string table
 exactly.
 
-Not ported: the same function bumps the index by one for a specific set of map
-type IDs (`iVar9` equal to 10, 0x10, 0x13, 0x15, or 0x17) before the switch, so
-those original map types generate one step larger than requested. The
-reconstruction's `RandomMapKind` set does not correspond to those IDs, so no
-bump is applied.
+The same function bumps the index by one for original map-list indices 10,
+0x10, 0x13, 0x15, and 0x17 before the switch. Original setup population in
+`FUN_00630dc0` maps resource 0x297f to index 10; executable/RMS evidence names
+that entry Islands. Reconstruction therefore applies one-step bump to Islands,
+only supported family in that set. Giant Islands reaches unnamed internal
+case 6 at 255 tiles.
 
-Modern choice: `RandomMapSize` exposes all seven switch indices and
-`random_map_dimension` returns the observed tile counts. Index 6 is named
-`maximum` and labelled `MAXIMUM` in the frontend; that name is invented,
-because no original name string or menu entry was recovered for it.
+`RandomMapSize` exposes only six named setup choices. Unnamed case 6 remains
+an internal effective dimension for bumped Giant Islands; frontend never
+invents a seventh label.
 
-Not recovered: the original default selection. The map-size combo is populated
-and then reset with `FUN_005bfaf0(0)` (`AoK-HD-patched.c:364097`), i.e. list
-item 0, but the populate order for that list was not established, so index 0
-cannot be tied to a named preset with confidence. The original also rewrites
-the selection from player count (`AoK-HD-patched.c:366567-366582`), which the
-reconstruction does not model.
-
-Modern choice: `RandomMapSettings::size` defaults to the recovered index-6
-maximum (255 tiles), and the frontend starts on the same preset. No original
-default was recovered; selecting the maximum makes the reconstruction's
-startup paths use one observable map extent. RMS scripts with no
-`override_map_size` directive inherit that default, matching the original
-behaviour where a script without the directive uses the lobby-selected size.
-An `override_map_size` above 240 snaps to `maximum`.
+`RandomMapSettings::size` and frontend default to original Normal preset
+(200 tiles). RMS scripts without `override_map_size` inherit that default.
+Oversized overrides still reach engine-internal 255 extent without creating a
+playable seventh preset.
 
 Modern choice: bundled campaign scenarios are generated from their compact
 source layouts at 255x255 by
@@ -131,14 +121,8 @@ and app copies do not diverge, and `campaign_scenario_generator_tests` fails
 if a checked-in campaign file stops
 matching the generator.
 
-Modern choice: the deliberately small renderer audit fixtures under
-`resources/` (18x10 and similar single-purpose sprite stages) keep their
-original dimensions and are loaded only by
-`tools/run_renderer_runtime_coverage.py`, which sets the
-`AOE_AUDIT_ANY_MAP_SIZE` diagnostic to bypass the 255x255 guard. Their
-fallback telemetry is position independent, so regenerating them at 255x255
-would churn the pixel-audit suite without changing what it proves. With the
-diagnostic unset, no launch path accepts a smaller map.
+Playable scenario and save loading accepts persisted map dimensions supported
+by their formats. Small renderer fixtures therefore need no diagnostic bypass.
 
 Modern choice: the random-map preview in the frontend is square and samples
 one filled rect per preview pixel. It was a 128x96 rect filled once per
@@ -175,20 +159,15 @@ at 255x255 against 23.07s at 24x16 with the GPU renderer, and 23.98s
 against 22.40s with the software renderer. The full test suite runs in
 21.95s against 12.36s before the change.
 
-Modern choice: playable app boundaries accept only 255x255 scenarios and
-saves. This covers bundled launch, `AOE_SCENARIO_PATH`, campaign selection,
-editor input/load, save restore, replay reset, random-map start, and SDL
-multiplayer (which shares the active simulation). The frontend size control
-therefore exposes only `MAXIMUM`; smaller recovered presets remain in the
-generation/import APIs for fidelity and compatibility tests. The standalone
-multiplayer roster harness also boots a 255x255 map. No original policy
-requiring only the maximum was recovered.
+Playable app boundaries preserve scenario/save dimensions rather than imposing
+an invented 255x255 restriction. Frontend setup and Arabia-vs-AI menu expose
+all six named original presets.
 
 ## Reconstruction contract
 
 - `RandomMapKind`: Arabia, Black Forest, Islands, Rivers.
-- `RandomMapSize`: the original six-step named ladder plus the unnamed
-  index-6 maximum, square tiles.
+- `RandomMapSize`: original six-step named ladder, square tiles; map-family
+  bump may use unnamed internal 255-tile extent.
 - Optional blue/red civilization selections flow into generated scenarios;
   defaults remain generic.
 - Recovered 32-bit MSVCRT `srand`/`rand` stream; no host-platform RNG.

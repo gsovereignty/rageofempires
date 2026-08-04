@@ -298,7 +298,7 @@ void add_elevation(Scenario& scenario, FixedRandom& random) {
 Scenario generate_once(
     const RandomMapSettings& settings, std::uint64_t attempt
 ) {
-    const int dimension = random_map_dimension(settings.size);
+    const int dimension = random_map_dimension(settings.kind, settings.size);
     Scenario scenario(dimension, dimension);
     scenario.blue_civilization = settings.blue_civilization;
     scenario.red_civilization = settings.red_civilization;
@@ -410,7 +410,23 @@ int random_map_dimension(RandomMapSize size) {
         case RandomMapSize::normal: return 200;
         case RandomMapSize::large: return 220;
         case RandomMapSize::giant: return 240;
-        case RandomMapSize::maximum: return 255;
+    }
+    return 144;
+}
+
+int random_map_dimension(RandomMapKind kind, RandomMapSize size) {
+    // FUN_00622010 advances selected size for original map-list indices
+    // 10, 16, 19, 21, and 23. Of recovered built-ins, Islands is index 10.
+    // Its Giant step reaches internal switch case 6 (255 tiles), which had
+    // no player-facing name.
+    if (kind != RandomMapKind::islands) return random_map_dimension(size);
+    switch (size) {
+        case RandomMapSize::tiny: return 144;
+        case RandomMapSize::small: return 168;
+        case RandomMapSize::medium: return 200;
+        case RandomMapSize::normal: return 220;
+        case RandomMapSize::large: return 240;
+        case RandomMapSize::giant: return 255;
     }
     return 144;
 }

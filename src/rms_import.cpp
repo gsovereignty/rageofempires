@@ -1608,7 +1608,7 @@ std::optional<Scenario> evaluate_rms(
     } while (changed);
     // No override_map_size directive means the script inherits the
     // lobby-selected size, so track the shared default.
-    RandomMapSize size = RandomMapSettings{}.size;
+    int dimension = random_map_dimension(RandomMapSettings{}.size);
     const auto active = [&](const RmsDirective& directive) {
         return random_active(directive) && conditions_active(directive) &&
             directive.name != "#define";
@@ -1621,18 +1621,16 @@ std::optional<Scenario> evaluate_rms(
                 // Snap the requested tile count up to the nearest
                 // original preset; oversized requests clamp to the
                 // engine maximum.
-                size = *value <= 120 ? RandomMapSize::tiny :
-                       *value <= 144 ? RandomMapSize::small :
-                       *value <= 168 ? RandomMapSize::medium :
-                       *value <= 200 ? RandomMapSize::normal :
-                       *value <= 220 ? RandomMapSize::large :
-                       *value <= 240 ? RandomMapSize::giant :
-                                       RandomMapSize::maximum;
+                dimension = *value <= 120 ? 120 :
+                            *value <= 144 ? 144 :
+                            *value <= 168 ? 168 :
+                            *value <= 200 ? 200 :
+                            *value <= 220 ? 220 :
+                            *value <= 240 ? 240 : 255;
             }
         }
     }
 
-    const int dimension = random_map_dimension(size);
     Scenario scenario(dimension, dimension);
     scenario.blue_civilization = blue;
     scenario.red_civilization = red;
@@ -2334,7 +2332,8 @@ create_object STONE {
         settings.kind == RandomMapKind::rivers ? rivers : arabia;
     std::string complete =
         "<PLAYER_SETUP>\noverride_map_size " +
-        std::to_string(random_map_dimension(settings.size)) + "\n";
+        std::to_string(random_map_dimension(settings.kind, settings.size)) +
+        "\n";
     complete.append(selected);
     const RmsDocument document = parse_rms(complete);
     if (!document.syntactically_valid) {

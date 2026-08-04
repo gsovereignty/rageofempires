@@ -57,7 +57,6 @@ void size_presets_match_original_tile_counts() {
         {aoe::RandomMapSize::normal, 200},
         {aoe::RandomMapSize::large, 220},
         {aoe::RandomMapSize::giant, 240},
-        {aoe::RandomMapSize::maximum, 255},
     };
     for (const auto& [size, dimension] : expected) {
         require(
@@ -67,13 +66,22 @@ void size_presets_match_original_tile_counts() {
     }
     const aoe::RandomMapSettings defaults;
     require(
-        defaults.size == aoe::RandomMapSize::maximum,
-        "random-map default is not the recovered maximum"
+        defaults.size == aoe::RandomMapSize::normal,
+        "random-map default is not Normal"
     );
     require(
-        aoe::random_map_dimension(defaults.size) == 255,
-        "random-map default does not resolve to 255"
+        aoe::random_map_dimension(defaults.size) == 200,
+        "random-map default does not resolve to 200"
     );
+    require(aoe::random_map_dimension(
+        aoe::RandomMapKind::islands, aoe::RandomMapSize::tiny
+    ) == 144, "Islands did not bump Tiny one size step");
+    require(aoe::random_map_dimension(
+        aoe::RandomMapKind::islands, aoe::RandomMapSize::giant
+    ) == 255, "Islands Giant did not reach internal 255-tile extent");
+    require(aoe::random_map_dimension(
+        aoe::RandomMapKind::arabia, aoe::RandomMapSize::giant
+    ) == 240, "Arabia incorrectly applied map-family size bump");
 }
 
 void feature_density_survives_the_largest_presets() {
@@ -120,14 +128,14 @@ void feature_density_survives_the_largest_presets() {
     };
     for (aoe::RandomMapKind kind : kinds) {
         const Density smallest = measure(kind, aoe::RandomMapSize::tiny);
-        const Density largest = measure(kind, aoe::RandomMapSize::maximum);
+        const Density largest = measure(kind, aoe::RandomMapSize::giant);
         require(
             largest.features >= smallest.features * 0.6,
-            "maximum preset lost terrain feature density"
+            "Giant preset lost terrain feature density"
         );
         require(
             largest.raised >= smallest.raised * 0.6,
-            "maximum preset lost elevation density"
+            "Giant preset lost elevation density"
         );
     }
 }
@@ -146,7 +154,6 @@ void generated_maps_are_deterministic_and_balanced() {
         aoe::RandomMapSize::normal,
         aoe::RandomMapSize::large,
         aoe::RandomMapSize::giant,
-        aoe::RandomMapSize::maximum,
     };
     for (aoe::RandomMapKind kind : kinds) {
         for (aoe::RandomMapSize size : sizes) {
@@ -167,9 +174,9 @@ void generated_maps_are_deterministic_and_balanced() {
                 );
                 require(
                     first.map.width() ==
-                        aoe::random_map_dimension(size) &&
+                        aoe::random_map_dimension(kind, size) &&
                     first.map.height() ==
-                        aoe::random_map_dimension(size),
+                        aoe::random_map_dimension(kind, size),
                     "map size preset mismatch"
                 );
                 const aoe::TilePosition blue =
@@ -358,7 +365,6 @@ void computer_players_make_deterministic_random_map_progress() {
         aoe::RandomMapSize::normal,
         aoe::RandomMapSize::large,
         aoe::RandomMapSize::giant,
-        aoe::RandomMapSize::maximum,
     };
     constexpr std::array civilizations{
         aoe::Civilization::britons,
@@ -476,7 +482,7 @@ void seed_scouts_remain_in_reachable_land_component() {
     for (const std::uint64_t seed : {1ULL, 2ULL, 99ULL}) {
         aoe::RandomMapSettings settings;
         settings.kind = aoe::RandomMapKind::arabia;
-        settings.size = aoe::RandomMapSize::maximum;
+        settings.size = aoe::RandomMapSize::giant;
         settings.seed = seed;
         aoe::Simulation simulation = aoe::create_simulation(
             aoe::generate_random_map(settings)

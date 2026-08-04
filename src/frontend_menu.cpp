@@ -104,24 +104,34 @@ constexpr NativeFrontendFontContract native_main_font{
 
 constexpr std::array ai_arabia_size_items{
     FrontendMenuItem{
-        "Tiny (2 players)", {476, 153, 260, 39},
+        "Tiny (120)", {476, 104, 260, 39},
         FrontendMenuCommand::launch_ai_arabia_tiny, true,
         "120x120: standard size for a 1v1 match.",
     },
     FrontendMenuItem{
-        "Small (4 players)", {476, 204, 260, 39},
+        "Small (144)", {476, 154, 260, 39},
         FrontendMenuCommand::launch_ai_arabia_small, true,
         "144x144: more room for a longer 1v1 match.",
     },
     FrontendMenuItem{
-        "Medium (6 players)", {476, 254, 260, 39},
+        "Medium (168)", {476, 204, 260, 39},
         FrontendMenuCommand::launch_ai_arabia_medium, true,
         "168x168: broad two-player Arabia battlefield.",
     },
     FrontendMenuItem{
-        "Large (8 players)", {476, 319, 260, 39},
+        "Normal (200)", {476, 254, 260, 39},
+        FrontendMenuCommand::launch_ai_arabia_normal, true,
+        "200x200: original default map size.",
+    },
+    FrontendMenuItem{
+        "Large (220)", {476, 304, 260, 39},
         FrontendMenuCommand::launch_ai_arabia_large, true,
-        "220x220: largest common multiplayer preset.",
+        "220x220: large original map preset.",
+    },
+    FrontendMenuItem{
+        "Giant (240)", {476, 354, 260, 39},
+        FrontendMenuCommand::launch_ai_arabia_giant, true,
+        "240x240: giant original map preset.",
     },
 };
 

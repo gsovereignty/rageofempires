@@ -66,7 +66,7 @@ int main() {
         native, std::span<const FrontendHitMask>{masks}.first(6), 552, 19
     ));
     assert(single_player_menu_items().size() == 7);
-    assert(ai_arabia_size_menu_items().size() == 4);
+    assert(ai_arabia_size_menu_items().size() == 6);
     assert(main_menu_items()[1].bounds ==
         (FrontendMenuRect{42, 154, 250, 42}));
     for (std::size_t index = 0; index < main_menu_items().size(); ++index) {
@@ -83,7 +83,11 @@ int main() {
     assert(ai_arabia_size_menu_items()[0].command ==
         FrontendMenuCommand::launch_ai_arabia_tiny);
     assert(ai_arabia_size_menu_items()[3].command ==
+        FrontendMenuCommand::launch_ai_arabia_normal);
+    assert(ai_arabia_size_menu_items()[4].command ==
         FrontendMenuCommand::launch_ai_arabia_large);
+    assert(ai_arabia_size_menu_items()[5].command ==
+        FrontendMenuCommand::launch_ai_arabia_giant);
 
     const auto exact = frontend_logical_transform(800, 600);
     assert(exact.scale == 1.0F);

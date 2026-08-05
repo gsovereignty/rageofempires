@@ -339,6 +339,41 @@ constexpr BuildingStateRoot building_state_roots[] = {
     {BuildingKind::dock, RenderBuildingState::destroyed, 5452},
 };
 
+// Generic CNST roots are footprint-sized scaffold/shadow layers, not full
+// building bodies. Original construction combines them with the selected
+// civilization/Age completed body, revealed continuously from ground upward.
+// Four represented kinds instead have complete dedicated construction art.
+constexpr BuildingConstructionContract building_construction_contracts[] = {
+    {BuildingKind::town_center, ConstructionBodyMode::progressive_completed_body, 121},
+    {BuildingKind::barracks, ConstructionBodyMode::progressive_completed_body, 120},
+    {BuildingKind::archery_range, ConstructionBodyMode::progressive_completed_body, 120},
+    {BuildingKind::house, ConstructionBodyMode::progressive_completed_body, 119},
+    {BuildingKind::mill, ConstructionBodyMode::progressive_completed_body, 119},
+    {BuildingKind::lumber_camp, ConstructionBodyMode::progressive_completed_body, 119},
+    {BuildingKind::mining_camp, ConstructionBodyMode::progressive_completed_body, 119},
+    {BuildingKind::farm, ConstructionBodyMode::progressive_completed_body, -1},
+    {BuildingKind::stable, ConstructionBodyMode::progressive_completed_body, 120},
+    {BuildingKind::blacksmith, ConstructionBodyMode::progressive_completed_body, 120},
+    {BuildingKind::castle, ConstructionBodyMode::progressive_completed_body, 121},
+    {BuildingKind::university, ConstructionBodyMode::progressive_completed_body, 121},
+    {BuildingKind::siege_workshop, ConstructionBodyMode::progressive_completed_body, 121},
+    {BuildingKind::palisade_wall, ConstructionBodyMode::progressive_completed_body, 118},
+    {BuildingKind::watch_tower, ConstructionBodyMode::progressive_completed_body, 118},
+    {BuildingKind::stone_wall, ConstructionBodyMode::dedicated_construction_body, -1},
+    {BuildingKind::palisade_gate_x, ConstructionBodyMode::dedicated_construction_body, -1},
+    {BuildingKind::palisade_gate_y, ConstructionBodyMode::dedicated_construction_body, -1},
+    {BuildingKind::stone_gate_x, ConstructionBodyMode::progressive_completed_body, 118},
+    {BuildingKind::stone_gate_y, ConstructionBodyMode::progressive_completed_body, 118},
+    {BuildingKind::monastery, ConstructionBodyMode::progressive_completed_body, 120},
+    {BuildingKind::market, ConstructionBodyMode::progressive_completed_body, 121},
+    {BuildingKind::dock, ConstructionBodyMode::progressive_completed_body, 4248},
+    {BuildingKind::bombard_tower, ConstructionBodyMode::progressive_completed_body, 118},
+    {BuildingKind::fish_trap, ConstructionBodyMode::dedicated_construction_body, -1},
+    {BuildingKind::outpost, ConstructionBodyMode::progressive_completed_body, 118},
+    {BuildingKind::wonder, ConstructionBodyMode::progressive_completed_body, 123},
+};
+static_assert(std::size(building_construction_contracts) == 27);
+
 constexpr BuildingDirectSlpSet building_direct_slp_sets[] = {
     {BuildingKind::bombard_tower, {{
         {{2549, 2549, 2549, 2549, 2549}},
@@ -577,6 +612,10 @@ void write_request(std::ostream& output, const AssetRequest& request) {
     }
     output << "],\"shadow_slp_id\":"
            << optional_number(request.shadow_slp_id)
+           << ",\"construction_body_graphic_id\":"
+           << optional_number(request.construction_body_graphic_id)
+           << ",\"construction_body_slp_id\":"
+           << optional_number(request.construction_body_slp_id)
            << ",\"required_frame_count\":" << request.required_frame_count
            << ",\"required_direction_count\":"
            << request.required_direction_count
@@ -1113,8 +1152,9 @@ AssetResolution resolve_building_asset(
     }
     if (kind == BuildingKind::farm) {
         result.status = AssetCoverageStatus::renderable;
-        result.reason =
-            "HD farm terrain textures selected";
+        result.reason = state.building_state == RenderBuildingState::construction
+            ? "farm texture body selected for progressive construction reveal"
+            : "HD farm terrain textures selected";
         result.request.source_mapping =
             "Terrain/Textures/g_fm1_00_COLOR.png + "
             "Terrain/Textures/g_fm2_00_COLOR.png";
@@ -1174,9 +1214,32 @@ AssetResolution resolve_building_asset(
             building_state_root(kind, state.building_state);
         state_root != nullptr) {
         result.request.graphic_id = state_root->graphic_root;
+        const BuildingConstructionContract* construction =
+            building_construction_contract(kind);
+        if (state.building_state == RenderBuildingState::construction &&
+            construction != nullptr &&
+            construction->body_mode ==
+                ConstructionBodyMode::progressive_completed_body) {
+            RenderStateKey completed = state;
+            completed.building_state = RenderBuildingState::completed;
+            completed.construction_stage = 4;
+            const AssetResolution body = resolve_building_asset(completed, kind);
+            result.request.construction_body_graphic_id =
+                body.request.graphic_id;
+            result.request.construction_body_slp_id = body.request.slp_id;
+            result.request.source_mapping +=
+                " + selected civilization/Age completed body";
+            result.evidence_sources.push_back(
+                "DAT construction progress + completed standing root"
+            );
+            result.reason =
+                "exact completed body reveal plus footprint scaffold selected";
+        }
         result.state.composite = true;
         result.status = AssetCoverageStatus::renderable;
-        result.reason = "canonical building-state graphic root selected";
+        if (result.reason.empty()) {
+            result.reason = "canonical building-state graphic root selected";
+        }
         return result;
     }
     if (state.building_state == RenderBuildingState::completed) {
@@ -1809,6 +1872,62 @@ int render_construction_stage(
         construction_ticks
     );
     return std::clamp((elapsed * 4) / construction_ticks, 0, 3);
+}
+
+int render_construction_progress_basis_points(
+    const Building& building,
+    int construction_ticks
+) {
+    if (building.completed()) return 10000;
+    if (construction_ticks <= 0) return 0;
+    const int elapsed = std::clamp(
+        construction_ticks - building.construction_ticks_remaining,
+        0,
+        construction_ticks
+    );
+    return static_cast<int>(
+        static_cast<std::int64_t>(elapsed) * 10000 / construction_ticks
+    );
+}
+
+int render_building_damage_reference_hit_points(
+    const Building& building,
+    int construction_ticks,
+    int maximum_hit_points
+) {
+    maximum_hit_points = std::max(maximum_hit_points, 1);
+    if (building.completed()) return maximum_hit_points;
+    return std::max(
+        1,
+        maximum_hit_points * render_construction_progress_basis_points(
+            building, construction_ticks
+        ) / 10000
+    );
+}
+
+std::span<const BuildingConstructionContract>
+canonical_building_construction_contracts() {
+    return building_construction_contracts;
+}
+
+const BuildingConstructionContract* building_construction_contract(
+    BuildingKind kind
+) {
+    if (kind == BuildingKind::guard_tower || kind == BuildingKind::keep) {
+        kind = BuildingKind::watch_tower;
+    } else if (kind == BuildingKind::fortified_wall) {
+        kind = BuildingKind::stone_wall;
+    } else if (kind == BuildingKind::fortified_gate_x) {
+        kind = BuildingKind::stone_gate_x;
+    } else if (kind == BuildingKind::fortified_gate_y) {
+        kind = BuildingKind::stone_gate_y;
+    }
+    const auto found = std::ranges::find(
+        building_construction_contracts, kind,
+        &BuildingConstructionContract::kind
+    );
+    return found == std::end(building_construction_contracts)
+        ? nullptr : &*found;
 }
 
 int render_damage_stage(int hit_points, int maximum_hit_points) {

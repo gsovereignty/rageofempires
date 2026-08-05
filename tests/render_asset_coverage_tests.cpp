@@ -60,6 +60,27 @@ void state_derivation_is_deterministic() {
         aoe::render_construction_stage(building, 100) == 2,
         "half-built building must select stage two"
     );
+    require(
+        aoe::render_construction_progress_basis_points(building, 100) ==
+            5000,
+        "half-built building must reveal exactly half its body"
+    );
+    require(
+        aoe::render_building_damage_reference_hit_points(
+            building, 100, 500
+        ) == 250,
+        "construction progress HP must not masquerade as body damage"
+    );
+    building.hit_points = 180;
+    require(
+        aoe::render_damage_stage(
+            building.hit_points,
+            aoe::render_building_damage_reference_hit_points(
+                building, 100, 500
+            )
+        ) == 1,
+        "construction attack damage must remain visible against expected HP"
+    );
     building.construction_ticks_remaining = 0;
     building.hit_points = 249;
     require(
@@ -94,6 +115,73 @@ void state_derivation_is_deterministic() {
             simulation, simulation.units().front()
         ) == aoe::RenderAction::moving,
         "current-tick movement must drive moving render selection"
+    );
+}
+
+void construction_contract_covers_every_original_building_kind() {
+    const auto contracts =
+        aoe::canonical_building_construction_contracts();
+    require(contracts.size() == 27, "construction contract must cover 27 kinds");
+    int progressive = 0;
+    int dedicated = 0;
+    for (std::size_t raw = 0; raw < 27; ++raw) {
+        const auto kind = static_cast<aoe::BuildingKind>(raw);
+        const auto* contract = aoe::building_construction_contract(kind);
+        require(contract != nullptr, "building construction contract missing");
+        require(contract->kind == kind, "building construction contract mismatch");
+        if (contract->body_mode ==
+            aoe::ConstructionBodyMode::progressive_completed_body) {
+            ++progressive;
+            aoe::RenderStateKey state;
+            state.category = aoe::RenderObjectCategory::building;
+            state.object_kind = aoe::render_building_kind_name(kind);
+            state.building_state = aoe::RenderBuildingState::construction;
+            state.owner = 0;
+            state.civilization = aoe::Civilization::britons;
+            state.age = aoe::Age::castle;
+            state.architecture_family =
+                aoe::render_building_architecture_family(
+                    kind, state.civilization
+                );
+            state.construction_stage = 2;
+            const auto resolution = aoe::resolve_building_asset(state, kind);
+            require(
+                resolution.status == aoe::AssetCoverageStatus::renderable,
+                "progressive construction state must resolve"
+            );
+            if (kind != aoe::BuildingKind::farm) {
+                require(
+                    resolution.request.construction_body_graphic_id ||
+                        resolution.request.construction_body_slp_id,
+                    "construction must bind selected exact standing body"
+                );
+                require(
+                    resolution.request.graphic_id ==
+                        contract->scaffold_graphic_root,
+                    "construction must bind exact footprint scaffold"
+                );
+            }
+        } else {
+            ++dedicated;
+        }
+    }
+    require(progressive == 23, "23 construction kinds need body reveal");
+    require(dedicated == 4, "four construction kinds use dedicated art");
+
+    require(
+        aoe::building_construction_contract(aoe::BuildingKind::keep) ==
+            aoe::building_construction_contract(
+                aoe::BuildingKind::watch_tower
+            ),
+        "Keep must share tower construction contract"
+    );
+    require(
+        aoe::building_construction_contract(
+            aoe::BuildingKind::fortified_wall
+        ) == aoe::building_construction_contract(
+            aoe::BuildingKind::stone_wall
+        ),
+        "Fortified Wall must share Stone Wall construction contract"
     );
 }
 
@@ -1109,6 +1197,7 @@ void building_resolver_selects_age_family_and_reviewed_farm() {
 int main() {
     try {
         state_derivation_is_deterministic();
+        construction_contract_covers_every_original_building_kind();
         battering_ram_actions_preserve_dat_composition();
         building_contact_depth_keeps_striker_readable();
         simulation_command_reaches_sheep_attack_mapping();

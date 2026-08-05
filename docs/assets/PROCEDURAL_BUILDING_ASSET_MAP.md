@@ -94,10 +94,13 @@ it.
    physical SLP frame count for present assets; do not center by texture size.
 4. Wall angle index selects connectivity shape. Gate X/A and Y/B use separate
    graphics and offsets, not rotation or flip synthesis.
-5. Missing Farm, Fish Trap death/damage, building damage, or gate component SLPs require documented procedural
+5. Missing Fish Trap death/damage, building damage, or gate component SLPs require documented procedural
    fallback. Never substitute an unrelated SLP sharing a graphic role.
-6. Exact construction progress frame, damage-threshold edge, gate open-state
-   record, and delta draw order remain runtime-validation boundaries.
+6. Generic `CNST*` roots are footprint scaffold/shadow art. Reveal selected
+   completed DAT body bottom-up by authoritative construction progress, then
+   draw scaffold; never stretch scaffold into a body.
+7. Exact construction progress, damage-threshold edge, gate open-state record,
+   and delta draw order remain runtime-validation boundaries.
 
 ## Regeneration
 

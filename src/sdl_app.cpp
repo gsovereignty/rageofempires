@@ -7556,6 +7556,10 @@ void render_building(
     const int maximum_hit_points = memory != nullptr
         ? memory->maximum_hit_points
         : simulation.maximum_hit_points(building);
+    const int damage_reference_hit_points =
+        render_building_damage_reference_hit_points(
+            building, rules.construction_ticks, maximum_hit_points
+        );
     const bool fortified =
         building.kind == BuildingKind::fortified_wall ||
         building.kind == BuildingKind::fortified_gate_x ||
@@ -7594,7 +7598,7 @@ void render_building(
     );
     const auto damage_index = select_building_damage_record(
         building.hit_points,
-        maximum_hit_points,
+        damage_reference_hit_points,
         damage_records
     );
     const std::uint64_t damage_elapsed = building_damage_elapsed(
@@ -7606,7 +7610,8 @@ void render_building(
             : std::nullopt,
         presentation_time_ms
     );
-    if (damage_index && damage_records[*damage_index].flag == 2) {
+    if (building.completed() && damage_index &&
+        damage_records[*damage_index].flag == 2) {
         const auto found = active_legacy_sprites.building_damage_graphics.find(
             damage_records[*damage_index].graphic_id
         );
@@ -7627,6 +7632,82 @@ void render_building(
                 )) {
                 return;
             }
+        }
+    }
+    const BuildingConstructionContract* construction_contract =
+        !building.completed()
+        ? building_construction_contract(building.kind)
+        : nullptr;
+    if (construction_contract != nullptr &&
+        construction_contract->body_mode ==
+            ConstructionBodyMode::progressive_completed_body) {
+        const int progress = render_construction_progress_basis_points(
+            building, rules.construction_ticks
+        );
+        if (progress > 0) {
+            // Completed DAT body keeps exact palette, player color, family,
+            // Age, axis, anchor, scale, shadow, and layer order. Original
+            // construction reveals it upward from ground before CNST scaffold.
+            constexpr int maximum_body_height = 512;
+            constexpr int below_ground_margin = 64;
+            const int revealed = std::max(
+                1, (maximum_body_height * progress + 9999) / 10000
+            );
+            int output_width = 0;
+            int output_height = 0;
+            SDL_GetRenderOutputSize(
+                renderer, &output_width, &output_height
+            );
+            SDL_Rect old_clip{};
+            const bool had_clip = SDL_RenderClipEnabled(renderer);
+            if (had_clip) SDL_GetRenderClipRect(renderer, &old_clip);
+            SDL_Rect reveal_clip{
+                0,
+                static_cast<int>(std::floor(
+                    top.y + half_tile_height
+                )) - revealed,
+                output_width,
+                revealed + below_ground_margin,
+            };
+            reveal_clip.y = std::max(reveal_clip.y, 0);
+            reveal_clip.h = std::min(
+                reveal_clip.h, output_height - reveal_clip.y
+            );
+            if (had_clip) {
+                const int left = std::max(reveal_clip.x, old_clip.x);
+                const int top_edge = std::max(reveal_clip.y, old_clip.y);
+                const int right = std::min(
+                    reveal_clip.x + reveal_clip.w,
+                    old_clip.x + old_clip.w
+                );
+                const int bottom = std::min(
+                    reveal_clip.y + reveal_clip.h,
+                    old_clip.y + old_clip.h
+                );
+                reveal_clip = {
+                    left, top_edge,
+                    std::max(right - left, 0),
+                    std::max(bottom - top_edge, 0),
+                };
+            }
+            SDL_SetRenderClipRect(renderer, &reveal_clip);
+            Building completed_body = building;
+            completed_body.id = std::numeric_limits<EntityId>::max();
+            completed_body.construction_ticks_remaining = 0;
+            completed_body.hit_points = maximum_hit_points;
+            render_building(
+                renderer,
+                simulation,
+                completed_body,
+                presentation_time_ms,
+                memory
+            );
+            SDL_SetRenderClipRect(
+                renderer, had_clip ? &old_clip : nullptr
+            );
+        }
+        if (building.kind == BuildingKind::farm) {
+            return;
         }
     }
     if (!building.completed()) {
@@ -8832,7 +8913,11 @@ void render_building_damage_overlay(
     );
     const auto selected = select_building_damage_record(
         building.hit_points,
-        simulation.maximum_hit_points(building),
+        render_building_damage_reference_hit_points(
+            building,
+            rules_for(building.kind).construction_ticks,
+            simulation.maximum_hit_points(building)
+        ),
         records
     );
     if (!selected || records[*selected].flag != 0) {
@@ -16656,6 +16741,29 @@ int SdlApp::run() {
     double gameplay_benchmark_command_ms{};
     std::size_t gameplay_benchmark_commanded_units{};
     Simulation simulation = new_game();
+    // Deterministic screenshot-only construction checkpoint. Normal launches
+    // never mutate scenario placements through this opt-in audit hook.
+    if (const char* requested = SDL_getenv("AOE_CONSTRUCTION_AUDIT_PERCENT");
+        requested != nullptr && requested[0] != '\0') {
+        const int percent = std::clamp(std::stoi(requested), 1, 99);
+        std::vector<Building> buildings = simulation.buildings();
+        for (Building& building : buildings) {
+            const BuildingRules& rules = rules_for(building.kind);
+            building.construction_ticks_remaining = std::max(
+                1, rules.construction_ticks * (100 - percent) / 100
+            );
+            building.hit_points = std::max(
+                1, simulation.maximum_hit_points(building) * percent / 100
+            );
+        }
+        simulation.replace_state(
+            simulation.units(),
+            std::move(buildings),
+            simulation.economy(Player::blue),
+            simulation.economy(Player::red),
+            simulation.tick_number()
+        );
+    }
     std::optional<GameplayTestApi> gameplay_test_api;
     if (const char* directory = SDL_getenv("AOE_GAMEPLAY_TEST_API_DIR");
         directory != nullptr && directory[0] != '\0') {

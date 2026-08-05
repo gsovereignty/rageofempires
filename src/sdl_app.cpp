@@ -1127,7 +1127,8 @@ void record_building_procedural_fallback(
     const Building& building,
     int maximum_hit_points,
     std::string_view renderer_call_site =
-        "render_building:procedural_body"
+        "render_building:procedural_body",
+    const Simulation::BuildingMemory* memory = nullptr
 ) {
     RuntimeFallbackEvent event;
     event.entity_id = building.id;
@@ -1140,16 +1141,20 @@ void record_building_procedural_fallback(
         building, maximum_hit_points
     );
     event.state.owner = building.owner.stable_id();
-    event.state.civilization = simulation.civilization(building.owner);
-    event.state.age = simulation.age(building.owner);
+    event.state.civilization = memory != nullptr
+        ? memory->owner_civilization
+        : simulation.civilization(building.owner);
+    event.state.age = memory != nullptr
+        ? memory->owner_age : simulation.age(building.owner);
     event.state.architecture_family =
         render_building_architecture_family(
             building.kind, event.state.civilization
         );
-    event.state.animation_frame =
-        render_building_topology_frame(simulation, building);
-    event.state.upgrade_variant =
-        render_building_upgrade_variant(simulation, building);
+    event.state.animation_frame = memory != nullptr
+        ? memory->topology_frame
+        : render_building_topology_frame(simulation, building);
+    event.state.upgrade_variant = building.kind == BuildingKind::keep ? 2
+        : building.kind == BuildingKind::guard_tower ? 1 : 0;
     event.state.damage_stage =
         event.state.building_state == RenderBuildingState::damaged
         ? render_damage_stage(
@@ -7202,14 +7207,24 @@ void render_building(
     SDL_Renderer* renderer,
     const Simulation& simulation,
     const Building& building,
-    std::uint64_t presentation_time_ms
+    std::uint64_t presentation_time_ms,
+    const Simulation::BuildingMemory* memory = nullptr
 ) {
     const BuildingRules& rules = rules_for(building.kind);
+    const Age remembered_age = memory != nullptr
+        ? memory->owner_age : simulation.age(building.owner);
+    const Civilization remembered_civilization = memory != nullptr
+        ? memory->owner_civilization
+        : simulation.civilization(building.owner);
+    const int remembered_topology = memory != nullptr
+        ? memory->topology_frame
+        : render_building_topology_frame(simulation, building);
     const auto owner_slot = building.owner.slot_index();
     const bool legacy_two_player_owner =
         owner_slot && *owner_slot < 2;
-    const int maximum_hit_points =
-        simulation.maximum_hit_points(building);
+    const int maximum_hit_points = memory != nullptr
+        ? memory->maximum_hit_points
+        : simulation.maximum_hit_points(building);
     const bool fortified =
         building.kind == BuildingKind::fortified_wall ||
         building.kind == BuildingKind::fortified_gate_x ||
@@ -7221,7 +7236,7 @@ void render_building(
     const SDL_FPoint top = building_top(building);
     const auto damage_records = canonical_building_damage_records(
         building.kind,
-        simulation.civilization(building.owner)
+        remembered_civilization
     );
     const auto damage_index = select_building_damage_record(
         building.hit_points,
@@ -7302,7 +7317,7 @@ void render_building(
         if (building.completed()) {
             const auto found =
                 active_legacy_sprites.wonder_standing.find(
-                    simulation.civilization(building.owner)
+                    remembered_civilization
                 );
             if (found !=
                     active_legacy_sprites.wonder_standing.end()) {
@@ -7367,14 +7382,12 @@ void render_building(
                                   static_cast<std::size_t>(
                                       render_building_visual_age(
                                           building.kind,
-                                          simulation.age(building.owner)
+                                          remembered_age
                                       )
                                   ),
                                   static_cast<std::size_t>(
                                       render_architecture_family(
-                                          simulation.civilization(
-                                              building.owner
-                                          )
+                                          remembered_civilization
                                       )
                                   ),
                                   *owner,
@@ -7406,7 +7419,7 @@ void render_building(
         building.completed() &&
         building.hit_points >= maximum_hit_points) {
         const std::size_t frame = static_cast<std::size_t>(
-            render_building_topology_frame(simulation, building)
+            remembered_topology
         );
         const SDL_FPoint ground{
             top.x, top.y + half_tile_height
@@ -7457,7 +7470,7 @@ void render_building(
         const std::size_t family = static_cast<std::size_t>(
             render_building_architecture_family(
                 building.kind,
-                simulation.civilization(building.owner)
+                remembered_civilization
             )
         );
         const LegacyComposite* composite =
@@ -7475,7 +7488,7 @@ void render_building(
     if (gate_construction_set(building.kind) != nullptr &&
         !building.completed()) {
         const Civilization civilization =
-            simulation.civilization(building.owner);
+            remembered_civilization;
         const std::size_t family = static_cast<std::size_t>(
             civilization == Civilization::aztecs ||
                 civilization == Civilization::mayans
@@ -7501,14 +7514,14 @@ void render_building(
     if (building.kind == BuildingKind::stone_wall &&
         building.completed()) {
         const Civilization civilization =
-            simulation.civilization(building.owner);
+            remembered_civilization;
         const std::size_t family = static_cast<std::size_t>(
             render_building_architecture_family(
                 building.kind, civilization
             )
         );
         const std::size_t frame = static_cast<std::size_t>(
-            render_building_topology_frame(simulation, building)
+            remembered_topology
         );
         const auto slot = building.owner.slot_index();
         const LegacySprite* sprite = slot && *slot < 8
@@ -7560,7 +7573,7 @@ void render_building(
         building.kind == BuildingKind::palisade_gate_y;
     if (exact_composite_kind && building.completed()) {
         const Civilization civilization =
-            simulation.civilization(building.owner);
+            remembered_civilization;
         const std::size_t family = static_cast<std::size_t>(
             render_building_architecture_family(
                 building.kind, civilization
@@ -7569,7 +7582,7 @@ void render_building(
         const std::size_t age = static_cast<std::size_t>(
             render_building_composite_variant(
                 building.kind,
-                simulation.age(building.owner),
+                remembered_age,
                 render_building_upgrade_variant(
                     simulation, building
                 )
@@ -7635,12 +7648,12 @@ void render_building(
             const std::size_t age = static_cast<std::size_t>(
                 render_building_visual_age(
                     building.kind,
-                    simulation.age(building.owner)
+                    remembered_age
                 )
             );
             const std::size_t family = static_cast<std::size_t>(
                 render_architecture_family(
-                    simulation.civilization(building.owner)
+                    remembered_civilization
                 )
             );
             const auto found =
@@ -7693,7 +7706,7 @@ void render_building(
          building.kind == BuildingKind::mining_camp ||
          building.kind == BuildingKind::university)) {
         const Civilization civilization =
-            simulation.civilization(building.owner);
+            remembered_civilization;
         const std::size_t family = static_cast<std::size_t>(
             render_building_architecture_family(
                 building.kind, civilization
@@ -7702,13 +7715,13 @@ void render_building(
         const LegacySprite* sprite = nullptr;
         if (building.kind == BuildingKind::blacksmith) {
             const std::size_t style =
-                simulation.age(building.owner) >= Age::castle ? 1U : 0U;
+                remembered_age >= Age::castle ? 1U : 0U;
             sprite = building.owner == Player::blue
                 ? &active_legacy_sprites.blacksmith_blue[style][family]
                 : &active_legacy_sprites.blacksmith_red[style][family];
         } else if (building.kind == BuildingKind::university) {
             const std::size_t style =
-                simulation.age(building.owner) == Age::imperial ? 1U : 0U;
+                remembered_age == Age::imperial ? 1U : 0U;
             sprite = building.owner == Player::blue
                 ? &active_legacy_sprites.university_blue[style][family]
                 : &active_legacy_sprites.university_red[style][family];
@@ -7755,7 +7768,7 @@ void render_building(
          building.kind == BuildingKind::town_center) &&
         building.completed()) {
         const Civilization civilization =
-            simulation.civilization(building.owner);
+            remembered_civilization;
         const std::size_t family = static_cast<std::size_t>(
             render_building_architecture_family(
                 building.kind, civilization
@@ -7763,7 +7776,7 @@ void render_building(
         );
         const std::size_t age = static_cast<std::size_t>(
             render_building_visual_age(
-                building.kind, simulation.age(building.owner)
+                building.kind, remembered_age
             )
         );
         bool rendered_original = false;
@@ -7837,7 +7850,8 @@ void render_building(
         active_terrain_textures.farm_harvested != nullptr;
     if (!textured_farm) {
         record_building_procedural_fallback(
-            simulation, building, maximum_hit_points
+            simulation, building, maximum_hit_points,
+            "render_building:procedural_body", memory
         );
     }
     const float full_height =
@@ -10937,7 +10951,9 @@ void render_minimap(
     }
 
     for (const Building& building : simulation.buildings()) {
-        if (building.owner != active_view_player &&
+        if (active_settings.fog &&
+            !simulation.observer_perspective(active_view_player) &&
+            building.owner != active_view_player &&
             !simulation.is_building_visible(active_view_player, building)) {
             continue;
         }
@@ -10956,6 +10972,35 @@ void render_minimap(
         };
         set_color(renderer, *color);
         SDL_RenderFillRect(renderer, &marker);
+    }
+    if (active_settings.fog &&
+        !simulation.observer_perspective(active_view_player)) {
+        for (const auto& [id, memory] :
+             simulation.remembered_buildings(active_view_player)) {
+            const Building& building = memory.building;
+            if (simulation.is_building_visible(
+                    active_view_player, building
+                )) {
+                continue;
+            }
+            const SDL_FPoint position = minimap_top(building.position);
+            const SDL_Color* color = marker_color(building.owner);
+            if (color == nullptr) continue;
+            const minimap::InclusiveRect bounds =
+                minimap::readable_marker_rect(
+                    static_cast<int>(std::lround(position.x)),
+                    static_cast<int>(std::lround(position.y))
+                );
+            set_color(renderer, *color);
+            const SDL_FRect marker{
+                static_cast<float>(bounds.left),
+                static_cast<float>(bounds.top),
+                static_cast<float>(bounds.right - bounds.left + 1),
+                static_cast<float>(bounds.bottom - bounds.top + 1),
+            };
+            SDL_RenderFillRect(renderer, &marker);
+            (void)id;
+        }
     }
     for (const Unit& unit : simulation.units()) {
         if (unit.garrisoned_in != 0 ||
@@ -15576,6 +15621,34 @@ std::size_t render(
                 building
             );
             finish_overlap_case();
+        }
+
+        if (active_settings.fog &&
+            !simulation.observer_perspective(active_view_player)) {
+            for (const auto& [id, memory] :
+                 simulation.remembered_buildings(active_view_player)) {
+                const Building& building = memory.building;
+                if (building.position.x + building.position.y != depth ||
+                    !tile_near_world_view(building.position) ||
+                    simulation.is_building_visible(
+                        active_view_player, building
+                    )) {
+                    continue;
+                }
+                begin_overlap_case(
+                    "remembered-building-" +
+                        render_building_kind_name(building.kind),
+                    id,
+                    building.completed() ? "standing" : "construction",
+                    memory.topology_frame,
+                    building.owner
+                );
+                render_building(
+                    renderer, simulation, building,
+                    presentation_time_ms, &memory
+                );
+                finish_overlap_case();
+            }
         }
 
         for (const Unit& unit : simulation.units()) {

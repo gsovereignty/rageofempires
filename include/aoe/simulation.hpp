@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <map>
 #include <optional>
 #include <unordered_map>
 #include <utility>
@@ -25,11 +26,21 @@ void validate_trigger_runtime_semantics(
 
 class Simulation {
 public:
+    struct BuildingMemory {
+        Building building;
+        Age owner_age{Age::dark};
+        Civilization owner_civilization{Civilization::generic};
+        int maximum_hit_points{};
+        int topology_frame{};
+    };
+
     struct PlayerState {
         Economy economy{100, 200, 200, 200};
         FormationKind formation{FormationKind::compact};
         PlayerControllerState controller{PlayerControllerState::active};
         std::vector<bool> explored;
+        // Per-viewer stale images. std::map keeps save/hash ordering stable.
+        std::map<EntityId, BuildingMemory> remembered_buildings;
         Age age{Age::dark};
         std::array<bool, technology_count> technologies{};
         Civilization civilization{Civilization::generic};
@@ -280,6 +291,8 @@ public:
     [[nodiscard]] std::vector<TilePosition> explored_tiles(
         Player player
     ) const;
+    [[nodiscard]] const std::map<EntityId, BuildingMemory>&
+    remembered_buildings(Player player) const;
     [[nodiscard]] std::vector<EntityId> idle_villagers(
         Player player
     ) const;

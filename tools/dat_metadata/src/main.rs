@@ -244,6 +244,8 @@ fn main() {
                 "id": unit_id,
                 "base_class": format!("{:?}", unit.unit_base_class),
                 "unit_class": unit.static_.unit_class,
+                "language_dll_name": format!("{:?}", unit.static_.string_id),
+                "language_dll_help": format!("{:?}", unit.static_.help_string_id),
                 "button_icon": unit.static_.button_picture.map(|id| u32::try_from(id).unwrap()),
                 "portrait_icon": unit.static_.portrait_picture.map(|id| u32::try_from(id).unwrap()),
                 "enabled": unit.static_.enabled,

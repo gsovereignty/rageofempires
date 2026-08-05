@@ -2,6 +2,7 @@
 #include "aoe/simulation.hpp"
 #include "aoe/save_game.hpp"
 #include "aoe/game_command.hpp"
+#include "aoe/localization.hpp"
 
 #include <cstdlib>
 #include <iostream>
@@ -73,6 +74,29 @@ int main() {
     require(archer->standing_graphic == 633, "Archer render binding");
     require(archer->creation_location_object_id == 87, "Archer producer");
     require(!archer->costs.empty(), "Archer costs represented");
+    require(
+        archer->language_name_id == 5083 &&
+        archer->language_help_id == 105083,
+        "object language IDs retained"
+    );
+    const aoe::StringTable translated{
+        "fr", {{"fallback", "fallback"}},
+        {{5083, "Archer traduit"}, {105083, "Aide archer"},
+         {7022, "Métier à tisser"}, {107022, "Aide métier"}}
+    };
+    require(
+        catalog.localized_object_name(translated, 1, 4, "Archer") ==
+            "Archer traduit" &&
+        catalog.localized_object_help(translated, 1, 4, "") ==
+            "Aide archer",
+        "object name and help consume numeric DLL IDs"
+    );
+    require(
+        catalog.localized_technology_name(translated, 22) ==
+            "Métier à tisser" &&
+        catalog.localized_technology_help(translated, 22) == "Aide métier",
+        "technology name and help consume numeric DLL IDs"
+    );
 
     std::size_t tasks{};
     std::map<unsigned, std::size_t> task_types;

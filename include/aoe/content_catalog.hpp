@@ -4,10 +4,13 @@
 #include <cstdint>
 #include <optional>
 #include <span>
+#include <string>
 #include <string_view>
 #include <vector>
 
 namespace aoe {
+
+class StringTable;
 
 using CommercialObjectId = std::uint16_t;
 using CommercialTechnologyId = std::uint16_t;
@@ -142,6 +145,8 @@ struct CommercialObjectRecord {
     std::optional<std::uint16_t> death_sound;
     std::vector<CommercialTask> tasks;
     std::vector<CommercialStoredResource> stored_resources;
+    std::uint32_t language_name_id{};
+    std::uint32_t language_help_id{};
 };
 
 struct CommercialTechnologyCost {
@@ -163,6 +168,9 @@ struct CommercialTechnologyRecord {
     std::uint16_t type{};
     std::optional<std::uint16_t> icon_id;
     std::uint8_t button_id{};
+    std::optional<std::uint32_t> language_name_id;
+    std::optional<std::uint32_t> language_description_id;
+    std::optional<std::uint32_t> language_help_id;
 };
 
 struct CommercialEffectCommand {
@@ -209,6 +217,27 @@ public:
     object_variants() const noexcept;
     [[nodiscard]] std::span<const CommercialEffectRecord>
     effects() const noexcept;
+    [[nodiscard]] std::string localized_object_name(
+        const StringTable& strings,
+        CommercialCivilizationId civilization,
+        CommercialObjectId id,
+        std::string_view fallback
+    ) const;
+    [[nodiscard]] std::string localized_object_help(
+        const StringTable& strings,
+        CommercialCivilizationId civilization,
+        CommercialObjectId id,
+        std::string_view fallback
+    ) const;
+    [[nodiscard]] std::string localized_technology_name(
+        const StringTable& strings,
+        CommercialTechnologyId id
+    ) const;
+    [[nodiscard]] std::string localized_technology_help(
+        const StringTable& strings,
+        CommercialTechnologyId id,
+        std::string_view fallback = {}
+    ) const;
 
 private:
     friend const ContentCatalog& commercial_content_catalog();

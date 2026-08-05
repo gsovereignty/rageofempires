@@ -19,10 +19,10 @@ TECH_RE = re.compile(
     r"^Tech \{ required_techs: \[(?P<required>.*?)\], effects: "
     r"\[(?P<effects>.*?)\], civilization_id: (?P<civ>.*?), "
     r"full_tech_mode: (?P<full>\d+), location: (?P<location>.*?), "
-    r"language_dll_name: .*?, language_dll_description: .*?, "
+    r"language_dll_name: (?P<name_id>.*?), language_dll_description: (?P<description_id>.*?), "
     r"time: (?P<time>\d+), time2: (?P<time2>\d+), "
     r"type_: (?P<type>\d+), icon_id: (?P<icon>.*?), "
-    r"button_id: (?P<button>\d+), language_dll_help: .*?, "
+    r"button_id: (?P<button>\d+), language_dll_help: (?P<help_id>.*?), "
     r"help_page_id: \d+, hotkey: .*?, name: .* \}$"
 )
 ID_RE = re.compile(r"(?:TechID|CivilizationID|UnitTypeID)\((\d+)\)")
@@ -139,12 +139,16 @@ def parse_tech(record: dict[str, Any]) -> dict[str, Any]:
             else int(re.search(r"\d+", match.group("icon")).group())
         ),
         "button_id": int(match.group("button")),
+        "language_name_id": optional_numeric(match.group("name_id")),
+        "language_description_id": optional_numeric(match.group("description_id")),
+        "language_help_id": optional_numeric(match.group("help_id")),
     }
 
 
 def reduce_unit(unit: dict[str, Any]) -> dict[str, Any]:
     keep = (
         "id", "copy_id", "unit_group", "base_class", "unit_class",
+        "language_dll_name", "language_dll_help",
         "enabled", "disabled", "hit_points", "line_of_sight", "speed",
         "garrison_capacity", "terrain_restriction_id", "resource_group",
         "track_as_resource", "radius", "outline_radius", "obstruction_type",
@@ -366,6 +370,8 @@ def emit_cpp(catalog: dict[str, Any], output: Path) -> None:
             cpp_optional(creation.get("create_at_unit")),
             str(creation.get("create_button", 0)), *graphics, tasks,
             stored_resources,
+            str(optional_numeric(unit.get("language_dll_name", "None")) or 0),
+            str(optional_numeric(unit.get("language_dll_help", "None")) or 0),
         ]
         lines.append(
             "catalog.object_variants_.push_back({" + ",".join(fields) + "});"
@@ -384,13 +390,16 @@ def emit_cpp(catalog: dict[str, Any], output: Path) -> None:
             ) for cost in tech["costs"]
         ])
         lines.append(
-            "catalog.technologies_.push_back({%d,%s,%s,%s,%s,%s,%s,%d,%d,%d,%s,%d});"
+            "catalog.technologies_.push_back({%d,%s,%s,%s,%s,%s,%s,%d,%d,%d,%s,%d,%s,%s,%s});"
             % (tech["id"], cpp_string(tech["name"]), prerequisites, costs,
                cpp_optional(tech["civilization_id"]),
                "true" if tech["full_technology_mode"] else "false",
                cpp_optional(tech["research_location_object_id"]),
                tech["research_time"], tech["effect_id"],
-               tech["type"], cpp_optional(tech["icon_id"]), tech["button_id"])
+               tech["type"], cpp_optional(tech["icon_id"]), tech["button_id"],
+               cpp_optional(tech["language_name_id"]),
+               cpp_optional(tech["language_description_id"]),
+               cpp_optional(tech["language_help_id"]))
         )
     lines.append("catalog.effects_.reserve(%d);" % len(catalog["effects"]))
     for effect in catalog["effects"]:

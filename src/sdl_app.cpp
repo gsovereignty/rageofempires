@@ -1754,6 +1754,21 @@ const CommercialObjectRecord* commercial_record(const Building& building) {
         : nullptr;
 }
 
+std::string localized_commercial_name(
+    const std::optional<CommercialObjectIdentity>& identity,
+    std::string_view fallback
+) {
+    if (!identity || active_string_table == nullptr) {
+        return std::string{fallback};
+    }
+    return commercial_content_catalog().localized_object_name(
+        *active_string_table,
+        identity->civilization_id,
+        identity->object_id,
+        fallback
+    );
+}
+
 int commercial_task_sound(
     const CommercialObjectRecord* record, CommercialTaskAbility ability
 ) {
@@ -10597,7 +10612,9 @@ std::string selection_text(const Simulation& simulation) {
             if (unit.id == simulation.selected_unit()) {
                 std::ostringstream text;
                 const UnitRules& rules = rules_for(unit.kind);
-                text << "Selected: blue " << name(unit.kind)
+                text << "Selected: blue " << localized_commercial_name(
+                    unit.commercial_identity, name(unit.kind)
+                )
                      << "  HP " << unit.hit_points
                      << '/' << simulation.maximum_hit_points(unit)
                      << "  ATK " << unit.attack
@@ -10941,7 +10958,9 @@ std::string selection_text(const Simulation& simulation) {
                     building.kind != BuildingKind::palisade_gate_y &&
                     building.kind != BuildingKind::stone_gate_x &&
                     building.kind != BuildingKind::stone_gate_y;
-                text << "Selected: blue " << name(building.kind)
+                text << "Selected: blue " << localized_commercial_name(
+                    building.commercial_identity, name(building.kind)
+                )
                      << "  HP " << building.hit_points
                      << '/' << simulation.maximum_hit_points(building);
                 if (is_defensive_garrison_building(building.kind)) {
@@ -12390,7 +12409,7 @@ void render_hud(
             );
             render_ui_debug_text(
                 renderer, tooltip.x + 4.0F, tooltip.y + 19.0F,
-                hovered.tooltip.substr(0, 38).c_str()
+                fit_localized_text(hovered.tooltip, 38).c_str()
             );
         }
         SDL_SetRenderClipRect(renderer, &information_clip);
@@ -13727,7 +13746,7 @@ void render_chat_panel(
             (message.audience == ChatAudience::allies
                  ? " [ALLIES]: " : ": ") +
             message.text;
-        if (line.size() > 66) line.resize(66);
+        line = fit_localized_text(line, 66);
         set_color(
             renderer,
             message.sender == Player::blue
@@ -13760,13 +13779,13 @@ void render_chat_panel(
         : "ENTER: TYPE MESSAGE";
     render_ui_debug_text(
         renderer, box.x + 10.0F, box.y + box.h - 27.0F,
-        input.substr(0, 72).c_str()
+        fit_localized_text(input, 72).c_str()
     );
     if (!presentation.chat_feedback.empty()) {
         set_color(renderer, {245, 170, 102, 255});
         render_ui_debug_text(
             renderer, box.x + 10.0F, box.y + box.h - 14.0F,
-            presentation.chat_feedback.substr(0, 72).c_str()
+            fit_localized_text(presentation.chat_feedback, 72).c_str()
         );
     }
 }
@@ -14158,7 +14177,7 @@ void render_editor_overlay(SDL_Renderer* renderer) {
     set_color(renderer, {169, 204, 139, 255});
     render_ui_debug_text(
         renderer, panel.x + 14.0F, panel.y + 174.0F,
-        active_editor_status.substr(0, 78).c_str()
+        fit_localized_text(active_editor_status, 78).c_str()
     );
 }
 
@@ -14445,7 +14464,7 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
             set_color(renderer, {55, 34, 19, 255});
             render_ui_debug_text(
                 renderer, 350, 478,
-                std::string{item.help}.substr(0, 48).c_str()
+                fit_localized_text(item.help, 48).c_str()
             );
             set_color(renderer, {255, 226, 100, 255});
             const SDL_FRect focus{
@@ -14652,7 +14671,7 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
     set_color(renderer, {169, 204, 139, 255});
     render_ui_debug_text(
         renderer, panel.x + 42.0F, panel.y + panel.h - 54.0F,
-        active_frontend_status.substr(0, 68).c_str()
+        fit_localized_text(active_frontend_status, 68).c_str()
     );
     set_color(renderer, {145, 132, 103, 255});
     render_ui_debug_text(
@@ -14729,7 +14748,7 @@ void render_options_overlay(SDL_Renderer* renderer) {
     set_color(renderer, {169, 204, 139, 255});
     render_ui_debug_text(
         renderer, panel.x + 34.0F, panel.y + 562.0F,
-        active_options_status.substr(0, 82).c_str()
+        fit_localized_text(active_options_status, 82).c_str()
     );
     set_color(renderer, {158, 137, 91, 255});
     render_ui_debug_text(
@@ -15113,7 +15132,8 @@ void render_save_browser_overlay(SDL_Renderer* renderer) {
             (index == active_browser_selection ? "> " : "  ") +
             entry.filename + "  [" + kind + "]  " + entry.modified_time;
         render_ui_debug_text(
-            renderer, panel.x + 44.0F, y, line.substr(0, 105).c_str()
+            renderer, panel.x + 44.0F, y,
+            fit_localized_text(line, 105).c_str()
         );
         y += 46.0F;
     }
@@ -15148,7 +15168,7 @@ void render_save_browser_overlay(SDL_Renderer* renderer) {
         set_color(renderer, {214, 157, 113, 255});
         render_ui_debug_text(
             renderer, panel.x + 44.0F, panel.y + 494.0F,
-            entry.diagnostic.substr(0, 108).c_str()
+            fit_localized_text(entry.diagnostic, 108).c_str()
         );
     }
     set_color(renderer, {226, 218, 190, 255});
@@ -15165,7 +15185,7 @@ void render_save_browser_overlay(SDL_Renderer* renderer) {
     set_color(renderer, {169, 204, 139, 255});
     render_ui_debug_text(
         renderer, panel.x + 44.0F, panel.y + 554.0F,
-        active_save_browser_status.substr(0, 112).c_str()
+        fit_localized_text(active_save_browser_status, 112).c_str()
     );
 }
 
@@ -15186,9 +15206,13 @@ void render_technology_tree_overlay(SDL_Renderer* renderer) {
         );
     }
     set_color(renderer, {238, 214, 145, 255});
-    const std::string title =
-        debug_font_fallback(ui_text("technology_tree.title")) + ": " +
-        std::string{name(active_technology_tree.civilization)};
+    const std::string title = active_string_table->format(
+        "technology_tree.title_civilization",
+        {{"title", std::string{ui_text("technology_tree.title")}},
+         {"civilization", std::string{name(
+             active_technology_tree.civilization
+         )}}}
+    );
     render_hud_text(
         renderer, 24.0F, 15.0F, 520, title,
         {238, 214, 145, 255}
@@ -15347,8 +15371,7 @@ void render_technology_tree_overlay(SDL_Renderer* renderer) {
                 ? SDL_Color{132, 128, 118, 255}
                 : SDL_Color{238, 230, 198, 255}
         );
-        std::string label = node.label;
-        if (label.size() > 19) label.resize(19);
+        const std::string label = fit_localized_text(node.label, 19);
         render_hud_text(
             renderer, box.x + 42.0F * active_tree_zoom,
             box.y + 12.0F, 104, label,
@@ -15364,11 +15387,14 @@ void render_technology_tree_overlay(SDL_Renderer* renderer) {
                 active_tree_focus,
                 active_technology_tree.nodes.size() - 1
             )];
-        std::ostringstream text;
-        text << node.label << "  COST W" << node.wood
-             << " F" << node.food << " G" << node.gold
-             << " S" << node.stone << "  " << node.requirement;
-        detail = text.str();
+        detail = active_string_table->format(
+            "technology_tree.detail",
+            {{"name", node.label}, {"wood", std::to_string(node.wood)},
+             {"food", std::to_string(node.food)},
+             {"gold", std::to_string(node.gold)},
+             {"stone", std::to_string(node.stone)},
+             {"requirement", node.requirement}}
+        );
     }
     if (!detail.empty()) {
         const SDL_FRect help{
@@ -15380,7 +15406,7 @@ void render_technology_tree_overlay(SDL_Renderer* renderer) {
         set_color(renderer, {238, 230, 198, 255});
         render_hud_text(
             renderer, help.x + 10.0F, help.y + 8.0F, 840,
-            detail.substr(0, 104), {238, 230, 198, 255}
+            fit_localized_text(detail, 104), {238, 230, 198, 255}
         );
     }
 }
@@ -15516,7 +15542,7 @@ void render_diplomacy_panel(
     set_color(renderer, {169, 204, 139, 255});
     render_ui_debug_text(
         renderer, panel.x + 38.0F, panel.y + 438.0F,
-        active_diplomacy_status.substr(0, 80).c_str()
+        fit_localized_text(active_diplomacy_status, 80).c_str()
     );
     set_color(renderer, {135, 126, 102, 255});
     render_ui_debug_text(
@@ -16696,7 +16722,7 @@ std::size_t render(
             renderer,
             label.x - 40.0F,
             label.y - 18.0F,
-            preview.reason.substr(0, 28).c_str()
+            fit_localized_text(preview.reason, 28).c_str()
         );
     }
 

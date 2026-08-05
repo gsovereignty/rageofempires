@@ -42,6 +42,12 @@ production C++ sources, rejects hash collisions, and its regression test proves
 checked-in catalog is current. Direct SDL debug text outside central renderer
 is forbidden by test.
 
+DAT generation retains every object name/help ID and technology
+name/description/help ID. `generated/content_localization_map.tsv` provides
+1,303 distinct object/technology consumer bindings; 1,199 have nonzero name
+IDs. `ContentCatalog` resolves arbitrary extracted IDs and uses its semantic
+internal label only when selected DLL lacks that ID.
+
 ## Grammar, fonts, layout, and audio
 
 Plural selection implements one/other plus Russian one/few/many,
@@ -53,6 +59,9 @@ Height is bounded; `B` and `I` select bold and italic. Original font bytes stay
 user-owned. On macOS, every non-ASCII production debug-text call passes through
 UTF-8 CoreText when packaged `GEORGIAB.TTF` exists, preserving glyphs and
 measured advances. Bounded ASCII folding is used when packaged font load fails.
+Bounded UI truncation operates on Unicode code points and appends one ellipsis;
+it never slices UTF-8. Tests cover Latin, Cyrillic, CJK, and all production
+limits from 38 through 112 glyph cells.
 
 Taunts, scenario narration, and campaign narration select active locale audio
 alias. Narration then tries English inside same packaged root as deterministic

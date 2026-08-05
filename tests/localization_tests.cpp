@@ -166,6 +166,13 @@ int main() {
         "named grammar arguments"
     );
     check(
+        english.format(
+            "technology_tree.title_civilization",
+            {{"title", "TREE"}, {"civilization", "Britons"}}
+        ) == "TREE: Britons",
+        "cataloged dynamic title template"
+    );
+    check(
         aoe::stable_literal_key("OPTIONS") ==
             "ui.literal.87cc05b46a17cf65",
         "stable literal ID"
@@ -183,6 +190,23 @@ int main() {
         aoe::debug_font_fallback("Árvore 中") == "Arvore ?",
         "debug font folds Latin and marks missing glyph"
     );
+    check(
+        aoe::fit_localized_text("日本語の長い文字列", 5) == "日本語の…",
+        "CJK layout truncates on code-point boundaries"
+    );
+    check(
+        aoe::fit_localized_text("Árvore", 6) == "Árvore" &&
+        aoe::fit_localized_text("Árvore", 4) == "Árv…" &&
+        aoe::fit_localized_text("Árvore", 1) == "…",
+        "Latin glyph layout and bounded ellipsis"
+    );
+    for (const std::size_t width : {38U, 48U, 66U, 68U, 72U, 78U,
+                                   80U, 82U, 104U, 105U, 108U, 112U}) {
+        const std::string fitted = aoe::fit_localized_text(
+            "Очень длинная локализованная строка интерфейса", width
+        );
+        check(aoe::valid_utf8(fitted), "supported layout width stays UTF-8");
+    }
     check_throws(
         [] {
             (void)aoe::debug_font_fallback(
@@ -327,6 +351,31 @@ int main() {
     check(
         aoe::discover_legacy_language_sources(archive_root, "de").empty(),
         "missing locale archive has explicit empty result"
+    );
+    const auto scenario_audio = aoe::localized_audio_directories(
+        archive_root, "pt-BR", "scenario"
+    );
+    check(
+        scenario_audio.size() == 2 &&
+        scenario_audio[0] == archive_root / "Sound" / "scenario" / "br" &&
+        scenario_audio[1] == archive_root / "Sound" / "scenario" / "en",
+        "localized narration precedes packaged English fallback"
+    );
+    const auto english_taunts = aoe::localized_audio_directories(
+        archive_root, "en-US", "taunt"
+    );
+    check(
+        english_taunts.size() == 1 &&
+        english_taunts[0] == archive_root / "Taunt" / "en",
+        "English audio fallback has no duplicate probe"
+    );
+    check_throws(
+        [&] {
+            (void)aoe::localized_audio_directories(
+                archive_root, "en", "unknown"
+            );
+        },
+        "unknown localized audio family rejected"
     );
     check_throws(
         [&] {

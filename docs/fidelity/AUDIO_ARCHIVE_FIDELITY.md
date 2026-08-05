@@ -133,8 +133,22 @@ sound 420 resource IDs when `AOE_TEST_DAT` is supplied.
 
 ## Reactive event coverage
 
-`FrontendAudioEvents` observes already-published frontend state. It does not
-change simulation timing or outcomes.
+Reactive gameplay audio is now emitted by `Simulation::update` as ordered,
+tick-stamped `ReactiveSoundEvent` values. Attack animation continuations are
+simulation state, survive native save/load, and therefore follow replay and
+multiplayer command execution independent of frontend refresh rate. Direction
+is quantized from authoritative source/target positions into eight DAT angles.
+Frontend code applies only viewer visibility, listener gain/pan, and playback;
+it no longer derives attack, movement, work, training, death, construction, or
+defensive-building events from published state.
+
+Graphic events carry SLP, frame, angle, and bounded fallback identity. DAT
+angle records retain their three ordered frame/sound slots. Playback suppresses
+duplicate sound IDs inside one angle/frame and uses generic fallback only when
+no DAT graphic schedule exists, never merely because a valid frame is silent.
+
+Selection, accepted-command acknowledgement, and scenario narration remain
+local interface events because they are viewer/UI actions, not world actions.
 
 | Event | Deduplication / visibility | Bounded mapping |
 |---|---|---|

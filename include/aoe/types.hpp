@@ -810,6 +810,28 @@ struct BuildingRubbleEffect {
     EntityId entity_id{};
 };
 
+enum class ReactiveSoundKind {
+    direct,
+    graphic_frame,
+};
+
+// Presentation payload produced by authoritative simulation transitions.
+// sequence gives stable ordering and lets consumers deduplicate a published
+// tick without inferring gameplay state.
+struct ReactiveSoundEvent {
+    std::uint64_t sequence{};
+    std::uint64_t tick{};
+    ReactiveSoundKind kind{ReactiveSoundKind::direct};
+    EntityId source_entity_id{};
+    EntityOwner owner{Player::neutral};
+    TilePosition position{};
+    int sound_id{-1};
+    int slp_id{-1};
+    int frame{};
+    int angle{};
+    int fallback_sound_id{-1};
+};
+
 struct Economy {
     int wood{};
     int food{};

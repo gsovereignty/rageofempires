@@ -1758,30 +1758,6 @@ int commercial_task_sound(
 class FrontendAudioEvents {
 public:
     void prime(const Simulation& simulation) {
-        cooldowns_.clear();
-        attack_animation_frames_.clear();
-        moving_.clear();
-        hit_points_.clear();
-        commercial_work_states_.clear();
-        known_units_.clear();
-        conversion_targets_.clear();
-        healing_targets_.clear();
-        building_cooldowns_.clear();
-        known_buildings_.clear();
-        for (const Unit& unit : simulation.units()) {
-            cooldowns_[unit.id] = unit.attack_cooldown;
-            moving_[unit.id] = unit.moving;
-            hit_points_[unit.id] = unit.hit_points;
-            commercial_work_states_[unit.id] = -1;
-            known_units_.insert(unit.id);
-            conversion_targets_[unit.id] = unit.conversion_target_id;
-            healing_targets_[unit.id] = unit.healing_target_id;
-            commercial_identities_[unit.id] = unit.commercial_identity;
-        }
-        for (const Building& building : simulation.buildings()) {
-            building_cooldowns_[building.id] = building.attack_cooldown;
-            known_buildings_.insert(building.id);
-        }
         selection_ = simulation.selected_units();
         selected_building_ = simulation.selected_building();
         known_scenario_audio_.clear();
@@ -1874,6 +1850,30 @@ public:
         }
         known_scenario_audio_ = std::move(present_scenario_audio);
 
+        for (const ReactiveSoundEvent& event :
+             simulation.reactive_sound_events()) {
+            if (!simulation.is_visible_to_controller(
+                    active_view_player, event.position)) continue;
+            const auto [gain, pan] = world_effect_mix(event.position);
+            if (gain <= 0.0F) continue;
+            if (event.kind == ReactiveSoundKind::graphic_frame) {
+                const bool has_graphic_schedule =
+                    audio->play_graphic_frame_sounds(
+                        event.slp_id, event.frame, event.angle, gain, pan,
+                        simulation.civilization(event.owner));
+                if (!has_graphic_schedule && event.frame == 0)
+                    audio->play_effect(
+                        event.fallback_sound_id, AudioCategory::combat,
+                        gain, pan, simulation.civilization(event.owner));
+            } else {
+                audio->play_effect(
+                    event.sound_id, AudioCategory::combat, gain, pan,
+                    simulation.civilization(event.owner));
+            }
+        }
+        return;
+
+#if 0  // Historical frontend inference removed by BUG-AUDIO-002.
         std::set<EntityId> present;
         for (const Unit& unit : simulation.units()) {
             present.insert(unit.id);
@@ -2135,21 +2135,10 @@ public:
                 play_world_effect(*audio, 323, effect.position);
             }
         }
+#endif
     }
 
 private:
-    std::map<EntityId, int> cooldowns_;
-    std::map<EntityId, int> attack_animation_frames_;
-    std::map<EntityId, bool> moving_;
-    std::map<EntityId, int> hit_points_;
-    std::map<EntityId, int> commercial_work_states_;
-    std::map<EntityId, EntityId> conversion_targets_;
-    std::map<EntityId, EntityId> healing_targets_;
-    std::map<EntityId, std::optional<CommercialObjectIdentity>>
-        commercial_identities_;
-    std::set<EntityId> known_units_;
-    std::map<EntityId, int> building_cooldowns_;
-    std::set<EntityId> known_buildings_;
     std::vector<EntityId> selection_;
     std::optional<EntityId> selected_building_;
     std::set<std::tuple<std::string, std::string, std::uint64_t>>

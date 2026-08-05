@@ -3,6 +3,7 @@
 #include <array>
 #include <map>
 #include <optional>
+#include <set>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -86,6 +87,13 @@ public:
     [[nodiscard]] const std::vector<BuildingRubbleEffect>& rubble_effects()
         const {
         return rubble_effects_;
+    }
+    [[nodiscard]] const std::vector<ReactiveSoundEvent>& reactive_sound_events()
+        const { return reactive_sound_events_; }
+    [[nodiscard]] const std::map<EntityId, int>& pending_attack_sound_frames()
+        const { return attack_sound_frames_; }
+    [[nodiscard]] std::uint64_t next_reactive_sound_sequence() const {
+        return next_reactive_sound_sequence_;
     }
     [[nodiscard]] const Economy& economy(Player player) const;
     [[nodiscard]] const Economy& economy(PlayerSlotId player) const;
@@ -540,6 +548,12 @@ public:
     void replace_impact_effects(std::vector<ImpactEffect> effects);
     void replace_death_effects(std::vector<UnitDeathEffect> effects);
     void replace_rubble_effects(std::vector<BuildingRubbleEffect> effects);
+    void replace_reactive_sound_scheduler(
+        std::uint64_t next_sequence, std::map<EntityId, int> attack_frames) {
+        next_reactive_sound_sequence_ = next_sequence;
+        attack_sound_frames_ = std::move(attack_frames);
+        reactive_sound_events_.clear();
+    }
     void replace_ages(Age blue, Age red);
     void replace_technologies(
         Player player,
@@ -759,6 +773,10 @@ private:
     std::vector<ImpactEffect> impact_effects_;
     std::vector<UnitDeathEffect> death_effects_;
     std::vector<BuildingRubbleEffect> rubble_effects_;
+    std::vector<ReactiveSoundEvent> reactive_sound_events_;
+    std::uint64_t next_reactive_sound_sequence_{1};
+    std::map<EntityId, int> attack_sound_frames_;
+    std::set<EntityId> pending_movement_sound_ids_;
     std::array<PlayerState, 8> player_states_{};
     MatchRoster roster_{MatchRoster::legacy_blue_red()};
     RosterDiplomacy roster_diplomacy_{

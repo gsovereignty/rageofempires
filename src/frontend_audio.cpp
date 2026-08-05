@@ -1,5 +1,6 @@
 #include "aoe/frontend_audio.hpp"
 #include "aoe/game_rules.hpp"
+#include "aoe/render_asset_coverage.hpp"
 
 namespace aoe {
 
@@ -188,6 +189,58 @@ int selected_sound(BuildingKind kind) noexcept {
         case BuildingKind::wonder: return 383;
     }
     return -1;
+}
+
+int scheduled_attack_sound(UnitKind kind) noexcept {
+    switch (kind) {
+        case UnitKind::hand_cannoneer: case UnitKind::janissary:
+        case UnitKind::elite_janissary: case UnitKind::conquistador:
+        case UnitKind::elite_conquistador: return 385;
+        case UnitKind::bombard_cannon: return 411;
+        case UnitKind::mameluke: case UnitKind::elite_mameluke: return 486;
+        case UnitKind::tarkan: case UnitKind::elite_tarkan: return 497;
+        case UnitKind::war_elephant: case UnitKind::elite_war_elephant: return 26;
+        case UnitKind::longbowman: case UnitKind::elite_longbowman: return 312;
+        default: return (kind == UnitKind::archer || kind == UnitKind::crossbowman ||
+            kind == UnitKind::arbalester || kind == UnitKind::skirmisher ||
+            kind == UnitKind::elite_skirmisher || kind == UnitKind::plumed_archer ||
+            kind == UnitKind::elite_plumed_archer || kind == UnitKind::chu_ko_nu ||
+            kind == UnitKind::elite_chu_ko_nu || kind == UnitKind::mangudai ||
+            kind == UnitKind::elite_mangudai) ? 314 : 329;
+    }
+}
+
+int scheduled_death_sound(UnitKind kind) noexcept {
+    if (kind == UnitKind::petard) return 323;
+    if (kind == UnitKind::fishing_ship) return 505;
+    if (is_ship(kind)) return 379;
+    if (kind == UnitKind::battering_ram || kind == UnitKind::capped_ram ||
+        kind == UnitKind::siege_ram || kind == UnitKind::mangonel ||
+        kind == UnitKind::onager || kind == UnitKind::siege_onager ||
+        kind == UnitKind::scorpion || kind == UnitKind::heavy_scorpion ||
+        kind == UnitKind::packed_trebuchet || kind == UnitKind::trebuchet) return 293;
+    if (kind == UnitKind::cataphract || kind == UnitKind::elite_cataphract ||
+        kind == UnitKind::war_elephant || kind == UnitKind::elite_war_elephant ||
+        kind == UnitKind::tarkan || kind == UnitKind::elite_tarkan) return -1;
+    return 294;
+}
+
+int scheduled_death_animation_slp(UnitKind kind) noexcept {
+    if (const auto animation = unit_animation_set(kind);
+        animation && animation->death_slp >= 0) return animation->death_slp;
+    if (const auto* animation = unit_death_animation_set(kind)) return animation->slp;
+    return -1;
+}
+
+std::pair<int, int> scheduled_attack_animation(UnitKind kind) noexcept {
+    if (const auto animation = unit_animation_set(kind);
+        animation && animation->attack_slp >= 0)
+        return {animation->attack_slp, animation->attack_frames};
+    return {-1, 0};
+}
+
+bool scheduled_building_has_death_sound(BuildingKind kind) noexcept {
+    return kind != BuildingKind::farm && kind != BuildingKind::fish_trap;
 }
 
 }  // namespace aoe

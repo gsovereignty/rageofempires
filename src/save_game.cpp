@@ -943,6 +943,11 @@ void save_game(const Simulation& simulation, const std::filesystem::path& path) 
                << ' ' << effect.total_ticks << ' '
                << effect.entity_id << '\n';
     }
+    output << "reactive-sound-sequence "
+           << simulation.next_reactive_sound_sequence() << '\n';
+    for (const auto& [entity, frames] :
+         simulation.pending_attack_sound_frames())
+        output << "reactive-attack " << entity << ' ' << frames << '\n';
 }
 
 Simulation load_game(const std::filesystem::path& path) {
@@ -999,6 +1004,8 @@ Simulation load_game(const std::filesystem::path& path) {
     std::vector<ImpactEffect> impact_effects;
     std::vector<UnitDeathEffect> death_effects;
     std::vector<BuildingRubbleEffect> rubble_effects;
+    std::uint64_t reactive_sound_sequence{1};
+    std::map<EntityId, int> reactive_attack_frames;
     std::vector<TilePosition> blue_explored;
     std::vector<TilePosition> red_explored;
     std::vector<ObjectiveState> objectives;
@@ -2669,6 +2676,15 @@ Simulation load_game(const std::filesystem::path& path) {
                     owner == 0 ? Player::blue : Player::red;
             }
             projectiles.push_back(projectile);
+        } else if (record == "reactive-sound-sequence" && version >= 125) {
+            input >> reactive_sound_sequence;
+        } else if (record == "reactive-attack" && version >= 125) {
+            EntityId entity{};
+            int frames{};
+            input >> entity >> frames;
+            if (entity == 0 || frames < 16 ||
+                !reactive_attack_frames.emplace(entity, frames).second)
+                throw std::runtime_error("invalid reactive attack scheduler");
         } else if (record == "impact" && version >= 44) {
             ImpactEffect effect;
             input >> effect.position.x >> effect.position.y >>
@@ -3124,6 +3140,8 @@ Simulation load_game(const std::filesystem::path& path) {
     simulation.replace_impact_effects(std::move(impact_effects));
     simulation.replace_death_effects(std::move(death_effects));
     simulation.replace_rubble_effects(std::move(rubble_effects));
+    simulation.replace_reactive_sound_scheduler(
+        reactive_sound_sequence, std::move(reactive_attack_frames));
     simulation.replace_ages(blue_age, red_age);
     simulation.replace_technologies(
         Player::blue,

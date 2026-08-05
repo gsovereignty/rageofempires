@@ -7,6 +7,7 @@
 #include <iostream>
 #include <filesystem>
 #include <set>
+#include <map>
 
 namespace {
 
@@ -43,6 +44,23 @@ int main() {
     for (std::uint16_t id = 0; id < 514; ++id) {
         require(catalog.effect(id) != nullptr, "effect lookup total");
     }
+    std::map<unsigned, std::size_t> effect_types;
+    bool saw_packed_combat{};
+    for (const auto& effect : catalog.effects()) {
+        for (const auto& command : effect.commands) {
+            ++effect_types[command.type];
+            if (command.packed_class && command.packed_amount) {
+                saw_packed_combat = true;
+            }
+        }
+    }
+    require(
+        effect_types == std::map<unsigned, std::size_t>{{0,68},{1,62},{2,88},
+            {3,170},{4,631},{5,346},{6,1},{101,43},{102,1351},
+            {103,11},{255,71}},
+        "every DAT effect opcode classified"
+    );
+    require(saw_packed_combat, "packed armor and attack amounts retained");
 
     const auto* archer = catalog.object(1, 4);
     require(archer != nullptr, "British Archer exists");
@@ -53,14 +71,16 @@ int main() {
     require(!archer->costs.empty(), "Archer costs represented");
 
     std::size_t tasks{};
-    for (auto civilization : catalog.civilization_ids()) {
-        for (std::uint16_t id = 0; id < 1000; ++id) {
-            if (const auto* object = catalog.object(civilization, id)) {
-                tasks += object->tasks.size();
-            }
+    std::map<unsigned, std::size_t> task_types;
+    for (const auto& object : catalog.object_variants()) {
+        tasks += object.tasks.size();
+        for (const auto& task : object.tasks) {
+            ++task_types[task.action_type];
         }
     }
     require(tasks > 1000, "task catalog represented semantically");
+    require(tasks == 1591, "every deduplicated DAT task retained");
+    require(task_types.size() == 25, "every DAT task action type classified");
 
     aoe::Simulation simulation{aoe::GameMap{12, 12}};
     aoe::MatchRules match_rules;
@@ -84,6 +104,10 @@ int main() {
     );
     auto state = simulation.player_state(*aoe::PlayerSlotId::from_index(0));
     state.commercial_technologies[104] = true;
+    state.commercial_resources[96] = 0.5f;
+    state.commercial_disabled_technologies[8] = true;
+    state.commercial_technology_cost_overrides[22] = {1, 2, 3, 4};
+    state.commercial_technology_time_overrides[22] = 7;
     simulation.replace_player_state(
         *aoe::PlayerSlotId::from_index(0), std::move(state)
     );
@@ -120,6 +144,18 @@ int main() {
         ),
         "commercial technology survives save"
     );
+    const auto& restored_state = restored.player_state(
+        *aoe::PlayerSlotId::from_index(0)
+    );
+    require(restored_state.commercial_resources[96] == 0.5f,
+            "commercial resources survive save");
+    require(restored_state.commercial_disabled_technologies[8],
+            "commercial disabled tech survives save");
+    require(restored_state.commercial_technology_cost_overrides.at(22) ==
+                std::array<int, 4>{1, 2, 3, 4},
+            "commercial tech costs survive save");
+    require(restored_state.commercial_technology_time_overrides.at(22) == 7,
+            "commercial tech time survives save");
     aoe::Replay replay;
     replay.record(3, aoe::QueueCommercialObjectCommand{
         town_center_id, {1, 4}

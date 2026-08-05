@@ -2,6 +2,7 @@
 #include "aoe/format_versions.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <fstream>
 #include <iomanip>
 #include <optional>
@@ -381,6 +382,34 @@ void save_game(const Simulation& simulation, const std::filesystem::path& path) 
                << std::quoted(technologies) << ' '
                << std::quoted(explored) << ' '
                << std::quoted(commercial_technologies) << '\n';
+        for (std::size_t resource = 0;
+             resource < state.commercial_resources.size(); ++resource) {
+            if (state.commercial_resources[resource] != 0.0f) {
+                output << "commercial-resource " << index << ' '
+                       << resource << ' '
+                       << state.commercial_resources[resource] << '\n';
+            }
+        }
+        for (std::size_t technology = 0;
+             technology < state.commercial_disabled_technologies.size();
+             ++technology) {
+            if (state.commercial_disabled_technologies[technology]) {
+                output << "commercial-tech-disabled " << index << ' '
+                       << technology << '\n';
+            }
+        }
+        for (const auto& [technology, costs] :
+             state.commercial_technology_cost_overrides) {
+            output << "commercial-tech-cost " << index << ' '
+                   << technology;
+            for (int cost : costs) output << ' ' << cost;
+            output << '\n';
+        }
+        for (const auto& [technology, time] :
+             state.commercial_technology_time_overrides) {
+            output << "commercial-tech-time " << index << ' '
+                   << technology << ' ' << time << '\n';
+        }
         for (const auto& [id, memory] : state.remembered_buildings) {
             const Building& building = memory.building;
             output << "building-memory " << index << ' ' << id << ' '
@@ -1198,6 +1227,59 @@ Simulation load_game(const std::filesystem::path& path) {
                 state.explored.push_back(bit == '1');
             }
             native_player_states[*slot->index()] = std::move(state);
+        } else if (record == "commercial-resource" && version >= 121) {
+            int stable_id{};
+            std::size_t resource{};
+            float value{};
+            input >> stable_id >> resource >> value;
+            const auto slot = decode_player_slot_id(stable_id);
+            if (!slot || slot->is_neutral() ||
+                !native_player_states[*slot->index()] || resource >= 256 ||
+                !std::isfinite(value)) {
+                throw std::runtime_error("invalid commercial resource");
+            }
+            native_player_states[*slot->index()]
+                ->commercial_resources[resource] = value;
+        } else if (record == "commercial-tech-disabled" && version >= 121) {
+            int stable_id{};
+            std::size_t technology{};
+            input >> stable_id >> technology;
+            const auto slot = decode_player_slot_id(stable_id);
+            if (!slot || slot->is_neutral() ||
+                !native_player_states[*slot->index()] || technology >= 460) {
+                throw std::runtime_error("invalid disabled commercial tech");
+            }
+            native_player_states[*slot->index()]
+                ->commercial_disabled_technologies[technology] = true;
+        } else if (record == "commercial-tech-cost" && version >= 121) {
+            int stable_id{};
+            std::size_t technology{};
+            std::array<int, 4> costs{};
+            input >> stable_id >> technology >> costs[0] >> costs[1] >>
+                costs[2] >> costs[3];
+            const auto slot = decode_player_slot_id(stable_id);
+            if (!slot || slot->is_neutral() ||
+                !native_player_states[*slot->index()] || technology >= 460 ||
+                std::ranges::any_of(costs, [](int cost) { return cost < 0; })) {
+                throw std::runtime_error("invalid commercial tech cost");
+            }
+            native_player_states[*slot->index()]
+                ->commercial_technology_cost_overrides[
+                    static_cast<CommercialTechnologyId>(technology)] = costs;
+        } else if (record == "commercial-tech-time" && version >= 121) {
+            int stable_id{};
+            std::size_t technology{};
+            int time{};
+            input >> stable_id >> technology >> time;
+            const auto slot = decode_player_slot_id(stable_id);
+            if (!slot || slot->is_neutral() ||
+                !native_player_states[*slot->index()] || technology >= 460 ||
+                time < 0) {
+                throw std::runtime_error("invalid commercial tech time");
+            }
+            native_player_states[*slot->index()]
+                ->commercial_technology_time_overrides[
+                    static_cast<CommercialTechnologyId>(technology)] = time;
         } else if (record == "building-memory" && version >= 118) {
             int stable_id{};
             Simulation::BuildingMemory memory;

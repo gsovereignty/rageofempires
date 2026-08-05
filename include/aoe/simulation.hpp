@@ -47,6 +47,12 @@ public:
         Age age{Age::dark};
         std::array<bool, technology_count> technologies{};
         std::array<bool, 460> commercial_technologies{};
+        std::array<float, 256> commercial_resources{};
+        std::array<bool, 460> commercial_disabled_technologies{};
+        std::map<CommercialTechnologyId, std::array<int, 4>>
+            commercial_technology_cost_overrides;
+        std::map<CommercialTechnologyId, int>
+            commercial_technology_time_overrides;
         Civilization civilization{Civilization::generic};
         int farm_reseed_queue{};
         int mayan_resource_remainder{};

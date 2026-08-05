@@ -345,9 +345,11 @@ def emit_cpp(catalog: dict[str, Any], output: Path) -> None:
     lines.append("catalog.effects_.reserve(%d);" % len(catalog["effects"]))
     for effect in catalog["effects"]:
         commands = cpp_vector("CommercialEffectCommand", [
-            "{%d,%d,%d,%d,%s}" % (
+            "{%d,%d,%d,%d,%s,%s,%s}" % (
                 command["type"], command["a"], command["b"], command["c"],
                 cpp_float(command["d"]),
+                cpp_optional(command.get("packed_class")),
+                cpp_optional(command.get("packed_amount")),
             ) for command in effect["commands"]
         ])
         lines.append("catalog.effects_.push_back({%d,%s,%s});" % (

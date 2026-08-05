@@ -149,6 +149,8 @@ struct CommercialEffectCommand {
     std::int16_t unit_class{};
     std::int16_t attribute_id{};
     float amount{};
+    std::optional<std::int16_t> packed_class;
+    std::optional<std::int16_t> packed_amount;
 };
 
 struct CommercialEffectRecord {
@@ -175,6 +177,8 @@ public:
     [[nodiscard]] std::size_t object_record_count() const noexcept;
     [[nodiscard]] std::span<const CommercialTechnologyRecord>
     technologies() const noexcept;
+    [[nodiscard]] std::span<const CommercialObjectRecord>
+    object_variants() const noexcept;
     [[nodiscard]] std::span<const CommercialEffectRecord>
     effects() const noexcept;
 

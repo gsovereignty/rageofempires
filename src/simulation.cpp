@@ -37,6 +37,38 @@ bool commercial_has_ability(
     );
 }
 
+bool commercial_predator_accepts(const Unit& predator, const Unit& prey) {
+    if (!predator.commercial_identity || !prey.commercial_identity ||
+        !prey.owner.is_neutral()) return false;
+    const auto* record = commercial_content_catalog().object(
+        predator.commercial_identity->civilization_id,
+        predator.commercial_identity->object_id
+    );
+    return record && std::ranges::any_of(
+        record->tasks, [&prey](const CommercialTask& task) {
+            return commercial_task_ability(task.action_type) ==
+                       CommercialTaskAbility::predator &&
+                (!task.object_id ||
+                 *task.object_id == prey.commercial_identity->object_id);
+        }
+    );
+}
+
+bool commercial_has_ability(
+    const Building& building, CommercialTaskAbility ability
+) {
+    if (!building.commercial_identity) return false;
+    const auto* record = commercial_content_catalog().object(
+        building.commercial_identity->civilization_id,
+        building.commercial_identity->object_id
+    );
+    return record && std::ranges::any_of(
+        record->tasks, [ability](const CommercialTask& task) {
+            return commercial_task_ability(task.action_type) == ability;
+        }
+    );
+}
+
 bool gather_trace_enabled() {
     static const bool enabled = std::getenv("AOE_GATHER_TRACE") != nullptr;
     return enabled;
@@ -1301,6 +1333,13 @@ float Simulation::effective_commercial_attribute(
         }
     }
     return value;
+}
+
+int Simulation::commercial_graphics_angle_offset(const Unit& unit) const {
+    if (!unit.commercial_identity) return 0;
+    return static_cast<int>(std::lround(effective_commercial_attribute(
+        unit.owner, *unit.commercial_identity, 17, 0.0f
+    )));
 }
 
 int Simulation::effective_commercial_class_amount(
@@ -6799,7 +6838,10 @@ void Simulation::update() {
             for (std::size_t index = 0; index < changed.size(); ++index) {
                 const Unit& source = *changed[index];
                 for (Unit& candidate : units_) {
-                    if (!is_herdable(candidate.kind) ||
+                    if ((!is_herdable(candidate.kind) &&
+                         !commercial_has_ability(
+                             candidate, CommercialTaskAbility::auto_convert
+                         )) ||
                         !candidate.owner.is_neutral() ||
                         candidate.hit_points <= 0 ||
                         candidate.garrisoned_in != 0) {
@@ -6819,7 +6861,10 @@ void Simulation::update() {
             }
         };
     for (Unit& unit : units_) {
-        if (!is_herdable(unit.kind) || unit.hit_points <= 0 ||
+        if ((!is_herdable(unit.kind) &&
+             !commercial_has_ability(
+                 unit, CommercialTaskAbility::auto_convert
+             )) || unit.hit_points <= 0 ||
             unit.garrisoned_in != 0) {
             continue;
         }
@@ -6828,6 +6873,24 @@ void Simulation::update() {
         unit.owner = owner;
         unit.stance_anchor = unit.position;
         capture_nearby_neutral_herdables(unit, owner);
+    }
+    for (Unit& unit : units_) {
+        if (!commercial_has_ability(unit, CommercialTaskAbility::bird) ||
+            unit.hit_points <= 0 || unit.garrisoned_in != 0 || unit.moving ||
+            tick_number_ % 10 != unit.id % 10) {
+            continue;
+        }
+        static constexpr std::array<TilePosition, 8> flight{{
+            {1, 0}, {1, 1}, {0, 1}, {-1, 1},
+            {-1, 0}, {-1, -1}, {0, -1}, {1, -1},
+        }};
+        const TilePosition delta = flight[
+            static_cast<std::size_t>((tick_number_ / 10 + unit.id) % 8)
+        ];
+        const TilePosition destination{
+            unit.position.x + delta.x, unit.position.y + delta.y
+        };
+        if (map_.contains(destination)) route_unit(unit, destination);
     }
     for (Unit& unit : units_) {
         if (!is_animal(unit.kind) || unit.hit_points > 0 ||
@@ -6884,6 +6947,43 @@ void Simulation::update() {
         }
         if (tick_number_ % healing_interval == 0) {
             ++unit.hit_points;
+        }
+    }
+    for (Building& building : buildings_) {
+        if (!commercial_has_ability(building, CommercialTaskAbility::make) ||
+            !building.completed() || building.hit_points <= 0 ||
+            !building.commercial_identity) {
+            continue;
+        }
+        const auto* record = commercial_content_catalog().object(
+            building.commercial_identity->civilization_id,
+            building.commercial_identity->object_id
+        );
+        if (!record || record->stored_resources.empty()) continue;
+        const auto task = std::ranges::find_if(
+            record->tasks, [](const CommercialTask& candidate) {
+                return commercial_task_ability(candidate.action_type) ==
+                    CommercialTaskAbility::make;
+            }
+        );
+        const float rate = effective_commercial_attribute(
+            building.owner, *building.commercial_identity, 13,
+            record->work_rate
+        ) * (task == record->tasks.end()
+                 ? 1.0f : std::max(0.0f, task->work_values[0]));
+        if (rate <= 0.0f) continue;
+        const std::uint64_t interval = std::max<std::uint64_t>(
+            1, static_cast<std::uint64_t>(std::lround(5.0f / rate))
+        );
+        const int maximum = std::max(0, static_cast<int>(std::lround(
+            effective_commercial_attribute(
+                building.owner, *building.commercial_identity, 21,
+                record->stored_resources.front().amount
+            )
+        )));
+        if (tick_number_ % interval == 0 &&
+            building.resource_amount < maximum) {
+            ++building.resource_amount;
         }
     }
     std::vector<std::pair<EntityId, EntityId>> relic_collections;
@@ -7554,7 +7654,8 @@ void Simulation::update() {
                 ordered_unit != nullptr &&
                 ordered_unit->garrisoned_in == 0 &&
                 !is_ram(unit.kind) &&
-                is_enemy(ordered_unit->owner, unit.owner) &&
+                (is_enemy(ordered_unit->owner, unit.owner) ||
+                 commercial_predator_accepts(unit, *ordered_unit)) &&
                 ordered_unit->hit_points > 0 &&
                 (unit.kind == UnitKind::boar ||
                  is_unit_visible(unit.owner, *ordered_unit));
@@ -7741,8 +7842,35 @@ void Simulation::update() {
             unit.returning_to_stance = false;
         }
         if (!unit.moving &&
-            unit.kind != UnitKind::villager &&
+            (unit.kind != UnitKind::villager || unit.commercial_identity) &&
             unit.stance != UnitStance::passive) {
+            if (commercial_has_ability(
+                    unit, CommercialTaskAbility::predator
+                )) {
+                const auto prey = std::ranges::min_element(
+                    units_, [&unit](const Unit& left, const Unit& right) {
+                        const auto distance = [&unit](const Unit& value) {
+                            if (!commercial_predator_accepts(unit, value) ||
+                                value.hit_points <= 0) {
+                                return std::numeric_limits<int>::max();
+                            }
+                            const int dx = value.position.x - unit.position.x;
+                            const int dy = value.position.y - unit.position.y;
+                            return dx * dx + dy * dy;
+                        };
+                        return distance(left) < distance(right);
+                    }
+                );
+                if (prey != units_.end() &&
+                    commercial_predator_accepts(unit, *prey) &&
+                    prey->hit_points > 0) {
+                    unit.attack_target_id = prey->id;
+                    unit.attack_target_is_building = false;
+                    unit.attack_target_auto = true;
+                    route_unit(unit, prey->position);
+                    continue;
+                }
+            }
             if (unit.stance == UnitStance::defensive) {
                 unit.stance_anchor = unit.position;
             }
@@ -7883,7 +8011,9 @@ void Simulation::update() {
         }
 
         Unit* target = unit_at(unit.destination);
-        if (target != nullptr && is_enemy(target->owner, unit.owner)) {
+        if (target != nullptr &&
+            (is_enemy(target->owner, unit.owner) ||
+             commercial_predator_accepts(unit, *target))) {
             const int distance =
                 std::abs(target->position.x - unit.position.x) +
                 std::abs(target->position.y - unit.position.y);
@@ -11992,7 +12122,8 @@ int Simulation::effective_attack_range(const Unit& unit) const {
             unit.commercial_identity->object_id
         );
         if (record) return std::max(
-            record->attacks.empty() ? 0 : 1,
+            commercial_has_ability(unit, CommercialTaskAbility::predator) ||
+                !record->attacks.empty() ? 1 : 0,
             static_cast<int>(std::lround(
             effective_commercial_attribute(
                 unit.owner, *unit.commercial_identity, 12,
@@ -13306,7 +13437,10 @@ void Simulation::update_match_outcome() {
         const auto found = std::ranges::find_if(
             buildings_, [player](const Building& building) {
                 return building.owner == player &&
-                    building.kind == BuildingKind::wonder &&
+                    (building.kind == BuildingKind::wonder ||
+                     commercial_has_ability(
+                         building, CommercialTaskAbility::wonder_victory
+                     )) &&
                     building.completed() && building.hit_points > 0;
             }
         );

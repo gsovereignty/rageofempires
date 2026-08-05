@@ -348,6 +348,8 @@ def emit_cpp(catalog: dict[str, Any], output: Path) -> None:
             str(unit["hit_points"]), cpp_float(unit["line_of_sight"]),
             cpp_float(unit["speed"]), cpp_float(action.get("work_rate", 0)),
             cpp_float(building.get("garrison_heal_rate", 0)),
+            cpp_optional(action.get("command_sound")),
+            cpp_optional(action.get("move_sound")),
             str(unit["garrison_capacity"]),
             str(unit["terrain_restriction_id"]), str(unit["resource_group"]),
             "true" if unit["track_as_resource"] else "false",

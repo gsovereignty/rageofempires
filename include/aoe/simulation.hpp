@@ -334,6 +334,9 @@ public:
         EntityOwner owner,
         TilePosition position
     );
+    [[nodiscard]] int commercial_graphics_angle_offset(
+        const Unit& unit
+    ) const;
     EntityId add_building(
         BuildingKind kind,
         Player owner,

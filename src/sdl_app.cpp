@@ -1733,12 +1733,47 @@ std::pair<int, int> attack_animation(UnitKind kind) {
     return {-1, 0};
 }
 
+const CommercialObjectRecord* commercial_record(const Unit& unit) {
+    return unit.commercial_identity
+        ? commercial_content_catalog().object(
+              unit.commercial_identity->civilization_id,
+              unit.commercial_identity->object_id
+          )
+        : nullptr;
+}
+
+const CommercialObjectRecord* commercial_record(const Building& building) {
+    return building.commercial_identity
+        ? commercial_content_catalog().object(
+              building.commercial_identity->civilization_id,
+              building.commercial_identity->object_id
+          )
+        : nullptr;
+}
+
+int commercial_task_sound(
+    const CommercialObjectRecord* record, CommercialTaskAbility ability
+) {
+    if (record == nullptr) return -1;
+    const auto task = std::ranges::find_if(
+        record->tasks, [ability](const CommercialTask& candidate) {
+            return commercial_task_ability(candidate.action_type) == ability;
+        }
+    );
+    if (task == record->tasks.end()) return -1;
+    const auto sound = task->work_sound
+        ? task->work_sound : task->secondary_work_sound;
+    return sound ? static_cast<int>(*sound) : -1;
+}
+
 class FrontendAudioEvents {
 public:
     void prime(const Simulation& simulation) {
         cooldowns_.clear();
         attack_animation_frames_.clear();
         moving_.clear();
+        hit_points_.clear();
+        commercial_work_states_.clear();
         known_units_.clear();
         conversion_targets_.clear();
         healing_targets_.clear();
@@ -1747,9 +1782,12 @@ public:
         for (const Unit& unit : simulation.units()) {
             cooldowns_[unit.id] = unit.attack_cooldown;
             moving_[unit.id] = unit.moving;
+            hit_points_[unit.id] = unit.hit_points;
+            commercial_work_states_[unit.id] = -1;
             known_units_.insert(unit.id);
             conversion_targets_[unit.id] = unit.conversion_target_id;
             healing_targets_[unit.id] = unit.healing_target_id;
+            commercial_identities_[unit.id] = unit.commercial_identity;
         }
         for (const Building& building : simulation.buildings()) {
             building_cooldowns_[building.id] = building.attack_cooldown;
@@ -1793,8 +1831,11 @@ public:
                 }
             );
             if (unit != simulation.units().end()) {
+                const auto* record = commercial_record(*unit);
                 audio->play_effect(
-                    selected_sound(unit->kind),
+                    record && record->selected_sound
+                        ? static_cast<int>(*record->selected_sound)
+                        : selected_sound(unit->kind),
                     AudioCategory::interface
                 );
             }
@@ -1811,8 +1852,11 @@ public:
                 }
             );
             if (building != simulation.buildings().end()) {
+                const auto* record = commercial_record(*building);
                 audio->play_effect(
-                    selected_sound(building->kind),
+                    record && record->selected_sound
+                        ? static_cast<int>(*record->selected_sound)
+                        : selected_sound(building->kind),
                     AudioCategory::interface
                 );
             }
@@ -1844,12 +1888,57 @@ public:
         std::set<EntityId> present;
         for (const Unit& unit : simulation.units()) {
             present.insert(unit.id);
+            commercial_identities_[unit.id] = unit.commercial_identity;
+            const auto* commercial = commercial_record(unit);
+            const int previous_hit_points = hit_points_.contains(unit.id)
+                ? hit_points_.at(unit.id) : unit.hit_points;
+            if (commercial && commercial->damage_sound &&
+                unit.hit_points < previous_hit_points &&
+                simulation.is_unit_visible_to_controller(
+                    active_view_player, unit
+                )) {
+                play_world_effect(
+                    *audio, static_cast<int>(*commercial->damage_sound),
+                    unit.position, AudioCategory::combat,
+                    simulation.civilization(unit.owner)
+                );
+            }
+            hit_points_[unit.id] = unit.hit_points;
+            int work_state = -1;
+            if (unit.has_resource_target) {
+                work_state = static_cast<int>(CommercialTaskAbility::gather);
+            } else if (unit.repair_target_id != 0) {
+                work_state = static_cast<int>(CommercialTaskAbility::repair);
+            } else if (unit.conversion_target_id != 0) {
+                work_state = static_cast<int>(CommercialTaskAbility::convert);
+            } else if (unit.healing_target_id != 0) {
+                work_state = static_cast<int>(CommercialTaskAbility::heal);
+            } else if (unit.trade_target_market_id != 0) {
+                work_state = static_cast<int>(CommercialTaskAbility::trade);
+            }
+            const int old_work_state = commercial_work_states_.contains(unit.id)
+                ? commercial_work_states_.at(unit.id) : -1;
+            if (work_state >= 0 && work_state != old_work_state) {
+                const int sound = commercial_task_sound(
+                    commercial, static_cast<CommercialTaskAbility>(work_state)
+                );
+                if (sound >= 0) {
+                    play_world_effect(
+                        *audio, sound, unit.position, AudioCategory::combat,
+                        simulation.civilization(unit.owner)
+                    );
+                }
+            }
+            commercial_work_states_[unit.id] = work_state;
             if (!known_units_.contains(unit.id) &&
                 belongs_to_local_view(
                     unit.owner, active_view_player
                 )) {
                 play_world_effect(
-                    *audio, trained_sound(unit.kind), unit.position,
+                    *audio,
+                    commercial && commercial->train_sound
+                        ? static_cast<int>(*commercial->train_sound)
+                        : trained_sound(unit.kind), unit.position,
                     AudioCategory::combat,
                     simulation.civilization(unit.owner)
                 );
@@ -1884,7 +1973,14 @@ public:
                     if (pending->second == 0) {
                         play_world_effect(
                             *audio,
-                            unit_attack_sound(unit.kind),
+                            commercial_task_sound(
+                                commercial, CommercialTaskAbility::combat
+                            ) >= 0
+                                ? commercial_task_sound(
+                                      commercial,
+                                      CommercialTaskAbility::combat
+                                  )
+                                : unit_attack_sound(unit.kind),
                             unit.position,
                             AudioCategory::combat,
                             simulation.civilization(unit.owner)
@@ -1902,7 +1998,10 @@ public:
                     active_view_player, unit
                 )) {
                 play_world_effect(
-                    *audio, movement_sound(unit.kind), unit.position,
+                    *audio,
+                    commercial && commercial->move_sound
+                        ? static_cast<int>(*commercial->move_sound)
+                        : movement_sound(unit.kind), unit.position,
                     AudioCategory::combat,
                     simulation.civilization(unit.owner)
                 );
@@ -2012,8 +2111,21 @@ public:
                     simulation.civilization(effect.owner)
                 );
             if (elapsed == 0 && !graphic_sounds) {
+                int sound = unit_death_sound(effect.kind);
+                if (const auto identity = commercial_identities_.find(
+                        effect.entity_id
+                    ); identity != commercial_identities_.end() &&
+                    identity->second) {
+                    const auto* record = commercial_content_catalog().object(
+                        identity->second->civilization_id,
+                        identity->second->object_id
+                    );
+                    if (record && record->death_sound) {
+                        sound = static_cast<int>(*record->death_sound);
+                    }
+                }
                 play_world_effect(
-                    *audio, unit_death_sound(effect.kind), effect.position,
+                    *audio, sound, effect.position,
                     AudioCategory::combat,
                     simulation.civilization(effect.owner)
                 );
@@ -2040,8 +2152,12 @@ private:
     std::map<EntityId, int> cooldowns_;
     std::map<EntityId, int> attack_animation_frames_;
     std::map<EntityId, bool> moving_;
+    std::map<EntityId, int> hit_points_;
+    std::map<EntityId, int> commercial_work_states_;
     std::map<EntityId, EntityId> conversion_targets_;
     std::map<EntityId, EntityId> healing_targets_;
+    std::map<EntityId, std::optional<CommercialObjectIdentity>>
+        commercial_identities_;
     std::set<EntityId> known_units_;
     std::map<EntityId, int> building_cooldowns_;
     std::set<EntityId> known_buildings_;
@@ -6156,7 +6272,8 @@ bool render_legacy_animated_composite(
     TilePosition current,
     std::uint64_t animation_tick,
     bool active,
-    bool use_graphic_timing = false
+    bool use_graphic_timing = false,
+    int graphics_angle_offset = 0
 ) {
     if (composite.parts.empty()) {
         return false;
@@ -6187,6 +6304,7 @@ bool render_legacy_animated_composite(
             part.display_angle >= 0
             ? part.display_angle
             : (part.angle_count >= 16 ? direction * 2 : direction);
+        angle += graphics_angle_offset;
         angle %= std::max(part.angle_count, 1);
         bool flip_horizontal = false;
         if (static_cast<std::size_t>(angle) >= stored_angles) {
@@ -8791,7 +8909,8 @@ void render_unit(
                 unit_animation_frame,
                 unit.moving || unit.attack_target_id != 0 ||
                     unit.attacking_ground,
-                true
+                true,
+                simulation.commercial_graphics_angle_offset(unit)
             )) {
             const auto* record = commercial_content_catalog().object(
                 unit.commercial_identity->civilization_id,

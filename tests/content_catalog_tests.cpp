@@ -272,5 +272,54 @@ int main() {
         ).target == enemy_id,
         "commercial task survives replay"
     );
+
+    aoe::Simulation autonomous{aoe::GameMap{20, 12}};
+    aoe::MatchRules autonomous_rules;
+    autonomous_rules.conquest_enabled = false;
+    autonomous.set_match_rules(autonomous_rules);
+    const auto bird_id = autonomous.add_commercial_object(
+        {0, 96}, aoe::EntityOwner{aoe::Player::neutral}, {3, 3}
+    );
+    const auto predator_id = autonomous.add_commercial_object(
+        {0, 89}, aoe::EntityOwner{aoe::Player::neutral}, {8, 3}
+    );
+    const auto prey_id = autonomous.add_commercial_object(
+        {0, 65}, aoe::EntityOwner{aoe::Player::neutral}, {9, 3}
+    );
+    autonomous.add_unit(aoe::UnitKind::villager, aoe::Player::blue, {14, 3});
+    const auto convertible_id = autonomous.add_commercial_object(
+        {0, 159}, aoe::EntityOwner{aoe::Player::neutral}, {15, 3}
+    );
+    for (int tick = 0; tick < 30; ++tick) autonomous.update();
+    const auto autonomous_unit = [&autonomous](aoe::EntityId id) {
+        return std::ranges::find(
+            autonomous.units(), id, &aoe::Unit::id
+        );
+    };
+    require(autonomous_unit(bird_id) != autonomous.units().end() &&
+                autonomous_unit(bird_id)->position != aoe::TilePosition{3, 3},
+            "commercial bird runs autonomous flight state");
+    require(autonomous_unit(predator_id) != autonomous.units().end() &&
+                autonomous_unit(prey_id) != autonomous.units().end() &&
+                autonomous_unit(prey_id)->hit_points < 5,
+            "commercial predator hunts configured prey");
+    require(autonomous_unit(convertible_id) != autonomous.units().end() &&
+                autonomous_unit(convertible_id)->owner == aoe::Player::blue,
+            "commercial auto-convert acquires nearby owner");
+
+    aoe::Simulation wonder{aoe::GameMap{20, 12}};
+    aoe::MatchRules wonder_rules;
+    wonder_rules.conquest_enabled = false;
+    wonder_rules.wonder_enabled = true;
+    wonder_rules.wonder_countdown_ticks = 2;
+    wonder.set_match_rules(wonder_rules);
+    wonder.add_commercial_object(
+        {1, 276}, aoe::EntityOwner{aoe::Player::blue}, {3, 3}
+    );
+    wonder.add_unit(aoe::UnitKind::militia, aoe::Player::red, {15, 8});
+    wonder.update();
+    wonder.update();
+    require(wonder.outcome() == aoe::MatchOutcome::blue_victory,
+            "commercial wonder runs victory countdown");
     std::cout << "content catalog tests passed\n";
 }

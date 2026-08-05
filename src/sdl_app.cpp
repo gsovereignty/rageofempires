@@ -759,6 +759,10 @@ struct LegacySprites {
     PlayerLegacySprites villager_build;
     PlayerLegacySprites monk_convert;
     PlayerLegacySprites missionary_heal;
+    std::map<std::pair<std::int16_t, unsigned>, LegacyAnimatedComposite>
+        commercial_object_graphics;
+    std::set<std::pair<std::int16_t, unsigned>>
+        failed_commercial_object_graphics;
 
     void destroy() {
         SDL_DestroyTexture(frontend_background);
@@ -1008,6 +1012,12 @@ struct LegacySprites {
         villager_build.destroy();
         monk_convert.destroy();
         missionary_heal.destroy();
+        for (auto& [key, composite] : commercial_object_graphics) {
+            static_cast<void>(key);
+            composite.destroy();
+        }
+        commercial_object_graphics.clear();
+        failed_commercial_object_graphics.clear();
     }
 };
 
@@ -6586,6 +6596,132 @@ const LegacyAnimation* legacy_action_for(
     return idle == nullptr ? nullptr : for_player(*idle);
 }
 
+const LegacyAnimatedComposite* commercial_graphic_for(
+    SDL_Renderer* renderer,
+    const Unit& unit
+) {
+    if (!unit.commercial_identity) return nullptr;
+    const CommercialObjectRecord* record = commercial_content_catalog().object(
+        unit.commercial_identity->civilization_id,
+        unit.commercial_identity->object_id
+    );
+    if (record == nullptr) return nullptr;
+    std::optional<std::uint16_t> graphic = record->standing_graphic;
+    if ((unit.attack_target_id != 0 || unit.attacking_ground) &&
+        record->attack_graphic) {
+        graphic = record->attack_graphic;
+    } else if (unit.moving && record->walking_graphic) {
+        graphic = record->walking_graphic;
+    }
+    if (!graphic || *graphic > std::numeric_limits<std::int16_t>::max()) {
+        return nullptr;
+    }
+    const unsigned player = unit.owner.slot_index()
+        ? static_cast<unsigned>(*unit.owner.slot_index() + 1)
+        : 1U;
+    const std::pair key{static_cast<std::int16_t>(*graphic), player};
+    const auto cached =
+        active_legacy_sprites.commercial_object_graphics.find(key);
+    if (cached != active_legacy_sprites.commercial_object_graphics.end()) {
+        return &cached->second;
+    }
+    if (active_legacy_sprites.failed_commercial_object_graphics.contains(key)) {
+        return nullptr;
+    }
+    const auto root = configured_asset_root();
+    if (!root) return nullptr;
+    try {
+        const std::filesystem::path data_root = *root / "Data";
+        const DrsArchive graphics{data_root / "graphics.drs"};
+        const DrsArchive interface{data_root / "interfac.drs"};
+        const LegacyPalette palette = LegacyPalette::from_jasc(
+            interface.read("bina", 50500)
+        );
+        const LegacyDatFile dat = LegacyDatFile::load(
+            data_root / "empires2_x1_p1.dat"
+        );
+        auto [inserted, unused] =
+            active_legacy_sprites.commercial_object_graphics.emplace(
+                key,
+                create_legacy_animated_composite(
+                    renderer, graphics, palette, dat, key.first,
+                    player, true
+                )
+            );
+        static_cast<void>(unused);
+        return &inserted->second;
+    } catch (const std::exception& error) {
+        active_legacy_sprites.failed_commercial_object_graphics.insert(key);
+        SDL_LogWarn(
+            SDL_LOG_CATEGORY_APPLICATION,
+            "cannot load commercial object graphic %d: %s",
+            key.first, error.what()
+        );
+        return nullptr;
+    }
+}
+
+const LegacyAnimatedComposite* commercial_graphic_for(
+    SDL_Renderer* renderer,
+    const Building& building
+) {
+    if (!building.commercial_identity) return nullptr;
+    const CommercialObjectRecord* record = commercial_content_catalog().object(
+        building.commercial_identity->civilization_id,
+        building.commercial_identity->object_id
+    );
+    if (record == nullptr) return nullptr;
+    const std::optional<std::uint16_t> graphic =
+        !building.completed() && record->construction_graphic
+        ? record->construction_graphic : record->standing_graphic;
+    if (!graphic || *graphic > std::numeric_limits<std::int16_t>::max()) {
+        return nullptr;
+    }
+    const unsigned player = building.owner.slot_index()
+        ? static_cast<unsigned>(*building.owner.slot_index() + 1)
+        : 1U;
+    const std::pair key{static_cast<std::int16_t>(*graphic), player};
+    const auto cached =
+        active_legacy_sprites.commercial_object_graphics.find(key);
+    if (cached != active_legacy_sprites.commercial_object_graphics.end()) {
+        return &cached->second;
+    }
+    if (active_legacy_sprites.failed_commercial_object_graphics.contains(key)) {
+        return nullptr;
+    }
+    const auto root = configured_asset_root();
+    if (!root) return nullptr;
+    try {
+        const std::filesystem::path data_root = *root / "Data";
+        const DrsArchive graphics{data_root / "graphics.drs"};
+        const DrsArchive interface{data_root / "interfac.drs"};
+        const LegacyPalette palette = LegacyPalette::from_jasc(
+            interface.read("bina", 50500)
+        );
+        const LegacyDatFile dat = LegacyDatFile::load(
+            data_root / "empires2_x1_p1.dat"
+        );
+        auto [inserted, unused] =
+            active_legacy_sprites.commercial_object_graphics.emplace(
+                key,
+                create_legacy_animated_composite(
+                    renderer, graphics, palette, dat, key.first,
+                    player, true
+                )
+            );
+        static_cast<void>(unused);
+        return &inserted->second;
+    } catch (const std::exception& error) {
+        active_legacy_sprites.failed_commercial_object_graphics.insert(key);
+        SDL_LogWarn(
+            SDL_LOG_CATEGORY_APPLICATION,
+            "cannot load commercial building graphic %d: %s",
+            key.first, error.what()
+        );
+        return nullptr;
+    }
+}
+
 void render_water_detail(
     SDL_Renderer* renderer,
     const Simulation& simulation,
@@ -7237,6 +7373,29 @@ void render_building(
     const bool guard_tower =
         building.kind == BuildingKind::guard_tower;
     const SDL_FPoint top = building_top(building);
+    if (building.commercial_identity) {
+        const LegacyAnimatedComposite* graphic =
+            commercial_graphic_for(renderer, building);
+        if (graphic != nullptr && render_legacy_animated_composite(
+                renderer,
+                *graphic,
+                {top.x, top.y + half_tile_height},
+                building.position,
+                building.position,
+                presentation_time_ms / 100U,
+                true,
+                true
+            )) {
+            if (building.hit_points < maximum_hit_points ||
+                simulation.selected_building() == building.id) {
+                render_health_bar(
+                    renderer, top.x, top.y - 42.0F,
+                    building.hit_points, maximum_hit_points
+                );
+            }
+            return;
+        }
+    }
     const auto damage_records = canonical_building_damage_records(
         building.kind,
         remembered_civilization
@@ -8588,6 +8747,35 @@ void render_unit(
         : 0.0F;
     if (!siege && interpolating) {
         top.y -= std::abs(std::sin(movement_alpha * 3.14159265F)) * 2.0F;
+    }
+    if (unit.commercial_identity) {
+        const LegacyAnimatedComposite* graphic =
+            commercial_graphic_for(renderer, unit);
+        if (graphic != nullptr && render_legacy_animated_composite(
+                renderer,
+                *graphic,
+                {ground_top.x, ground_top.y + half_tile_height},
+                unit.previous_position,
+                unit.position,
+                unit_animation_frame,
+                unit.moving || unit.attack_target_id != 0 ||
+                    unit.attacking_ground,
+                true
+            )) {
+            const auto* record = commercial_content_catalog().object(
+                unit.commercial_identity->civilization_id,
+                unit.commercial_identity->object_id
+            );
+            const int maximum_hit_points = record ? record->hit_points : 1;
+            if (unit.hit_points < maximum_hit_points ||
+                simulation.is_unit_selected(unit.id)) {
+                render_health_bar(
+                    renderer, ground_top.x, ground_top.y - 36.0F,
+                    unit.hit_points, maximum_hit_points
+                );
+            }
+            return;
+        }
     }
     if (unit.kind == UnitKind::relic) {
         if (render_legacy_sprite(

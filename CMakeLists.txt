@@ -110,6 +110,7 @@ endif()
 
 add_library(aoe_core
     src/building_damage.cpp
+    src/content_catalog.cpp
     src/campaign.cpp
     src/commercial_multiplayer_protocol.cpp
     src/commercial_multiplayer_service.cpp
@@ -165,6 +166,11 @@ add_library(aoe_core
 target_include_directories(aoe_core PUBLIC include PRIVATE generated)
 target_link_libraries(aoe_core PUBLIC ZLIB::ZLIB)
 target_compile_options(aoe_core PRIVATE -Wall -Wextra -Wpedantic)
+
+add_executable(content_catalog_tests tests/content_catalog_tests.cpp)
+target_link_libraries(content_catalog_tests PRIVATE aoe_core)
+target_compile_options(content_catalog_tests PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME content_catalog_tests COMMAND content_catalog_tests)
 
 add_executable(gameplay_test_api_tests tests/gameplay_test_api_tests.cpp)
 target_link_libraries(gameplay_test_api_tests PRIVATE aoe_core)

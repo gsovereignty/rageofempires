@@ -60,7 +60,9 @@ std::optional<EntityOwner> command_player(
                 std::is_same_v<Type, ReseedFarmCommand> ||
                 std::is_same_v<Type, UngarrisonCommand> ||
                 std::is_same_v<Type, AdvanceAgeCommand> ||
-                std::is_same_v<Type, ResearchTechnologyCommand>
+                std::is_same_v<Type, ResearchTechnologyCommand> ||
+                std::is_same_v<Type, QueueCommercialObjectCommand> ||
+                std::is_same_v<Type, ResearchCommercialTechnologyCommand>
             ) {
                 return building_owner(simulation, value.building);
             } else if constexpr (
@@ -260,6 +262,12 @@ bool execute(
             } else if constexpr (std::is_same_v<Type, QueueUnitCommand>) {
                 return simulation.queue_unit_at(value.building, value.kind);
             } else if constexpr (
+                std::is_same_v<Type, QueueCommercialObjectCommand>
+            ) {
+                return simulation.queue_commercial_object_at(
+                    value.building, value.identity
+                );
+            } else if constexpr (
                 std::is_same_v<Type, SetRallyPointCommand>
             ) {
                 return simulation.set_rally_point(
@@ -284,6 +292,12 @@ bool execute(
                 return simulation.research_technology_at(
                     value.building,
                     value.technology
+                );
+            } else if constexpr (
+                std::is_same_v<Type, ResearchCommercialTechnologyCommand>
+            ) {
+                return simulation.research_commercial_technology_at(
+                    value.building, value.technology
                 );
             } else if constexpr (std::is_same_v<Type, ResignCommand>) {
                 return simulation.resign(value.player);
@@ -547,6 +561,20 @@ void save_replay(const Replay& replay, const std::filesystem::path& path) {
                     output << "research " << tick << ' ' << value.building
                            << ' ' << static_cast<int>(value.technology)
                            << '\n';
+                } else if constexpr (
+                    std::is_same_v<Type, ResearchCommercialTechnologyCommand>
+                ) {
+                    output << "commercial-research " << tick << ' '
+                           << value.building << ' ' << value.technology
+                           << '\n';
+                } else if constexpr (
+                    std::is_same_v<Type, QueueCommercialObjectCommand>
+                ) {
+                    output << "commercial-queue " << tick << ' '
+                           << value.building << ' '
+                           << static_cast<int>(
+                                  value.identity.civilization_id
+                              ) << ' ' << value.identity.object_id << '\n';
                 } else if constexpr (std::is_same_v<Type, ResignCommand>) {
                     output << "resign " << tick << ' '
                            << encode_player_wire(value.player) << '\n';
@@ -853,6 +881,46 @@ Replay load_replay(const std::filesystem::path& path) {
                 throw std::runtime_error("invalid research record");
             }
             command.technology = static_cast<Technology>(technology);
+            replay.record(tick, command);
+        } else if (record == "commercial-research" && version >= 65) {
+            ResearchCommercialTechnologyCommand command;
+            int technology{};
+            input >> tick >> command.building >> technology;
+            if (technology < 0 || technology >= 460 ||
+                commercial_content_catalog().technology(
+                    static_cast<CommercialTechnologyId>(technology)
+                ) == nullptr) {
+                throw std::runtime_error(
+                    "invalid commercial research record"
+                );
+            }
+            command.technology =
+                static_cast<CommercialTechnologyId>(technology);
+            replay.record(tick, command);
+        } else if (record == "commercial-queue" && version >= 65) {
+            QueueCommercialObjectCommand command;
+            int civilization{};
+            int object{};
+            input >> tick >> command.building >> civilization >> object;
+            const auto* catalog_object =
+                civilization >= 0 && civilization < 19 &&
+                object >= 0 && object <= 65535
+                ? commercial_content_catalog().object(
+                      static_cast<CommercialCivilizationId>(civilization),
+                      static_cast<CommercialObjectId>(object)
+                  )
+                : nullptr;
+            if (catalog_object == nullptr ||
+                catalog_object->base_class ==
+                    CommercialObjectBaseClass::building) {
+                throw std::runtime_error(
+                    "invalid commercial queue record"
+                );
+            }
+            command.identity = {
+                static_cast<CommercialCivilizationId>(civilization),
+                static_cast<CommercialObjectId>(object),
+            };
             replay.record(tick, command);
         } else if (record == "resign" && version >= 60) {
             ResignCommand command;

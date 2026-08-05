@@ -137,6 +137,11 @@ struct QueueUnitCommand {
     UnitKind kind;
 };
 
+struct QueueCommercialObjectCommand {
+    EntityId building;
+    CommercialObjectIdentity identity;
+};
+
 struct SetRallyPointCommand {
     EntityId building;
     TilePosition destination;
@@ -162,6 +167,10 @@ struct AdvanceAgeCommand {
 struct ResearchTechnologyCommand {
     EntityId building;
     Technology technology;
+};
+struct ResearchCommercialTechnologyCommand {
+    EntityId building;
+    CommercialTechnologyId technology;
 };
 struct ResignCommand {
     Player player;
@@ -205,12 +214,14 @@ using GameCommand = std::variant<
     PackTrebuchetCommand,
     ConstructBuildingCommand,
     QueueUnitCommand,
+    QueueCommercialObjectCommand,
     SetRallyPointCommand,
     CancelProductionCommand,
     ReseedFarmCommand,
     UngarrisonCommand,
     AdvanceAgeCommand,
     ResearchTechnologyCommand,
+    ResearchCommercialTechnologyCommand,
     ResignCommand,
     SetFormationKindCommand,
     MoveFormationCommand

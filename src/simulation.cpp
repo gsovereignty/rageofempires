@@ -1242,6 +1242,13 @@ bool Simulation::has_technology(
 }
 
 int Simulation::maximum_hit_points(const Unit& unit) const {
+    if (unit.commercial_identity) {
+        const auto* record = commercial_content_catalog().object(
+            unit.commercial_identity->civilization_id,
+            unit.commercial_identity->object_id
+        );
+        if (record) return record->hit_points;
+    }
     const int base = rules_for(unit.kind).hit_points;
     const int frank_bonus =
         civilization(unit.owner) == Civilization::franks &&
@@ -1492,6 +1499,13 @@ bool receives_archer_armor(UnitKind kind) {
 }  // namespace
 
 int Simulation::maximum_hit_points(const Building& building) const {
+    if (building.commercial_identity) {
+        const auto* record = commercial_content_catalog().object(
+            building.commercial_identity->civilization_id,
+            building.commercial_identity->object_id
+        );
+        if (record) return record->hit_points;
+    }
     int maximum = rules_for(building.kind).hit_points;
     if (building.kind == BuildingKind::watch_tower &&
         has_technology(building.owner, Technology::keep)) {
@@ -1537,6 +1551,21 @@ int Simulation::maximum_hit_points(const Building& building) const {
 }
 
 int Simulation::melee_armor(const Unit& unit) const {
+    if (unit.commercial_identity) {
+        const auto* record = commercial_content_catalog().object(
+            unit.commercial_identity->civilization_id,
+            unit.commercial_identity->object_id
+        );
+        if (record) {
+            const auto found = std::ranges::find_if(
+                record->armors,
+                [](const CommercialClassAmount& value) {
+                    return value.class_id == 4;
+                }
+            );
+            return found == record->armors.end() ? 0 : found->amount;
+        }
+    }
     return rules_for(unit.kind).melee_armor +
         (unit.kind == UnitKind::villager &&
          has_technology(unit.owner, Technology::loom)
@@ -1592,6 +1621,21 @@ int Simulation::melee_armor(const Unit& unit) const {
 }
 
 int Simulation::melee_armor(const Building& building) const {
+    if (building.commercial_identity) {
+        const auto* record = commercial_content_catalog().object(
+            building.commercial_identity->civilization_id,
+            building.commercial_identity->object_id
+        );
+        if (record) {
+            const auto found = std::ranges::find_if(
+                record->armors,
+                [](const CommercialClassAmount& value) {
+                    return value.class_id == 4;
+                }
+            );
+            return found == record->armors.end() ? 0 : found->amount;
+        }
+    }
     int base = rules_for(building.kind).melee_armor;
     if (building.kind == BuildingKind::watch_tower &&
         has_technology(building.owner, Technology::keep)) {
@@ -1612,6 +1656,21 @@ int Simulation::melee_armor(const Building& building) const {
 }
 
 int Simulation::pierce_armor(const Unit& unit) const {
+    if (unit.commercial_identity) {
+        const auto* record = commercial_content_catalog().object(
+            unit.commercial_identity->civilization_id,
+            unit.commercial_identity->object_id
+        );
+        if (record) {
+            const auto found = std::ranges::find_if(
+                record->armors,
+                [](const CommercialClassAmount& value) {
+                    return value.class_id == 3;
+                }
+            );
+            return found == record->armors.end() ? 0 : found->amount;
+        }
+    }
     const bool turk_scout =
         civilization(unit.owner) == Civilization::turks &&
         (unit.kind == UnitKind::scout_cavalry ||
@@ -1674,6 +1733,21 @@ int Simulation::pierce_armor(const Unit& unit) const {
 }
 
 int Simulation::pierce_armor(const Building& building) const {
+    if (building.commercial_identity) {
+        const auto* record = commercial_content_catalog().object(
+            building.commercial_identity->civilization_id,
+            building.commercial_identity->object_id
+        );
+        if (record) {
+            const auto found = std::ranges::find_if(
+                record->armors,
+                [](const CommercialClassAmount& value) {
+                    return value.class_id == 3;
+                }
+            );
+            return found == record->armors.end() ? 0 : found->amount;
+        }
+    }
     int base = rules_for(building.kind).pierce_armor;
     if (building.kind == BuildingKind::watch_tower &&
         has_technology(building.owner, Technology::keep)) {
@@ -2096,6 +2170,55 @@ EntityId Simulation::add_unit(
     }
     update_exploration();
     return unit.id;
+}
+
+EntityId Simulation::add_commercial_object(
+    CommercialObjectIdentity identity,
+    EntityOwner owner,
+    TilePosition position
+) {
+    const CommercialObjectRecord* record =
+        commercial_content_catalog().object(
+            identity.civilization_id, identity.object_id
+        );
+    if (record == nullptr) {
+        throw std::invalid_argument("unknown commercial object identity");
+    }
+    const bool building =
+        record->base_class == CommercialObjectBaseClass::building;
+    if (!map_.walkable(position) || occupied(position, 0)) {
+        throw std::invalid_argument("commercial object requires empty terrain");
+    }
+    if (building) {
+        Building value;
+        value.id = next_id_++;
+        value.kind = BuildingKind::house;
+        value.commercial_identity = identity;
+        value.owner = owner;
+        value.position = position;
+        value.hit_points = record->hit_points;
+        buildings_.push_back(value);
+        update_exploration();
+        return value.id;
+    }
+    Unit value;
+    value.id = next_id_++;
+    value.kind = UnitKind::villager;
+    value.commercial_identity = identity;
+    value.owner = owner;
+    value.position = position;
+    value.previous_position = position;
+    value.render_previous_subtile = {position.x * 320, position.y * 320};
+    value.render_current_subtile = value.render_previous_subtile;
+    value.render_subtile_initialized = true;
+    value.destination = position;
+    value.hit_points = record->hit_points;
+    value.attack = record->attack;
+    if (record->speed <= 0.0f) value.stance = UnitStance::passive;
+    units_.push_back(value);
+    initialize_unit_render_elevation(units_.back());
+    update_exploration();
+    return value.id;
 }
 
 bool Simulation::command_gather_unit(
@@ -5242,7 +5365,67 @@ bool Simulation::queue_unit_at(EntityId building_id, UnitKind kind) {
         wood_cost,
         food_cost,
         gold_cost,
+        0,
+        0,
+        std::nullopt,
     });
+    return true;
+}
+
+bool Simulation::queue_commercial_object_at(
+    EntityId building_id,
+    CommercialObjectIdentity identity
+) {
+    constexpr std::size_t production_queue_limit = 15;
+    Building* building = find_building(building_id);
+    const CommercialObjectRecord* object =
+        commercial_content_catalog().object(
+            identity.civilization_id, identity.object_id
+        );
+    if (outcome_ != MatchOutcome::ongoing || building == nullptr ||
+        object == nullptr || !building->completed() ||
+        building->production_queue.size() >= production_queue_limit ||
+        object->base_class == CommercialObjectBaseClass::building ||
+        !commercial_object_enabled(building->owner, identity) ||
+        object->creation_location_object_id == std::nullopt) {
+        return false;
+    }
+    if (!building->commercial_identity ||
+        building->commercial_identity->civilization_id !=
+            identity.civilization_id ||
+        building->commercial_identity->object_id !=
+            *object->creation_location_object_id) {
+        return false;
+    }
+    Economy& economy = player_states_.at(building->owner.stable_id()).economy;
+    int wood{};
+    int food{};
+    int gold{};
+    int stone{};
+    for (const CommercialResourceCost& cost : object->costs) {
+        if (!cost.paid) continue;
+        if (cost.resource_id == 0) food += cost.amount;
+        else if (cost.resource_id == 1) wood += cost.amount;
+        else if (cost.resource_id == 2) stone += cost.amount;
+        else if (cost.resource_id == 3) gold += cost.amount;
+    }
+    if (economy.wood < wood || economy.food < food ||
+        economy.gold < gold || economy.stone < stone) {
+        return false;
+    }
+    economy.wood -= wood;
+    economy.food -= food;
+    economy.gold -= gold;
+    economy.stone -= stone;
+    ProductionOrder order;
+    order.kind = UnitKind::villager;
+    order.ticks_remaining = std::max(1, object->creation_time);
+    order.paid_wood = wood;
+    order.paid_food = food;
+    order.paid_gold = gold;
+    order.paid_stone = stone;
+    order.commercial_identity = identity;
+    building->production_queue.push_back(order);
     return true;
 }
 
@@ -5266,6 +5449,7 @@ bool Simulation::cancel_production_at(EntityId building_id) {
     economy.wood += order.paid_wood;
     economy.food += order.paid_food;
     economy.gold += order.paid_gold;
+    economy.stone += order.paid_stone;
     building->production_queue.pop_back();
     return true;
 }
@@ -5818,6 +6002,195 @@ bool Simulation::research_technology_at(
     building->technology_research_ticks_remaining =
         rules.research_ticks;
     return true;
+}
+
+bool Simulation::has_commercial_technology(
+    EntityOwner owner,
+    CommercialTechnologyId technology
+) const {
+    const auto slot = owner.slot_index();
+    return slot && technology < 460 &&
+        player_states_[*slot].commercial_technologies[technology];
+}
+
+bool Simulation::research_commercial_technology_at(
+    EntityId building_id,
+    CommercialTechnologyId technology_id
+) {
+    Building* building = find_building(building_id);
+    const CommercialTechnologyRecord* technology =
+        commercial_content_catalog().technology(technology_id);
+    if (outcome_ != MatchOutcome::ongoing || building == nullptr ||
+        technology == nullptr || !building->completed() ||
+        !building->commercial_identity ||
+        technology->research_location_object_id !=
+            building->commercial_identity->object_id ||
+        building->technology_research_ticks_remaining > 0 ||
+        building->age_research_ticks_remaining > 0 ||
+        !building->production_queue.empty() ||
+        has_commercial_technology(building->owner, technology_id)) {
+        return false;
+    }
+    if (technology->civilization_id &&
+        *technology->civilization_id !=
+            building->commercial_identity->civilization_id) {
+        return false;
+    }
+    for (CommercialTechnologyId prerequisite : technology->prerequisites) {
+        if (!has_commercial_technology(building->owner, prerequisite)) {
+            return false;
+        }
+    }
+    Economy& economy = player_states_.at(building->owner.stable_id()).economy;
+    int food{};
+    int wood{};
+    int stone{};
+    int gold{};
+    for (const CommercialTechnologyCost& cost : technology->costs) {
+        if (!cost.enabled) continue;
+        if (cost.resource_id == 0) food += cost.amount;
+        else if (cost.resource_id == 1) wood += cost.amount;
+        else if (cost.resource_id == 2) stone += cost.amount;
+        else if (cost.resource_id == 3) gold += cost.amount;
+    }
+    if (economy.food < food || economy.wood < wood ||
+        economy.stone < stone || economy.gold < gold) {
+        return false;
+    }
+    economy.food -= food;
+    economy.wood -= wood;
+    economy.stone -= stone;
+    economy.gold -= gold;
+    building->commercial_research_target = technology_id;
+    building->technology_research_ticks_remaining =
+        std::max(1, technology->research_time);
+    return true;
+}
+
+bool Simulation::commercial_object_enabled(
+    EntityOwner owner,
+    CommercialObjectIdentity identity
+) const {
+    const CommercialObjectRecord* record =
+        commercial_content_catalog().object(
+            identity.civilization_id, identity.object_id
+        );
+    if (record == nullptr) return false;
+    bool enabled = record->enabled && !record->disabled;
+    const auto slot = owner.slot_index();
+    if (!slot) return enabled;
+    const auto& technologies = player_states_[*slot].commercial_technologies;
+    const auto& catalog = commercial_content_catalog();
+    for (std::size_t id = 0; id < technologies.size(); ++id) {
+        if (!technologies[id]) continue;
+        const auto* technology = catalog.technology(
+            static_cast<CommercialTechnologyId>(id)
+        );
+        if (technology == nullptr) continue;
+        const auto* effect = catalog.effect(technology->effect_id);
+        if (effect == nullptr) continue;
+        for (const CommercialEffectCommand& command : effect->commands) {
+            if (command.type == 2 && command.object_id == identity.object_id) {
+                enabled = command.unit_class != 0;
+            }
+        }
+    }
+    return enabled;
+}
+
+void Simulation::apply_commercial_effect(
+    EntityOwner owner,
+    CommercialEffectId effect_id
+) {
+    const CommercialEffectRecord* effect =
+        commercial_content_catalog().effect(effect_id);
+    if (effect == nullptr) return;
+    const auto applies = [](const CommercialEffectCommand& command,
+                            const CommercialObjectRecord& record) {
+        return (command.object_id < 0 || command.object_id == record.id) &&
+            (command.unit_class < 0 || command.unit_class == record.unit_class);
+    };
+    const auto apply_attribute = [](const CommercialEffectCommand& command,
+                                    Unit& unit) {
+        const auto change = [&command](int value) {
+            if (command.type == 0) {
+                return static_cast<int>(command.amount);
+            }
+            if (command.type == 5) {
+                return static_cast<int>(value * command.amount);
+            }
+            return value + static_cast<int>(command.amount);
+        };
+        if (command.attribute_id == 0) unit.hit_points = change(unit.hit_points);
+        else if (command.attribute_id == 9) unit.attack = change(unit.attack);
+    };
+    for (const CommercialEffectCommand& command : effect->commands) {
+        if (command.type == 3) {
+            for (Unit& unit : units_) {
+                if (unit.owner == owner && unit.commercial_identity &&
+                    unit.commercial_identity->object_id == command.object_id) {
+                    unit.commercial_identity->object_id =
+                        static_cast<CommercialObjectId>(command.unit_class);
+                    const auto* upgraded = commercial_content_catalog().object(
+                        unit.commercial_identity->civilization_id,
+                        unit.commercial_identity->object_id
+                    );
+                    if (upgraded) {
+                        unit.hit_points = upgraded->hit_points;
+                        unit.attack = upgraded->attack;
+                    }
+                }
+            }
+            for (Building& building : buildings_) {
+                if (building.owner == owner && building.commercial_identity &&
+                    building.commercial_identity->object_id ==
+                        command.object_id) {
+                    building.commercial_identity->object_id =
+                        static_cast<CommercialObjectId>(command.unit_class);
+                    const auto* upgraded = commercial_content_catalog().object(
+                        building.commercial_identity->civilization_id,
+                        building.commercial_identity->object_id
+                    );
+                    if (upgraded) building.hit_points = upgraded->hit_points;
+                }
+            }
+            continue;
+        }
+        if (command.type != 0 && command.type != 4 && command.type != 5) {
+            continue;
+        }
+        for (Unit& unit : units_) {
+            if (unit.owner != owner || !unit.commercial_identity) continue;
+            const auto* record = commercial_content_catalog().object(
+                unit.commercial_identity->civilization_id,
+                unit.commercial_identity->object_id
+            );
+            if (record && applies(command, *record)) {
+                apply_attribute(command, unit);
+            }
+        }
+        for (Building& building : buildings_) {
+            if (building.owner != owner || !building.commercial_identity) {
+                continue;
+            }
+            const auto* record = commercial_content_catalog().object(
+                building.commercial_identity->civilization_id,
+                building.commercial_identity->object_id
+            );
+            if (record && applies(command, *record) &&
+                command.attribute_id == 0) {
+                if (command.type == 0) {
+                    building.hit_points = static_cast<int>(command.amount);
+                } else if (command.type == 5) {
+                    building.hit_points = static_cast<int>(
+                        building.hit_points * command.amount
+                    );
+                } else {
+                    building.hit_points += static_cast<int>(command.amount);
+                }
+            }
+        }
+    }
 }
 
 void Simulation::update() {
@@ -9864,6 +10237,7 @@ int Simulation::work_resource_amount(const Unit& unit) const {
 void Simulation::update_production() {
     struct CompletedOrder {
         UnitKind kind;
+        std::optional<CommercialObjectIdentity> commercial_identity;
         EntityOwner owner;
         TilePosition position;
         TilePosition rally_point;
@@ -9875,6 +10249,27 @@ void Simulation::update_production() {
         if (building.technology_research_ticks_remaining > 0) {
             --building.technology_research_ticks_remaining;
             if (building.technology_research_ticks_remaining == 0) {
+                if (building.commercial_research_target) {
+                    const CommercialTechnologyId technology_id =
+                        *building.commercial_research_target;
+                    auto& researched = player_states_.at(
+                        building.owner.stable_id()
+                    ).commercial_technologies;
+                    researched.at(technology_id) = true;
+                    if (const auto* technology =
+                            commercial_content_catalog().technology(
+                                technology_id
+                            )) {
+                        apply_commercial_effect(
+                            building.owner, technology->effect_id
+                        );
+                    }
+                    building.commercial_research_target.reset();
+                    ++mutable_statistics(
+                        building.owner
+                    ).technologies_researched;
+                    continue;
+                }
                 std::vector<int> old_building_maxima;
                 old_building_maxima.reserve(buildings_.size());
                 for (const Building& candidate : buildings_) {
@@ -10552,6 +10947,7 @@ void Simulation::update_production() {
         }
         completed.push_back({
             order.kind,
+            order.commercial_identity,
             building.owner,
             *position,
             building.rally_point,
@@ -10561,8 +10957,11 @@ void Simulation::update_production() {
     }
 
     for (const CompletedOrder& order : completed) {
-        const EntityId unit =
-            add_unit(order.kind, order.owner, order.position);
+        const EntityId unit = order.commercial_identity
+            ? add_commercial_object(
+                  *order.commercial_identity, order.owner, order.position
+              )
+            : add_unit(order.kind, order.owner, order.position);
         if (order.has_rally_point) {
             command_unit(unit, order.rally_point);
         }
@@ -10835,6 +11234,13 @@ bool Simulation::has_age_prerequisites(
 }
 
 int Simulation::effective_attack_range(const Unit& unit) const {
+    if (unit.commercial_identity) {
+        const auto* record = commercial_content_catalog().object(
+            unit.commercial_identity->civilization_id,
+            unit.commercial_identity->object_id
+        );
+        if (record) return std::max(0, static_cast<int>(record->maximum_range));
+    }
     int range = rules_for(unit.kind).attack_range;
     if (unit.kind == UnitKind::archer ||
         unit.kind == UnitKind::crossbowman ||
@@ -10895,6 +11301,13 @@ int Simulation::effective_attack_range(const Unit& unit) const {
 }
 
 int Simulation::effective_minimum_attack_range(const Unit& unit) const {
+    if (unit.commercial_identity) {
+        const auto* record = commercial_content_catalog().object(
+            unit.commercial_identity->civilization_id,
+            unit.commercial_identity->object_id
+        );
+        if (record) return std::max(0, static_cast<int>(record->minimum_range));
+    }
     const bool mangonel_line =
         unit.kind == UnitKind::mangonel ||
         unit.kind == UnitKind::onager ||
@@ -10905,6 +11318,15 @@ int Simulation::effective_minimum_attack_range(const Unit& unit) const {
 }
 
 int Simulation::effective_attack_interval(const Unit& unit) const {
+    if (unit.commercial_identity) {
+        const auto* record = commercial_content_catalog().object(
+            unit.commercial_identity->civilization_id,
+            unit.commercial_identity->object_id
+        );
+        if (record) return std::max(
+            1, static_cast<int>(std::lround(record->reload_time * 5.0f))
+        );
+    }
     int interval = rules_for(unit.kind).attack_interval_ticks;
     if (has_technology(unit.owner, Technology::thumb_ring)) {
         if (unit.kind == UnitKind::chu_ko_nu ||
@@ -10951,6 +11373,15 @@ int Simulation::effective_attack_interval(const Unit& unit) const {
 }
 
 int Simulation::effective_unit_vision_range(const Unit& unit) const {
+    if (unit.commercial_identity) {
+        const auto* record = commercial_content_catalog().object(
+            unit.commercial_identity->civilization_id,
+            unit.commercial_identity->object_id
+        );
+        if (record) return std::max(
+            0, static_cast<int>(record->line_of_sight)
+        );
+    }
     int range = rules_for(unit.kind).vision_range;
     if (is_infantry(unit.kind) &&
         has_technology(unit.owner, Technology::tracking)) {

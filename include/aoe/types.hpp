@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+#include "aoe/content_catalog.hpp"
+
 namespace aoe {
 
 using EntityId = std::uint32_t;
@@ -711,6 +713,7 @@ struct Unit {
     int trebuchet_transform_ticks_remaining{};
     bool trebuchet_transform_to_packed{};
     std::optional<EntityOwner> last_damage_owner;
+    std::optional<CommercialObjectIdentity> commercial_identity;
 };
 
 struct ProductionOrder {
@@ -720,6 +723,8 @@ struct ProductionOrder {
     int paid_food{};
     int paid_gold{};
     int work_remainder{};
+    int paid_stone{};
+    std::optional<CommercialObjectIdentity> commercial_identity;
 };
 
 struct Building {
@@ -738,12 +743,14 @@ struct Building {
     Age age_research_target{Age::dark};
     int age_research_ticks_remaining{};
     Technology technology_research_target{Technology::wheelbarrow};
+    std::optional<CommercialTechnologyId> commercial_research_target;
     int technology_research_ticks_remaining{};
     int attack_cooldown{};
     TilePosition rally_point{};
     bool has_rally_point{};
     bool gate_open{};
     std::optional<EntityOwner> last_damage_owner;
+    std::optional<CommercialObjectIdentity> commercial_identity;
 
     [[nodiscard]] bool completed() const {
         return construction_ticks_remaining == 0;

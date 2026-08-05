@@ -360,6 +360,11 @@ void save_game(const Simulation& simulation, const std::filesystem::path& path) 
         for (bool visible : state.explored) {
             explored.push_back(visible ? '1' : '0');
         }
+        std::string commercial_technologies;
+        commercial_technologies.reserve(state.commercial_technologies.size());
+        for (bool known : state.commercial_technologies) {
+            commercial_technologies.push_back(known ? '1' : '0');
+        }
         output << "player-state " << index << ' '
                << state.economy.wood << ' ' << state.economy.food << ' '
                << state.economy.gold << ' ' << state.economy.stone << ' '
@@ -374,7 +379,8 @@ void save_game(const Simulation& simulation, const std::filesystem::path& path) 
                << static_cast<int>(state.countdown_kind) << ' '
                << state.countdown_last_tick << ' '
                << std::quoted(technologies) << ' '
-               << std::quoted(explored) << '\n';
+               << std::quoted(explored) << ' '
+               << std::quoted(commercial_technologies) << '\n';
         for (const auto& [id, memory] : state.remembered_buildings) {
             const Building& building = memory.building;
             output << "building-memory " << index << ' ' << id << ' '
@@ -814,6 +820,42 @@ void save_game(const Simulation& simulation, const std::filesystem::path& path) 
         }
         output << '\n';
     }
+    for (const Unit& unit : simulation.units()) {
+        if (!unit.commercial_identity) continue;
+        output << "commercial-unit " << unit.id << ' '
+               << static_cast<int>(
+                      unit.commercial_identity->civilization_id
+                  ) << ' '
+               << unit.commercial_identity->object_id << '\n';
+    }
+    for (const Building& building : simulation.buildings()) {
+        if (building.commercial_identity) {
+            output << "commercial-building " << building.id << ' '
+                   << static_cast<int>(
+                          building.commercial_identity->civilization_id
+                      ) << ' '
+                   << building.commercial_identity->object_id << '\n';
+        }
+        if (building.commercial_research_target) {
+            output << "commercial-research " << building.id << ' '
+                   << *building.commercial_research_target << '\n';
+        }
+        for (std::size_t index = 0;
+             index < building.production_queue.size(); ++index) {
+            const ProductionOrder& order = building.production_queue[index];
+            if (!order.commercial_identity && order.paid_stone == 0) continue;
+            output << "commercial-production " << building.id << ' '
+                   << index << ' ' << order.paid_stone << ' ';
+            if (order.commercial_identity) {
+                output << 1 << ' ' << static_cast<int>(
+                    order.commercial_identity->civilization_id
+                ) << ' ' << order.commercial_identity->object_id;
+            } else {
+                output << "0 0 0";
+            }
+            output << '\n';
+        }
+    }
     for (const Projectile& projectile : simulation.projectiles()) {
         output << "projectile "
                << static_cast<int>(projectile.owner.stable_id()) << ' '
@@ -1075,6 +1117,7 @@ Simulation load_game(const std::filesystem::path& path) {
             int countdown_kind{};
             std::string technologies;
             std::string explored;
+            std::string commercial_technologies;
             Simulation::PlayerState state;
             input >> stable_id >>
                 state.economy.wood >> state.economy.food >>
@@ -1086,6 +1129,9 @@ Simulation load_game(const std::filesystem::path& path) {
                 state.victory_countdown >> countdown_kind >>
                 state.countdown_last_tick >>
                 std::quoted(technologies) >> std::quoted(explored);
+            if (version >= 120) {
+                input >> std::quoted(commercial_technologies);
+            }
             const auto slot = decode_player_slot_id(stable_id);
             const auto all_bits = [](const std::string& bits) {
                 return std::ranges::all_of(
@@ -1125,7 +1171,10 @@ Simulation load_game(const std::filesystem::path& path) {
                 technologies.size() !=
                     (version >= 110 ? technology_count
                                     : technology_count - 2) ||
-                !all_bits(technologies) || !all_bits(explored)) {
+                !all_bits(technologies) || !all_bits(explored) ||
+                (version >= 120 &&
+                 (commercial_technologies.size() != 460 ||
+                  !all_bits(commercial_technologies)))) {
                 throw std::runtime_error("invalid player state in save");
             }
             state.age = static_cast<Age>(age);
@@ -1138,6 +1187,11 @@ Simulation load_game(const std::filesystem::path& path) {
                 static_cast<VictoryCountdownKind>(countdown_kind);
             for (std::size_t index = 0; index < technologies.size(); ++index) {
                 state.technologies[index] = technologies[index] == '1';
+            }
+            for (std::size_t index = 0;
+                 index < commercial_technologies.size(); ++index) {
+                state.commercial_technologies[index] =
+                    commercial_technologies[index] == '1';
             }
             state.explored.reserve(explored.size());
             for (char bit : explored) {
@@ -2305,6 +2359,126 @@ Simulation load_game(const std::filesystem::path& path) {
                 building.production_queue.push_back(order);
             }
             buildings.push_back(std::move(building));
+        } else if (record == "commercial-unit" && version >= 120) {
+            EntityId id{};
+            int civilization{};
+            int object{};
+            input >> id >> civilization >> object;
+            const auto found = std::ranges::find_if(
+                units, [id](const Unit& unit) { return unit.id == id; }
+            );
+            const auto* catalog_object =
+                civilization >= 0 && civilization < 19 &&
+                object >= 0 && object <= 65535
+                ? commercial_content_catalog().object(
+                      static_cast<CommercialCivilizationId>(civilization),
+                      static_cast<CommercialObjectId>(object)
+                  )
+                : nullptr;
+            if (!input || found == units.end() || catalog_object == nullptr ||
+                catalog_object->base_class ==
+                    CommercialObjectBaseClass::building ||
+                found->commercial_identity) {
+                throw std::runtime_error(
+                    "invalid commercial unit identity in save"
+                );
+            }
+            found->commercial_identity = CommercialObjectIdentity{
+                static_cast<CommercialCivilizationId>(civilization),
+                static_cast<CommercialObjectId>(object),
+            };
+        } else if (record == "commercial-building" && version >= 120) {
+            EntityId id{};
+            int civilization{};
+            int object{};
+            input >> id >> civilization >> object;
+            const auto found = std::ranges::find_if(
+                buildings,
+                [id](const Building& building) { return building.id == id; }
+            );
+            const auto* catalog_object =
+                civilization >= 0 && civilization < 19 &&
+                object >= 0 && object <= 65535
+                ? commercial_content_catalog().object(
+                      static_cast<CommercialCivilizationId>(civilization),
+                      static_cast<CommercialObjectId>(object)
+                  )
+                : nullptr;
+            if (!input || found == buildings.end() ||
+                catalog_object == nullptr ||
+                catalog_object->base_class !=
+                    CommercialObjectBaseClass::building ||
+                found->commercial_identity) {
+                throw std::runtime_error(
+                    "invalid commercial building identity in save"
+                );
+            }
+            found->commercial_identity = CommercialObjectIdentity{
+                static_cast<CommercialCivilizationId>(civilization),
+                static_cast<CommercialObjectId>(object),
+            };
+        } else if (record == "commercial-research" && version >= 120) {
+            EntityId id{};
+            int technology{};
+            input >> id >> technology;
+            const auto found = std::ranges::find_if(
+                buildings,
+                [id](const Building& building) { return building.id == id; }
+            );
+            if (!input || found == buildings.end() || technology < 0 ||
+                technology >= 460 ||
+                commercial_content_catalog().technology(
+                    static_cast<CommercialTechnologyId>(technology)
+                ) == nullptr || found->commercial_research_target) {
+                throw std::runtime_error(
+                    "invalid commercial research target in save"
+                );
+            }
+            found->commercial_research_target =
+                static_cast<CommercialTechnologyId>(technology);
+        } else if (record == "commercial-production" && version >= 120) {
+            EntityId id{};
+            std::size_t index{};
+            int paid_stone{};
+            int has_identity{};
+            int civilization{};
+            int object{};
+            input >> id >> index >> paid_stone >> has_identity >>
+                civilization >> object;
+            const auto found = std::ranges::find_if(
+                buildings,
+                [id](const Building& building) { return building.id == id; }
+            );
+            if (!input || found == buildings.end() ||
+                index >= found->production_queue.size() || paid_stone < 0 ||
+                (has_identity != 0 && has_identity != 1)) {
+                throw std::runtime_error(
+                    "invalid commercial production order in save"
+                );
+            }
+            ProductionOrder& order = found->production_queue[index];
+            order.paid_stone = paid_stone;
+            if (has_identity) {
+                const auto* catalog_object =
+                    civilization >= 0 && civilization < 19 &&
+                    object >= 0 && object <= 65535
+                    ? commercial_content_catalog().object(
+                          static_cast<CommercialCivilizationId>(civilization),
+                          static_cast<CommercialObjectId>(object)
+                      )
+                    : nullptr;
+                if (catalog_object == nullptr ||
+                    catalog_object->base_class ==
+                        CommercialObjectBaseClass::building) {
+                    throw std::runtime_error(
+                        "invalid commercial production identity in save"
+                    );
+                }
+                order.commercial_identity = CommercialObjectIdentity{
+                    static_cast<CommercialCivilizationId>(civilization),
+                    static_cast<CommercialObjectId>(object),
+                };
+            }
         } else if (record == "projectile" && version >= 7) {
             Projectile projectile;
             int owner{};

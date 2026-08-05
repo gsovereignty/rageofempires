@@ -10451,6 +10451,38 @@ void Simulation::update_exploration() {
                 explored.at(map_index(tile)) = true;
             }
         };
+        // Team-game setup reveals each ally's starting Town Center, but does
+        // not grant that building's line of sight before Cartography.  Keep a
+        // frozen image in the same per-viewer store used by explored enemy
+        // buildings so world/minimap rendering cannot consult hidden live
+        // state.  Setup paths finish while tick zero is current; buildings
+        // created later in play therefore never enter this special reveal.
+        if (tick_number_ == 0) {
+            for (const Building& building : buildings_) {
+                if (building.hit_points <= 0 ||
+                    building.kind != BuildingKind::town_center ||
+                    building.owner == player ||
+                    !is_ally(player, building.owner)) {
+                    continue;
+                }
+                const BuildingRules& rules = rules_for(building.kind);
+                for (int y = 0; y < rules.footprint_height; ++y) {
+                    for (int x = 0; x < rules.footprint_width; ++x) {
+                        mark({
+                            building.position.x + x,
+                            building.position.y + y,
+                        });
+                    }
+                }
+                player_states_[index].remembered_buildings[building.id] = {
+                    building,
+                    age(building.owner),
+                    civilization(building.owner),
+                    maximum_hit_points(building),
+                    2,
+                };
+            }
+        }
         if (has_technology(player, Technology::spy_technology)) {
             for (const Unit& unit : units_) {
                 if (unit.hit_points > 0 && unit.garrisoned_in == 0 &&
@@ -10540,8 +10572,24 @@ void Simulation::update_exploration() {
             return false;
         };
         for (const Building& building : buildings_) {
-            if (!is_enemy(player, building.owner) ||
-                !footprint_visible(building)) {
+            if (!footprint_visible(building)) {
+                continue;
+            }
+            if (!is_enemy(player, building.owner)) {
+                // Normal LOS or Cartography refreshes a starting-team
+                // snapshot already known to this viewer.  Never create new
+                // allied memory here: that would reveal post-start centers.
+                if (building.kind == BuildingKind::town_center &&
+                    building.owner != player &&
+                    memories.contains(building.id)) {
+                    memories[building.id] = {
+                        building,
+                        age(building.owner),
+                        civilization(building.owner),
+                        maximum_hit_points(building),
+                        2,
+                    };
+                }
                 continue;
             }
             const auto adjacent = [
@@ -10578,7 +10626,12 @@ void Simulation::update_exploration() {
                 }
             );
             if (live != buildings_.end()) {
-                return !is_enemy(player, live->owner);
+                // Starting allied Town Centers intentionally use this memory
+                // store too.  Preserve their frozen image while allied; a
+                // later Cartography/current-LOS pass suppresses it at render
+                // time without exposing live hidden state.
+                return !is_enemy(player, live->owner) &&
+                    memory.building.kind != BuildingKind::town_center;
             }
             return footprint_visible(memory.building);
         });

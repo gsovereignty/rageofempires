@@ -1140,6 +1140,135 @@ void enemy_building_memory_is_stale_per_viewer_and_persistent() {
     require(!loaded.remembered_buildings(aoe::Player::blue).contains(house));
 }
 
+void allied_starting_town_centers_reveal_without_shared_vision() {
+    const auto blue = *aoe::PlayerSlotId::from_index(0);
+    const auto red = *aoe::PlayerSlotId::from_index(1);
+    const auto green = *aoe::PlayerSlotId::from_index(2);
+    const auto yellow = *aoe::PlayerSlotId::from_index(3);
+    const auto team_one = *aoe::TeamId::numbered(1);
+    const auto team_two = *aoe::TeamId::numbered(2);
+    const auto roster = aoe::MatchRoster::create({
+        {blue, true, team_one, false,
+         {{"blue", aoe::RosterControllerKind::human}}},
+        {red, true, team_two, false,
+         {{"red", aoe::RosterControllerKind::human}}},
+        {green, true, team_one, false,
+         {{"green", aoe::RosterControllerKind::human}}},
+        {yellow, true, team_one, false,
+         {{"yellow", aoe::RosterControllerKind::human}}},
+    });
+    require(roster.has_value());
+    auto diplomacy = aoe::RosterDiplomacy::create(
+        *roster, {true, false}
+    );
+    require(diplomacy.has_value());
+    // Directed diplomacy proves reveal follows viewer stance, not an assumed
+    // symmetric two-player team or broad shared-vision option.
+    require(diplomacy->set_stance(green, blue, aoe::Diplomacy::enemy));
+
+    aoe::Simulation simulation(aoe::GameMap(48, 28));
+    simulation.replace_roster(*roster, *diplomacy);
+    std::vector<aoe::Building> buildings{
+        {1, aoe::BuildingKind::town_center,
+         aoe::entity_owner_from_slot(blue), {1, 1}, 600},
+        {2, aoe::BuildingKind::town_center,
+         aoe::entity_owner_from_slot(red), {10, 20}, 600},
+        {3, aoe::BuildingKind::town_center,
+         aoe::entity_owner_from_slot(green), {20, 2}, 600},
+        {4, aoe::BuildingKind::town_center,
+         aoe::entity_owner_from_slot(green), {28, 2}, 37, {}, 0, 12},
+        {5, aoe::BuildingKind::town_center,
+         aoe::entity_owner_from_slot(yellow), {36, 2}, 600},
+        {6, aoe::BuildingKind::house,
+         aoe::entity_owner_from_slot(green), {20, 14}, 550},
+    };
+    simulation.replace_state(
+        {}, std::move(buildings), {1000, 1000, 1000, 1000},
+        {1000, 1000, 1000, 1000}, 0
+    );
+
+    const auto& blue_memory = simulation.player_state(blue)
+        .remembered_buildings;
+    require(blue_memory.size() == 3);
+    require(blue_memory.contains(3));
+    require(blue_memory.contains(4));
+    require(blue_memory.contains(5));
+    require(blue_memory.at(4).building.construction_ticks_remaining == 12);
+    require(!blue_memory.contains(2));
+    require(!blue_memory.contains(6));
+    require(simulation.is_explored(blue, {20, 2}));
+    require(simulation.is_explored(blue, {23, 5}));
+    require(!simulation.is_explored(blue, {24, 2}));
+    require(!simulation.is_visible(blue, {20, 2}));
+    require(!simulation.is_explored(blue, {20, 14}));
+    require(simulation.player_state(green).remembered_buildings.count(1) == 0);
+    require(simulation.player_state(yellow).remembered_buildings.contains(1));
+
+    const auto save_path = std::filesystem::temp_directory_path() /
+        "aoe-allied-starting-town-centers.save";
+    const std::string hash_before = aoe::deterministic_state_hash(simulation);
+    aoe::save_game(simulation, save_path);
+    aoe::Simulation loaded = aoe::load_game(save_path);
+    std::filesystem::remove(save_path);
+    require(aoe::deterministic_state_hash(loaded) == hash_before);
+    require(loaded.player_state(blue).remembered_buildings.contains(3));
+    require(!loaded.is_visible(blue, {20, 2}));
+
+    // A post-start diplomacy change does not reveal a newly allied Town
+    // Center.  Already revealed Town Centers remain stale reconnaissance when
+    // their owner becomes hostile.
+    loaded.update();
+    auto changed = loaded.roster_diplomacy();
+    require(changed.set_stance(blue, red, aoe::Diplomacy::ally));
+    require(changed.set_stance(blue, green, aoe::Diplomacy::enemy));
+    loaded.replace_roster(loaded.roster(), changed);
+    loaded.update();
+    require(!loaded.player_state(blue).remembered_buildings.contains(2));
+    require(loaded.player_state(blue).remembered_buildings.contains(3));
+    require(!loaded.is_explored(blue, {10, 20}));
+    const auto frozen_green = loaded.player_state(blue)
+        .remembered_buildings.at(3);
+    auto green_state = loaded.player_state(green);
+    green_state.age = aoe::Age::imperial;
+    loaded.replace_player_state(green, std::move(green_state));
+    require(loaded.delete_building(3));
+    loaded.update();
+    const auto& hidden_destroyed = loaded.player_state(blue)
+        .remembered_buildings.at(3);
+    require(hidden_destroyed.owner_age == frozen_green.owner_age);
+    require(hidden_destroyed.building.hit_points ==
+        frozen_green.building.hit_points);
+
+    // Cartography transitions from frozen marker to normal allied LOS while
+    // leaving unrelated enemy and non-Town-Center state hidden.
+    auto blue_state = loaded.player_state(blue);
+    blue_state.technologies[static_cast<std::size_t>(
+        aoe::Technology::cartography
+    )] = true;
+    loaded.replace_player_state(blue, std::move(blue_state));
+    require(loaded.player_state(blue).remembered_buildings.at(5).owner_age ==
+        aoe::Age::dark);
+    auto yellow_state = loaded.player_state(yellow);
+    yellow_state.age = aoe::Age::imperial;
+    loaded.replace_player_state(yellow, std::move(yellow_state));
+    auto allied_again = loaded.roster_diplomacy();
+    require(allied_again.set_stance(blue, yellow, aoe::Diplomacy::ally));
+    loaded.replace_roster(loaded.roster(), allied_again);
+    loaded.update();
+    require(loaded.is_visible(blue, {36, 2}));
+    require(loaded.is_visible(blue, {40, 2}));
+    require(!loaded.is_visible(blue, {10, 20}));
+    require(loaded.player_state(blue).remembered_buildings.at(5).owner_age ==
+        aoe::Age::imperial);
+
+    loaded.replace_controller_states(
+        aoe::PlayerControllerState::observer,
+        aoe::PlayerControllerState::active
+    );
+    require(loaded.is_visible_to_controller(aoe::Player::blue, {47, 27}));
+    require(loaded.is_explored_to_controller(aoe::Player::blue, {47, 27}));
+}
+
 void building_los_is_radial_from_nearest_footprint_and_persists() {
     aoe::Simulation footprint(aoe::GameMap(30, 24));
     const auto castle = footprint.add_building(
@@ -24012,6 +24141,10 @@ int main() {
     run(
         "per-viewer stale building memory",
         enemy_building_memory_is_stale_per_viewer_and_persistent
+    );
+    run(
+        "allied starting Town Center reveal",
+        allied_starting_town_centers_reveal_without_shared_vision
     );
     run(
         "radial building LOS",

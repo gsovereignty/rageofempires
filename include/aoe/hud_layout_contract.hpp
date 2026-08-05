@@ -332,9 +332,29 @@ inline constexpr int information_content_x = 286;
     const std::size_t capacity = pixel_width > 0
         ? static_cast<std::size_t>(pixel_width / debug_glyph_width)
         : 0U;
-    if (text.size() <= capacity) return std::string{text};
+    std::vector<std::size_t> boundaries{0U};
+    boundaries.reserve(text.size() + 1U);
+    for (std::size_t offset = 0; offset < text.size();) {
+        const unsigned char lead = static_cast<unsigned char>(text[offset]);
+        std::size_t width = 1U;
+        if ((lead & 0xe0U) == 0xc0U) width = 2U;
+        else if ((lead & 0xf0U) == 0xe0U) width = 3U;
+        else if ((lead & 0xf8U) == 0xf0U) width = 4U;
+        if (offset + width > text.size()) width = 1U;
+        for (std::size_t index = 1U; index < width; ++index) {
+            if ((static_cast<unsigned char>(text[offset + index]) & 0xc0U)
+                    != 0x80U) {
+                width = 1U;
+                break;
+            }
+        }
+        offset += width;
+        boundaries.push_back(offset);
+    }
+    const std::size_t glyph_count = boundaries.size() - 1U;
+    if (glyph_count <= capacity) return std::string{text};
     if (capacity < 4U) return {};
-    return std::string{text.substr(0, capacity - 3U)} + "...";
+    return std::string{text.substr(0, boundaries[capacity - 3U])} + "...";
 }
 
 [[nodiscard]] inline std::string population_status_text(

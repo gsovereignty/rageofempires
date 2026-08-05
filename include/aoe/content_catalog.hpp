@@ -102,6 +102,8 @@ struct CommercialObjectRecord {
     float speed{};
     float work_rate{};
     float garrison_heal_rate{};
+    std::optional<std::uint16_t> command_sound;
+    std::optional<std::uint16_t> move_sound;
     int garrison_capacity{};
     std::uint16_t terrain_restriction_id{};
     std::int16_t resource_group{};

@@ -974,19 +974,21 @@ void AudioSystem::play_taunt(unsigned number, std::string_view locale) {
     std::string audio_locale = impl_->audio_locale;
     try { audio_locale = language_profile(locale).audio_directory; }
     catch (const std::invalid_argument&) {}
-    const auto directory = impl_->root / "Taunt" / audio_locale;
     const std::string prefix =
         (number < 10 ? "0" : "") + std::to_string(number) + " ";
-    std::error_code error;
-    for (std::filesystem::directory_iterator it{directory, error}, end;
-         !error && it != end;
-         it.increment(error)) {
-        if (it->is_regular_file(error) &&
-            it->path().filename().string().starts_with(prefix)) {
-            static_cast<void>(impl_->start_loose_effect(
-                it->path(), AudioCategory::interface
-            ));
-            return;
+    for (const auto& directory : localized_audio_directories(
+             impl_->root, audio_locale, "taunt")) {
+        std::error_code error;
+        for (std::filesystem::directory_iterator it{directory, error}, end;
+             !error && it != end;
+             it.increment(error)) {
+            if (it->is_regular_file(error) &&
+                it->path().filename().string().starts_with(prefix)) {
+                static_cast<void>(impl_->start_loose_effect(
+                    it->path(), AudioCategory::interface
+                ));
+                return;
+            }
         }
     }
 }

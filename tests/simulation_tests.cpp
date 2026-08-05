@@ -988,6 +988,192 @@ void vision_reveals_and_remembers_explored_tiles() {
     require(simulation.is_visible(aoe::Player::blue, {10, 2}));
 }
 
+void enemy_attackers_reveal_per_victim_through_attack_action() {
+    const auto blue = *aoe::PlayerSlotId::from_index(0);
+    const auto red = *aoe::PlayerSlotId::from_index(1);
+    const auto green = *aoe::PlayerSlotId::from_index(2);
+    const auto team_one = *aoe::TeamId::numbered(1);
+    const auto team_two = *aoe::TeamId::numbered(2);
+    const auto roster = aoe::MatchRoster::create({
+        {blue, true, team_one, false,
+         {{"blue", aoe::RosterControllerKind::human}}},
+        {red, true, team_two, false,
+         {{"red", aoe::RosterControllerKind::human}}},
+        {green, true, team_one, false,
+         {{"green", aoe::RosterControllerKind::human}}},
+    });
+    require(roster.has_value());
+    const auto diplomacy = aoe::RosterDiplomacy::create(
+        *roster, {true, false}
+    );
+    require(diplomacy.has_value());
+
+    aoe::Simulation simulation(aoe::GameMap(40, 16));
+    simulation.replace_roster(*roster, *diplomacy);
+    const aoe::EntityOwner blue_owner = aoe::entity_owner_from_slot(blue);
+    const aoe::EntityOwner red_owner = aoe::entity_owner_from_slot(red);
+    const aoe::EntityOwner green_owner = aoe::entity_owner_from_slot(green);
+    const auto attacker_id = simulation.add_unit(
+        aoe::UnitKind::mangonel, red_owner, {8, 7}
+    );
+    const auto victim_id = simulation.add_unit(
+        aoe::UnitKind::knight, blue_owner, {15, 7}
+    );
+    simulation.add_unit(
+        aoe::UnitKind::villager, green_owner, {35, 13}
+    );
+    // Red reconnaissance sees target; neither victim nor ally sees attacker.
+    simulation.add_building(
+        aoe::BuildingKind::outpost, red_owner, {15, 9}
+    );
+    const auto attacker = [&simulation, attacker_id]() -> const aoe::Unit& {
+        const auto found = std::ranges::find(
+            simulation.units(), attacker_id, &aoe::Unit::id
+        );
+        require(found != simulation.units().end());
+        return *found;
+    };
+    require(!simulation.is_visible(blue_owner, attacker().position));
+    require(!simulation.is_unit_visible(blue_owner, attacker()));
+    require(!simulation.is_unit_visible(green_owner, attacker()));
+    require(simulation.command_unit(attacker_id, {15, 7}));
+    for (int tick = 0;
+         tick < 12 && simulation.projectiles().empty(); ++tick) {
+        simulation.update();
+    }
+    require(!simulation.projectiles().empty());
+    require(simulation.projectiles().front().source_entity_id == attacker_id);
+    require(!simulation.is_visible(blue_owner, attacker().position));
+    require(simulation.is_unit_visible(blue_owner, attacker()));
+    require(!simulation.is_unit_visible(green_owner, attacker()));
+
+    // Cartography shares victim's temporary unit reveal, without exposing
+    // terrain at attacker position or granting every ally live state.
+    auto green_state = simulation.player_state(green);
+    green_state.technologies[static_cast<std::size_t>(
+        aoe::Technology::cartography
+    )] = true;
+    simulation.replace_player_state(green, std::move(green_state));
+    require(simulation.is_unit_visible(green_owner, attacker()));
+    require(!simulation.is_visible(green_owner, attacker().position));
+    const auto expiry = simulation.player_state(blue)
+        .attack_reveal_expiries.at(attacker_id);
+    require(expiry > simulation.tick_number());
+    require(expiry - simulation.tick_number() >=
+        static_cast<std::uint64_t>(
+            simulation.projectiles().front().ticks_remaining
+        ));
+    aoe::Simulation repeated = simulation;
+    for (int tick = 0; tick < 30 &&
+         repeated.player_state(blue).attack_reveal_expiries.at(
+             attacker_id
+         ) <= expiry; ++tick) {
+        repeated.update();
+    }
+    require(repeated.player_state(blue).attack_reveal_expiries.at(
+        attacker_id
+    ) > expiry);
+
+    const auto path = std::filesystem::temp_directory_path() /
+        "aoe-attacker-reveal.save";
+    const std::string hash = aoe::deterministic_state_hash(simulation);
+    aoe::save_game(simulation, path);
+    aoe::Simulation loaded = aoe::load_game(path);
+    std::filesystem::remove(path);
+    require(aoe::deterministic_state_hash(loaded) == hash);
+    const auto loaded_attacker = std::ranges::find(
+        loaded.units(), attacker_id, &aoe::Unit::id
+    );
+    require(loaded_attacker != loaded.units().end());
+    require(loaded.is_unit_visible(blue_owner, *loaded_attacker));
+    require(loaded.is_unit_visible(green_owner, *loaded_attacker));
+    require(loaded.stop_unit(attacker_id));
+    auto expiring_blue = loaded.player_state(blue);
+    expiring_blue.attack_reveal_expiries[attacker_id] =
+        loaded.tick_number() + 2;
+    loaded.replace_player_state(blue, std::move(expiring_blue));
+    loaded.update();
+    const auto still_revealed = std::ranges::find(
+        loaded.units(), attacker_id, &aoe::Unit::id
+    );
+    require(still_revealed != loaded.units().end());
+    require(loaded.is_unit_visible(blue_owner, *still_revealed));
+    loaded.update();
+    const auto hidden_attacker = std::ranges::find(
+        loaded.units(), attacker_id, &aoe::Unit::id
+    );
+    require(hidden_attacker != loaded.units().end());
+    require(!loaded.is_unit_visible(blue_owner, *hidden_attacker));
+
+    // Attack-ground reveals only players with units/buildings inside splash.
+    aoe::Simulation ground(aoe::GameMap(32, 12));
+    const auto ground_attacker = ground.add_unit(
+        aoe::UnitKind::mangonel, aoe::Player::red, {5, 5}
+    );
+    ground.add_unit(
+        aoe::UnitKind::villager, aoe::Player::blue, {12, 5}
+    );
+    require(!ground.is_unit_visible(
+        aoe::Player::blue, ground.units().front()
+    ));
+    require(ground.command_attack_ground(ground_attacker, {12, 5}));
+    for (int tick = 0;
+         tick < 12 && ground.projectiles().empty(); ++tick) {
+        ground.update();
+    }
+    require(!ground.projectiles().empty());
+    require(ground.projectiles().front().target == 0);
+    require(ground.is_unit_visible(
+        aoe::Player::blue, ground.units().front()
+    ));
+
+    // Ship miss still triggers reveal and remains bounded by missile flight.
+    aoe::GameMap sea_map(36, 12);
+    for (int y = 0; y < sea_map.height(); ++y) {
+        for (int x = 0; x < sea_map.width(); ++x) {
+            sea_map.set_terrain({x, y}, aoe::Terrain::water);
+        }
+    }
+    aoe::Simulation sea(std::move(sea_map));
+    sea.add_unit(
+        aoe::UnitKind::transport_ship, aoe::Player::red, {30, 1}
+    );
+    sea.add_unit(
+        aoe::UnitKind::transport_ship, aoe::Player::red, {31, 3}
+    );
+    sea.add_unit(
+        aoe::UnitKind::transport_ship, aoe::Player::red, {32, 5}
+    );
+    const auto cannon = sea.add_unit(
+        aoe::UnitKind::cannon_galleon, aoe::Player::red, {3, 7}
+    );
+    sea.add_unit(
+        aoe::UnitKind::fishing_ship, aoe::Player::blue, {15, 7}
+    );
+    require(!sea.is_unit_visible(aoe::Player::blue, sea.units()[3]));
+    require(sea.command_unit(cannon, {15, 7}));
+    for (int tick = 0; tick < 12 && sea.projectiles().empty(); ++tick) {
+        sea.update();
+    }
+    require(!sea.projectiles().empty());
+    require(sea.projectiles().front().target == 0);
+    require(sea.is_unit_visible(aoe::Player::blue, sea.units()[3]));
+    require(sea.player_state(blue).attack_reveal_expiries.at(cannon) -
+        sea.tick_number() >= static_cast<std::uint64_t>(
+            sea.projectiles().front().ticks_remaining
+        ));
+
+    // Observer controller bypass remains presentation-only.
+    loaded.replace_controller_states(
+        aoe::PlayerControllerState::observer,
+        aoe::PlayerControllerState::active
+    );
+    require(loaded.is_unit_visible_to_controller(
+        aoe::Player::blue, *hidden_attacker
+    ));
+    (void)victim_id;
+}
+
 void exploration_sweep_matches_per_tile_visibility() {
     // update_exploration marks tiles from each vision source instead of
     // testing every tile, so it must stay identical to is_visible over
@@ -24061,6 +24247,10 @@ void slot_indexed_entity_ownership_and_diplomacy_are_checked() {
 }
 
 int main() {
+    if (std::getenv("AOE_ATTACK_REVEAL_TEST") != nullptr) {
+        enemy_attackers_reveal_per_victim_through_attack_action();
+        return 0;
+    }
     if (std::getenv("AOE_SLOT_TEST") != nullptr) {
         slot_indexed_entity_ownership_and_diplomacy_are_checked();
         return 0;
@@ -24130,6 +24320,10 @@ int main() {
         idle_military_excludes_persistent_combat_orders
     );
     run("vision and exploration", vision_reveals_and_remembers_explored_tiles);
+    run(
+        "temporary enemy attacker reveal",
+        enemy_attackers_reveal_per_victim_through_attack_action
+    );
     run(
         "exploration sweep equivalence",
         exploration_sweep_matches_per_tile_visibility

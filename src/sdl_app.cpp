@@ -1847,7 +1847,9 @@ public:
                 ? cooldowns_.at(unit.id)
                 : unit.attack_cooldown;
             if (unit.attack_cooldown > previous &&
-                simulation.is_visible_to_controller(active_view_player, unit.position)) {
+                simulation.is_unit_visible_to_controller(
+                    active_view_player, unit
+                )) {
                 attack_animation_frames_[unit.id] = 0;
             }
             if (const auto pending =
@@ -1885,8 +1887,8 @@ public:
             const bool was_moving = moving_.contains(unit.id) &&
                 moving_.at(unit.id);
             if (unit.moving && !was_moving &&
-                simulation.is_visible_to_controller(
-                    active_view_player, unit.position
+                simulation.is_unit_visible_to_controller(
+                    active_view_player, unit
                 )) {
                 play_world_effect(
                     *audio, movement_sound(unit.kind), unit.position,
@@ -11005,7 +11007,9 @@ void render_minimap(
     for (const Unit& unit : simulation.units()) {
         if (unit.garrisoned_in != 0 ||
             (unit.owner != active_view_player &&
-             !simulation.is_visible_to_controller(active_view_player, unit.position))) {
+             !simulation.is_unit_visible_to_controller(
+                 active_view_player, unit
+             ))) {
             continue;
         }
         const SDL_FPoint position = minimap_top(unit.position);
@@ -15659,7 +15663,9 @@ std::size_t render(
                 !tile_near_world_view(unit.position) ||
                 (active_settings.fog &&
                  unit.owner != active_view_player &&
-                 !simulation.is_visible_to_controller(active_view_player, unit.position))) {
+                 !simulation.is_unit_visible_to_controller(
+                     active_view_player, unit
+                 ))) {
                 continue;
             }
             begin_overlap_case(
@@ -16364,7 +16370,9 @@ bool contextual_group_target(
         [&simulation, target](const Unit& unit) {
             return unit.owner == Player::red &&
                    unit.position == target &&
-                   simulation.is_visible_to_controller(active_view_player, target);
+                   simulation.is_unit_visible_to_controller(
+                       active_view_player, unit
+                   );
         }
     );
     const auto enemy_building = std::ranges::find_if(
@@ -19711,9 +19719,8 @@ int SdlApp::run() {
                                 return unit.owner == Player::red &&
                                     unit.garrisoned_in == 0 &&
                                     unit.position == tile &&
-                                    simulation.is_visible(
-                                        active_view_player,
-                                        tile
+                                    simulation.is_unit_visible_to_controller(
+                                        active_view_player, unit
                                     );
                             }
                         );

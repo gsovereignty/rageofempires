@@ -390,6 +390,10 @@ void save_game(const Simulation& simulation, const std::filesystem::path& path) 
                    << memory.maximum_hit_points << ' '
                    << memory.topology_frame << '\n';
         }
+        for (const auto& [id, expiry] : state.attack_reveal_expiries) {
+            output << "attack-reveal " << index << ' ' << id << ' '
+                   << expiry << '\n';
+        }
     }
     for (std::size_t from = 0; from < 8; ++from) {
         const PlayerSlotId source = *PlayerSlotId::from_index(from);
@@ -1180,6 +1184,20 @@ Simulation load_game(const std::filesystem::path& path) {
                 ->remembered_buildings;
             if (!memories.emplace(memory.building.id, std::move(memory)).second) {
                 throw std::runtime_error("duplicate building memory in save");
+            }
+        } else if (record == "attack-reveal" && version >= 119) {
+            int stable_id{};
+            EntityId attacker{};
+            std::uint64_t expiry{};
+            input >> stable_id >> attacker >> expiry;
+            const auto slot = decode_player_slot_id(stable_id);
+            if (!slot || slot->is_neutral() ||
+                !native_player_states[*slot->index()] || attacker == 0 ||
+                expiry <= tick ||
+                !native_player_states[*slot->index()]
+                     ->attack_reveal_expiries.emplace(attacker, expiry)
+                     .second) {
+                throw std::runtime_error("invalid attack reveal in save");
             }
         } else if (record == "roster-diplomacy" && version >= 109) {
             int from{};
@@ -2551,6 +2569,21 @@ Simulation load_game(const std::filesystem::path& path) {
                 throw std::runtime_error(
                     "invalid player exploration in save"
                 );
+            }
+            for (const auto& [attacker, expiry] :
+                 (*state).attack_reveal_expiries) {
+                if (expiry <= tick || std::ranges::none_of(
+                        units,
+                        [attacker](const Unit& unit) {
+                            return unit.id == attacker &&
+                                unit.hit_points > 0 &&
+                                unit.garrisoned_in == 0;
+                        }
+                    )) {
+                    throw std::runtime_error(
+                        "invalid attack reveal entity in save"
+                    );
+                }
             }
         }
         const auto owner_valid = [&native_roster](EntityOwner owner) {

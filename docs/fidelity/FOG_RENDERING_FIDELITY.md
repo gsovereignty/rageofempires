@@ -41,31 +41,35 @@ visible-neighbor `TileEdge` class plus an explored-neighbor `BlkEdge` class.
 scanline spans; `BlkEdge` triples remove scanline spans. These files therefore
 encode geometry, not pixels, palette indexes, dither, or alpha.
 
-## Missing exact contract
+## Recovered composition contract
 
-No authoritative local callsite currently proves:
+`FUN_0054fb20` supplies original 8-bit composition constants. Explored terrain
+uses alternating `0x56` stipple rows; hidden terrain uses `0x28` and is opaque
+black. Reconstruction applies 50-percent terrain brightness beneath explored
+stipple, then subtracts `BlkEdge` spans. Hidden tiles stay black. Visible tiles
+use `TileEdge` spans before the same explored boundary subtraction.
 
-- final hidden fill color or explored terrain color transform/dither;
-- final terrain compositing outside the proved scanline-span clipper;
-- minimap hidden/explored/visible colors, markers, masks, or viewport treatment.
+Minimap consumes the same three-state visibility decision and black/half-bright
+terrain colors. Entity markers remain restricted to current visibility. Camera
+viewport geometry uses the recovered inclusive bounds in `minimap_contract`.
 
-DRS hashes prove exact archives, but neither archive supplies names linking a
-resource ID to fog. The edge assets are loose named DAT files, so no fog SLP
-resource ID is claimed.
+No fog SLP resource ID is claimed: these are loose named DAT geometry files,
+not DRS sprites.
 
 ## Renderer decision
 
-World and minimap fog remain procedural. Exact selector logic now lives in
-`fog_rendering_contract`: compass mask construction, 256-to-47 normalization,
-state-to-edge selection, direct tile-shape selection, and payload facts. World
-unexplored tiles still use the current opaque dark fill; explored-but-not-visible
-tiles retain current texture/color darkening. Minimap retains its independent
-hidden fill and explored terrain darkening. Entity visibility remains
-simulation-driven.
+World and minimap fog now use recovered composition. `generated/fog_edge_geometry.hpp`
+contains pointer-free semantic spans derived from every 17x47 entry; original
+pointer tables, filenames, and DAT files are not shipped or read at runtime.
+`tools/generate_fog_edge_geometry.py` reproduces this tracked artifact from
+user-owned archives. `fog_rendering_contract` rejects every out-of-range shape
+or edge class and exposes only terminated `{row,left,right}` payloads.
 
-Archive-backed fog remains disabled because original edge DAT files are absent
-from the reconstruction runtime and final hidden/explored color compositing is
-not closed. Selector and span geometry are no longer guessed.
+World rendering normalizes all eight compass neighbors, selects exact edge
+classes, scales original 96x48 scanlines to reconstruction's 64x32 diamonds,
+applies both TileEdge halves, removes BlkEdge spans, and overlays recovered
+explored stipple. Minimap uses matching state colors, visibility-gated markers,
+and recovered viewport bounds. Runtime and build have no parent path fallback.
 
 ## Reproduction and tests
 
@@ -77,10 +81,14 @@ python3 tools/audit_fog_contract.py \
   --interface-drs "/path/to/Data/interfac.drs" \
   --graphics-drs "/path/to/Data/graphics.drs"
 python3 tools/test_audit_fog_contract.py
+python3 tools/generate_fog_edge_geometry.py \
+  --tile-edge "/path/to/Data/TileEdge.Dat" \
+  --black-edge "/path/to/Data/BlkEdge.Dat" \
+  --output generated/fog_edge_geometry.hpp
 cmake --build build-release --target aoe_fog_rendering_contract_tests
 ./build-release/aoe_fog_rendering_contract_tests
 ```
 
-Tests verify the exact 256-to-47 normalization, 17-by-47 file dimensions,
-compass bit order, state selection, shape bounds, span terminators,
-pointer-bound rejection, and fail-closed archive renderer decision.
+Tests verify exact 256-to-47 normalization, all 93,281 derived span records,
+17-by-47 dimensions, compass order, state selection, shape bounds, terminators,
+pointer rejection, recovered dither constants, and enabled archive renderer.

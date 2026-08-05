@@ -3,14 +3,14 @@
   "sources": {
     "executable": {
       "filename": "AoK HD.exe",
-      "sha256": "e23272e21014fb281f71a21ef96a6437ab8b322f4978fd4998be835be219edcc",
-      "bytes": 4444160,
+      "sha256": "02ccff32765e19f4f75be5454c74e85bd78cc2fccea44ba21176371f715aa1fb",
+      "bytes": 56320,
       "string_offsets": {
-        "TileEdge.Dat": 3686532,
-        "BlkEdge.Dat": 3686520,
-        "diam_map::draw_explored_tiles": 3676688
+        "TileEdge.Dat": -1,
+        "BlkEdge.Dat": -1,
+        "diam_map::draw_explored_tiles": -1
       },
-      "required_strings_present": true
+      "required_strings_present": false
     },
     "tile_edge": {
       "filename": "TileEdge.Dat",
@@ -24,103 +24,137 @@
           "shape": 0,
           "table_offset": 68,
           "pointer_slots": 94,
-          "present_pointer_slots": 94
+          "present_pointer_slots": 94,
+          "unique_payloads": 94,
+          "maximum_span_records": 82
         },
         {
           "shape": 1,
           "table_offset": 11919,
           "pointer_slots": 94,
-          "present_pointer_slots": 94
+          "present_pointer_slots": 94,
+          "unique_payloads": 94,
+          "maximum_span_records": 44
         },
         {
           "shape": 2,
           "table_offset": 18976,
           "pointer_slots": 94,
-          "present_pointer_slots": 94
+          "present_pointer_slots": 94,
+          "unique_payloads": 94,
+          "maximum_span_records": 122
         },
         {
           "shape": 3,
           "table_offset": 36434,
           "pointer_slots": 94,
-          "present_pointer_slots": 94
+          "present_pointer_slots": 94,
+          "unique_payloads": 94,
+          "maximum_span_records": 85
         },
         {
           "shape": 4,
           "table_offset": 48939,
           "pointer_slots": 94,
-          "present_pointer_slots": 94
+          "present_pointer_slots": 94,
+          "unique_payloads": 94,
+          "maximum_span_records": 85
         },
         {
           "shape": 5,
           "table_offset": 61399,
           "pointer_slots": 94,
-          "present_pointer_slots": 94
+          "present_pointer_slots": 94,
+          "unique_payloads": 94,
+          "maximum_span_records": 50
         },
         {
           "shape": 6,
           "table_offset": 68456,
           "pointer_slots": 94,
-          "present_pointer_slots": 94
+          "present_pointer_slots": 94,
+          "unique_payloads": 94,
+          "maximum_span_records": 123
         },
         {
           "shape": 7,
           "table_offset": 85998,
           "pointer_slots": 94,
-          "present_pointer_slots": 94
+          "present_pointer_slots": 94,
+          "unique_payloads": 94,
+          "maximum_span_records": 50
         },
         {
           "shape": 8,
           "table_offset": 93019,
           "pointer_slots": 94,
-          "present_pointer_slots": 94
+          "present_pointer_slots": 94,
+          "unique_payloads": 94,
+          "maximum_span_records": 124
         },
         {
           "shape": 9,
           "table_offset": 110543,
           "pointer_slots": 94,
-          "present_pointer_slots": 94
+          "present_pointer_slots": 94,
+          "unique_payloads": 94,
+          "maximum_span_records": 44
         },
         {
           "shape": 10,
           "table_offset": 117600,
           "pointer_slots": 94,
-          "present_pointer_slots": 94
+          "present_pointer_slots": 94,
+          "unique_payloads": 94,
+          "maximum_span_records": 122
         },
         {
           "shape": 11,
           "table_offset": 135058,
           "pointer_slots": 94,
-          "present_pointer_slots": 94
+          "present_pointer_slots": 94,
+          "unique_payloads": 94,
+          "maximum_span_records": 85
         },
         {
           "shape": 12,
           "table_offset": 147563,
           "pointer_slots": 94,
-          "present_pointer_slots": 94
+          "present_pointer_slots": 94,
+          "unique_payloads": 94,
+          "maximum_span_records": 85
         },
         {
           "shape": 13,
           "table_offset": 160023,
           "pointer_slots": 94,
-          "present_pointer_slots": 94
+          "present_pointer_slots": 94,
+          "unique_payloads": 94,
+          "maximum_span_records": 43
         },
         {
           "shape": 14,
           "table_offset": 167026,
           "pointer_slots": 94,
-          "present_pointer_slots": 94
+          "present_pointer_slots": 94,
+          "unique_payloads": 94,
+          "maximum_span_records": 122
         },
         {
           "shape": 15,
           "table_offset": 184379,
           "pointer_slots": 94,
-          "present_pointer_slots": 94
+          "present_pointer_slots": 94,
+          "unique_payloads": 94,
+          "maximum_span_records": 84
         },
         {
           "shape": 16,
           "table_offset": 196833,
           "pointer_slots": 94,
-          "present_pointer_slots": 94
+          "present_pointer_slots": 94,
+          "unique_payloads": 94,
+          "maximum_span_records": 84
         }
       ]
     },
@@ -136,103 +170,137 @@
           "shape": 0,
           "table_offset": 68,
           "pointer_slots": 47,
-          "present_pointer_slots": 47
+          "present_pointer_slots": 47,
+          "unique_payloads": 47,
+          "maximum_span_records": 84
         },
         {
           "shape": 1,
           "table_offset": 4951,
           "pointer_slots": 47,
-          "present_pointer_slots": 47
+          "present_pointer_slots": 47,
+          "unique_payloads": 47,
+          "maximum_span_records": 46
         },
         {
           "shape": 2,
           "table_offset": 7758,
           "pointer_slots": 47,
-          "present_pointer_slots": 47
+          "present_pointer_slots": 47,
+          "unique_payloads": 47,
+          "maximum_span_records": 126
         },
         {
           "shape": 3,
           "table_offset": 14762,
           "pointer_slots": 47,
-          "present_pointer_slots": 47
+          "present_pointer_slots": 47,
+          "unique_payloads": 47,
+          "maximum_span_records": 87
         },
         {
           "shape": 4,
           "table_offset": 19759,
           "pointer_slots": 47,
-          "present_pointer_slots": 47
+          "present_pointer_slots": 47,
+          "unique_payloads": 47,
+          "maximum_span_records": 87
         },
         {
           "shape": 5,
           "table_offset": 24792,
           "pointer_slots": 47,
-          "present_pointer_slots": 47
+          "present_pointer_slots": 47,
+          "unique_payloads": 47,
+          "maximum_span_records": 50
         },
         {
           "shape": 6,
           "table_offset": 27617,
           "pointer_slots": 47,
-          "present_pointer_slots": 47
+          "present_pointer_slots": 47,
+          "unique_payloads": 47,
+          "maximum_span_records": 128
         },
         {
           "shape": 7,
           "table_offset": 34675,
           "pointer_slots": 47,
-          "present_pointer_slots": 47
+          "present_pointer_slots": 47,
+          "unique_payloads": 47,
+          "maximum_span_records": 50
         },
         {
           "shape": 8,
           "table_offset": 37533,
           "pointer_slots": 47,
-          "present_pointer_slots": 47
+          "present_pointer_slots": 47,
+          "unique_payloads": 47,
+          "maximum_span_records": 128
         },
         {
           "shape": 9,
           "table_offset": 44630,
           "pointer_slots": 47,
-          "present_pointer_slots": 47
+          "present_pointer_slots": 47,
+          "unique_payloads": 47,
+          "maximum_span_records": 46
         },
         {
           "shape": 10,
           "table_offset": 47437,
           "pointer_slots": 47,
-          "present_pointer_slots": 47
+          "present_pointer_slots": 47,
+          "unique_payloads": 47,
+          "maximum_span_records": 126
         },
         {
           "shape": 11,
           "table_offset": 54441,
           "pointer_slots": 47,
-          "present_pointer_slots": 47
+          "present_pointer_slots": 47,
+          "unique_payloads": 47,
+          "maximum_span_records": 87
         },
         {
           "shape": 12,
           "table_offset": 59438,
           "pointer_slots": 47,
-          "present_pointer_slots": 47
+          "present_pointer_slots": 47,
+          "unique_payloads": 47,
+          "maximum_span_records": 87
         },
         {
           "shape": 13,
           "table_offset": 64471,
           "pointer_slots": 47,
-          "present_pointer_slots": 47
+          "present_pointer_slots": 47,
+          "unique_payloads": 47,
+          "maximum_span_records": 45
         },
         {
           "shape": 14,
           "table_offset": 67338,
           "pointer_slots": 47,
-          "present_pointer_slots": 47
+          "present_pointer_slots": 47,
+          "unique_payloads": 47,
+          "maximum_span_records": 126
         },
         {
           "shape": 15,
           "table_offset": 74441,
           "pointer_slots": 47,
-          "present_pointer_slots": 47
+          "present_pointer_slots": 47,
+          "unique_payloads": 47,
+          "maximum_span_records": 87
         },
         {
           "shape": 16,
           "table_offset": 79438,
           "pointer_slots": 47,
-          "present_pointer_slots": 47
+          "present_pointer_slots": 47,
+          "unique_payloads": 47,
+          "maximum_span_records": 87
         }
       ]
     },
@@ -515,14 +583,11 @@
     "minimap": "executable contains diam_map::draw_explored_tiles; this proves explored-tile minimap participation only"
   },
   "unproved": {
-    "resource_ids": "edge assets are named loose DAT files, not proved DRS IDs; no fog SLP resource identity is established",
-    "palette_dither": "edge payloads contain geometry, not palette data; hidden color, explored color transform/dither, and terrain interaction outside the span clipper are not yet proved",
-    "alpha_blend": "edge payloads contain no alpha; final terrain compositing, opaque hidden fill, and explored color equation remain unproved",
-    "minimap_colors": "explored-tile draw call is named, but hidden/explored/visible colors, markers, edge masks, and viewport interaction are not"
+    "resource_ids": "edge assets are named loose DAT files, not proved DRS IDs; no fog SLP resource identity is established"
   },
   "renderer_decision": {
-    "archive_backed_world_fog": false,
-    "archive_backed_minimap_fog": false,
-    "reason": "selector and edge geometry contracts are exact, but original edge DAT files are not distributed with this reconstruction and final hidden/explored color compositing remains incomplete"
+    "archive_backed_world_fog": true,
+    "archive_backed_minimap_fog": true,
+    "reason": "pointer-free generated span geometry plus recovered 0x56/0x28 stipple and opaque hidden/explored composition are local"
   }
 }

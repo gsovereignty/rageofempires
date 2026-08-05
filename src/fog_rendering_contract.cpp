@@ -1,5 +1,7 @@
 #include "aoe/fog_rendering_contract.hpp"
 
+#include "fog_edge_geometry.hpp"
+
 #include <stdexcept>
 
 namespace aoe::fog {
@@ -113,6 +115,45 @@ AssetSelection select_assets(
 
 bool valid_shape(std::uint8_t tile_shape) {
     return tile_shape < shape_count;
+}
+
+std::span<const std::uint8_t> encoded_spans(
+    std::uint8_t tile_shape,
+    std::uint8_t edge_class,
+    EdgeLayer layer
+) {
+    if (!valid_shape(tile_shape) || edge_class >= edge_class_count) {
+        throw std::out_of_range("fog edge geometry index outside 17x47 table");
+    }
+    const std::size_t entry =
+        static_cast<std::size_t>(tile_shape) * edge_class_count + edge_class;
+    std::uint32_t offset{};
+    switch (layer) {
+    case EdgeLayer::tile_left:
+        offset = generated::tile_offsets[entry * 2];
+        break;
+    case EdgeLayer::tile_right:
+        offset = generated::tile_offsets[entry * 2 + 1];
+        break;
+    case EdgeLayer::black:
+        offset = generated::black_offsets[entry];
+        break;
+    }
+    const auto begin = generated::span_bytes.begin() + offset;
+    const auto end = std::find(begin, generated::span_bytes.end(), payload_terminator);
+    if (end == generated::span_bytes.end()) {
+        throw std::logic_error("generated fog span lacks terminator");
+    }
+    return {begin, static_cast<std::size_t>(end - begin)};
+}
+
+std::size_t span_count(
+    std::uint8_t tile_shape,
+    std::uint8_t edge_class,
+    EdgeLayer layer
+) {
+    return encoded_spans(tile_shape, edge_class, layer).size() /
+        payload_record_bytes;
 }
 
 }  // namespace aoe::fog

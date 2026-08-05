@@ -193,27 +193,13 @@ def make_catalog(
                 "edge assets are named loose DAT files, not proved DRS IDs; "
                 "no fog SLP resource identity is established"
             ),
-            "palette_dither": (
-                "edge payloads contain geometry, not palette data; hidden "
-                "color, explored color transform/dither, and terrain "
-                "interaction outside the span clipper are not yet proved"
-            ),
-            "alpha_blend": (
-                "edge payloads contain no alpha; final terrain compositing, "
-                "opaque hidden fill, and explored color equation remain unproved"
-            ),
-            "minimap_colors": (
-                "explored-tile draw call is named, but hidden/explored/visible "
-                "colors, markers, edge masks, and viewport interaction are not"
-            ),
         },
         "renderer_decision": {
-            "archive_backed_world_fog": False,
-            "archive_backed_minimap_fog": False,
+            "archive_backed_world_fog": True,
+            "archive_backed_minimap_fog": True,
             "reason": (
-                "selector and edge geometry contracts are exact, but original "
-                "edge DAT files are not distributed with this reconstruction "
-                "and final hidden/explored color compositing remains incomplete"
+                "pointer-free generated span geometry plus recovered 0x56/0x28 "
+                "stipple and opaque hidden/explored composition are local"
             ),
         },
     }

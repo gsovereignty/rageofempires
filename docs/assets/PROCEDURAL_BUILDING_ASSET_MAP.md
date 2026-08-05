@@ -21,14 +21,16 @@ Family suffixes used below:
 | Monastery 104 | W150, E147, F148, M149, X6734 | 120 | 39 | W 4774/4778/4782; E 4771/4775/4779; F 4772/4776/4780; M 4773/4777/4781; X 6728/6729/6730 |
 | Palisade Wall 72 | G 588 | 118 | 37 | 4610/4611/4612 |
 | Stone Wall 117 | W2024, E2021, F2022, M2023, X7096 | W3321, E3318, F3319, M3320, X7107 | 37 | W 3794/3798/3802; E 3791/3795/3799; F 3792/3796/3800; M 3793/3797/3801; X 7150/7152/7154 |
+| Fortified Wall 155 | W2036, E2033, F2034, M2035, X7100 | W3321, E3318, F3319, M3320, X7107 | 37 | W 3806/3810/3814; E 3803/3807/3811; F 3804/3808/3812; M 3805/3809/3813; X 7156/7158/7160 |
 | Repository `palisade_gate_x`/unit 792 | 6512 | W3289, E3286, F3287, M3288, X6798 | 38 | 6509/6510/6511 |
 | Repository `palisade_gate_y`/unit 796 | 6533 | W3305, E3302, F3303, M3304, X6830 | 38 | 6530/6531/6532 |
 | Repository `stone_gate_x`/unit 789 | 6497 | 118 | 38 | 6492/6493/6494 |
 | Repository `stone_gate_y`/unit 793 | 6518 | 118 | 38 | 6513/6514/6515 |
 
-Ordinary raw damage thresholds are 25/50/75 with flag 0. Stone Wall records
-store raw 537/562/587 with flag 2; low bytes are 25/50/75. Preserve raw values
-until runtime semantics for flag 2 are proved.
+Ordinary raw damage thresholds are 25/50/75 with flag 0. Stone and Fortified
+Wall records store raw 537/562/587 with flag 2; low bytes are 25/50/75.
+`FUN_00575420` overwrites the threshold high byte with the flag, and
+`FUN_00589490` compares only the low byte before replacing the standing body.
 
 ## Archive coverage and complete `NN` roots
 
@@ -46,9 +48,10 @@ until runtime semantics for flag 2 are proved.
   root presence must not be treated as proof that every composite layer exists.
 - Palisade Wall complete root 588/SLP 4534, construction 118/236, and death
   37/73 are present. Its damage graphics have no SLP.
-- Stone Wall complete roots 2021–2024/2098–2101 and 7096/5124 are present.
-  All family construction, death, and damage SLPs are present. This is the
-  only mapped group with a complete standing/construction/damage/death chain.
+- Stone Wall complete roots 2021–2024/2098–2101 and 7096/5124, plus Fortified
+  Wall roots 2033–2036/2110–2113 and 7100/5126, are present. All family
+  construction, death, and damage SLPs are present. These walls have complete
+  standing/construction/damage/death chains.
 - Gate roots 6497/4878 and 6518/4889 are present. Composite roots 6512 and
   6533 have no SLP of their own; they require delta composition. Their N1
   component SLPs 4877 and 4888 are absent. Gate construction and death SLPs

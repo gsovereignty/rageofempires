@@ -1,0 +1,21 @@
+# Stone/Fortified Wall DAT replacement audit: X, Y, isolated topology.
+AOE-ARCHAEOLOGY-SCENARIO 31
+map 20 12
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue imperial
+age red dark
+civilization blue generic
+civilization red generic
+
+building stone_wall blue 2 2
+building stone_wall blue 3 2
+building stone_wall blue 6 2
+building stone_wall blue 6 3
+building stone_wall blue 9 2
+
+building fortified_wall blue 2 7
+building fortified_wall blue 3 7
+building fortified_wall blue 6 7
+building fortified_wall blue 6 8
+building fortified_wall blue 9 7

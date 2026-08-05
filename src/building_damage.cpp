@@ -80,10 +80,15 @@ std::array<BuildingDamageRecord, 3> canonical_building_damage_records(
             {5198,5202,5206},{5195,5199,5203},{5196,5200,5204},
             {5197,5201,5205},{7110,7111,7112}}}); break;
         case BuildingKind::stone_wall:
-        case BuildingKind::fortified_wall:
             roots = family_roots({{
                 {3794,3798,3802},{3791,3795,3799},{3792,3796,3800},
                 {3793,3797,3801},{7150,7152,7154}}});
+            flag = 2;
+            break;
+        case BuildingKind::fortified_wall:
+            roots = family_roots({{
+                {3806,3810,3814},{3803,3807,3811},{3804,3808,3812},
+                {3805,3809,3813},{7156,7158,7160}}});
             flag = 2;
             break;
         case BuildingKind::palisade_gate_x: roots = {6509,6510,6511}; break;

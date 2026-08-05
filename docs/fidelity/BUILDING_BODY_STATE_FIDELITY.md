@@ -24,7 +24,8 @@ construction and death family satisfies those requirements.
   27/27 after progressive-body composition.
 - Death body composition: 3/27 before, 25/27 after.
 - Exact damage-state application: 0/27 before, 26/27 after across 103
-  complete civilization families.
+  complete base-building civilization families. Transformed Fortified Wall
+  adds its distinct unit-155 replacement chain.
 
 Generic construction roots 118, 119, 120, 121, 123, and 4248 resolve to the
 footprint scaffold/shadow layer. They are not complete building bodies. The
@@ -41,7 +42,7 @@ scaffold composition. Guard Tower/Keep and fortified wall/gate runtime kinds
 alias their canonical base construction contracts.
 
 Construction HP never selects completed-building damage fire. Flag-0 DAT
-damage overlays still layer after the construction composition; flag-2 body
+damage overlays still layer after construction composition; flag-2 body
 replacement remains restricted to completed wall damage handling.
 
 Death now uses exact animated composite roots 37, 38, 39, 40, 42, and 5452.
@@ -56,8 +57,14 @@ All recursive layers render in DAT order with exact offsets and owner color.
 - Damage uses exact recursive DAT/DRS animated composites. Runtime selection
   computes `100-floor(hp*100/maxhp)` and chooses last record with threshold
   strictly below damage. Flag 0 records overlay standing/construction art;
-  Stone Wall flag 2 records replace standing art. Record changes reset
-  animation cadence; repair reverses selection; death removes damage display.
+  Stone and Fortified Wall flag 2 records replace standing art. Serialized
+  537/562/587 compare by low byte as strict 25/50/75 thresholds, selecting at
+  computed damage 26/51/76. Stone roots are 3791–3802 and 7150/7152/7154;
+  Fortified roots are 3803–3814 and 7156/7158/7160. Each replacement keeps
+  civilization family, player palette, and X/Y/isolated topology angle.
+  Record changes reset animation cadence; repair selects lower damage bodies
+  and eventually restores exact pristine unit-117/unit-155 standing art;
+  death removes damage display.
   No flag 1 record exists in represented catalog, so randomized placement is
   neither inferred nor rendered.
 - Fish Trap damage roots `5357..5359` have no drawable SLP or delta layer.
@@ -82,6 +89,17 @@ body/scaffold binding, and 0/50/100-percent progress boundaries.
 `building_construction_body_sdl_smoke` captures 25%, 75%, and complete real
 renderer states from one fixed scenario and proves later construction converges
 on exact completed bodies while materially changing visible body pixels.
+
+`building_damage_tests` checks every civilization's Stone/Fortified roots,
+serialized high-byte flag, and strict threshold edges. Renderer contract tests
+cover both wall tiers across all 19 runtime civilizations, three damage stages,
+and three reachable topology angles. `wall_damage_state_sdl_smoke` captures
+both tiers and all topology shapes for every named civilization at pristine,
+25/26, 50/51, and 75/76 boundaries; equality captures prove threshold
+direction, while four distinct image hashes prove visible transitions and
+repair destination. Save/load and replay need no presentation-only state:
+persisted kind, civilization, HP, maximum HP, owner, and wall neighbors derive
+the same deterministic replacement after restore or command playback.
 
 ## Reproduction
 

@@ -381,7 +381,10 @@ void save_game(const Simulation& simulation, const std::filesystem::path& path) 
                << state.countdown_last_tick << ' '
                << std::quoted(technologies) << ' '
                << std::quoted(explored) << ' '
-               << std::quoted(commercial_technologies) << '\n';
+               << std::quoted(commercial_technologies) << ' '
+               << (state.commercial_civilization
+                       ? static_cast<int>(*state.commercial_civilization) : -1)
+               << ' ' << state.commercial_civilization_initialized << '\n';
         for (std::size_t resource = 0;
              resource < state.commercial_resources.size(); ++resource) {
             if (state.commercial_resources[resource] != 0.0f) {
@@ -902,7 +905,15 @@ void save_game(const Simulation& simulation, const std::filesystem::path& path) 
                << projectile.source_is_building << ' '
                << encode(projectile.source_building_kind) << ' '
                << projectile.projectile_speed_tenths << ' '
-               << projectile.source_entity_id << '\n';
+               << projectile.source_entity_id << ' '
+               << (projectile.commercial_projectile_identity
+                       ? static_cast<int>(projectile.commercial_projectile_identity
+                             ->civilization_id) : -1) << ' '
+               << (projectile.commercial_projectile_identity
+                       ? static_cast<int>(projectile.commercial_projectile_identity
+                             ->object_id) : -1) << ' '
+               << projectile.precomputed_damage << ' '
+               << projectile.tracks_target << '\n';
     }
     for (const ImpactEffect& effect : simulation.impact_effects()) {
         output << "impact " << effect.position.x << ' '
@@ -1147,6 +1158,8 @@ Simulation load_game(const std::filesystem::path& path) {
             std::string technologies;
             std::string explored;
             std::string commercial_technologies;
+            int commercial_civilization{-1};
+            bool commercial_civilization_initialized{};
             Simulation::PlayerState state;
             input >> stable_id >>
                 state.economy.wood >> state.economy.food >>
@@ -1160,6 +1173,10 @@ Simulation load_game(const std::filesystem::path& path) {
                 std::quoted(technologies) >> std::quoted(explored);
             if (version >= 120) {
                 input >> std::quoted(commercial_technologies);
+            }
+            if (version >= 122) {
+                input >> commercial_civilization >>
+                    commercial_civilization_initialized;
             }
             const auto slot = decode_player_slot_id(stable_id);
             const auto all_bits = [](const std::string& bits) {
@@ -1203,7 +1220,12 @@ Simulation load_game(const std::filesystem::path& path) {
                 !all_bits(technologies) || !all_bits(explored) ||
                 (version >= 120 &&
                  (commercial_technologies.size() != 460 ||
-                  !all_bits(commercial_technologies)))) {
+                  !all_bits(commercial_technologies))) ||
+                (version >= 122 &&
+                 (commercial_civilization < -1 ||
+                  commercial_civilization >= 19 ||
+                  (commercial_civilization_initialized &&
+                   commercial_civilization < 0)))) {
                 throw std::runtime_error("invalid player state in save");
             }
             state.age = static_cast<Age>(age);
@@ -1222,6 +1244,14 @@ Simulation load_game(const std::filesystem::path& path) {
                 state.commercial_technologies[index] =
                     commercial_technologies[index] == '1';
             }
+            if (commercial_civilization >= 0) {
+                state.commercial_civilization =
+                    static_cast<CommercialCivilizationId>(
+                        commercial_civilization
+                    );
+            }
+            state.commercial_civilization_initialized =
+                commercial_civilization_initialized;
             state.explored.reserve(explored.size());
             for (char bit : explored) {
                 state.explored.push_back(bit == '1');
@@ -2605,6 +2635,27 @@ Simulation load_game(const std::filesystem::path& path) {
             if (version >= 111) {
                 input >> projectile.source_entity_id;
             }
+            if (version >= 123) {
+                int civilization{};
+                int object{};
+                input >> civilization >> object >> projectile.precomputed_damage;
+                if ((civilization == -1) != (object == -1) ||
+                    civilization < -1 || civilization >= 19 ||
+                    object < -1 || object > 65535 ||
+                    (civilization >= 0 && !commercial_content_catalog().object(
+                        static_cast<CommercialCivilizationId>(civilization),
+                        static_cast<CommercialObjectId>(object)))) {
+                    throw std::runtime_error("invalid commercial projectile");
+                }
+                if (civilization >= 0) {
+                    projectile.commercial_projectile_identity =
+                        CommercialObjectIdentity{
+                            static_cast<CommercialCivilizationId>(civilization),
+                            static_cast<CommercialObjectId>(object),
+                        };
+                }
+            }
+            if (version >= 124) input >> projectile.tracks_target;
             if (version >= 109) {
                 const auto decoded = EntityOwner::from_stable_id(owner);
                 if (!decoded) {

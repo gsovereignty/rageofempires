@@ -36,7 +36,8 @@ class ContentCatalogGeneratorTests(unittest.TestCase):
         source = {
             "format": "VER 5.7",
             "civilizations": [{
-                "id": 0, "name": "Gaia", "record": "opaque",
+                "id": 0, "name": "Gaia", "record":
+                    "Civilization { civ_effect: 0, bonus_effect: None }",
                 "units": [{
                     "id": 4, "copy_id": 4, "unit_group": 4,
                     "base_class": "Combat", "unit_class": 0,
@@ -59,6 +60,7 @@ class ContentCatalogGeneratorTests(unittest.TestCase):
         self.assertEqual(result["object_record_count"], 1)
         self.assertNotIn("record", result["technologies"][0])
         self.assertNotIn("record", result["civilizations"][0])
+        self.assertEqual(result["civilizations"][0]["civilization_effect_id"], 0)
         action = result["object_variants"][0]["action"]
         self.assertEqual(action["tasks"], [])
         self.assertTrue(action["tasks_semantically_available"])

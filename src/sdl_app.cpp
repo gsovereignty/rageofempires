@@ -6607,7 +6607,38 @@ const LegacyAnimatedComposite* commercial_graphic_for(
     );
     if (record == nullptr) return nullptr;
     std::optional<std::uint16_t> graphic = record->standing_graphic;
-    if ((unit.attack_target_id != 0 || unit.attacking_ground) &&
+    const auto task_graphic = [&](CommercialTaskAbility ability) {
+        const auto task = std::ranges::find_if(
+            record->tasks, [ability](const CommercialTask& candidate) {
+                return commercial_task_ability(candidate.action_type) == ability;
+            }
+        );
+        return task == record->tasks.end()
+            ? std::optional<std::uint16_t>{}
+            : (task->work_graphic ? task->work_graphic
+                                  : task->secondary_work_graphic);
+    };
+    if (unit.has_resource_target) {
+        if (const auto work = task_graphic(CommercialTaskAbility::gather)) {
+            graphic = work;
+        }
+    } else if (unit.repair_target_id != 0) {
+        if (const auto work = task_graphic(CommercialTaskAbility::repair)) {
+            graphic = work;
+        }
+    } else if (unit.conversion_target_id != 0) {
+        if (const auto work = task_graphic(CommercialTaskAbility::convert)) {
+            graphic = work;
+        }
+    } else if (unit.healing_target_id != 0) {
+        if (const auto work = task_graphic(CommercialTaskAbility::heal)) {
+            graphic = work;
+        }
+    } else if (unit.trade_target_market_id != 0) {
+        if (const auto work = task_graphic(CommercialTaskAbility::trade)) {
+            graphic = work;
+        }
+    } else if ((unit.attack_target_id != 0 || unit.attacking_ground) &&
         record->attack_graphic) {
         graphic = record->attack_graphic;
     } else if (unit.moving && record->walking_graphic) {
@@ -16014,6 +16045,22 @@ std::size_t render(
                 (destination.y - origin.y) * progress -
                 8.0F * std::sin(progress * 3.14159265F),
         };
+        if (projectile.commercial_projectile_identity) {
+            Unit visual;
+            visual.owner = projectile.owner;
+            visual.position = projectile.destination;
+            visual.previous_position = projectile.origin;
+            visual.commercial_identity =
+                projectile.commercial_projectile_identity;
+            if (const auto* graphic = commercial_graphic_for(renderer, visual);
+                graphic && render_legacy_animated_composite(
+                    renderer, *graphic, position,
+                    projectile.origin, projectile.destination,
+                    simulation.tick_number(), true, true
+                )) {
+                continue;
+            }
+        }
         const float lane = static_cast<float>(projectile.visual_lane);
         const auto projectile_asset =
             projectile_asset_kind_for(projectile);

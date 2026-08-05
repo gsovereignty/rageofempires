@@ -775,6 +775,9 @@ struct Projectile {
     BuildingKind source_building_kind{BuildingKind::town_center};
     int projectile_speed_tenths{};
     EntityId source_entity_id{};
+    std::optional<CommercialObjectIdentity> commercial_projectile_identity;
+    bool precomputed_damage{};
+    bool tracks_target{};
 };
 
 struct ImpactEffect {

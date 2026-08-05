@@ -27,6 +27,10 @@ int main() {
     require(catalog.object_variant_count() == 1414, "deduplicated variants");
     require(catalog.technologies().size() == 460, "all technologies");
     require(catalog.effects().size() == 514, "all effects");
+    require(catalog.civilization_effect(1) == 254,
+            "British technology-tree effect bound");
+    require(catalog.civilization_bonus_effect(1) == 399,
+            "British civilization bonus effect bound");
 
     for (auto civilization : catalog.civilization_ids()) {
         std::set<aoe::CommercialObjectId> ids;
@@ -93,9 +97,64 @@ int main() {
     const auto town_center_id = simulation.add_commercial_object(
         {1, 109}, aoe::EntityOwner{aoe::Player::blue}, {5, 5}
     );
-    require(simulation.units().back().id == villager_id, "commercial unit made");
+    const auto archer_id = simulation.add_commercial_object(
+        {1, 4}, aoe::EntityOwner{aoe::Player::blue}, {3, 3}
+    );
+    const auto enemy_id = simulation.add_unit(
+        aoe::UnitKind::militia, aoe::Player::red, {9, 3}
+    );
     require(
-        simulation.units().back().commercial_identity ==
+        simulation.command_commercial_task(
+            archer_id, 0, enemy_id, false, {9, 3}
+        ),
+        "commercial combat task dispatches"
+    );
+    const auto commanded_archer = std::ranges::find_if(
+        simulation.units(), [archer_id](const auto& unit) {
+            return unit.id == archer_id;
+        }
+    );
+    require(commanded_archer != simulation.units().end() &&
+                commanded_archer->attack_target_id == enemy_id,
+            "commercial combat task enters attack state");
+    const auto swordsman_id = simulation.add_commercial_object(
+        {1, 74}, aoe::EntityOwner{aoe::Player::blue}, {2, 8}
+    );
+    const auto melee_target_id = simulation.add_unit(
+        aoe::UnitKind::militia, aoe::Player::red, {3, 8}
+    );
+    require(simulation.command_commercial_task(
+                swordsman_id, 0, melee_target_id, false, {3, 8}),
+            "commercial melee task dispatches");
+    bool saw_commercial_projectile{};
+    for (int tick = 0; tick < 20; ++tick) {
+        simulation.update();
+        saw_commercial_projectile = saw_commercial_projectile ||
+            std::ranges::any_of(
+                simulation.projectiles(), [](const auto& projectile) {
+                    return projectile.commercial_projectile_identity.has_value() &&
+                        projectile.precomputed_damage;
+                }
+            );
+    }
+    const auto melee_target = std::ranges::find_if(
+        simulation.units(), [melee_target_id](const auto& unit) {
+            return unit.id == melee_target_id;
+        }
+    );
+    require(melee_target != simulation.units().end() &&
+                melee_target->hit_points < 40,
+            "commercial class attack reaches combat runtime");
+    require(saw_commercial_projectile,
+            "commercial missile identity reaches projectile runtime");
+    const auto commercial_villager = std::ranges::find_if(
+        simulation.units(), [villager_id](const auto& unit) {
+            return unit.id == villager_id;
+        }
+    );
+    require(commercial_villager != simulation.units().end(), "commercial unit made");
+    require(
+        commercial_villager->commercial_identity ==
             aoe::CommercialObjectIdentity{1, 83},
         "commercial unit identity retained"
     );
@@ -123,15 +182,24 @@ int main() {
         ),
         "commercial technology completes"
     );
-    require(simulation.units().back().hit_points == 40, "Loom effect applied");
+    const auto loom_villager = std::ranges::find_if(
+        simulation.units(), [villager_id](const auto& unit) {
+            return unit.id == villager_id;
+        }
+    );
+    require(loom_villager != simulation.units().end() &&
+                loom_villager->hit_points == 40,
+            "Loom effect applied");
     const auto save_path = std::filesystem::temp_directory_path() /
         "aoe-content-catalog-roundtrip.save";
     aoe::save_game(simulation, save_path);
     aoe::Simulation restored = aoe::load_game(save_path);
     std::filesystem::remove(save_path);
     require(
-        restored.units().back().commercial_identity ==
-            aoe::CommercialObjectIdentity{1, 83},
+        std::ranges::find_if(restored.units(), [villager_id](const auto& unit) {
+            return unit.id == villager_id && unit.commercial_identity ==
+                aoe::CommercialObjectIdentity{1, 83};
+        }) != restored.units().end(),
         "commercial unit identity survives save"
     );
     require(
@@ -157,6 +225,10 @@ int main() {
             "commercial tech costs survive save");
     require(restored_state.commercial_technology_time_overrides.at(22) == 7,
             "commercial tech time survives save");
+    require(restored_state.commercial_civilization == 1,
+            "commercial civilization survives save");
+    require(restored_state.commercial_civilization_initialized,
+            "commercial civilization bootstrap survives save");
     aoe::Replay replay;
     replay.record(3, aoe::QueueCommercialObjectCommand{
         town_center_id, {1, 4}

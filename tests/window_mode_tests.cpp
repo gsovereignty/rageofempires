@@ -1,6 +1,8 @@
 #include "aoe/window_mode.hpp"
 
+#include <array>
 #include <stdexcept>
+#include <vector>
 
 namespace {
 
@@ -29,6 +31,16 @@ int main() {
     );
     require((render_extent_for_window(1280, 720, 2560, 1440, 175) ==
              RenderExtent{1280, 720, 545}));
+    require((fixed_canvas_extent(1024, 768, 2048, 1536, 175) ==
+             RenderExtent{1024, 768, 593}));
+    require((fixed_canvas_extent(1024, 768, 2560, 1440, 175) ==
+             RenderExtent{1024, 768, 593}));
+    const std::array reported{
+        DisplayMode{640, 480}, DisplayMode{1920, 1080},
+        DisplayMode{1024, 768}, DisplayMode{1920, 1080}
+    };
+    require((supported_display_modes(reported) ==
+             std::vector{DisplayMode{1024, 768}, DisplayMode{1920, 1080}}));
 
     const WindowGeometry geometry{20, 30, 800, 600};
     const WindowModeState windowed{false, false, false, geometry};

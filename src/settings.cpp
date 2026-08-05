@@ -78,6 +78,27 @@ bool validate_settings(
         error = "scroll speed must be between 25 and 400";
         return false;
     }
+    if (settings.mouse_speed < 25 || settings.mouse_speed > 400) {
+        error = "mouse speed must be between 25 and 400";
+        return false;
+    }
+    if (settings.screen_width < 800 || settings.screen_width > 7680 ||
+        settings.screen_height < 600 || settings.screen_height > 4320) {
+        error = "screen resolution is outside supported bounds";
+        return false;
+    }
+    for (std::size_t i = 0; i < settings.hotkeys.size(); ++i) {
+        if (settings.hotkeys[i] <= 0) {
+            error = "hotkey values must be positive";
+            return false;
+        }
+        for (std::size_t j = i + 1; j < settings.hotkeys.size(); ++j) {
+            if (settings.hotkeys[i] == settings.hotkeys[j]) {
+                error = "hotkey bindings conflict";
+                return false;
+            }
+        }
+    }
     if (settings.locale.empty() || settings.locale.size() > 32) {
         error = "locale must contain 1 to 32 characters";
         return false;
@@ -130,7 +151,10 @@ SettingsLoadResult load_settings(const std::filesystem::path& path) {
     const std::string* music = required("music_volume");
     const std::string* effects = required("effects_volume");
     const std::string* fullscreen = required("fullscreen");
+    const std::string* screen_width = required("screen_width");
+    const std::string* screen_height = required("screen_height");
     const std::string* scroll = required("scroll_speed");
+    const std::string* mouse = required("mouse_speed");
     const std::string* edge = required("edge_scroll");
     const std::string* fog = required("fog");
     const std::string* minimap = required("minimap");
@@ -142,6 +166,11 @@ SettingsLoadResult load_settings(const std::filesystem::path& path) {
         !parse_int(*music, result.settings.music_volume) ||
         !parse_int(*effects, result.settings.effects_volume) ||
         !parse_bool(*fullscreen, result.settings.fullscreen) ||
+        (version >= 5 &&
+         (!screen_width || !screen_height || !mouse ||
+          !parse_int(*screen_width, result.settings.screen_width) ||
+          !parse_int(*screen_height, result.settings.screen_height) ||
+          !parse_int(*mouse, result.settings.mouse_speed))) ||
         !parse_int(*scroll, result.settings.scroll_speed) ||
         !parse_bool(*edge, result.settings.edge_scroll) ||
         !parse_bool(*fog, result.settings.fog) ||
@@ -154,6 +183,17 @@ SettingsLoadResult load_settings(const std::filesystem::path& path) {
         return result;
     }
     result.settings.locale = *locale;
+    if (version >= 5) {
+        for (std::size_t i = 0; i < result.settings.hotkeys.size(); ++i) {
+            const std::string key = "hotkey_" + std::to_string(i);
+            const std::string* value = required(key);
+            if (!value || !parse_int(*value, result.settings.hotkeys[i])) {
+                result.status = SettingsLoadStatus::invalid;
+                result.message = "missing or malformed hotkey";
+                return result;
+            }
+        }
+    }
     if (const std::string* file = required("language_file")) {
         result.settings.language_file = *file;
     }
@@ -198,12 +238,15 @@ bool save_settings_atomic(
             error = "could not create temporary settings file";
             return false;
         }
-        output << "aoe-reconstruction-settings 4\n"
+        output << "aoe-reconstruction-settings 5\n"
                << "game_speed=" << speed_name(settings.game_speed) << '\n'
                << "music_volume=" << settings.music_volume << '\n'
                << "effects_volume=" << settings.effects_volume << '\n'
                << "fullscreen=" << settings.fullscreen << '\n'
+               << "screen_width=" << settings.screen_width << '\n'
+               << "screen_height=" << settings.screen_height << '\n'
                << "scroll_speed=" << settings.scroll_speed << '\n'
+               << "mouse_speed=" << settings.mouse_speed << '\n'
                << "edge_scroll=" << settings.edge_scroll << '\n'
                << "fog=" << settings.fog << '\n'
                << "minimap=" << settings.minimap << '\n'
@@ -211,6 +254,9 @@ bool save_settings_atomic(
                << minimap_mode_name(settings.minimap_mode) << '\n'
                << "locale=" << settings.locale << '\n'
                << "language_file=" << settings.language_file << '\n';
+        for (std::size_t i = 0; i < settings.hotkeys.size(); ++i) {
+            output << "hotkey_" << i << '=' << settings.hotkeys[i] << '\n';
+        }
         output.flush();
         if (!output) {
             error = "could not write temporary settings file";

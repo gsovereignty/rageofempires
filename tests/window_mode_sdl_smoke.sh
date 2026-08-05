@@ -44,8 +44,8 @@ if not match:
 logical_width, logical_height, output_width, output_height = map(
     int, match.groups()
 )
-if (logical_width, logical_height) != (960, 540):
-    raise SystemExit("live resize kept stale logical extent")
+if (logical_width, logical_height) != (800, 600):
+    raise SystemExit("live resize changed fixed 800x600 canvas")
 if (output_width, output_height) != (width, height):
     raise SystemExit("captured BMP does not match renderer output")
 if "Fullscreen roundtrip " not in log:

@@ -330,10 +330,12 @@ int active_tribute_amount{100};
 std::string active_diplomacy_status{"SELECT ACTION"};
 bool active_options_visible{};
 bool active_options_hotkeys{};
+std::optional<std::size_t> active_options_hotkey_capture;
+std::vector<DisplayMode> active_options_display_modes;
 ReconstructionSettings active_settings;
 ReconstructionSettings draft_settings;
 std::filesystem::path active_settings_path;
-std::string active_options_status{"LETTER KEYS CHANGE  A APPLY  S SAVE"};
+std::string active_options_status{"ARROWS CHANGE  APPLY  OK  CANCEL"};
 bool active_statistics_visible{};
 bool active_statistics_postgame{};
 StatisticsTab active_statistics_tab{StatisticsTab::economy};
@@ -13955,7 +13957,20 @@ void render_options_overlay(SDL_Renderer* renderer) {
                           static_cast<float>(view_pixel_height + hud_height)};
     set_color(renderer, {6, 6, 4, 238});
     SDL_RenderFillRect(renderer, &shade);
-    const SDL_FRect panel{260.0F, 42.0F, 760.0F, 620.0F};
+    const float panel_width = std::min(
+        760.0F, static_cast<float>(view_pixel_width) - 40.0F
+    );
+    const float panel_height = std::min(
+        620.0F,
+        static_cast<float>(view_pixel_height + hud_height) - 40.0F
+    );
+    const SDL_FRect panel{
+        (static_cast<float>(view_pixel_width) - panel_width) * 0.5F,
+        (static_cast<float>(view_pixel_height + hud_height) - panel_height) *
+            0.5F,
+        panel_width,
+        panel_height,
+    };
     render_beveled_panel(renderer, panel, {43, 34, 24, 255});
     set_color(renderer, {238, 214, 145, 255});
     render_ui_debug_text(
@@ -13964,35 +13979,43 @@ void render_options_overlay(SDL_Renderer* renderer) {
     );
     set_color(renderer, {232, 225, 196, 255});
     if (active_options_hotkeys) {
-        const std::array<const char*, 10> lines{{
-            "ESC OPTIONS / CLOSE     F11 / ALT+ENTER FULLSCREEN",
-            "ARROWS CAMERA     WHEEL ZOOM     DRAG SELECT",
-            "F5 SAVE GAME      F6 CHECKPOINT/REPLAY",
-            "F7 PAUSE/REPLAY    F8 SPEED (MULTIPLAYER HOST)",
-            "F9 TECHNOLOGY TREE              F10 DIPLOMACY",
-            "ENTER CHAT        TAB CHAT AUDIENCE",
-            "1-9 PRODUCTION / BUILD COMMANDS",
-            "CTRL+0..9 STORE GROUP   0..9 RECALL GROUP",
-            "H RETURNS TO OPTIONS",
-            "Procedural panel; no archive options artwork proven.",
+        const std::array<const char*, 8> names{{
+            "OPTIONS", "SAVE GAME", "CHECKPOINT", "PAUSE",
+            "GAME SPEED", "TECH TREE", "CHAT", "CHAT AUDIENCE"
         }};
         float y = panel.y + 76.0F;
-        for (const char* line : lines) {
-            render_ui_debug_text(renderer, panel.x + 34.0F, y, line);
+        for (std::size_t i = 0; i < names.size(); ++i) {
+            const std::string line = std::to_string(i + 1) + "  " + names[i] +
+                ": " + SDL_GetKeyName(
+                    static_cast<SDL_Keycode>(draft_settings.hotkeys[i])
+                ) + (active_options_hotkey_capture == i ? "  [PRESS KEY]" : "");
+            render_ui_debug_text(renderer, panel.x + 34.0F, y, line.c_str());
             y += 42.0F;
         }
+        render_ui_debug_text(
+            renderer, panel.x + 34.0F, panel.y + 444.0F,
+            "1-8 EDIT   D DEFAULTS   H RETURN   ESC CANCEL CAPTURE"
+        );
+        set_color(renderer, {169, 204, 139, 255});
+        render_ui_debug_text(
+            renderer, panel.x + 34.0F, panel.y + panel.h - 60.0F,
+            fit_localized_text(active_options_status, 82).c_str()
+        );
         return;
     }
     const char* speed =
         draft_settings.game_speed == SinglePlayerSpeed::slow ? "SLOW" :
         draft_settings.game_speed == SinglePlayerSpeed::fast ? "FAST" :
         "NORMAL";
-    const std::array<std::string, 11> lines{{
+    const std::array<std::string, 13> lines{{
         std::string{"G  SINGLE-PLAYER SPEED: "} + speed,
+        "D  SCREEN SIZE: " + std::to_string(draft_settings.screen_width) +
+            "x" + std::to_string(draft_settings.screen_height),
         "M  MUSIC VOLUME: " + std::to_string(draft_settings.music_volume),
         "E  EFFECTS VOLUME: " + std::to_string(draft_settings.effects_volume),
         std::string{"F  FULLSCREEN: "} + on_off(draft_settings.fullscreen),
         "R  SCROLL SPEED: " + std::to_string(draft_settings.scroll_speed) + "%",
+        "C  MOUSE SPEED: " + std::to_string(draft_settings.mouse_speed) + "%",
         std::string{"X  EDGE SCROLL: "} + on_off(draft_settings.edge_scroll),
         std::string{"V  FOG DISPLAY: "} + on_off(draft_settings.fog),
         std::string{"P  MINIMAP: "} + on_off(draft_settings.minimap),
@@ -14003,21 +14026,21 @@ void render_options_overlay(SDL_Renderer* renderer) {
             (draft_settings.language_file.empty()
                  ? std::string{"BUILT-IN/AUTO"}
                  : draft_settings.language_file),
-        "H HOTKEYS   A APPLY   S SAVE+APPLY   ESC CANCEL",
+        "H HOTKEYS   A APPLY   S OK+SAVE   ESC CANCEL",
     }};
     float y = panel.y + 68.0F;
     for (const auto& line : lines) {
         render_ui_debug_text(renderer, panel.x + 34.0F, y, line.c_str());
-        y += 36.0F;
+        y += 32.0F;
     }
     set_color(renderer, {169, 204, 139, 255});
     render_ui_debug_text(
-        renderer, panel.x + 34.0F, panel.y + 562.0F,
+        renderer, panel.x + 34.0F, panel.y + panel.h - 54.0F,
         fit_localized_text(active_options_status, 82).c_str()
     );
     set_color(renderer, {158, 137, 91, 255});
     render_ui_debug_text(
-        renderer, panel.x + 34.0F, panel.y + 588.0F,
+        renderer, panel.x + 34.0F, panel.y + panel.h - 28.0F,
         "MUSIC/SOUND ATTENUATION APPLIES LIVE; PAUSE/FOCUS PRESERVE AUDIO"
     );
 }
@@ -16398,14 +16421,21 @@ int SdlApp::run() {
     }
     draft_settings = active_settings;
 
+    view_pixel_width = active_settings.screen_width;
+    logical_screen_height = active_settings.screen_height;
+    view_pixel_height = logical_screen_height - hud_height;
     if (const char* requested_size = SDL_getenv("AOE_WINDOW_SIZE")) {
         int width{};
         int height{};
         if (SDL_sscanf(requested_size, "%dx%d", &width, &height) == 2 &&
-            width >= 640 && height >= 360) {
+            width >= 800 && height >= 600) {
             view_pixel_width = width;
             logical_screen_height = height;
             view_pixel_height = height - hud_height;
+            active_settings.screen_width = width;
+            active_settings.screen_height = height;
+            draft_settings.screen_width = width;
+            draft_settings.screen_height = height;
         }
     }
     int requested_output_scale = 1;
@@ -16457,6 +16487,20 @@ int SdlApp::run() {
         active_options_status = "FULLSCREEN STARTUP FAILED";
     }
     SDL_SetWindowMinimumSize(window, 640, 360);
+    {
+        int mode_count{};
+        const SDL_DisplayID display = SDL_GetDisplayForWindow(window);
+        SDL_DisplayMode** reported =
+            SDL_GetFullscreenDisplayModes(display, &mode_count);
+        std::vector<DisplayMode> modes;
+        for (int i = 0; reported != nullptr && i < mode_count; ++i) {
+            modes.push_back({reported[i]->w, reported[i]->h});
+        }
+        SDL_free(reported);
+        modes.push_back({active_settings.screen_width,
+                         active_settings.screen_height});
+        active_options_display_modes = supported_display_modes(modes);
+    }
     int renderer_output_width{};
     int renderer_output_height{};
     int window_width{};
@@ -16467,9 +16511,9 @@ int SdlApp::run() {
         &renderer_output_width,
         &renderer_output_height
     );
-    const auto initial_extent = render_extent_for_window(
-        window_width,
-        window_height,
+    const auto initial_extent = fixed_canvas_extent(
+        active_settings.screen_width,
+        active_settings.screen_height,
         renderer_output_width,
         renderer_output_height,
         hud_height
@@ -17560,9 +17604,9 @@ int SdlApp::run() {
             return false;
         }
         const auto extent =
-            render_extent_for_window(
-                current_window_width,
-                current_window_height,
+            fixed_canvas_extent(
+                active_settings.screen_width,
+                active_settings.screen_height,
                 output_width,
                 output_height,
                 hud_height
@@ -17643,6 +17687,11 @@ int SdlApp::run() {
         return succeeded;
     };
     auto apply_options = [&]() {
+        std::string settings_error;
+        if (!validate_settings(draft_settings, settings_error)) {
+            active_options_status = "INVALID OPTIONS: " + settings_error;
+            return false;
+        }
         try {
             const std::optional<std::filesystem::path> selected_file =
                 draft_settings.language_file.empty()
@@ -17661,6 +17710,13 @@ int SdlApp::run() {
             return false;
         }
         active_settings = draft_settings;
+        if (!fullscreen) {
+            SDL_SetWindowSize(
+                window, active_settings.screen_width,
+                active_settings.screen_height
+            );
+            SDL_SyncWindow(window);
+        }
         if (audio) {
             audio->apply_mix(AudioMix::from_settings(active_settings));
         }
@@ -17669,6 +17725,7 @@ int SdlApp::run() {
                 return false;
             }
         }
+        refresh_render_extent();
         active_options_status = "APPLIED";
         return true;
     };
@@ -20436,8 +20493,31 @@ int SdlApp::run() {
                 }
                 if (!event.key.repeat && active_options_visible) {
                     if (active_options_hotkeys) {
-                        if (event.key.key == SDLK_H ||
-                            event.key.key == SDLK_ESCAPE) {
+                        if (active_options_hotkey_capture) {
+                            if (event.key.key == SDLK_ESCAPE) {
+                                active_options_hotkey_capture.reset();
+                                active_options_status = "HOTKEY CHANGE CANCELLED";
+                            } else if (std::ranges::find(
+                                           draft_settings.hotkeys,
+                                           static_cast<int>(event.key.key)
+                                       ) != draft_settings.hotkeys.end()) {
+                                active_options_status = "HOTKEY CONFLICT";
+                            } else {
+                                draft_settings.hotkeys[*active_options_hotkey_capture] =
+                                    static_cast<int>(event.key.key);
+                                active_options_hotkey_capture.reset();
+                                active_options_status = "HOTKEY CHANGED";
+                            }
+                        } else if (event.key.key >= SDLK_1 &&
+                                   event.key.key <= SDLK_8) {
+                            active_options_hotkey_capture =
+                                static_cast<std::size_t>(event.key.key - SDLK_1);
+                            active_options_status = "PRESS NEW HOTKEY";
+                        } else if (event.key.key == SDLK_D) {
+                            draft_settings.hotkeys = ReconstructionSettings{}.hotkeys;
+                            active_options_status = "HOTKEY DEFAULTS RESTORED";
+                        } else if (event.key.key == SDLK_H ||
+                                   event.key.key == SDLK_ESCAPE) {
                             active_options_hotkeys = false;
                         }
                         continue;
@@ -20458,6 +20538,21 @@ int SdlApp::run() {
                                     SinglePlayerSpeed::normal
                                 ? SinglePlayerSpeed::fast
                                 : SinglePlayerSpeed::slow;
+                    } else if (event.key.key == SDLK_D) {
+                        const auto current = std::ranges::find(
+                            active_options_display_modes,
+                            DisplayMode{draft_settings.screen_width,
+                                        draft_settings.screen_height}
+                        );
+                        if (!active_options_display_modes.empty()) {
+                            const auto next =
+                                current == active_options_display_modes.end() ||
+                                std::next(current) == active_options_display_modes.end()
+                                ? active_options_display_modes.begin()
+                                : std::next(current);
+                            draft_settings.screen_width = next->width;
+                            draft_settings.screen_height = next->height;
+                        }
                     } else if (event.key.key == SDLK_M) {
                         step_volume(draft_settings.music_volume);
                     } else if (event.key.key == SDLK_E) {
@@ -20470,6 +20565,10 @@ int SdlApp::run() {
                             draft_settings.scroll_speed >= 200
                                 ? 50
                                 : draft_settings.scroll_speed + 25;
+                    } else if (event.key.key == SDLK_C) {
+                        draft_settings.mouse_speed =
+                            draft_settings.mouse_speed >= 200
+                                ? 50 : draft_settings.mouse_speed + 25;
                     } else if (event.key.key == SDLK_X) {
                         draft_settings.edge_scroll =
                             !draft_settings.edge_scroll;
@@ -20620,7 +20719,9 @@ int SdlApp::run() {
                     continue;
                 }
                 if (!event.key.repeat &&
-                    event.key.key == SDLK_F9) {
+                    event.key.key == static_cast<SDL_Keycode>(
+                        active_settings.hotkeys[5]
+                    )) {
                     active_technology_tree_visible =
                         !active_technology_tree_visible;
                     if (active_technology_tree_visible) {
@@ -21306,7 +21407,8 @@ int SdlApp::run() {
                         }
                         continue;
                     }
-                    if (event.key.key == SDLK_F6) {
+                    if (event.key.key == static_cast<SDL_Keycode>(
+                            active_settings.hotkeys[2])) {
                         if (!multiplayer.hosting) {
                             multiplayer.checkpoint_feedback =
                                 "ONLY HOST MAY REQUEST CHECKPOINT";
@@ -21322,7 +21424,8 @@ int SdlApp::run() {
                         }
                         continue;
                     }
-                    if (event.key.key == SDLK_F7) {
+                    if (event.key.key == static_cast<SDL_Keycode>(
+                            active_settings.hotkeys[3])) {
                         if (!multiplayer.hosting) {
                             multiplayer.control_feedback =
                                 "HOST CONTROLS PAUSE";
@@ -21338,7 +21441,8 @@ int SdlApp::run() {
                         }
                         continue;
                     }
-                    if (event.key.key == SDLK_F8) {
+                    if (event.key.key == static_cast<SDL_Keycode>(
+                            active_settings.hotkeys[4])) {
                         const GameSpeed next =
                             multiplayer_runtime->game_speed() ==
                                     GameSpeed::normal
@@ -21373,7 +21477,8 @@ int SdlApp::run() {
                         multiplayer_presentation->local_ready = true;
                         continue;
                     }
-                    if ((event.key.key == SDLK_RETURN ||
+                    if ((event.key.key == static_cast<SDL_Keycode>(
+                             active_settings.hotkeys[6]) ||
                          event.key.key == SDLK_KP_ENTER) &&
                         (SDL_GetModState() &
                          (SDL_KMOD_CTRL | SDL_KMOD_GUI)) != 0 &&
@@ -21395,7 +21500,9 @@ int SdlApp::run() {
                     continue;
                 }
                 if (campaign_presentation &&
-                    event.key.key == SDLK_F5 &&
+                    event.key.key == static_cast<SDL_Keycode>(
+                        active_settings.hotkeys[1]
+                    ) &&
                     !event.key.repeat &&
                     (SDL_GetModState() &
                      (SDL_KMOD_CTRL | SDL_KMOD_ALT | SDL_KMOD_GUI)) == 0) {
@@ -21403,7 +21510,8 @@ int SdlApp::run() {
                         !campaign_presentation->visible;
                     continue;
                 }
-                if (event.key.key == SDLK_TAB &&
+                if (event.key.key == static_cast<SDL_Keycode>(
+                        active_settings.hotkeys[7]) &&
                     !event.key.repeat &&
                     (SDL_GetModState() &
                      (SDL_KMOD_CTRL | SDL_KMOD_ALT | SDL_KMOD_GUI)) == 0) {
@@ -22556,14 +22664,18 @@ int SdlApp::run() {
                         "SIGNAL: CLICK AN EXPLORED WORLD TILE";
                     continue;
                 }
+                if (!event.key.repeat && event.key.key ==
+                        static_cast<SDL_Keycode>(active_settings.hotkeys[0])) {
+                    draft_settings = active_settings;
+                    active_options_visible = true;
+                    continue;
+                }
+                if (!event.key.repeat && event.key.key ==
+                        static_cast<SDL_Keycode>(active_settings.hotkeys[1])) {
+                    save_game(simulation, save_path);
+                    continue;
+                }
                 switch (event.key.key) {
-                    case SDLK_ESCAPE:
-                        draft_settings = active_settings;
-                        active_options_visible = true;
-                        break;
-                    case SDLK_F5:
-                        save_game(simulation, save_path);
-                        break;
                     case SDLK_PERIOD: {
                         const std::vector<EntityId> idle =
                             simulation.idle_villagers(active_view_player);
@@ -23575,31 +23687,38 @@ int SdlApp::run() {
         const float camera_step =
             8.0F * static_cast<float>(active_settings.scroll_speed) /
             100.0F / camera.zoom;
+        const float mouse_camera_step =
+            camera_step * static_cast<float>(active_settings.mouse_speed) /
+            100.0F;
         const bool* keys = SDL_GetKeyboardState(nullptr);
         const bool pointer_in_world =
             mouse_position.y >= 0.0F &&
             mouse_position.y < static_cast<float>(view_pixel_height);
-        if (keys[SDL_SCANCODE_LEFT] ||
-            (active_settings.edge_scroll &&
-             pointer_in_world && mouse_position.x <= 5.0F)) {
+        if (keys[SDL_SCANCODE_LEFT]) {
             camera.x -= camera_step;
+        } else if (active_settings.edge_scroll && pointer_in_world &&
+                   mouse_position.x <= 5.0F) {
+            camera.x -= mouse_camera_step;
         }
-        if (keys[SDL_SCANCODE_RIGHT] ||
-            (active_settings.edge_scroll && pointer_in_world &&
-             mouse_position.x >=
-                 static_cast<float>(view_pixel_width) - 5.0F)) {
+        if (keys[SDL_SCANCODE_RIGHT]) {
             camera.x += camera_step;
+        } else if (active_settings.edge_scroll && pointer_in_world &&
+                   mouse_position.x >=
+                       static_cast<float>(view_pixel_width) - 5.0F) {
+            camera.x += mouse_camera_step;
         }
-        if (keys[SDL_SCANCODE_UP] ||
-            (active_settings.edge_scroll &&
-             pointer_in_world && mouse_position.y <= 5.0F)) {
+        if (keys[SDL_SCANCODE_UP]) {
             camera.y -= camera_step;
+        } else if (active_settings.edge_scroll && pointer_in_world &&
+                   mouse_position.y <= 5.0F) {
+            camera.y -= mouse_camera_step;
         }
-        if (keys[SDL_SCANCODE_DOWN] ||
-            (active_settings.edge_scroll && pointer_in_world &&
-             mouse_position.y >=
-                 static_cast<float>(view_pixel_height) - 5.0F)) {
+        if (keys[SDL_SCANCODE_DOWN]) {
             camera.y += camera_step;
+        } else if (active_settings.edge_scroll && pointer_in_world &&
+                   mouse_position.y >=
+                       static_cast<float>(view_pixel_height) - 5.0F) {
+            camera.y += mouse_camera_step;
         }
         clamp_camera(camera);
         if (multiplayer_runtime) {

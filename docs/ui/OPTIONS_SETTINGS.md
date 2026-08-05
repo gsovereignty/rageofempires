@@ -1,53 +1,42 @@
-# Options and reconstruction settings
+# Options and display workflow
 
-Open Options with `O` from the reconstruction main menu or `Esc` during a
-single-player game. Letter keys shown beside each setting cycle its value.
-`A` applies without writing, `S` saves and applies, and `Esc` cancels the
-draft. `H` opens the hotkey reference.
+Options opens from main menu or `Esc` in single-player. It keeps separate
+active and draft values. `A` applies draft values without writing, `S` applies
+and atomically saves, and `Esc` discards draft changes. Validation or SDL mode
+transition failures leave live state intact and show an error in panel.
 
-Settings are stored as `reconstruction-settings.txt` below SDL's user-data
-directory. Format version 3 is validated before use and written through a
-sibling temporary file followed by an atomic rename. Versions 1 and 2 migrate
-their linear loudness percentages into original 0..99 attenuation direction;
-obsolete category values are discarded. Malformed and unsupported files leave
-recovered defaults active.
+## Controls
 
-Single-player cadence, fullscreen state, camera and edge scrolling, fog
-presentation, and minimap visibility apply at runtime. Multiplayer cadence is
-never changed by local settings. Music and Sound use original attenuation
-sliders: 0 is loudest and 99 is quietest. Sound controls combat, interface,
-and ambient playback together. Both persist and apply live. Only
-windowed/fullscreen modes are offered. Panel is procedural because no matching
-archive options artwork has been proven.
+- `G`: slow, normal, or fast single-player cadence.
+- `D`: current display's enumerated modes at 800x600 or larger.
+- `M` / `E`: original-direction music/sound attenuation, 0 loudest, 99 quietest.
+- `F`: windowed or fullscreen.
+- `R` / `C`: scroll and mouse speed.
+- `H`: editable hotkey page. `1`-`8` chooses action, next key binds it, `D`
+  restores defaults. Duplicate bindings are rejected with visible feedback.
 
-The saved fullscreen choice is applied when the SDL window is created.
-`F11` and `Alt+Enter` change the live, active, and draft fullscreen value
-together; a later `S` persists the actual live value. `A` still applies
-without writing. Failed fullscreen transitions remain windowed and roll the
-panel values back.
+Settings use validated format version 5 under SDL user-data. Versions 1-4
+migrate, including old volume direction. Resolution, mode, audio, speed,
+presentation, locale, and hotkeys round-trip. Writes use sibling temporary
+file plus atomic rename.
 
-The window is resizable down to 640x360 window-coordinate units. Each window
-size or display-scale change refreshes the canonical render extent, so a
-wider or taller window exposes more world rather than scaling a fixed 16:9
-canvas. The fixed-height HUD remains attached to the current bottom edge.
-Canonical UI dimensions stay in window-coordinate units while SDL scales them
-to the drawable. This prevents Retina/high-DPI output pixels from shrinking
-menus and HUD text. Renderer-coordinate conversion keeps pointer input in that
-same adaptive coordinate space.
+## Display contract
 
-Verification status: initial human testing found Retina drawable pixels were
-incorrectly used as UI coordinates, making everything too small. Canonical UI
-sizing now uses window-coordinate units; automated SDL/policy checks pass.
-Human retesting of sizing, fullscreen, live dragging, geometry restoration,
-high-DPI input, and Options synchronization was accepted on 2026-07-31.
+Original display selection enumerates platform modes, then renders chosen
+resolution as fixed canvas. Reconstruction filters current SDL display modes,
+deduplicates and sorts them, and uses same fixed-canvas rule. Resizing window
+changes scale/letterbox only; it never reveals extra world. Fullscreen and
+windowed transitions retain last window geometry. SDL logical presentation
+performs letterboxing and maps input back into canvas. Logical size never
+follows Retina drawable pixels, preserving high-DPI size and hit testing.
 
-Proof:
+Read-only decompiled evidence: `AoK-HD-patched.c` functions `FUN_005ff420`,
+`FUN_006031e0`, `FUN_00603360`, and `TRIBE_Screen_Options::draw` recover named
+fullscreen artwork, enumerated display modes, tab controls, defaults/apply
+actions, and options drawing. Persistent keys include `Music Volume`,
+`Sound Volume`, `Game Speed`, `Scroll Speed`, and `FullScreen`.
 
-- `settings_tests`: round trip, atomic replacement residue, v1 migration, and
-  invalid-file rejection.
-- `window_mode_tests`: drawable validation and fullscreen state/geometry
-  synchronization.
-- `window_mode_sdl_smoke`: live resize capture and fullscreen round-trip or
-  documented dummy-driver rollback.
-- `/tmp/aoe-options-panel.png`: deterministic panel capture using
-  `AOE_OPTIONS_PANEL=1`.
+Proof: `settings_tests`, `window_mode_tests`, `window_mode_sdl_smoke`, and
+`options_settings_sdl_smoke` cover migration, conflict rejection, persistence,
+mode filtering, fixed high-DPI canvas, resize letterboxing, fullscreen rollback,
+and rendered options controls.

@@ -50,7 +50,8 @@ stipple, then subtracts `BlkEdge` spans. Hidden tiles stay black. Visible tiles
 use `TileEdge` spans before the same explored boundary subtraction.
 
 Minimap consumes the same three-state visibility decision and black/half-bright
-terrain colors. Entity markers remain restricted to current visibility. Camera
+terrain colors. Mobile markers remain restricted to current visibility; enemy
+building and wall markers retain their per-viewer last-seen image. Camera
 viewport geometry uses the recovered inclusive bounds in `minimap_contract`.
 
 No fog SLP resource ID is claimed: these are loose named DAT geometry files,
@@ -70,6 +71,29 @@ classes, scales original 96x48 scanlines to reconstruction's 64x32 diamonds,
 applies both TileEdge halves, removes BlkEdge spans, and overlays recovered
 explored stipple. Minimap uses matching state colors, visibility-gated markers,
 and recovered viewport bounds. Runtime and build have no parent path fallback.
+
+## Enemy building memory
+
+Supplied Age of Kings manual, printed page 34, says explored enemy buildings
+and walls remain visible. Their displayed upgrades, damage, and destruction do
+not change until friendly sight returns. Decompiled `FUN_004f5f50`
+independently shows explored tiles remain a distinct draw list through
+`diam_map::draw_explored_tiles`; manual remains authority for object-level
+stale-state semantics.
+
+Simulation owns ordered per-player building memories. Seeing any footprint tile
+atomically captures kind, owner/color, position, construction and gate state,
+hit points/damage inputs, owner age, civilization architecture, maximum hit
+points, and wall topology. Hidden mutation or destruction cannot change record.
+Seeing remembered footprint again refreshes live record or removes destroyed or
+replaced one. Diplomacy changes remove records no longer enemy; Cartography uses
+same shared-LOS path. Observers bypass memory and see live state.
+
+World and minimap consume only frozen record while footprint stays hidden. No
+production queue, garrison, live damage overlay, current age, current
+civilization, current maximum HP, or changed wall topology feeds stale image.
+Native save version 118 serializes records in entity-ID order; lockstep hash
+therefore covers every player's distinct information state.
 
 ## Reproduction and tests
 
@@ -92,3 +116,5 @@ cmake --build build-release --target aoe_fog_rendering_contract_tests
 Tests verify exact 256-to-47 normalization, all 93,281 derived span records,
 17-by-47 dimensions, compass order, state selection, shape bounds, terminators,
 pointer rejection, recovered dither constants, and enabled archive renderer.
+`aoe_core_tests` additionally verifies stale destruction and age state,
+per-viewer isolation, sight-return invalidation, save/load, and lockstep hash.

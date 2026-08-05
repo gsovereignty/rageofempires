@@ -375,6 +375,21 @@ void save_game(const Simulation& simulation, const std::filesystem::path& path) 
                << state.countdown_last_tick << ' '
                << std::quoted(technologies) << ' '
                << std::quoted(explored) << '\n';
+        for (const auto& [id, memory] : state.remembered_buildings) {
+            const Building& building = memory.building;
+            output << "building-memory " << index << ' ' << id << ' '
+                   << encode(building.kind) << ' '
+                   << static_cast<int>(building.owner.stable_id()) << ' '
+                   << building.position.x << ' ' << building.position.y << ' '
+                   << building.hit_points << ' '
+                   << building.construction_ticks_remaining << ' '
+                   << building.resource_amount << ' '
+                   << building.gate_open << ' '
+                   << static_cast<int>(memory.owner_age) << ' '
+                   << static_cast<int>(memory.owner_civilization) << ' '
+                   << memory.maximum_hit_points << ' '
+                   << memory.topology_frame << '\n';
+        }
     }
     for (std::size_t from = 0; from < 8; ++from) {
         const PlayerSlotId source = *PlayerSlotId::from_index(from);
@@ -1125,6 +1140,47 @@ Simulation load_game(const std::filesystem::path& path) {
                 state.explored.push_back(bit == '1');
             }
             native_player_states[*slot->index()] = std::move(state);
+        } else if (record == "building-memory" && version >= 118) {
+            int stable_id{};
+            Simulation::BuildingMemory memory;
+            int kind{};
+            int owner{};
+            int age{};
+            int civilization{};
+            input >> stable_id >> memory.building.id >> kind >> owner >>
+                memory.building.position.x >> memory.building.position.y >>
+                memory.building.hit_points >>
+                memory.building.construction_ticks_remaining >>
+                memory.building.resource_amount >> memory.building.gate_open >>
+                age >> civilization >> memory.maximum_hit_points >>
+                memory.topology_frame;
+            const auto slot = decode_player_slot_id(stable_id);
+            const auto decoded_owner = EntityOwner::from_stable_id(owner);
+            if (!slot || slot->is_neutral() ||
+                !native_player_states[*slot->index()] ||
+                !decoded_owner || memory.building.id == 0 || kind < 0 ||
+                kind >= static_cast<int>(building_kind_count) ||
+                memory.building.hit_points <= 0 ||
+                memory.building.construction_ticks_remaining < 0 ||
+                memory.building.resource_amount < 0 ||
+                age < static_cast<int>(Age::dark) ||
+                age > static_cast<int>(Age::imperial) ||
+                civilization < static_cast<int>(Civilization::generic) ||
+                civilization > static_cast<int>(Civilization::mayans) ||
+                memory.maximum_hit_points <= 0 ||
+                memory.topology_frame < 0 || memory.topology_frame > 2) {
+                throw std::runtime_error("invalid building memory in save");
+            }
+            memory.building.kind = static_cast<BuildingKind>(kind);
+            memory.building.owner = *decoded_owner;
+            memory.owner_age = static_cast<Age>(age);
+            memory.owner_civilization =
+                static_cast<Civilization>(civilization);
+            auto& memories = native_player_states[*slot->index()]
+                ->remembered_buildings;
+            if (!memories.emplace(memory.building.id, std::move(memory)).second) {
+                throw std::runtime_error("duplicate building memory in save");
+            }
         } else if (record == "roster-diplomacy" && version >= 109) {
             int from{};
             int to{};

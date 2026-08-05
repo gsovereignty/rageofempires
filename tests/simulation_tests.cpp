@@ -1076,6 +1076,70 @@ void save_round_trip_preserves_exploration_memory() {
     require(!loaded.is_explored(aoe::Player::blue, {18, 18}));
 }
 
+void enemy_building_memory_is_stale_per_viewer_and_persistent() {
+    aoe::Simulation simulation(aoe::GameMap(40, 24));
+    const aoe::EntityId scout = simulation.add_unit(
+        aoe::UnitKind::scout_cavalry, aoe::Player::blue, {8, 8}
+    );
+    require(simulation.set_unit_stance(scout, aoe::UnitStance::passive));
+    const aoe::EntityId builder = simulation.add_unit(
+        aoe::UnitKind::villager, aoe::Player::red, {14, 8}
+    );
+    const aoe::EntityId house = simulation.next_entity_id();
+    require(simulation.construct_building_at(
+        builder, aoe::BuildingKind::house, {12, 8}
+    ));
+    simulation.add_unit(
+        aoe::UnitKind::villager, aoe::Player::red, {36, 20}
+    );
+    simulation.update();
+
+    const auto visible_memory =
+        simulation.remembered_buildings(aoe::Player::blue).at(house);
+    require(visible_memory.building.kind == aoe::BuildingKind::house);
+    require(visible_memory.building.owner == aoe::Player::red);
+    require(visible_memory.building.position == aoe::TilePosition{12, 8});
+    require(visible_memory.owner_age == aoe::Age::dark);
+    require(visible_memory.maximum_hit_points > 0);
+    require(visible_memory.building.construction_ticks_remaining > 0);
+
+    require(simulation.command_unit(scout, {1, 1}));
+    for (int tick = 0; tick < 30; ++tick) simulation.update();
+    require(!simulation.is_building_visible(
+        aoe::Player::blue, visible_memory.building
+    ));
+    const auto last_seen =
+        simulation.remembered_buildings(aoe::Player::blue).at(house);
+
+    // Global age change and hidden destruction must not alter stale image.
+    simulation.replace_ages(aoe::Age::dark, aoe::Age::imperial);
+    require(simulation.delete_building(house));
+    simulation.update();
+    const auto& stale =
+        simulation.remembered_buildings(aoe::Player::blue).at(house);
+    require(stale.owner_age == aoe::Age::dark);
+    require(stale.building.hit_points == last_seen.building.hit_points);
+    require(stale.building.construction_ticks_remaining ==
+        last_seen.building.construction_ticks_remaining);
+
+    const auto path = std::filesystem::temp_directory_path() /
+        "aoe-building-memory.save";
+    const std::string hash_before = aoe::deterministic_state_hash(simulation);
+    aoe::save_game(simulation, path);
+    aoe::Simulation loaded = aoe::load_game(path);
+    std::filesystem::remove(path);
+    require(aoe::deterministic_state_hash(loaded) == hash_before);
+    const auto& restored =
+        loaded.remembered_buildings(aoe::Player::blue).at(house);
+    require(restored.owner_age == aoe::Age::dark);
+    require(restored.building.position == aoe::TilePosition{12, 8});
+    require(loaded.remembered_buildings(aoe::Player::red).empty());
+
+    require(loaded.command_unit(scout, {12, 8}));
+    for (int tick = 0; tick < 30; ++tick) loaded.update();
+    require(!loaded.remembered_buildings(aoe::Player::blue).contains(house));
+}
+
 void building_los_is_radial_from_nearest_footprint_and_persists() {
     aoe::Simulation footprint(aoe::GameMap(30, 24));
     const auto castle = footprint.add_building(
@@ -23944,6 +24008,10 @@ int main() {
     run(
         "exploration save",
         save_round_trip_preserves_exploration_memory
+    );
+    run(
+        "per-viewer stale building memory",
+        enemy_building_memory_is_stale_per_viewer_and_persistent
     );
     run(
         "radial building LOS",

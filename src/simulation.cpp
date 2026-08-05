@@ -1900,6 +1900,16 @@ std::vector<TilePosition> Simulation::explored_tiles(Player player) const {
     return result;
 }
 
+const std::map<EntityId, Simulation::BuildingMemory>&
+Simulation::remembered_buildings(Player player) const {
+    const auto slot = player_slot_from_legacy(player);
+    if (!slot || slot->is_neutral()) {
+        static const std::map<EntityId, BuildingMemory> empty;
+        return empty;
+    }
+    return player_state(*slot).remembered_buildings;
+}
+
 std::vector<EntityId> Simulation::idle_villagers(Player player) const {
     std::vector<EntityId> idle;
     for (const Unit& unit : units_) {
@@ -10513,6 +10523,65 @@ void Simulation::update_exploration() {
                 }
             }
         }
+
+        auto& memories = player_states_[index].remembered_buildings;
+        const auto footprint_visible = [this, player](const Building& building) {
+            const BuildingRules& rules = rules_for(building.kind);
+            for (int y = 0; y < rules.footprint_height; ++y) {
+                for (int x = 0; x < rules.footprint_width; ++x) {
+                    if (is_visible(player, {
+                            building.position.x + x,
+                            building.position.y + y,
+                        })) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        };
+        for (const Building& building : buildings_) {
+            if (!is_enemy(player, building.owner) ||
+                !footprint_visible(building)) {
+                continue;
+            }
+            const auto adjacent = [
+                this, &building, &memories, &footprint_visible
+            ](int dx, int dy) {
+                return std::ranges::any_of(
+                    buildings_, [
+                        &building, &memories, &footprint_visible, dx, dy
+                    ](const Building& other) {
+                        return (footprint_visible(other) ||
+                                memories.contains(other.id)) &&
+                            other.kind == building.kind &&
+                            other.position.x == building.position.x + dx &&
+                            other.position.y == building.position.y + dy;
+                    }
+                );
+            };
+            const bool connected_x = adjacent(-1, 0) || adjacent(1, 0);
+            const bool connected_y = adjacent(0, -1) || adjacent(0, 1);
+            memories[building.id] = {
+                building,
+                age(building.owner),
+                civilization(building.owner),
+                maximum_hit_points(building),
+                connected_x && !connected_y ? 0 :
+                    connected_y && !connected_x ? 1 : 2,
+            };
+        }
+        std::erase_if(memories, [this, player, &footprint_visible](const auto& item) {
+            const BuildingMemory& memory = item.second;
+            const auto live = std::ranges::find_if(
+                buildings_, [id = item.first](const Building& building) {
+                    return building.id == id;
+                }
+            );
+            if (live != buildings_.end()) {
+                return !is_enemy(player, live->owner);
+            }
+            return footprint_visible(memory.building);
+        });
     }
 }
 

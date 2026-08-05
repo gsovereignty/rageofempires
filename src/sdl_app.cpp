@@ -725,6 +725,10 @@ struct LegacySprites {
         std::array<std::array<LegacySprite, 5>, 5>,
         8
     > stone_wall_by_owner;
+    std::array<
+        std::array<std::array<LegacySprite, 5>, 5>,
+        8
+    > fortified_wall_by_owner;
     std::array<PlayerLegacyComposite, 5>
         stone_wall_construction;
     std::map<BuildingKind, std::array<PlayerLegacyComposite, 5>>
@@ -926,6 +930,11 @@ struct LegacySprites {
             for (LegacySprite& sprite : age) sprite.destroy();
         }
         for (auto& owners : stone_wall_by_owner) {
+            for (auto& family : owners) {
+                for (LegacySprite& sprite : family) sprite.destroy();
+            }
+        }
+        for (auto& owners : fortified_wall_by_owner) {
             for (auto& family : owners) {
                 for (LegacySprite& sprite : family) sprite.destroy();
             }
@@ -5131,29 +5140,39 @@ LegacySprites load_local_legacy_sprites(
                 }
             }
         }
-        const BuildingTopologySlpSet* stone_wall =
-            building_topology_slp_set(BuildingKind::stone_wall);
-        for (std::size_t owner = 0;
-             owner < required_owner_slots.size();
-             ++owner) {
-            if (!required_owner_slots[owner]) continue;
-            for (std::size_t family = 0;
-                 family < stone_wall->family_slps.size();
-                 ++family) {
-                for (int frame = 0;
-                     frame < stone_wall->reachable_frame_count;
-                     ++frame) {
-                    attempt_building_shadowed(
-                        sprites.stone_wall_by_owner[owner][family][
+        for (const BuildingKind wall_kind : {
+                 BuildingKind::stone_wall,
+                 BuildingKind::fortified_wall,
+             }) {
+            const BuildingTopologySlpSet* stone_wall =
+                building_topology_slp_set(wall_kind);
+            for (std::size_t owner = 0;
+                 owner < required_owner_slots.size();
+                 ++owner) {
+                if (!required_owner_slots[owner]) continue;
+                for (std::size_t family = 0;
+                     family < stone_wall->family_slps.size();
+                     ++family) {
+                    for (int frame = 0;
+                         frame < stone_wall->reachable_frame_count;
+                         ++frame) {
+                        auto& wall_sprites = wall_kind ==
+                                BuildingKind::fortified_wall
+                            ? sprites.fortified_wall_by_owner
+                            : sprites.stone_wall_by_owner;
+                        attempt_building_shadowed(
+                            wall_sprites[owner][family][
+                                static_cast<std::size_t>(frame)],
+                            stone_wall->family_slps[family],
+                            static_cast<unsigned>(owner + 1),
                             static_cast<std::size_t>(frame)
-                        ],
-                        stone_wall->family_slps[family],
-                        static_cast<unsigned>(owner + 1),
-                        static_cast<std::size_t>(frame)
-                    );
+                        );
+                    }
                 }
             }
         }
+        const BuildingTopologySlpSet* stone_wall =
+            building_topology_slp_set(BuildingKind::stone_wall);
         for (std::size_t family = 0;
              family < stone_wall->construction_graphic_roots.size();
              ++family) {
@@ -7713,8 +7732,23 @@ void render_building(
                     building.position,
                     damage_elapsed,
                     true,
-                    true
+                    true,
+                    remembered_topology
                 )) {
+                if (building.hit_points < maximum_hit_points ||
+                    simulation.selected_building() == building.id) {
+                    render_health_bar(
+                        renderer, top.x, top.y - 62.0F,
+                        building.hit_points, maximum_hit_points
+                    );
+                }
+                if (simulation.selected_building() == building.id) {
+                    outline_diamond(
+                        renderer,
+                        tile_top(building.position),
+                        {250, 220, 65, 255}
+                    );
+                }
                 return;
             }
         }
@@ -8031,7 +8065,8 @@ void render_building(
             return;
         }
     }
-    if (building.kind == BuildingKind::stone_wall &&
+    if ((building.kind == BuildingKind::stone_wall ||
+         building.kind == BuildingKind::fortified_wall) &&
         building.completed()) {
         const Civilization civilization =
             remembered_civilization;
@@ -8044,11 +8079,12 @@ void render_building(
             remembered_topology
         );
         const auto slot = building.owner.slot_index();
+        const auto& wall_sprites = building.kind ==
+                BuildingKind::fortified_wall
+            ? active_legacy_sprites.fortified_wall_by_owner
+            : active_legacy_sprites.stone_wall_by_owner;
         const LegacySprite* sprite = slot && *slot < 8
-            ? &active_legacy_sprites.stone_wall_by_owner[
-                  *slot
-              ][family][frame]
-            : nullptr;
+            ? &wall_sprites[*slot][family][frame] : nullptr;
         if (sprite != nullptr && render_legacy_building_sprite(
                 renderer,
                 *sprite,
@@ -16852,6 +16888,30 @@ int SdlApp::run() {
             );
             building.hit_points = std::max(
                 1, simulation.maximum_hit_points(building) * percent / 100
+            );
+        }
+        simulation.replace_state(
+            simulation.units(),
+            std::move(buildings),
+            simulation.economy(Player::blue),
+            simulation.economy(Player::red),
+            simulation.tick_number()
+        );
+    }
+    // Deterministic screenshot-only wall-damage checkpoint. Value is original
+    // computed damage percentage, including strict DAT threshold edges.
+    if (const char* requested = SDL_getenv("AOE_WALL_DAMAGE_AUDIT_PERCENT");
+        requested != nullptr && requested[0] != '\0') {
+        const int damage = std::clamp(std::stoi(requested), 0, 99);
+        std::vector<Building> buildings = simulation.buildings();
+        for (Building& building : buildings) {
+            if (building.kind != BuildingKind::stone_wall &&
+                building.kind != BuildingKind::fortified_wall) {
+                continue;
+            }
+            const int maximum = simulation.maximum_hit_points(building);
+            building.hit_points = std::max(
+                1, maximum * (100 - damage) / 100
             );
         }
         simulation.replace_state(

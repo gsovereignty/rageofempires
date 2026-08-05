@@ -392,6 +392,12 @@ target_compile_options(
     building_damage_tests PRIVATE -Wall -Wextra -Wpedantic
 )
 add_test(NAME building_damage_tests COMMAND building_damage_tests)
+add_test(
+    NAME wall_damage_state_sdl_smoke
+    COMMAND bash
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/wall_damage_state_sdl_smoke.sh
+        $<TARGET_FILE:aoe_reconstruction>
+)
 
 add_executable(minimap_contract_tests tests/minimap_contract_tests.cpp)
 target_link_libraries(minimap_contract_tests PRIVATE aoe_core)

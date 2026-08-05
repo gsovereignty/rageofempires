@@ -1,4 +1,5 @@
 #include "aoe/render_asset_coverage.hpp"
+#include "aoe/building_damage.hpp"
 #include "aoe/simulation.hpp"
 
 #include <algorithm>
@@ -1192,6 +1193,54 @@ void building_resolver_selects_age_family_and_reviewed_farm() {
     );
 }
 
+void wall_damage_replacements_cover_every_civilization_stage_and_topology() {
+    for (const auto kind : {
+             aoe::BuildingKind::stone_wall,
+             aoe::BuildingKind::fortified_wall,
+         }) {
+        for (int raw_civilization =
+                 static_cast<int>(aoe::Civilization::generic);
+             raw_civilization <= static_cast<int>(aoe::Civilization::mayans);
+             ++raw_civilization) {
+            const auto civilization =
+                static_cast<aoe::Civilization>(raw_civilization);
+            const auto records = aoe::canonical_building_damage_records(
+                kind, civilization
+            );
+            for (int topology = 0; topology < 3; ++topology) {
+                for (int stage = 1; stage <= 3; ++stage) {
+                    aoe::RenderStateKey state;
+                    state.category = aoe::RenderObjectCategory::building;
+                    state.object_kind = aoe::render_building_kind_name(kind);
+                    state.building_state = aoe::RenderBuildingState::damaged;
+                    state.civilization = civilization;
+                    state.architecture_family =
+                        aoe::render_building_architecture_family(
+                            kind, civilization
+                        );
+                    state.animation_frame = topology;
+                    state.damage_stage = stage;
+                    const auto resolution = aoe::resolve_building_asset(
+                        state, kind
+                    );
+                    require(
+                        resolution.status ==
+                            aoe::AssetCoverageStatus::renderable &&
+                        resolution.request.graphic_id ==
+                            records[static_cast<std::size_t>(stage - 1)]
+                                .graphic_id &&
+                        resolution.request.overlay_graphic_ids.empty() &&
+                        resolution.request.required_frame_count == 1 &&
+                        resolution.request.required_direction_count == 5,
+                        "wall damage must resolve as exact five-angle "
+                        "replacement body"
+                    );
+                }
+            }
+        }
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -1209,6 +1258,7 @@ int main() {
         projectile_resolver_covers_body_shadow_and_impact();
         resource_resolver_covers_all_depletion_frames();
         building_resolver_selects_age_family_and_reviewed_farm();
+        wall_damage_replacements_cover_every_civilization_stage_and_topology();
     } catch (const std::exception& error) {
         std::cerr << "render_asset_coverage_tests: " << error.what() << '\n';
         return 1;

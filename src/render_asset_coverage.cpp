@@ -453,6 +453,16 @@ constexpr BuildingTopologySlpSet building_topology_slp_sets[] = {
         3,
     },
     {
+        BuildingKind::fortified_wall,
+        {2113, 2110, 2112, 2111, 5126},
+        {3321, 3318, 3320, 3319, 7107},
+        {},
+        {},
+        0,
+        5,
+        3,
+    },
+    {
         BuildingKind::palisade_wall,
         {1828, 1828, 1828, 1828, 1828},
         {-1, -1, -1, -1, -1},
@@ -1014,9 +1024,7 @@ AssetResolution resolve_building_asset(
 ) {
     kind = kind == BuildingKind::guard_tower || kind == BuildingKind::keep
         ? BuildingKind::watch_tower
-        : kind == BuildingKind::fortified_wall
-            ? BuildingKind::stone_wall
-            : kind == BuildingKind::fortified_gate_x
+        : kind == BuildingKind::fortified_gate_x
                 ? BuildingKind::stone_gate_x
                 : kind == BuildingKind::fortified_gate_y
                     ? BuildingKind::stone_gate_y
@@ -1130,9 +1138,18 @@ AssetResolution resolve_building_asset(
         const BuildingDamageRecord& overlay = records[
             static_cast<std::size_t>(state.damage_stage - 1)
         ];
-        result.request.overlay_graphic_ids.push_back(overlay.graphic_id);
-        result.request.source_mapping +=
-            " + canonical_building_damage_records";
+        if (overlay.flag == 2) {
+            result.request = {};
+            result.request.graphic_id = overlay.graphic_id;
+            result.request.required_frame_count = 1;
+            result.request.required_direction_count = 5;
+            result.request.source_mapping =
+                "canonical_building_damage_records:flag_2_replacement";
+        } else {
+            result.request.overlay_graphic_ids.push_back(overlay.graphic_id);
+            result.request.source_mapping +=
+                " + canonical_building_damage_records";
+        }
         result.evidence_sources.push_back(
             "src/building_damage.cpp:"
             "canonical_building_damage_records"
@@ -1146,7 +1163,7 @@ AssetResolution resolve_building_asset(
             return result;
         }
         result.reason += overlay.flag == 2
-            ? "; canonical animated damage overlay selected"
+            ? "; canonical replacement damage body selected"
             : "; canonical damage overlay selected";
         return result;
     }
@@ -2138,6 +2155,8 @@ std::string render_building_kind_name(BuildingKind kind) {
         "watch_tower", "stone_wall", "palisade_gate_x", "palisade_gate_y",
         "stone_gate_x", "stone_gate_y", "monastery", "market", "dock",
         "bombard_tower", "fish_trap", "outpost", "wonder",
+        "guard_tower", "keep", "fortified_wall", "fortified_gate_x",
+        "fortified_gate_y",
     };
     const auto index = static_cast<std::size_t>(kind);
     if (index >= std::size(names)) {

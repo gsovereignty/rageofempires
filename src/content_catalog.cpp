@@ -58,6 +58,11 @@ ContentCatalog::technologies() const noexcept {
     return technologies_;
 }
 
+std::span<const CommercialObjectRecord>
+ContentCatalog::object_variants() const noexcept {
+    return object_variants_;
+}
+
 std::span<const CommercialEffectRecord> ContentCatalog::effects()
     const noexcept {
     return effects_;

@@ -6031,6 +6031,11 @@ bool Simulation::research_commercial_technology_at(
         has_commercial_technology(building->owner, technology_id)) {
         return false;
     }
+    const auto owner_slot = building->owner.slot_index();
+    if (!owner_slot || player_states_[*owner_slot]
+            .commercial_disabled_technologies[technology_id]) {
+        return false;
+    }
     if (technology->civilization_id &&
         *technology->civilization_id !=
             building->commercial_identity->civilization_id) {
@@ -6046,12 +6051,22 @@ bool Simulation::research_commercial_technology_at(
     int wood{};
     int stone{};
     int gold{};
-    for (const CommercialTechnologyCost& cost : technology->costs) {
-        if (!cost.enabled) continue;
-        if (cost.resource_id == 0) food += cost.amount;
-        else if (cost.resource_id == 1) wood += cost.amount;
-        else if (cost.resource_id == 2) stone += cost.amount;
-        else if (cost.resource_id == 3) gold += cost.amount;
+    const auto overridden = player_states_[*owner_slot]
+        .commercial_technology_cost_overrides.find(technology_id);
+    if (overridden != player_states_[*owner_slot]
+            .commercial_technology_cost_overrides.end()) {
+        food = overridden->second[0];
+        wood = overridden->second[1];
+        stone = overridden->second[2];
+        gold = overridden->second[3];
+    } else {
+        for (const CommercialTechnologyCost& cost : technology->costs) {
+            if (!cost.enabled) continue;
+            if (cost.resource_id == 0) food += cost.amount;
+            else if (cost.resource_id == 1) wood += cost.amount;
+            else if (cost.resource_id == 2) stone += cost.amount;
+            else if (cost.resource_id == 3) gold += cost.amount;
+        }
     }
     if (economy.food < food || economy.wood < wood ||
         economy.stone < stone || economy.gold < gold) {
@@ -6062,8 +6077,13 @@ bool Simulation::research_commercial_technology_at(
     economy.stone -= stone;
     economy.gold -= gold;
     building->commercial_research_target = technology_id;
-    building->technology_research_ticks_remaining =
-        std::max(1, technology->research_time);
+    const auto time_override = player_states_[*owner_slot]
+        .commercial_technology_time_overrides.find(technology_id);
+    building->technology_research_ticks_remaining = std::max(
+        1, time_override == player_states_[*owner_slot]
+               .commercial_technology_time_overrides.end()
+            ? technology->research_time : time_override->second
+    );
     return true;
 }
 
@@ -6105,6 +6125,9 @@ void Simulation::apply_commercial_effect(
     const CommercialEffectRecord* effect =
         commercial_content_catalog().effect(effect_id);
     if (effect == nullptr) return;
+    const auto owner_slot = owner.slot_index();
+    if (!owner_slot) return;
+    PlayerState& player = player_states_[*owner_slot];
     const auto applies = [](const CommercialEffectCommand& command,
                             const CommercialObjectRecord& record) {
         return (command.object_id < 0 || command.object_id == record.id) &&
@@ -6125,6 +6148,67 @@ void Simulation::apply_commercial_effect(
         else if (command.attribute_id == 9) unit.attack = change(unit.attack);
     };
     for (const CommercialEffectCommand& command : effect->commands) {
+        if (command.type == 1 || command.type == 6) {
+            if (command.object_id >= 0 && command.object_id < 256) {
+                float& resource = player.commercial_resources[
+                    static_cast<std::size_t>(command.object_id)
+                ];
+                if (command.type == 6) resource *= command.amount;
+                else if (command.unit_class == 0) resource = command.amount;
+                else resource += command.amount;
+            }
+            continue;
+        }
+        if (command.type == 101) {
+            if (command.object_id >= 0 && command.object_id < 460 &&
+                command.unit_class >= 0 && command.unit_class < 4) {
+                const auto technology = static_cast<CommercialTechnologyId>(
+                    command.object_id
+                );
+                auto [it, inserted] =
+                    player.commercial_technology_cost_overrides.try_emplace(
+                        technology
+                    );
+                if (inserted) {
+                    it->second.fill(0);
+                    if (const auto* record =
+                            commercial_content_catalog().technology(
+                                technology
+                            )) {
+                        for (const auto& cost : record->costs) {
+                            if (cost.enabled && cost.resource_id < 4) {
+                                it->second[cost.resource_id] = cost.amount;
+                            }
+                        }
+                    }
+                }
+                int& cost = it->second[command.unit_class];
+                if (command.attribute_id == 0) {
+                    cost = std::max(0, static_cast<int>(command.amount));
+                } else {
+                    cost = std::max(
+                        0, cost + static_cast<int>(command.amount)
+                    );
+                }
+            }
+            continue;
+        }
+        if (command.type == 102) {
+            const int technology = static_cast<int>(command.amount);
+            if (technology >= 0 && technology < 460) {
+                player.commercial_disabled_technologies[technology] = true;
+            }
+            continue;
+        }
+        if (command.type == 103) {
+            if (command.object_id >= 0 && command.object_id < 460) {
+                player.commercial_technology_time_overrides[
+                    static_cast<CommercialTechnologyId>(command.object_id)
+                ] = std::max(0, static_cast<int>(command.amount));
+            }
+            continue;
+        }
+        if (command.type == 255) continue;
         if (command.type == 3) {
             for (Unit& unit : units_) {
                 if (unit.owner == owner && unit.commercial_identity &&

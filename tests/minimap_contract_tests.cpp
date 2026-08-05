@@ -1,5 +1,6 @@
 #include "aoe/minimap_contract.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <stdexcept>
 
@@ -17,6 +18,7 @@ void require(bool condition) {
 #define assert(condition) require(condition)
 
 int main() {
+    using namespace aoe;
     using namespace aoe::minimap;
 
     assert(positive_floor(0.5) == 0);
@@ -63,6 +65,60 @@ int main() {
            ViewportBounds(75, 65, 126, 96));
     assert(!viewport_scanline_polygon_proved);
     assert(!map640_anchor_proved);
+
+    assert(shows_unit(MinimapMode::normal, UnitKind::villager));
+    assert(!shows_unit(MinimapMode::combat, UnitKind::villager));
+    assert(shows_unit(MinimapMode::combat, UnitKind::archer));
+    assert(shows_unit(MinimapMode::economic, UnitKind::trade_cart));
+    assert(!shows_unit(MinimapMode::economic, UnitKind::knight));
+    constexpr std::array economic_units{
+        UnitKind::villager, UnitKind::trade_cart, UnitKind::trade_cog,
+        UnitKind::fishing_ship, UnitKind::sheep, UnitKind::deer,
+        UnitKind::boar, UnitKind::relic,
+    };
+    for (std::size_t index = 0; index < unit_kind_count; ++index) {
+        const UnitKind kind = static_cast<UnitKind>(index);
+        const bool economic = std::ranges::find(economic_units, kind) !=
+            economic_units.end();
+        assert(shows_unit(MinimapMode::normal, kind));
+        assert(shows_unit(MinimapMode::economic, kind) == economic);
+        assert(shows_unit(MinimapMode::combat, kind) == !economic);
+    }
+    assert(shows_building(MinimapMode::combat, BuildingKind::castle));
+    assert(!shows_building(MinimapMode::combat, BuildingKind::farm));
+    assert(shows_building(MinimapMode::economic, BuildingKind::market));
+    constexpr std::array economic_buildings{
+        BuildingKind::town_center, BuildingKind::mill,
+        BuildingKind::lumber_camp, BuildingKind::mining_camp,
+        BuildingKind::farm, BuildingKind::market, BuildingKind::dock,
+        BuildingKind::fish_trap,
+    };
+    for (std::size_t index = 0; index < building_kind_count; ++index) {
+        const BuildingKind kind = static_cast<BuildingKind>(index);
+        const bool economic = std::ranges::find(economic_buildings, kind) !=
+            economic_buildings.end();
+        assert(shows_building(MinimapMode::normal, kind));
+        assert(shows_building(MinimapMode::economic, kind) == economic);
+        assert(shows_building(MinimapMode::combat, kind) == !economic);
+    }
+    assert(highlights_resource(MinimapMode::economic, Terrain::gold_mine));
+    assert(!highlights_resource(MinimapMode::normal, Terrain::gold_mine));
+    assert(next_mode(MinimapMode::normal) == MinimapMode::combat);
+    assert(next_mode(MinimapMode::combat) == MinimapMode::economic);
+    assert(next_mode(MinimapMode::economic) == MinimapMode::normal);
+    assert(std::string{mode_name(MinimapMode::combat)} == "COMBAT");
+
+    MatchStatistics statistics;
+    statistics.current_score[0] = 321;
+    statistics.players[0].units_killed = 7;
+    statistics.players[0].units_lost = 2;
+    statistics.players[0].gathered = {10, 20, 30, 40};
+    assert(statistics_summary(MinimapMode::normal, statistics).values[0] ==
+           "321");
+    assert(statistics_summary(MinimapMode::combat, statistics).values[0] ==
+           "7/2");
+    assert(statistics_summary(MinimapMode::economic, statistics).values[0] ==
+           "100");
 
     bool rejected = false;
     try {

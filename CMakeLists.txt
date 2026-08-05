@@ -606,6 +606,13 @@ add_test(
 )
 set_tests_properties(minimap_interaction_sdl_smoke PROPERTIES TIMEOUT 20)
 add_test(
+    NAME minimap_modes_sdl_smoke
+    COMMAND bash
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/minimap_modes_sdl_smoke.sh
+        $<TARGET_FILE:aoe_reconstruction>
+)
+set_tests_properties(minimap_modes_sdl_smoke PROPERTIES TIMEOUT 30)
+add_test(
     NAME sheep_interaction_sdl_smoke
     COMMAND bash
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/sheep_interaction_sdl_smoke.sh

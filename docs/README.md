@@ -12,6 +12,8 @@ Reader-facing setup, controls, architecture, content, and status:
 
 ## Contracts
 
+- [Minimap modes](contracts/MINIMAP_MODES.md)
+
 - [Commercial multiplayer adapter ABI](contracts/COMMERCIAL_MULTIPLAYER_ADAPTER.md)
   defines opt-in licensed-service loading without SDK redistribution.
 
@@ -62,6 +64,8 @@ Pinned static-analysis and observed-runtime evidence:
 - [Villager gathering retry evidence](evidence/VILLAGER_GATHERING_RETRY_EVIDENCE.md)
 
 ## UI
+
+- [Minimap mode controls](ui/MINIMAP_MODES_UI.md)
 
 Focused interaction and presentation contracts:
 [ui/](ui/).

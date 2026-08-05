@@ -2,7 +2,12 @@
 
 #include <array>
 #include <cstdint>
+#include <string>
 #include <vector>
+
+#include "aoe/match_statistics.hpp"
+#include "aoe/settings.hpp"
+#include "aoe/types.hpp"
 
 namespace aoe::minimap {
 
@@ -37,6 +42,15 @@ struct ViewportBounds {
     int bottom{};
 
     auto operator<=>(const ViewportBounds&) const = default;
+};
+
+enum class MarkerClass { none, normal, combat, economic, resource };
+
+struct StatisticsSummary {
+    std::array<std::string, 8> values{};
+    std::string heading;
+
+    auto operator<=>(const StatisticsSummary&) const = default;
 };
 
 inline constexpr std::array<std::uint8_t, 8> player_marker_palette_indices{
@@ -76,6 +90,16 @@ inline constexpr std::array<std::array<std::uint8_t, 3>, 8> player_marker_rgb{{
     int viewport_height,
     double scale_x,
     double scale_y
+);
+[[nodiscard]] bool shows_unit(MinimapMode mode, UnitKind kind);
+[[nodiscard]] bool shows_building(MinimapMode mode, BuildingKind kind);
+[[nodiscard]] bool highlights_resource(MinimapMode mode, Terrain terrain);
+[[nodiscard]] const char* mode_name(MinimapMode mode);
+[[nodiscard]] const char* mode_help(MinimapMode mode);
+[[nodiscard]] MinimapMode next_mode(MinimapMode mode);
+[[nodiscard]] StatisticsSummary statistics_summary(
+    MinimapMode mode,
+    const MatchStatistics& statistics
 );
 
 inline constexpr bool viewport_scanline_polygon_proved = false;

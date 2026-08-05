@@ -27,6 +27,7 @@ int main() {
     settings.scroll_speed = 175;
     settings.locale = "pt";
     settings.language_file = "strings/pt.lang";
+    settings.minimap_mode = aoe::MinimapMode::economic;
     std::string error;
     expect(aoe::save_settings_atomic(settings, path, error), "atomic save");
     const auto loaded = aoe::load_settings(path);
@@ -55,6 +56,10 @@ int main() {
         migrated.settings.music_volume == 60 &&
         migrated.settings.effects_volume == 45,
         "migration converts loudness percentages to attenuation"
+    );
+    expect(
+        migrated.settings.minimap_mode == aoe::MinimapMode::normal,
+        "old settings migrate to normal minimap mode"
     );
 
     {

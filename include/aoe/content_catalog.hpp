@@ -184,6 +184,12 @@ public:
     [[nodiscard]] const CommercialEffectRecord* effect(
         CommercialEffectId id
     ) const noexcept;
+    [[nodiscard]] std::optional<CommercialEffectId> civilization_effect(
+        CommercialCivilizationId id
+    ) const noexcept;
+    [[nodiscard]] std::optional<CommercialEffectId> civilization_bonus_effect(
+        CommercialCivilizationId id
+    ) const noexcept;
     [[nodiscard]] std::size_t object_variant_count() const noexcept;
     [[nodiscard]] std::size_t object_record_count() const noexcept;
     [[nodiscard]] std::span<const CommercialTechnologyRecord>
@@ -196,6 +202,9 @@ public:
 private:
     friend const ContentCatalog& commercial_content_catalog();
     std::vector<CommercialCivilizationId> civilization_ids_;
+    std::vector<CommercialEffectId> civilization_effect_ids_;
+    std::vector<std::optional<CommercialEffectId>>
+        civilization_bonus_effect_ids_;
     std::vector<CommercialObjectRecord> object_variants_;
     std::vector<std::vector<std::uint16_t>> civilization_variant_ids_;
     std::vector<CommercialTechnologyRecord> technologies_;

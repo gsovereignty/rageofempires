@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
+#include <limits>
 #include <stdexcept>
 #include <vector>
 
@@ -20,6 +21,21 @@ bool represented_player(Player player) {
 }
 
 bool is_wall(BuildingKind kind);
+
+bool commercial_has_ability(
+    const Unit& unit, CommercialTaskAbility ability
+) {
+    if (!unit.commercial_identity) return false;
+    const auto* record = commercial_content_catalog().object(
+        unit.commercial_identity->civilization_id,
+        unit.commercial_identity->object_id
+    );
+    return record && std::ranges::any_of(
+        record->tasks, [ability](const CommercialTask& task) {
+            return commercial_task_ability(task.action_type) == ability;
+        }
+    );
+}
 
 bool gather_trace_enabled() {
     static const bool enabled = std::getenv("AOE_GATHER_TRACE") != nullptr;
@@ -1241,13 +1257,196 @@ bool Simulation::has_technology(
         has_technology(*slot, technology);
 }
 
+float Simulation::effective_commercial_attribute(
+    EntityOwner owner,
+    CommercialObjectIdentity identity,
+    std::int16_t attribute,
+    float base
+) const {
+    const auto slot = owner.slot_index();
+    const auto* object = commercial_content_catalog().object(
+        identity.civilization_id, identity.object_id
+    );
+    if (!slot || object == nullptr) return base;
+    float value = base;
+    const auto apply_effect = [&](CommercialEffectId effect_id) {
+        const auto* effect = commercial_content_catalog().effect(effect_id);
+        if (!effect) return;
+        for (const auto& command : effect->commands) {
+            if (command.attribute_id != attribute ||
+                (command.object_id >= 0 &&
+                 command.object_id != identity.object_id) ||
+                (command.unit_class >= 0 &&
+                 command.unit_class != object->unit_class) ||
+                (command.packed_class && (attribute == 8 || attribute == 9))) {
+                continue;
+            }
+            if (command.type == 0) value = command.amount;
+            else if (command.type == 4) value += command.amount;
+            else if (command.type == 5) value *= command.amount;
+        }
+    };
+    const PlayerState& player = player_states_[*slot];
+    if (player.commercial_civilization) {
+        if (const auto bonus = commercial_content_catalog()
+                .civilization_bonus_effect(*player.commercial_civilization)) {
+            apply_effect(*bonus);
+        }
+    }
+    for (std::size_t id = 0; id < player.commercial_technologies.size(); ++id) {
+        if (!player.commercial_technologies[id]) continue;
+        if (const auto* technology = commercial_content_catalog().technology(
+                static_cast<CommercialTechnologyId>(id))) {
+            apply_effect(technology->effect_id);
+        }
+    }
+    return value;
+}
+
+int Simulation::effective_commercial_class_amount(
+    EntityOwner owner,
+    CommercialObjectIdentity identity,
+    std::int16_t attribute,
+    std::int16_t class_id,
+    int base
+) const {
+    const auto slot = owner.slot_index();
+    const auto* object = commercial_content_catalog().object(
+        identity.civilization_id, identity.object_id
+    );
+    if (!slot || !object) return base;
+    int value = base;
+    const auto apply_effect = [&](CommercialEffectId effect_id) {
+        const auto* effect = commercial_content_catalog().effect(effect_id);
+        if (!effect) return;
+        for (const auto& command : effect->commands) {
+            if (command.attribute_id != attribute ||
+                command.packed_class != class_id || !command.packed_amount ||
+                (command.object_id >= 0 && command.object_id != identity.object_id) ||
+                (command.unit_class >= 0 && command.unit_class != object->unit_class)) {
+                continue;
+            }
+            if (command.type == 0) value = *command.packed_amount;
+            else if (command.type == 4) value += *command.packed_amount;
+            else if (command.type == 5) {
+                value = value * *command.packed_amount / 100;
+            }
+        }
+    };
+    const PlayerState& player = player_states_[*slot];
+    if (player.commercial_civilization) {
+        if (const auto bonus = commercial_content_catalog()
+                .civilization_bonus_effect(*player.commercial_civilization)) {
+            apply_effect(*bonus);
+        }
+    }
+    for (std::size_t id = 0; id < player.commercial_technologies.size(); ++id) {
+        if (!player.commercial_technologies[id]) continue;
+        if (const auto* technology = commercial_content_catalog().technology(
+                static_cast<CommercialTechnologyId>(id))) {
+            apply_effect(technology->effect_id);
+        }
+    }
+    return value;
+}
+
+int Simulation::commercial_damage(
+    const Unit& attacker, const Unit& defender
+) const {
+    const auto* record = commercial_content_catalog().object(
+        attacker.commercial_identity->civilization_id,
+        attacker.commercial_identity->object_id
+    );
+    if (!record) return 0;
+    const auto target_armor = [&](std::int16_t class_id) {
+        if (!defender.commercial_identity) {
+            if (class_id == 3) return pierce_armor(defender);
+            if (class_id == 4) return melee_armor(defender);
+            return 0;
+        }
+        const auto* target = commercial_content_catalog().object(
+            defender.commercial_identity->civilization_id,
+            defender.commercial_identity->object_id
+        );
+        if (!target) return 0;
+        const auto found = std::ranges::find_if(
+            target->armors, [class_id](const auto& value) {
+                return value.class_id == class_id;
+            }
+        );
+        return effective_commercial_class_amount(
+            defender.owner, *defender.commercial_identity, 8, class_id,
+            found == target->armors.end() ? 0 : found->amount
+        );
+    };
+    int total{};
+    for (const auto& attack : record->attacks) {
+        const int amount = effective_commercial_class_amount(
+            attacker.owner, *attacker.commercial_identity, 9,
+            attack.class_id, attack.amount
+        );
+        total += std::max(
+            0, amount - target_armor(attack.class_id)
+        );
+    }
+    return record->attacks.empty() ? std::max(1, attacker.attack)
+                                   : std::max(1, total);
+}
+
+int Simulation::commercial_damage(
+    const Unit& attacker, const Building& defender
+) const {
+    const auto* record = commercial_content_catalog().object(
+        attacker.commercial_identity->civilization_id,
+        attacker.commercial_identity->object_id
+    );
+    if (!record) return 0;
+    const auto target_armor = [&](std::int16_t class_id) {
+        if (!defender.commercial_identity) {
+            if (class_id == 3) return pierce_armor(defender);
+            if (class_id == 4) return melee_armor(defender);
+            return 0;
+        }
+        const auto* target = commercial_content_catalog().object(
+            defender.commercial_identity->civilization_id,
+            defender.commercial_identity->object_id
+        );
+        if (!target) return 0;
+        const auto found = std::ranges::find_if(
+            target->armors, [class_id](const auto& value) {
+                return value.class_id == class_id;
+            }
+        );
+        return effective_commercial_class_amount(
+            defender.owner, *defender.commercial_identity, 8, class_id,
+            found == target->armors.end() ? 0 : found->amount
+        );
+    };
+    int total{};
+    for (const auto& attack : record->attacks) {
+        const int amount = effective_commercial_class_amount(
+            attacker.owner, *attacker.commercial_identity, 9,
+            attack.class_id, attack.amount
+        );
+        total += std::max(
+            0, amount - target_armor(attack.class_id)
+        );
+    }
+    return record->attacks.empty() ? std::max(1, attacker.attack)
+                                   : std::max(1, total);
+}
+
 int Simulation::maximum_hit_points(const Unit& unit) const {
     if (unit.commercial_identity) {
         const auto* record = commercial_content_catalog().object(
             unit.commercial_identity->civilization_id,
             unit.commercial_identity->object_id
         );
-        if (record) return record->hit_points;
+        if (record) return std::max(1, static_cast<int>(std::lround(
+            effective_commercial_attribute(
+                unit.owner, *unit.commercial_identity, 0, record->hit_points
+            )
+        )));
     }
     const int base = rules_for(unit.kind).hit_points;
     const int frank_bonus =
@@ -1504,7 +1703,12 @@ int Simulation::maximum_hit_points(const Building& building) const {
             building.commercial_identity->civilization_id,
             building.commercial_identity->object_id
         );
-        if (record) return record->hit_points;
+        if (record) return std::max(1, static_cast<int>(std::lround(
+            effective_commercial_attribute(
+                building.owner, *building.commercial_identity, 0,
+                record->hit_points
+            )
+        )));
     }
     int maximum = rules_for(building.kind).hit_points;
     if (building.kind == BuildingKind::watch_tower &&
@@ -1563,7 +1767,10 @@ int Simulation::melee_armor(const Unit& unit) const {
                     return value.class_id == 4;
                 }
             );
-            return found == record->armors.end() ? 0 : found->amount;
+            return effective_commercial_class_amount(
+                unit.owner, *unit.commercial_identity, 8, 4,
+                found == record->armors.end() ? 0 : found->amount
+            );
         }
     }
     return rules_for(unit.kind).melee_armor +
@@ -1633,7 +1840,10 @@ int Simulation::melee_armor(const Building& building) const {
                     return value.class_id == 4;
                 }
             );
-            return found == record->armors.end() ? 0 : found->amount;
+            return effective_commercial_class_amount(
+                building.owner, *building.commercial_identity, 8, 4,
+                found == record->armors.end() ? 0 : found->amount
+            );
         }
     }
     int base = rules_for(building.kind).melee_armor;
@@ -1668,7 +1878,10 @@ int Simulation::pierce_armor(const Unit& unit) const {
                     return value.class_id == 3;
                 }
             );
-            return found == record->armors.end() ? 0 : found->amount;
+            return effective_commercial_class_amount(
+                unit.owner, *unit.commercial_identity, 8, 3,
+                found == record->armors.end() ? 0 : found->amount
+            );
         }
     }
     const bool turk_scout =
@@ -1745,7 +1958,10 @@ int Simulation::pierce_armor(const Building& building) const {
                     return value.class_id == 3;
                 }
             );
-            return found == record->armors.end() ? 0 : found->amount;
+            return effective_commercial_class_amount(
+                building.owner, *building.commercial_identity, 8, 3,
+                found == record->armors.end() ? 0 : found->amount
+            );
         }
     }
     int base = rules_for(building.kind).pierce_armor;
@@ -2184,6 +2400,28 @@ EntityId Simulation::add_commercial_object(
     if (record == nullptr) {
         throw std::invalid_argument("unknown commercial object identity");
     }
+    const auto owner_slot = owner.slot_index();
+    if (!owner_slot) {
+        throw std::invalid_argument("commercial object requires player owner");
+    }
+    PlayerState& player = player_states_[*owner_slot];
+    if (player.commercial_civilization &&
+        *player.commercial_civilization != identity.civilization_id) {
+        throw std::invalid_argument("commercial civilization mismatch");
+    }
+    player.commercial_civilization = identity.civilization_id;
+    if (!player.commercial_civilization_initialized) {
+        if (const auto setup = commercial_content_catalog()
+                .civilization_effect(identity.civilization_id)) {
+            apply_commercial_effect(owner, *setup);
+        }
+        player.commercial_civilization_initialized = true;
+    }
+    const int effective_hp = std::max(1, static_cast<int>(std::lround(
+        effective_commercial_attribute(
+            owner, identity, 0, static_cast<float>(record->hit_points)
+        )
+    )));
     const bool building =
         record->base_class == CommercialObjectBaseClass::building;
     if (!map_.walkable(position) || occupied(position, 0)) {
@@ -2196,7 +2434,7 @@ EntityId Simulation::add_commercial_object(
         value.commercial_identity = identity;
         value.owner = owner;
         value.position = position;
-        value.hit_points = record->hit_points;
+        value.hit_points = effective_hp;
         buildings_.push_back(value);
         update_exploration();
         return value.id;
@@ -2212,8 +2450,10 @@ EntityId Simulation::add_commercial_object(
     value.render_current_subtile = value.render_previous_subtile;
     value.render_subtile_initialized = true;
     value.destination = position;
-    value.hit_points = record->hit_points;
-    value.attack = record->attack;
+    value.hit_points = effective_hp;
+    value.attack = static_cast<int>(std::lround(
+        effective_commercial_attribute(owner, identity, 9, record->attack)
+    ));
     if (record->speed <= 0.0f) value.stance = UnitStance::passive;
     units_.push_back(value);
     initialize_unit_render_elevation(units_.back());
@@ -2232,7 +2472,10 @@ bool Simulation::command_gather_unit(
     Unit* villager = find_unit(villager_id);
     Unit* herdable = find_unit(herdable_id);
     if (villager == nullptr || herdable == nullptr ||
-        villager->kind != UnitKind::villager ||
+        (villager->kind != UnitKind::villager &&
+         !commercial_has_ability(*villager, CommercialTaskAbility::gather) &&
+         !commercial_has_ability(*villager, CommercialTaskAbility::hunt) &&
+         !commercial_has_ability(*villager, CommercialTaskAbility::graze)) ||
         villager->garrisoned_in != 0 ||
         !is_animal(herdable->kind) ||
         (is_herdable(herdable->kind) &&
@@ -2325,6 +2568,113 @@ bool Simulation::command_gather_unit(
     }
     detach_builder(villager->id);
     return true;
+}
+
+bool Simulation::command_commercial_task(
+    EntityId unit_id,
+    std::uint16_t task_id,
+    EntityId target_id,
+    bool target_is_building,
+    TilePosition position
+) {
+    Unit* unit = find_unit(unit_id);
+    if (outcome_ != MatchOutcome::ongoing || !unit ||
+        !unit->commercial_identity || unit->garrisoned_in != 0) {
+        return false;
+    }
+    const auto* object = commercial_content_catalog().object(
+        unit->commercial_identity->civilization_id,
+        unit->commercial_identity->object_id
+    );
+    if (!object) return false;
+    const auto task = std::ranges::find_if(
+        object->tasks, [task_id](const CommercialTask& candidate) {
+            return candidate.id == task_id;
+        }
+    );
+    if (task == object->tasks.end()) return false;
+    Unit* target_unit = target_is_building ? nullptr : find_unit(target_id);
+    Building* target_building = target_is_building
+        ? find_building(target_id) : nullptr;
+    const auto target_identity = target_unit
+        ? target_unit->commercial_identity
+        : target_building ? target_building->commercial_identity
+                          : std::nullopt;
+    if (task->object_id &&
+        (!target_identity || target_identity->object_id != *task->object_id)) {
+        return false;
+    }
+    if (task->object_class >= 0 && target_identity) {
+        const auto* target = commercial_content_catalog().object(
+            target_identity->civilization_id, target_identity->object_id
+        );
+        if (!target || target->unit_class != task->object_class) return false;
+    }
+    switch (commercial_task_ability(task->action_type)) {
+        case CommercialTaskAbility::gather:
+        case CommercialTaskAbility::graze:
+        case CommercialTaskAbility::hunt:
+        case CommercialTaskAbility::loot:
+            return target_unit && command_gather_unit(unit_id, target_id);
+        case CommercialTaskAbility::combat:
+        case CommercialTaskAbility::unpack_attack: {
+            if (!target_unit && !target_building) return false;
+            stop_unit(unit_id);
+            unit = find_unit(unit_id);
+            unit->attack_target_id = target_id;
+            unit->attack_target_is_building = target_is_building;
+            unit->attack_target_auto = false;
+            return route_unit(
+                *unit, target_unit ? target_unit->position
+                                   : target_building->position
+            );
+        }
+        case CommercialTaskAbility::guard:
+            return command_guard(unit_id, target_id, target_is_building);
+        case CommercialTaskAbility::convert:
+            return command_convert(unit_id, target_id);
+        case CommercialTaskAbility::heal:
+            return command_heal(unit_id, target_id);
+        case CommercialTaskAbility::repair:
+        case CommercialTaskAbility::build:
+            if (!target_building || target_building->owner != unit->owner ||
+                !route_unit(*unit, target_building->position)) return false;
+            unit->repair_target_id = target_id;
+            if (!target_building->completed() &&
+                std::ranges::find(target_building->builder_ids, unit_id) ==
+                    target_building->builder_ids.end()) {
+                target_building->builder_ids.push_back(unit_id);
+            }
+            return true;
+        case CommercialTaskAbility::trade:
+        case CommercialTaskAbility::off_map_trade:
+            return target_building && command_trade_route(unit_id, target_id);
+        case CommercialTaskAbility::garrison:
+            if (target_building && route_unit(*unit, target_building->position)) {
+                unit->garrison_target_id = target_id;
+                return true;
+            }
+            return target_unit && command_embark(unit_id, target_id);
+        case CommercialTaskAbility::transport:
+        case CommercialTaskAbility::pickup:
+        case CommercialTaskAbility::kidnap:
+        case CommercialTaskAbility::deposit:
+            return target_unit && command_embark(target_id, unit_id);
+        case CommercialTaskAbility::retreat:
+            return command_unit(unit_id, position);
+        case CommercialTaskAbility::deselect:
+            std::erase(selected_units_, unit_id);
+            if (selected_unit_ == unit_id) selected_unit_.reset();
+            return true;
+        case CommercialTaskAbility::make:
+        case CommercialTaskAbility::bird:
+        case CommercialTaskAbility::predator:
+        case CommercialTaskAbility::auto_convert:
+        case CommercialTaskAbility::wonder_victory:
+            // These tasks are autonomous capabilities, not player orders.
+            return target_id == 0;
+    }
+    return false;
 }
 
 EntityId Simulation::add_building(
@@ -2847,9 +3197,9 @@ std::pair<int, int> Simulation::formation_pace(
         const Unit& unit = *found;
         slowest_interval = std::max(
             slowest_interval,
-            rules_for(unit.kind).movement_interval_ticks
+            effective_movement_interval(unit)
         );
-        int interval = rules_for(unit.kind).movement_interval_ticks;
+        int interval = effective_movement_interval(unit);
         if (is_ram(unit.kind) ||
             unit.kind == UnitKind::mangonel ||
             unit.kind == UnitKind::onager ||
@@ -3357,7 +3707,8 @@ bool Simulation::command_attack_move(
     }
     Unit* unit = find_unit(unit_id);
     if (unit == nullptr || unit->garrisoned_in != 0 ||
-        rules_for(unit->kind).attack <= 0 ||
+        (rules_for(unit->kind).attack <= 0 &&
+         !commercial_has_ability(*unit, CommercialTaskAbility::combat)) ||
         (is_animal(unit->kind) || is_relic(unit->kind)) ||
         !route_unit(*unit, destination)) {
         return false;
@@ -3437,7 +3788,8 @@ bool Simulation::command_convert(EntityId monk_id, EntityId target_id) {
     if (monk != nullptr && target == nullptr &&
         building_target != nullptr) {
         if ((monk->kind != UnitKind::monk &&
-             monk->kind != UnitKind::missionary) ||
+             monk->kind != UnitKind::missionary &&
+             !commercial_has_ability(*monk, CommercialTaskAbility::convert)) ||
             !has_technology(monk->owner, Technology::redemption) ||
             !is_enemy(monk->owner, building_target->owner) ||
             !building_target->completed() ||
@@ -3448,7 +3800,7 @@ bool Simulation::command_convert(EntityId monk_id, EntityId target_id) {
             return false;
         }
         const int range =
-            rules_for(monk->kind).attack_range +
+            effective_attack_range(*monk) +
             (has_technology(
                 monk->owner, Technology::block_printing
             ) ? 3 : 0);
@@ -3475,7 +3827,8 @@ bool Simulation::command_convert(EntityId monk_id, EntityId target_id) {
          target->kind == UnitKind::trebuchet);
     if (monk == nullptr || target == nullptr ||
         (monk->kind != UnitKind::monk &&
-         monk->kind != UnitKind::missionary) ||
+         monk->kind != UnitKind::missionary &&
+         !commercial_has_ability(*monk, CommercialTaskAbility::convert)) ||
         !is_enemy(monk->owner, target->owner) ||
         monk->garrisoned_in != 0 ||
         target->garrisoned_in != 0 ||
@@ -3493,7 +3846,7 @@ bool Simulation::command_convert(EntityId monk_id, EntityId target_id) {
     const int distance_squared =
         combat_distance_squared(monk->position, target->position);
     const int conversion_range =
-        rules_for(monk->kind).attack_range +
+        effective_attack_range(*monk) +
         (has_technology(monk->owner, Technology::block_printing) ? 3 : 0);
     if (distance_squared > conversion_range * conversion_range) {
         return false;
@@ -3511,9 +3864,10 @@ bool Simulation::command_heal(EntityId monk_id, EntityId target_id) {
     if (outcome_ != MatchOutcome::ongoing || monk_id == target_id ||
         monk == nullptr || target == nullptr ||
         (monk->kind != UnitKind::monk &&
-         monk->kind != UnitKind::missionary) ||
+         monk->kind != UnitKind::missionary &&
+         !commercial_has_ability(*monk, CommercialTaskAbility::heal)) ||
         monk->owner != target->owner ||
-        !is_organic(target->kind) ||
+        (!is_organic(target->kind) && !target->commercial_identity) ||
         target->garrisoned_in != 0 ||
         target->hit_points <= 0 ||
         target->hit_points >= maximum_hit_points(*target) ||
@@ -4052,12 +4406,15 @@ bool Simulation::command_trade_route(
     Building* target = find_building(target_market_id);
     const bool naval = cart != nullptr &&
         cart->kind == UnitKind::trade_cog;
+    const bool commercial_trade = cart != nullptr &&
+        (commercial_has_ability(*cart, CommercialTaskAbility::trade) ||
+         commercial_has_ability(*cart, CommercialTaskAbility::off_map_trade));
     const BuildingKind route_building =
         naval ? BuildingKind::dock : BuildingKind::market;
     if (outcome_ != MatchOutcome::ongoing || cart == nullptr ||
         target == nullptr ||
-        (cart->kind != UnitKind::trade_cart && !naval) ||
-        target->kind != route_building || !target->completed() ||
+        (cart->kind != UnitKind::trade_cart && !naval && !commercial_trade) ||
+        (!commercial_trade && target->kind != route_building) || !target->completed() ||
         target->hit_points <= 0 ||
         !is_ally(cart->owner, target->owner) ||
         target->owner == cart->owner) {
@@ -4066,7 +4423,11 @@ bool Simulation::command_trade_route(
     Building* home{};
     int nearest = map_.width() + map_.height() + 1;
     for (Building& building : buildings_) {
-        if (building.kind != route_building ||
+        if ((!commercial_trade && building.kind != route_building) ||
+            (commercial_trade && (!building.commercial_identity ||
+             !target->commercial_identity ||
+             building.commercial_identity->object_id !=
+                 target->commercial_identity->object_id)) ||
             building.owner != cart->owner || !building.completed() ||
             building.hit_points <= 0) {
             continue;
@@ -4117,14 +4478,20 @@ bool Simulation::command_embark(EntityId unit_id, EntityId transport_id) {
     Unit* transport = find_unit(transport_id);
     if (outcome_ != MatchOutcome::ongoing || unit == nullptr ||
         transport == nullptr || unit_id == transport_id ||
-        transport->kind != UnitKind::transport_ship ||
+        (transport->kind != UnitKind::transport_ship &&
+         !commercial_has_ability(*transport, CommercialTaskAbility::transport)) ||
         unit->owner != transport->owner || is_ship(unit->kind) ||
         unit->garrisoned_in != 0 ||
         std::abs(unit->position.x - transport->position.x) +
             std::abs(unit->position.y - transport->position.y) > 1 ||
         std::ranges::count_if(units_, [transport_id](const Unit& passenger) {
             return passenger.garrisoned_in == transport_id;
-        }) >= transport_capacity(transport->owner)) {
+        }) >= (transport->commercial_identity
+            ? std::max(0, commercial_content_catalog().object(
+                  transport->commercial_identity->civilization_id,
+                  transport->commercial_identity->object_id
+              )->garrison_capacity)
+            : transport_capacity(transport->owner))) {
         return false;
     }
     stop_unit(unit_id);
@@ -5409,6 +5776,20 @@ bool Simulation::queue_commercial_object_at(
         else if (cost.resource_id == 2) stone += cost.amount;
         else if (cost.resource_id == 3) gold += cost.amount;
     }
+    const auto effective_cost = [&](int base, std::int16_t attribute) {
+        const float all = effective_commercial_attribute(
+            building->owner, identity, 100, static_cast<float>(base)
+        );
+        return std::max(0, static_cast<int>(std::lround(
+            effective_commercial_attribute(
+                building->owner, identity, attribute, all
+            )
+        )));
+    };
+    food = effective_cost(food, 103);
+    wood = effective_cost(wood, 104);
+    stone = effective_cost(stone, 105);
+    gold = effective_cost(gold, 106);
     if (economy.wood < wood || economy.food < food ||
         economy.gold < gold || economy.stone < stone) {
         return false;
@@ -5419,7 +5800,12 @@ bool Simulation::queue_commercial_object_at(
     economy.stone -= stone;
     ProductionOrder order;
     order.kind = UnitKind::villager;
-    order.ticks_remaining = std::max(1, object->creation_time);
+    order.ticks_remaining = std::max(1, static_cast<int>(std::lround(
+        effective_commercial_attribute(
+            building->owner, identity, 101,
+            static_cast<float>(object->creation_time)
+        )
+    )));
     order.paid_wood = wood;
     order.paid_food = food;
     order.paid_gold = gold;
@@ -6438,7 +6824,7 @@ void Simulation::update() {
                 ++unit.next_path_step;
                 unit.movement_cooldown = std::max(
                     0,
-                    rules_for(unit.kind).movement_interval_ticks - 1
+                    effective_movement_interval(unit) - 1
                 );
                 if (unit.next_path_step >= unit.path.size()) {
                     unit.moving = false;
@@ -7006,7 +7392,8 @@ void Simulation::update() {
             Building* repair_target =
                 find_building(unit.repair_target_id);
             const bool valid_repair =
-                unit.kind == UnitKind::villager &&
+                (unit.kind == UnitKind::villager ||
+                 commercial_has_ability(unit, CommercialTaskAbility::repair)) &&
                 repair_target != nullptr &&
                 repair_target->owner == unit.owner &&
                 repair_target->completed() &&
@@ -7020,7 +7407,13 @@ void Simulation::update() {
             } else if (
                 distance_to_building(unit.position, *repair_target) <= 1
             ) {
-                constexpr int repair_hit_points_per_tick = 10;
+                const int repair_hit_points_per_tick = unit.commercial_identity
+                    ? std::max(1, static_cast<int>(std::lround(
+                          10.0f * effective_commercial_attribute(
+                              unit.owner, *unit.commercial_identity, 13, 1.0f
+                          )
+                      )))
+                    : 10;
                 const BuildingRules& repair_rules =
                     rules_for(repair_target->kind);
                 const int repair_maximum =
@@ -7550,7 +7943,7 @@ void Simulation::update() {
             unit.last_move_tick = tick_number_;
             ++unit.next_path_step;
             int movement_interval =
-                rules_for(unit.kind).movement_interval_ticks;
+                effective_movement_interval(unit);
             if (is_ram(unit.kind) ||
                 unit.kind == UnitKind::mangonel ||
                 unit.kind == UnitKind::onager ||
@@ -7990,7 +8383,7 @@ void Simulation::refresh_unit_render_subtile(Unit& unit) {
     unit_render_elevations_.at(unit.id).current = unit.position;
 
     const int movement_interval =
-        rules_for(unit.kind).movement_interval_ticks;
+        effective_movement_interval(unit);
     const bool ordinary_paced_movement =
         unit.moving &&
         unit.formation_move_interval == 0 &&
@@ -9142,6 +9535,14 @@ std::optional<TilePosition> Simulation::spawn_position(
 
 void Simulation::perform_attack(Unit& attacker, Unit& defender) {
     reveal_attacker_to(attacker, defender.owner);
+    if (attacker.commercial_identity) {
+        defender.hit_points -= apply_elevation_damage(
+            map_, attacker.position, defender.position,
+            commercial_damage(attacker, defender)
+        );
+        defender.last_damage_owner = attacker.owner;
+        return;
+    }
     const UnitRules& reveal_rules = rules_for(attacker.kind);
     if (reveal_rules.splash_radius > 0) {
         reveal_attacker_to_ground_victims(
@@ -9317,6 +9718,14 @@ void Simulation::perform_attack(Unit& attacker, Unit& defender) {
 
 void Simulation::perform_attack(Unit& attacker, Building& defender) {
     reveal_attacker_to(attacker, defender.owner);
+    if (attacker.commercial_identity) {
+        defender.hit_points -= apply_elevation_damage(
+            map_, attacker.position, defender.position,
+            commercial_damage(attacker, defender)
+        );
+        defender.last_damage_owner = attacker.owner;
+        return;
+    }
     const UnitRules& reveal_rules = rules_for(attacker.kind);
     if (reveal_rules.splash_radius > 0) {
         reveal_attacker_to_ground_victims(
@@ -9544,6 +9953,71 @@ void Simulation::launch_projectile(
     Unit& attacker,
     const Unit& defender
 ) {
+    if (attacker.commercial_identity) {
+        const auto* record = commercial_content_catalog().object(
+            attacker.commercial_identity->civilization_id,
+            attacker.commercial_identity->object_id
+        );
+        if (!record) return;
+        const int accuracy = std::clamp(static_cast<int>(std::lround(
+            effective_commercial_attribute(
+                attacker.owner, *attacker.commercial_identity, 11,
+                static_cast<float>(record->accuracy)
+            )
+        )), 0, 100);
+        const bool hits = static_cast<int>(
+            (tick_number_ * 37 + attacker.id * 17) % 100
+        ) < accuracy;
+        int projectile_speed{};
+        std::optional<CommercialObjectIdentity> missile;
+        if (record->missile_object_id) {
+            missile = CommercialObjectIdentity{
+                attacker.commercial_identity->civilization_id,
+                *record->missile_object_id,
+            };
+            if (const auto* missile_record = commercial_content_catalog().object(
+                    missile->civilization_id, missile->object_id)) {
+                projectile_speed = static_cast<int>(std::lround(
+                    missile_record->speed * 10.0f
+                ));
+            }
+        }
+        const int travel_ticks = projectile_travel_ticks(
+            combat_distance_squared(attacker.position, defender.position),
+            projectile_speed
+        );
+        projectiles_.push_back({
+            attacker.owner, hits ? defender.id : 0, false,
+            attacker.position, defender.position,
+            commercial_damage(attacker, defender), DamageClass::melee,
+            travel_ticks + 1, travel_ticks, 0,
+            std::max(0, static_cast<int>(std::lround(
+                effective_commercial_attribute(
+                    attacker.owner, *attacker.commercial_identity, 22,
+                    record->area_effect_range
+                )
+            ))),
+            attacker.kind, 0, false, BuildingKind::town_center,
+            projectile_speed, attacker.id, missile, true,
+            effective_commercial_attribute(
+                attacker.owner, *attacker.commercial_identity, 19, 0.0f
+            ) != 0.0f,
+        });
+        const int projectile_count = std::max(1, static_cast<int>(std::lround(
+            effective_commercial_attribute(
+                attacker.owner, *attacker.commercial_identity, 107, 1.0f
+            )
+        )));
+        for (int volley = 1; volley < projectile_count; ++volley) {
+            Projectile extra = projectiles_.back();
+            extra.target = 0;
+            extra.damage = 0;
+            extra.visual_lane = volley - projectile_count / 2;
+            projectiles_.push_back(extra);
+        }
+        reveal_attacker_to(attacker, defender.owner, travel_ticks + 1);
+        return;
+    }
     const UnitRules& attacker_rules = rules_for(attacker.kind);
     int building_bonus = attacker_rules.bonus_vs_buildings;
     if (receives_siege_engineers(attacker.kind) &&
@@ -9637,6 +10111,8 @@ void Simulation::launch_projectile(
         attacker_rules.splash_radius,
         attacker.kind,
         attacker_rules.splash_radius_half_tiles,
+        false, BuildingKind::town_center, 0, attacker.id, std::nullopt, false,
+        false,
     });
     projectiles_.back().source_entity_id = attacker.id;
     for (int volley = 1; volley < attacker_rules.projectile_count; ++volley) {
@@ -9655,6 +10131,8 @@ void Simulation::launch_projectile(
             0,
             attacker.kind,
             0,
+            false, BuildingKind::town_center, 0, attacker.id,
+            std::nullopt, false, false,
         });
         projectiles_.back().source_entity_id = attacker.id;
     }
@@ -9664,6 +10142,74 @@ void Simulation::launch_projectile(
     Unit& attacker,
     const Building& defender
 ) {
+    if (attacker.commercial_identity) {
+        const auto* record = commercial_content_catalog().object(
+            attacker.commercial_identity->civilization_id,
+            attacker.commercial_identity->object_id
+        );
+        if (!record) return;
+        const int accuracy = std::clamp(static_cast<int>(std::lround(
+            effective_commercial_attribute(
+                attacker.owner, *attacker.commercial_identity, 11,
+                static_cast<float>(record->accuracy)
+            )
+        )), 0, 100);
+        const bool hits = static_cast<int>(
+            (tick_number_ * 37 + attacker.id * 17) % 100
+        ) < accuracy;
+        int projectile_speed{};
+        std::optional<CommercialObjectIdentity> missile;
+        if (record->missile_object_id) {
+            missile = CommercialObjectIdentity{
+                attacker.commercial_identity->civilization_id,
+                *record->missile_object_id,
+            };
+            if (const auto* missile_record = commercial_content_catalog().object(
+                    missile->civilization_id, missile->object_id)) {
+                projectile_speed = static_cast<int>(std::lround(
+                    missile_record->speed * 10.0f
+                ));
+            }
+        }
+        const TilePosition destination = nearest_point_on_building(
+            attacker.position, defender
+        );
+        const int travel_ticks = projectile_travel_ticks(
+            combat_distance_squared(attacker.position, defender),
+            projectile_speed
+        );
+        projectiles_.push_back({
+            attacker.owner, hits ? defender.id : 0, hits,
+            attacker.position, destination,
+            commercial_damage(attacker, defender), DamageClass::melee,
+            travel_ticks + 1, travel_ticks, 0,
+            std::max(0, static_cast<int>(std::lround(
+                effective_commercial_attribute(
+                    attacker.owner, *attacker.commercial_identity, 22,
+                    record->area_effect_range
+                )
+            ))),
+            attacker.kind, 0, false, BuildingKind::town_center,
+            projectile_speed, attacker.id, missile, true,
+            effective_commercial_attribute(
+                attacker.owner, *attacker.commercial_identity, 19, 0.0f
+            ) != 0.0f,
+        });
+        const int projectile_count = std::max(1, static_cast<int>(std::lround(
+            effective_commercial_attribute(
+                attacker.owner, *attacker.commercial_identity, 107, 1.0f
+            )
+        )));
+        for (int volley = 1; volley < projectile_count; ++volley) {
+            Projectile extra = projectiles_.back();
+            extra.target = 0;
+            extra.damage = 0;
+            extra.visual_lane = volley - projectile_count / 2;
+            projectiles_.push_back(extra);
+        }
+        reveal_attacker_to(attacker, defender.owner, travel_ticks + 1);
+        return;
+    }
     const UnitRules& attacker_rules = rules_for(attacker.kind);
     int building_bonus = attacker_rules.bonus_vs_buildings;
     const bool sappers =
@@ -9730,6 +10276,8 @@ void Simulation::launch_projectile(
         attacker_rules.splash_radius,
         attacker.kind,
         attacker_rules.splash_radius_half_tiles,
+        false, BuildingKind::town_center, 0, attacker.id, std::nullopt, false,
+        false,
     });
     projectiles_.back().source_entity_id = attacker.id;
     for (int volley = 1; volley < attacker_rules.projectile_count; ++volley) {
@@ -9748,6 +10296,8 @@ void Simulation::launch_projectile(
             0,
             attacker.kind,
             0,
+            false, BuildingKind::town_center, 0, attacker.id,
+            std::nullopt, false, false,
         });
         projectiles_.back().source_entity_id = attacker.id;
     }
@@ -9783,6 +10333,8 @@ void Simulation::launch_ground_projectile(
         0,
         rules_for(attacker.kind).splash_radius,
         attacker.kind,
+        0, false, BuildingKind::town_center, 0, attacker.id,
+        std::nullopt, false, false,
     });
     projectiles_.back().source_entity_id = attacker.id;
 }
@@ -9924,6 +10476,9 @@ void Simulation::update_building_defenses() {
                 building.kind,
                 building_rules.projectile_speed_tenths,
                 building.id,
+                std::nullopt,
+                false,
+                false,
             });
         }
         building.attack_cooldown =
@@ -9944,10 +10499,11 @@ void Simulation::update_projectiles() {
             projectile.splash_radius_half_tiles == 0 &&
             !projectile.target_is_building &&
             projectile.target != 0 &&
-            has_technology(projectile.owner, Technology::ballistics) &&
-            (projectile.source_is_building
-                ? ballistics_tracks(projectile.source_building_kind)
-                : ballistics_tracks(projectile.source_kind))) {
+            (projectile.tracks_target ||
+             (has_technology(projectile.owner, Technology::ballistics) &&
+              (projectile.source_is_building
+                   ? ballistics_tracks(projectile.source_building_kind)
+                   : ballistics_tracks(projectile.source_kind))))) {
             const Unit* target = find_unit(projectile.target);
             if (target != nullptr && target->hit_points > 0 &&
                 target->garrisoned_in == 0) {
@@ -9989,12 +10545,12 @@ void Simulation::update_projectiles() {
                     (within_half_radius ||
                      (projectile.splash_radius > 0 &&
                       distance <= projectile.splash_radius))) {
-                    target.hit_points -= damage_after_armor(
-                        projectile.damage,
-                        projectile.damage_class,
-                        melee_armor(target),
-                        pierce_armor(target)
-                    );
+                    target.hit_points -= projectile.precomputed_damage
+                        ? projectile.damage
+                        : damage_after_armor(
+                              projectile.damage, projectile.damage_class,
+                              melee_armor(target), pierce_armor(target)
+                          );
                     target.last_damage_owner = projectile.owner;
                     if (is_animal(target.kind) &&
                         target.hit_points <= 0) {
@@ -10019,12 +10575,12 @@ void Simulation::update_projectiles() {
                       distance_to_building(
                           projectile.destination, target
                       ) <= projectile.splash_radius))) {
-                    target.hit_points -= damage_after_armor(
-                        projectile.damage,
-                        projectile.damage_class,
-                        melee_armor(target),
-                        pierce_armor(target)
-                    );
+                    target.hit_points -= projectile.precomputed_damage
+                        ? projectile.damage
+                        : damage_after_armor(
+                              projectile.damage, projectile.damage_class,
+                              melee_armor(target), pierce_armor(target)
+                          );
                     target.last_damage_owner = projectile.owner;
                 }
             }
@@ -10036,12 +10592,12 @@ void Simulation::update_projectiles() {
                 is_enemy(projectile.owner, target->owner)) {
                 target->hit_points -= apply_elevation_damage(
                     map_, projectile.origin, target->position,
-                    damage_after_armor(
-                        projectile.damage,
-                        projectile.damage_class,
-                        melee_armor(*target),
-                        pierce_armor(*target)
-                    )
+                    projectile.precomputed_damage
+                        ? projectile.damage
+                        : damage_after_armor(
+                              projectile.damage, projectile.damage_class,
+                              melee_armor(*target), pierce_armor(*target)
+                          )
                 );
                 target->last_damage_owner = projectile.owner;
             }
@@ -10054,12 +10610,12 @@ void Simulation::update_projectiles() {
                 }
                 target->hit_points -= apply_elevation_damage(
                     map_, projectile.origin, target->position,
-                    damage_after_armor(
-                        projectile.damage,
-                        projectile.damage_class,
-                        melee_armor(*target),
-                        pierce_armor(*target)
-                    )
+                    projectile.precomputed_damage
+                        ? projectile.damage
+                        : damage_after_armor(
+                              projectile.damage, projectile.damage_class,
+                              melee_armor(*target), pierce_armor(*target)
+                          )
                 );
                 target->last_damage_owner = projectile.owner;
                 if (is_animal(target->kind) &&
@@ -11323,7 +11879,14 @@ int Simulation::effective_attack_range(const Unit& unit) const {
             unit.commercial_identity->civilization_id,
             unit.commercial_identity->object_id
         );
-        if (record) return std::max(0, static_cast<int>(record->maximum_range));
+        if (record) return std::max(
+            record->attacks.empty() ? 0 : 1,
+            static_cast<int>(std::lround(
+            effective_commercial_attribute(
+                unit.owner, *unit.commercial_identity, 12,
+                record->maximum_range
+            )
+        )));
     }
     int range = rules_for(unit.kind).attack_range;
     if (unit.kind == UnitKind::archer ||
@@ -11390,7 +11953,12 @@ int Simulation::effective_minimum_attack_range(const Unit& unit) const {
             unit.commercial_identity->civilization_id,
             unit.commercial_identity->object_id
         );
-        if (record) return std::max(0, static_cast<int>(record->minimum_range));
+        if (record) return std::max(0, static_cast<int>(std::lround(
+            effective_commercial_attribute(
+                unit.owner, *unit.commercial_identity, 20,
+                record->minimum_range
+            )
+        )));
     }
     const bool mangonel_line =
         unit.kind == UnitKind::mangonel ||
@@ -11407,9 +11975,12 @@ int Simulation::effective_attack_interval(const Unit& unit) const {
             unit.commercial_identity->civilization_id,
             unit.commercial_identity->object_id
         );
-        if (record) return std::max(
-            1, static_cast<int>(std::lround(record->reload_time * 5.0f))
-        );
+        if (record) return std::max(1, static_cast<int>(std::lround(
+            effective_commercial_attribute(
+                unit.owner, *unit.commercial_identity, 10,
+                record->reload_time
+            ) * 5.0f
+        )));
     }
     int interval = rules_for(unit.kind).attack_interval_ticks;
     if (has_technology(unit.owner, Technology::thumb_ring)) {
@@ -11456,15 +12027,35 @@ int Simulation::effective_attack_interval(const Unit& unit) const {
     return interval;
 }
 
+int Simulation::effective_movement_interval(const Unit& unit) const {
+    if (unit.commercial_identity) {
+        const auto* record = commercial_content_catalog().object(
+            unit.commercial_identity->civilization_id,
+            unit.commercial_identity->object_id
+        );
+        if (record) {
+            const float speed = effective_commercial_attribute(
+                unit.owner, *unit.commercial_identity, 5, record->speed
+            );
+            return speed <= 0.0f ? std::numeric_limits<int>::max()
+                                 : std::max(1, static_cast<int>(std::lround(5.0f / speed)));
+        }
+    }
+    return rules_for(unit.kind).movement_interval_ticks;
+}
+
 int Simulation::effective_unit_vision_range(const Unit& unit) const {
     if (unit.commercial_identity) {
         const auto* record = commercial_content_catalog().object(
             unit.commercial_identity->civilization_id,
             unit.commercial_identity->object_id
         );
-        if (record) return std::max(
-            0, static_cast<int>(record->line_of_sight)
-        );
+        if (record) return std::max(0, static_cast<int>(std::lround(
+            effective_commercial_attribute(
+                unit.owner, *unit.commercial_identity, 1,
+                record->line_of_sight
+            )
+        )));
     }
     int range = rules_for(unit.kind).vision_range;
     if (is_infantry(unit.kind) &&
@@ -11800,6 +12391,13 @@ int Simulation::garrison_capacity(BuildingKind building) const {
 }
 
 int Simulation::carry_capacity(const Unit& unit) const {
+    if (unit.commercial_identity) {
+        return std::max(0, static_cast<int>(std::lround(
+            effective_commercial_attribute(
+                unit.owner, *unit.commercial_identity, 14, 10.0f
+            )
+        )));
+    }
     if (unit.kind == UnitKind::fishing_ship) {
         return 15;
     }

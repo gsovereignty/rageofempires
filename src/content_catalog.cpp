@@ -70,6 +70,21 @@ const CommercialEffectRecord* ContentCatalog::effect(
     return &effects_[id];
 }
 
+std::optional<CommercialEffectId> ContentCatalog::civilization_effect(
+    CommercialCivilizationId id
+) const noexcept {
+    if (id >= civilization_effect_ids_.size()) return std::nullopt;
+    return civilization_effect_ids_[id];
+}
+
+std::optional<CommercialEffectId>
+ContentCatalog::civilization_bonus_effect(
+    CommercialCivilizationId id
+) const noexcept {
+    if (id >= civilization_bonus_effect_ids_.size()) return std::nullopt;
+    return civilization_bonus_effect_ids_[id];
+}
+
 std::size_t ContentCatalog::object_variant_count() const noexcept {
     return object_variants_.size();
 }

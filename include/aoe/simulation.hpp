@@ -53,6 +53,8 @@ public:
             commercial_technology_cost_overrides;
         std::map<CommercialTechnologyId, int>
             commercial_technology_time_overrides;
+        std::optional<CommercialCivilizationId> commercial_civilization;
+        bool commercial_civilization_initialized{};
         Civilization civilization{Civilization::generic};
         int farm_reseed_queue{};
         int mayan_resource_remainder{};
@@ -263,6 +265,7 @@ public:
         const Unit& unit
     ) const;
     [[nodiscard]] int effective_attack_interval(const Unit& unit) const;
+    [[nodiscard]] int effective_movement_interval(const Unit& unit) const;
     [[nodiscard]] int unique_unit_movement_numerator(
         const Unit& unit
     ) const;
@@ -385,6 +388,13 @@ public:
     bool select_building_at(TilePosition position, Player player);
     bool command_unit(EntityId unit_id, TilePosition destination);
     bool command_gather_unit(EntityId villager_id, EntityId herdable_id);
+    bool command_commercial_task(
+        EntityId unit_id,
+        std::uint16_t task_id,
+        EntityId target_id,
+        bool target_is_building,
+        TilePosition position
+    );
     bool command_attack_move(EntityId unit_id, TilePosition destination);
     bool command_attack_ground(EntityId unit_id, TilePosition destination);
     bool command_convert(EntityId monk_id, EntityId target_id);
@@ -640,6 +650,25 @@ private:
         EntityOwner owner,
         CommercialEffectId effect
     );
+    [[nodiscard]] float effective_commercial_attribute(
+        EntityOwner owner,
+        CommercialObjectIdentity identity,
+        std::int16_t attribute,
+        float base
+    ) const;
+    [[nodiscard]] int effective_commercial_class_amount(
+        EntityOwner owner,
+        CommercialObjectIdentity identity,
+        std::int16_t attribute,
+        std::int16_t class_id,
+        int base
+    ) const;
+    [[nodiscard]] int commercial_damage(
+        const Unit& attacker, const Unit& defender
+    ) const;
+    [[nodiscard]] int commercial_damage(
+        const Unit& attacker, const Building& defender
+    ) const;
     [[nodiscard]] bool commercial_object_enabled(
         EntityOwner owner,
         CommercialObjectIdentity identity

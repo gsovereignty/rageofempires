@@ -19,6 +19,14 @@ public:
 
     [[nodiscard]] const std::string& locale() const { return locale_; }
     [[nodiscard]] std::string_view text(std::string_view key) const;
+    [[nodiscard]] bool contains(std::string_view key) const noexcept;
+    [[nodiscard]] bool has_literal_overrides() const noexcept {
+        return has_literal_overrides_;
+    }
+    [[nodiscard]] std::string translate_literal(std::string_view english) const;
+    [[nodiscard]] const std::map<std::string, std::string>& strings() const {
+        return strings_;
+    }
     [[nodiscard]] std::string count_text(
         std::string_view singular_key,
         std::string_view plural_key,
@@ -28,6 +36,24 @@ public:
 private:
     std::string locale_;
     std::map<std::string, std::string> strings_;
+    bool has_literal_overrides_{};
+};
+
+enum class PluralCategory { zero, one, two, few, many, other };
+
+struct LanguageProfile {
+    std::string locale;
+    std::uint16_t windows_language_id{};
+    std::vector<std::string> archive_directories;
+    std::string audio_directory;
+    bool right_to_left{};
+};
+
+struct LegacyFontStyle {
+    std::string family;
+    int pixel_height{};
+    bool bold{};
+    bool italic{};
 };
 
 [[nodiscard]] bool valid_utf8(std::string_view text) noexcept;
@@ -48,7 +74,28 @@ struct LegacyLanguageReport {
     std::map<std::uint32_t, std::string> unknown;
     std::vector<std::filesystem::path> sources;
     std::uint16_t language_id{};
+    std::map<std::uint32_t, LegacyFontStyle> fonts;
 };
+
+[[nodiscard]] const std::vector<LanguageProfile>& shipped_language_profiles();
+[[nodiscard]] const LanguageProfile& language_profile(std::string_view locale);
+[[nodiscard]] PluralCategory plural_category(
+    std::string_view locale,
+    std::int64_t count
+);
+[[nodiscard]] std::string format_localized(
+    std::string_view pattern,
+    const std::map<std::string, std::string>& arguments
+);
+[[nodiscard]] std::string stable_literal_key(std::string_view english);
+[[nodiscard]] std::map<std::uint32_t, std::string> legacy_ui_string_catalog();
+[[nodiscard]] std::vector<std::filesystem::path> discover_legacy_language_sources(
+    const std::filesystem::path& packaged_asset_root,
+    std::string_view locale
+);
+[[nodiscard]] std::map<std::uint32_t, LegacyFontStyle> extract_legacy_font_styles(
+    const std::map<std::uint32_t, std::string>& strings
+);
 
 std::map<std::uint32_t, std::string> extract_pe_string_resources(
     const std::filesystem::path& external_dll,

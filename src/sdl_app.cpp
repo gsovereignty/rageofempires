@@ -3850,6 +3850,65 @@ SDL_Texture* create_native_hud_label(
 }
 #endif
 
+void render_ui_debug_text(
+    SDL_Renderer* renderer,
+    float x,
+    float y,
+    const char* raw_text
+) {
+    if (raw_text == nullptr) return;
+    if (active_string_table == nullptr ||
+        !active_string_table->has_literal_overrides()) {
+        SDL_RenderDebugText(renderer, x, y, raw_text);
+        return;
+    }
+    std::string localized;
+    std::string_view text{raw_text};
+    localized = active_string_table->translate_literal(raw_text);
+    text = localized;
+#if defined(__APPLE__)
+    const bool needs_unicode_font = std::ranges::any_of(
+        text, [](unsigned char byte) { return byte >= 0x80; }
+    );
+    if (needs_unicode_font && valid_utf8(text)) {
+        if (const auto root = configured_asset_root()) {
+            Uint8 red{}, green{}, blue{}, alpha{};
+            SDL_GetRenderDrawColor(renderer, &red, &green, &blue, &alpha);
+            const int width = std::max(
+                1, view_pixel_width - static_cast<int>(std::floor(x))
+            );
+            SDL_Texture* texture = create_native_hud_label(
+                renderer,
+                *root / "Data" / "fonts" / "GEORGIAB.TTF",
+                text,
+                width,
+                14,
+                {red, green, blue, alpha},
+                false
+            );
+            if (texture != nullptr) {
+                const SDL_FRect destination{
+                    x, y, static_cast<float>(width), 14.0F
+                };
+                SDL_RenderTexture(renderer, texture, nullptr, &destination);
+                SDL_DestroyTexture(texture);
+                return;
+            }
+        }
+    }
+#endif
+    const bool ascii = std::ranges::all_of(
+        text, [](unsigned char byte) { return byte >= 32 && byte <= 126; }
+    );
+    if (ascii) {
+        SDL_RenderDebugText(renderer, x, y, text.data());
+    } else {
+        SDL_RenderDebugText(
+            renderer, x, y, debug_font_fallback(text).c_str()
+        );
+    }
+}
+
 void render_hud_text(
     SDL_Renderer* renderer,
     float x,
@@ -3876,7 +3935,7 @@ void render_hud_text(
     }
 #endif
     set_color(renderer, color);
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer,
         centered
             ? x + std::max(
@@ -7415,7 +7474,7 @@ void render_garrison_presentation(
         if (building.owner == Player::blue) text << ' ';
         text << "V" << active_volley;
     }
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer,
         badge.x + 4.0F,
         badge.y + 3.0F,
@@ -11517,7 +11576,7 @@ void render_minimap(
         set_color(renderer, active_settings.minimap_mode == modes[index]
             ? SDL_Color{255, 226, 105, 255}
             : SDL_Color{225, 214, 184, 255});
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer, buttons[index].x + 5.0F, buttons[index].y + 6.0F,
             minimap::mode_name(modes[index])
         );
@@ -11528,7 +11587,7 @@ void render_minimap(
                                   : SDL_Color{54, 45, 34, 255}
     );
     set_color(renderer, {255, 226, 105, 255});
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, buttons[3].x + 5.0F, buttons[3].y + 6.0F, "STATISTICS"
     );
 
@@ -11542,7 +11601,7 @@ void render_minimap(
         const char* help = index < modes.size()
             ? minimap::mode_help(modes[index])
             : "Statistics: show information for selected minimap mode.";
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer, 263.0F, static_cast<float>(view_pixel_height + 142),
             help
         );
@@ -11558,7 +11617,7 @@ void render_minimap(
         set_color(renderer, {16, 13, 10, 230});
         SDL_RenderFillRect(renderer, &summary_panel);
         set_color(renderer, {255, 238, 172, 255});
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer, summary_panel.x + 6.0F, summary_panel.y + 9.0F,
             summary.heading.c_str()
         );
@@ -11566,7 +11625,7 @@ void render_minimap(
             set_color(renderer, marker_colors[index]);
             const std::string value = "P" + std::to_string(index + 1) + ":" +
                 summary.values[index];
-            SDL_RenderDebugText(
+            render_ui_debug_text(
                 renderer,
                 summary_panel.x + 62.0F +
                     static_cast<float>(index % 4) * 60.0F,
@@ -11673,7 +11732,7 @@ void render_computer_status(
           << "  Phase " << computer_phase_name(status.phase)
           << "  Age goal " << name(status.age_goal)
           << "  Objective " << computer_objective_name(status.objective);
-    SDL_RenderDebugText(renderer, 22.0F, 22.0F, first.str().c_str());
+    render_ui_debug_text(renderer, 22.0F, 22.0F, first.str().c_str());
 
     std::ostringstream second;
     second << "Workers W/F/G/S "
@@ -11685,7 +11744,7 @@ void render_computer_status(
            << status.melee_units << '/' << status.ranged_units << '/'
            << status.cavalry_units << '/' << status.siege_units << '/'
            << status.naval_units;
-    SDL_RenderDebugText(renderer, 22.0F, 42.0F, second.str().c_str());
+    render_ui_debug_text(renderer, 22.0F, 42.0F, second.str().c_str());
 
     std::ostringstream third;
     third << "Desired " << name(status.desired_counter)
@@ -11695,7 +11754,7 @@ void render_computer_status(
     if (status.target) {
         third << "  T " << status.target->x << ',' << status.target->y;
     }
-    SDL_RenderDebugText(renderer, 22.0F, 62.0F, third.str().c_str());
+    render_ui_debug_text(renderer, 22.0F, 62.0F, third.str().c_str());
 }
 
 bool render_original_hud_background(
@@ -11988,7 +12047,7 @@ void render_hud(
         };
         render_beveled_panel(renderer, badge, {75, 61, 40, 255});
         set_color(renderer, {245, 215, 122, 255});
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer, badge.x + 18.0F, badge.y + 10.0F, "OBSERVER"
         );
         SDL_SetRenderClipRect(renderer, &information_clip);
@@ -12325,11 +12384,11 @@ void render_hud(
             const std::string heading =
                 hovered.label + " [" + hovered.hotkey + "]";
             set_color(renderer, {239, 226, 185, 255});
-            SDL_RenderDebugText(
+            render_ui_debug_text(
                 renderer, tooltip.x + 4.0F, tooltip.y + 5.0F,
                 heading.c_str()
             );
-            SDL_RenderDebugText(
+            render_ui_debug_text(
                 renderer, tooltip.x + 4.0F, tooltip.y + 19.0F,
                 hovered.tooltip.substr(0, 38).c_str()
             );
@@ -12992,7 +13051,7 @@ void render_hud(
         : "Villager 3 Outpost F12 Wonder  Market Alt+T cart  Cart Alt+T route  Ctrl+Alt+A/N/E diplomacy  S stop";
     if (show_legacy_no_selection_debug &&
         !has_selection && !observer_mode) {
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer,
             static_cast<float>(hud_layout::information_content_x),
             top + 108.0F,
@@ -13020,7 +13079,7 @@ void render_hud(
                        : "ENEMY");
     if (show_legacy_no_selection_debug &&
         !has_selection && !observer_mode) {
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer,
             static_cast<float>(hud_layout::information_content_x),
             top + 52.0F,
@@ -13063,7 +13122,7 @@ void render_hud(
     }
     if (show_legacy_no_selection_debug &&
         !has_selection && !observer_mode) {
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer,
             static_cast<float>(hud_layout::information_content_x),
             top + 72.0F,
@@ -13089,7 +13148,7 @@ void render_hud(
         set_color(renderer, {255, 226, 100, 255});
         const std::string mode_text =
             std::string{"MODE: "} + active_mode + "  |  ESC CANCEL";
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer,
             mode_badge.x +
                 (mode_badge.w -
@@ -13113,7 +13172,7 @@ void render_hud(
         std::ostringstream terminal_text;
         terminal_text << "MATCH COMPLETE: "
                       << name(simulation.outcome());
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer,
             terminal.x + 24.0F,
             terminal.y + 38.0F,
@@ -13141,7 +13200,7 @@ void render_hud(
         const std::string group_text = hud_layout::truncate_debug_text(
             control_group_status, information_clip.w - 16
         );
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer, static_cast<float>(information_clip.x + 8),
             top + 130.0F,
             group_text.c_str()
@@ -13182,7 +13241,7 @@ void render_hud(
             queue << name(order.kind) << ' '
                   << static_cast<int>(progress * 100.0F) << "%  +"
                   << selected->production_queue.size() - 1;
-            SDL_RenderDebugText(
+            render_ui_debug_text(
                 renderer,
                 track.x + track.w + 8.0F,
                 top + 59.0F,
@@ -13266,7 +13325,7 @@ void render_scenario_presentation(
         SDL_RenderFillRect(renderer, &message_box);
         set_color(renderer, {221, 188, 103, 255});
         SDL_RenderRect(renderer, &message_box);
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer,
             message_box.x + 16.0F,
             message_box.y + 10.0F,
@@ -13275,7 +13334,7 @@ void render_scenario_presentation(
         set_color(renderer, {238, 230, 198, 255});
         float y = message_box.y + 27.0F;
         for (const std::string& line : lines) {
-            SDL_RenderDebugText(
+            render_ui_debug_text(
                 renderer, message_box.x + 16.0F, y, line.c_str()
             );
             y += 13.0F;
@@ -13329,14 +13388,14 @@ void render_scenario_presentation(
     SDL_RenderFillRect(renderer, &objective_box);
     set_color(renderer, {221, 188, 103, 255});
     SDL_RenderRect(renderer, &objective_box);
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer,
         objective_box.x + 14.0F,
         objective_box.y + 11.0F,
         ui_text("ui.objectives").data()
     );
     set_color(renderer, {160, 142, 104, 255});
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer,
         objective_box.x + objective_box.w - 92.0F,
         objective_box.y + 11.0F,
@@ -13353,7 +13412,7 @@ void render_scenario_presentation(
                     ? SDL_Color{232, 106, 86, 255}
                     : SDL_Color{238, 230, 198, 255}
         );
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer, objective_box.x + 14.0F, y, line.c_str()
         );
         y += 14.0F;
@@ -13427,7 +13486,7 @@ void render_campaign_presentation(
         const SDL_FRect panel{170.0F, 54.0F, 940.0F, 590.0F};
         render_beveled_panel(renderer, panel, {43, 34, 23, 255});
         set_color(renderer, {238, 214, 145, 255});
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer, panel.x + 28.0F, panel.y + 24.0F,
             debrief
                 ? ui_text("campaign.debrief").data()
@@ -13438,7 +13497,7 @@ void render_campaign_presentation(
         order << "MISSION " << scenario_number << " OF "
               << presentation->campaign.scenarios.size()
               << "  " << presentation->scenario.name;
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer, panel.x + 28.0F, panel.y + 55.0F,
             order.str().c_str()
         );
@@ -13456,7 +13515,7 @@ void render_campaign_presentation(
                     ? SDL_Color{238, 108, 88, 255}
                     : SDL_Color{221, 188, 103, 255}
         );
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer, panel.x + 28.0F, y, outcome.c_str()
         );
         y += 28.0F;
@@ -13467,20 +13526,20 @@ void render_campaign_presentation(
                         presentation->campaign.human_player))
                  << "   MAP " << simulation.map().width() << 'x'
                  << simulation.map().height();
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer, panel.x + 28.0F, y,
             metadata.str().c_str()
         );
         y += 28.0F;
         for (const std::string& line : wrap_scenario_text(
                  presentation->campaign.description, 92)) {
-            SDL_RenderDebugText(
+            render_ui_debug_text(
                 renderer, panel.x + 28.0F, y, line.c_str()
             );
             y += 15.0F;
         }
         y += 12.0F;
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer, panel.x + 28.0F, y,
             ui_text("ui.objectives").data()
         );
@@ -13494,7 +13553,7 @@ void render_campaign_presentation(
             for (const std::string& line : wrap_scenario_text(
                      prefix + objective.description, 88)) {
                 if (y > panel.y + panel.h - 92.0F) break;
-                SDL_RenderDebugText(
+                render_ui_debug_text(
                     renderer, panel.x + 28.0F, y, line.c_str()
                 );
                 y += 15.0F;
@@ -13512,13 +13571,13 @@ void render_campaign_presentation(
                     ? "CAMPAIGN COMPLETE"
                     : "DEFEAT: RETRY CURRENT MISSION";
             set_color(renderer, {221, 188, 103, 255});
-            SDL_RenderDebugText(
+            render_ui_debug_text(
                 renderer, panel.x + 28.0F, y,
                 progression.c_str()
             );
         }
         set_color(renderer, {221, 188, 103, 255});
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer, panel.x + 28.0F,
             panel.y + panel.h - 55.0F,
             debrief
@@ -13528,7 +13587,7 @@ void render_campaign_presentation(
         if (!presentation->optional_narration_path.empty() ||
             !presentation->optional_cinematic_path.empty()) {
             set_color(renderer, {151, 139, 110, 255});
-            SDL_RenderDebugText(
+            render_ui_debug_text(
                 renderer, panel.x + 28.0F,
                 panel.y + panel.h - 31.0F,
                 "OPTIONAL USER-OWNED MEDIA PATH CONFIGURED"
@@ -13593,7 +13652,7 @@ void render_campaign_presentation(
     SDL_RenderFillRect(renderer, &box);
     set_color(renderer, {221, 188, 103, 255});
     SDL_RenderRect(renderer, &box);
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, box.x + 14.0F, box.y + 10.0F,
         ui_text("campaign.title").data()
     );
@@ -13602,11 +13661,11 @@ void render_campaign_presentation(
         wrap_scenario_text(presentation->campaign.name, 47);
     float y = box.y + 29.0F;
     for (const std::string& line : title) {
-        SDL_RenderDebugText(renderer, box.x + 14.0F, y, line.c_str());
+        render_ui_debug_text(renderer, box.x + 14.0F, y, line.c_str());
         y += 14.0F;
     }
     for (const std::string& line : lines) {
-        SDL_RenderDebugText(renderer, box.x + 14.0F, y, line.c_str());
+        render_ui_debug_text(renderer, box.x + 14.0F, y, line.c_str());
         y += 14.0F;
     }
 }
@@ -13646,7 +13705,7 @@ void render_chat_panel(
 ) {
     render_beveled_panel(renderer, box, {31, 24, 17, 242});
     set_color(renderer, {221, 188, 103, 255});
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, box.x + 10.0F, box.y + 8.0F,
         presentation.chat_audience == ChatAudience::all
             ? "CHAT [ALL]  TAB: ALLIES"
@@ -13675,7 +13734,7 @@ void render_chat_panel(
                 ? SDL_Color{130, 179, 245, 255}
                 : SDL_Color{239, 130, 110, 255}
         );
-        SDL_RenderDebugText(renderer, box.x + 10.0F, y, line.c_str());
+        render_ui_debug_text(renderer, box.x + 10.0F, y, line.c_str());
         y += 13.0F;
     }
     if (!presentation.signal_log.empty() && y < box.y + box.h - 32.0F) {
@@ -13692,20 +13751,20 @@ void render_chat_panel(
                 ? SDL_Color{130, 179, 245, 255}
                 : SDL_Color{239, 130, 110, 255}
         );
-        SDL_RenderDebugText(renderer, box.x + 10.0F, y, line.c_str());
+        render_ui_debug_text(renderer, box.x + 10.0F, y, line.c_str());
     }
     set_color(renderer, {238, 230, 198, 255});
     const std::string input =
         presentation.chat_input_active
         ? "> " + presentation.chat_input + "_"
         : "ENTER: TYPE MESSAGE";
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, box.x + 10.0F, box.y + box.h - 27.0F,
         input.substr(0, 72).c_str()
     );
     if (!presentation.chat_feedback.empty()) {
         set_color(renderer, {245, 170, 102, 255});
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer, box.x + 10.0F, box.y + box.h - 14.0F,
             presentation.chat_feedback.substr(0, 72).c_str()
         );
@@ -13760,7 +13819,7 @@ void render_multiplayer_presentation(
             renderer, lobby, {42, 33, 23, 248}
         );
         set_color(renderer, {238, 214, 145, 255});
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer, lobby.x + 24.0F, lobby.y + 20.0F,
             "LOCALHOST MULTIPLAYER LOBBY"
         );
@@ -13790,7 +13849,7 @@ void render_multiplayer_presentation(
                     ? SDL_Color{112, 166, 245, 255}
                     : SDL_Color{235, 105, 88, 255}
             );
-            SDL_RenderDebugText(
+            render_ui_debug_text(
                 renderer, lobby.x + 30.0F, y,
                 line.str().c_str()
             );
@@ -13850,7 +13909,7 @@ void render_multiplayer_presentation(
         );
         float metadata_y = lobby.y + 146.0F;
         for (const std::string& line : metadata) {
-            SDL_RenderDebugText(
+            render_ui_debug_text(
                 renderer, lobby.x + 30.0F,
                 metadata_y, line.c_str()
             );
@@ -13885,7 +13944,7 @@ void render_multiplayer_presentation(
                 : SDL_Color{47, 43, 38, 255}
         );
         set_color(renderer, {240, 224, 173, 255});
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer,
             ready_button.x + 45.0F,
             ready_button.y + 20.0F,
@@ -13893,7 +13952,7 @@ void render_multiplayer_presentation(
                 ? "READY LOCKED"
                 : "R / CLICK: READY"
         );
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer,
             start_button.x + 43.0F,
             start_button.y + 20.0F,
@@ -13902,7 +13961,7 @@ void render_multiplayer_presentation(
                 : "WAITING FOR HOST START"
         );
         set_color(renderer, {161, 146, 111, 255});
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer,
             lobby.x + 24.0F,
             lobby.y + lobby.h - 24.0F,
@@ -14013,13 +14072,13 @@ void render_multiplayer_presentation(
     SDL_RenderFillRect(renderer, &box);
     set_color(renderer, {221, 188, 103, 255});
     SDL_RenderRect(renderer, &box);
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, box.x + 14.0F, box.y + 10.0F,
         ui_text("multiplayer.title").data()
     );
     float y = box.y + 30.0F;
     for (const std::string& line : lines) {
-        SDL_RenderDebugText(renderer, box.x + 14.0F, y, line.c_str());
+        render_ui_debug_text(renderer, box.x + 14.0F, y, line.c_str());
         y += 14.0F;
     }
     render_chat_panel(
@@ -14034,7 +14093,7 @@ void render_multiplayer_presentation(
         };
         render_beveled_panel(renderer, paused_box, {72, 38, 28, 244});
         set_color(renderer, {248, 220, 150, 255});
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer, paused_box.x + 66.0F, paused_box.y + 18.0F,
             "GAME PAUSED"
         );
@@ -14046,7 +14105,7 @@ void render_editor_overlay(SDL_Renderer* renderer) {
     const SDL_FRect panel{18.0F, 18.0F, 680.0F, 218.0F};
     render_beveled_panel(renderer, panel, {42, 33, 23, 248});
     set_color(renderer, {238, 214, 145, 255});
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 14.0F, panel.y + 12.0F,
         ui_debug_text("editor.title").c_str()
     );
@@ -14063,23 +14122,23 @@ void render_editor_overlay(SDL_Renderer* renderer) {
         "  PLAYER: " + std::string{name(active_editor_player)} +
         "  CURSOR: " + std::to_string(active_editor_cursor.x) + "," +
         std::to_string(active_editor_cursor.y);
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 14.0F, panel.y + 36.0F,
         selected.c_str()
     );
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 14.0F, panel.y + 58.0F,
         ui_debug_text("editor.tabs").c_str()
     );
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 14.0F, panel.y + 78.0F,
         ui_debug_text("editor.tools").c_str()
     );
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 14.0F, panel.y + 100.0F,
         ui_debug_text("editor.actions").c_str()
     );
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 14.0F, panel.y + 122.0F,
         ui_debug_text("editor.files").c_str()
     );
@@ -14092,12 +14151,12 @@ void render_editor_overlay(SDL_Renderer* renderer) {
             ? "[" + std::string{tabs[index]} + "] "
             : std::string{tabs[index]} + " ";
     }
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 14.0F, panel.y + 146.0F,
         focus_line.c_str()
     );
     set_color(renderer, {169, 204, 139, 255});
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 14.0F, panel.y + 174.0F,
         active_editor_status.substr(0, 78).c_str()
     );
@@ -14189,7 +14248,7 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
             set_color(renderer, color);
             const float text_width =
                 static_cast<float>(text.size() * 8);
-            SDL_RenderDebugText(
+            render_ui_debug_text(
                 renderer,
                 bounds.x + (bounds.width - text_width) * 0.5F,
                 bounds.y + (bounds.height - 8.0F) * 0.5F,
@@ -14318,7 +14377,7 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
             SDL_RenderFillRect(renderer, &close);
             set_color(renderer, {242, 232, 165, 255});
             SDL_RenderRect(renderer, &close);
-            SDL_RenderDebugText(renderer, 784, 8, "X");
+            render_ui_debug_text(renderer, 784, 8, "X");
 
             for (std::size_t index = 0; index < items.size(); ++index) {
                 const FrontendMenuItem& item = items[index];
@@ -14361,7 +14420,7 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
                     const std::string line =
                         help_text.substr(0, split);
                     set_color(renderer, {42, 25, 15, 255});
-                    SDL_RenderDebugText(renderer, 391, y, line.c_str());
+                    render_ui_debug_text(renderer, 391, y, line.c_str());
                     help_text.erase(0, split);
                     while (!help_text.empty() &&
                            help_text.front() == ' ') {
@@ -14375,7 +14434,7 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
             const SDL_FRect help{326, 394, 438, 128};
             render_beveled_panel(renderer, help, {151, 98, 48, 245});
             set_color(renderer, {45, 27, 15, 255});
-            SDL_RenderDebugText(renderer, 350, 416, "SELECTED");
+            render_ui_debug_text(renderer, 350, 416, "SELECTED");
             draw_centered(
                 item.label,
                 {350, 440, 390, 24},
@@ -14384,7 +14443,7 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
                     : SDL_Color{104, 91, 72, 255}
             );
             set_color(renderer, {55, 34, 19, 255});
-            SDL_RenderDebugText(
+            render_ui_debug_text(
                 renderer, 350, 478,
                 std::string{item.help}.substr(0, 48).c_str()
             );
@@ -14427,12 +14486,12 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
     const SDL_FRect panel{330.0F, 92.0F, 620.0F, 520.0F};
     render_beveled_panel(renderer, panel, {44, 34, 23, 255});
     set_color(renderer, {238, 214, 145, 255});
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 42.0F, panel.y + 32.0F,
         "AGE OF EMPIRES II ARCHAEOLOGY"
     );
     set_color(renderer, {158, 137, 91, 255});
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 42.0F, panel.y + 56.0F,
         "BOUNDED RECONSTRUCTION FRONT END"
     );
@@ -14440,26 +14499,26 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
     {
         if (active_frontend_screen == FrontendScreen::zone_service) {
             const ZoneServiceContract& zone = zone_service_contract();
-            SDL_RenderDebugText(
+            render_ui_debug_text(
                 renderer, panel.x + 70.0F, panel.y + 122.0F,
                 "MSN GAMING ZONE"
             );
-            SDL_RenderDebugText(
+            render_ui_debug_text(
                 renderer, panel.x + 70.0F, panel.y + 178.0F,
                 std::string{zone.status}.c_str()
             );
             const std::string original_service =
                 std::string{"ORIGINAL SERVICE: "} +
                 std::string{zone.original_url};
-            SDL_RenderDebugText(
+            render_ui_debug_text(
                 renderer, panel.x + 70.0F, panel.y + 214.0F,
                 original_service.c_str()
             );
-            SDL_RenderDebugText(
+            render_ui_debug_text(
                 renderer, panel.x + 70.0F, panel.y + 270.0F,
                 std::string{zone.supported_alternative}.c_str()
             );
-            SDL_RenderDebugText(
+            render_ui_debug_text(
                 renderer, panel.x + 70.0F, panel.y + 326.0F,
                 "ESC: MAIN MENU"
             );
@@ -14482,7 +14541,7 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
                 ? "MODERATE" :
             active_setup_difficulty == ComputerDifficulty::hard
                 ? "HARD" : "HARDEST";
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer, panel.x + 70.0F, panel.y + 122.0F,
             active_frontend_game_mode == FrontendGameMode::regicide
                 ? "SINGLE PLAYER REGICIDE"
@@ -14493,21 +14552,21 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
         const std::string map_line =
             std::string{"M MAP: "} + map_kind +
             " [RMS]   Z SIZE: " + map_size;
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer, panel.x + 70.0F, panel.y + 166.0F,
             map_line.c_str()
         );
         const std::string seed_line =
             "SEED -/+ : " +
             std::to_string(active_random_settings.seed);
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer, panel.x + 70.0F, panel.y + 202.0F,
             seed_line.c_str()
         );
         const std::string player_line =
             "S SLOT  P OPEN/CLOSED  C CIV  T TEAM   D AI: " +
             std::string{difficulty};
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer, panel.x + 70.0F, panel.y + 238.0F,
             player_line.c_str()
         );
@@ -14518,11 +14577,11 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
             active_frontend_game_mode == FrontendGameMode::regicide
                 ? "VICTORY: DEFEAT ENEMY KING"
                 : std::string{"V VICTORY: "} + victory;
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer, panel.x + 70.0F, panel.y + 274.0F,
             victory_line.c_str()
         );
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer, panel.x + 70.0F, panel.y + 430.0F,
             "ENTER: GENERATE / START   ESC: MAIN MENU"
         );
@@ -14546,7 +14605,7 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
                 row += slot.team.has_team()
                     ? std::to_string(slot.team.number()) : "-";
             }
-            SDL_RenderDebugText(
+            render_ui_debug_text(
                 renderer,
                 panel.x + 70.0F,
                 panel.y + 306.0F + static_cast<float>(index * 14),
@@ -14591,12 +14650,12 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
         }
     }
     set_color(renderer, {169, 204, 139, 255});
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 42.0F, panel.y + panel.h - 54.0F,
         active_frontend_status.substr(0, 68).c_str()
     );
     set_color(renderer, {145, 132, 103, 255});
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 42.0F, panel.y + panel.h - 28.0F,
         "NO CLAIM OF COMMERCIAL MENU OR NETWORK COMPATIBILITY"
     );
@@ -14615,7 +14674,7 @@ void render_options_overlay(SDL_Renderer* renderer) {
     const SDL_FRect panel{260.0F, 42.0F, 760.0F, 620.0F};
     render_beveled_panel(renderer, panel, {43, 34, 24, 255});
     set_color(renderer, {238, 214, 145, 255});
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 34.0F, panel.y + 24.0F,
         active_options_hotkeys ? "HOTKEY REFERENCE" : "OPTIONS"
     );
@@ -14635,7 +14694,7 @@ void render_options_overlay(SDL_Renderer* renderer) {
         }};
         float y = panel.y + 76.0F;
         for (const char* line : lines) {
-            SDL_RenderDebugText(renderer, panel.x + 34.0F, y, line);
+            render_ui_debug_text(renderer, panel.x + 34.0F, y, line);
             y += 42.0F;
         }
         return;
@@ -14655,7 +14714,7 @@ void render_options_overlay(SDL_Renderer* renderer) {
         std::string{"P  MINIMAP: "} + on_off(draft_settings.minimap),
         std::string{"N  MINIMAP MODE: "} +
             minimap::mode_name(draft_settings.minimap_mode),
-        "LOCALE: " + draft_settings.locale +
+        "L  LOCALE: " + draft_settings.locale +
             "   FILE: " +
             (draft_settings.language_file.empty()
                  ? std::string{"BUILT-IN/AUTO"}
@@ -14664,16 +14723,16 @@ void render_options_overlay(SDL_Renderer* renderer) {
     }};
     float y = panel.y + 68.0F;
     for (const auto& line : lines) {
-        SDL_RenderDebugText(renderer, panel.x + 34.0F, y, line.c_str());
+        render_ui_debug_text(renderer, panel.x + 34.0F, y, line.c_str());
         y += 36.0F;
     }
     set_color(renderer, {169, 204, 139, 255});
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 34.0F, panel.y + 562.0F,
         active_options_status.substr(0, 82).c_str()
     );
     set_color(renderer, {158, 137, 91, 255});
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 34.0F, panel.y + 588.0F,
         "MUSIC/SOUND ATTENUATION APPLIES LIVE; PAUSE/FOCUS PRESERVE AUDIO"
     );
@@ -14745,18 +14804,18 @@ void render_statistics_overlay(
                        crest_center.x + 8.0F, crest_center.y - 7.0F);
     }
     set_color(renderer, {238, 214, 145, 255});
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 28.0F, panel.y + 22.0F,
         ui_text("statistics.title").data()
     );
     set_color(renderer, {226, 218, 190, 255});
-    SDL_RenderDebugText(renderer, panel.x + 500.0F, panel.y + 25.0F, outcome);
+    render_ui_debug_text(renderer, panel.x + 500.0F, panel.y + 25.0F, outcome);
     const std::string cause = statistics_victory_cause(
         simulation.outcome(),
         simulation.countdown_kind(Player::blue),
         simulation.countdown_kind(Player::red)
     );
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 760.0F, panel.y + 25.0F, cause.c_str()
     );
     if (active_legacy_sprites.statistics_team.texture != nullptr) {
@@ -14814,7 +14873,7 @@ void render_statistics_overlay(
                 ? SDL_Color{245, 215, 122, 255}
                 : SDL_Color{198, 184, 145, 255}
         );
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer, tab_x + 18.0F, panel.y + 74.0F, tabs[index].c_str()
         );
         tab_x += 190.0F;
@@ -14842,11 +14901,11 @@ void render_statistics_overlay(
     set_color(renderer, {159, 58, 51, 255});
     SDL_RenderRect(renderer, &red_banner);
     set_color(renderer, {116, 170, 244, 255});
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 662.0F, panel.y + 113.0F, "BLUE"
     );
     set_color(renderer, {232, 112, 100, 255});
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 827.0F, panel.y + 113.0F, "RED"
     );
     if (active_statistics_tab == StatisticsTab::timeline) {
@@ -14881,7 +14940,7 @@ void render_statistics_overlay(
         }
         if (points.empty()) {
             set_color(renderer, {166, 151, 116, 255});
-            SDL_RenderDebugText(
+            render_ui_debug_text(
                 renderer, graph.x + 330.0F, graph.y + 170.0F,
                 "TIMELINE SAMPLES UNAVAILABLE"
             );
@@ -14891,7 +14950,7 @@ void render_statistics_overlay(
             std::to_string(statistics.current_score[0]) + "       " +
             std::to_string(statistics.current_score[1]) +
             "     SAMPLES " + std::to_string(points.size());
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer, graph.x + 250.0F, graph.y + graph.h + 24.0F,
             summary.c_str()
         );
@@ -14914,7 +14973,7 @@ void render_statistics_overlay(
             SDL_RenderLine(renderer, table.x, y + 22.0F,
                            table.x + table.w, y + 22.0F);
             set_color(renderer, {226, 218, 190, 255});
-            SDL_RenderDebugText(
+            render_ui_debug_text(
                 renderer, panel.x + 72.0F, y, row.label.c_str()
             );
             const std::string blue =
@@ -14924,11 +14983,11 @@ void render_statistics_overlay(
                 row.red ? std::to_string(*row.red)
                         : std::string{ui_text("statistics.unavailable")};
             set_color(renderer, {116, 170, 244, 255});
-            SDL_RenderDebugText(
+            render_ui_debug_text(
                 renderer, panel.x + 662.0F, y, blue.c_str()
             );
             set_color(renderer, {232, 112, 100, 255});
-            SDL_RenderDebugText(
+            render_ui_debug_text(
                 renderer, panel.x + 827.0F, y, red.c_str()
             );
             y += 38.0F;
@@ -14940,7 +14999,7 @@ void render_statistics_overlay(
                                 640.0F, 52.0F};
         render_beveled_panel(renderer, summary, {45, 38, 25, 255});
         set_color(renderer, {190, 176, 134, 255});
-        SDL_RenderDebugText(renderer, summary.x + 12.0F,
+        render_ui_debug_text(renderer, summary.x + 12.0F,
                             summary.y + 10.0F, "FINAL SCORE");
         const SDL_FRect blue_bar{summary.x + 120.0F, summary.y + 9.0F,
             400.0F * static_cast<float>(blue_score) / largest, 11.0F};
@@ -14953,7 +15012,7 @@ void render_statistics_overlay(
         const std::string scores = std::to_string(blue_score) + " / " +
                                    std::to_string(red_score);
         set_color(renderer, {231, 216, 170, 255});
-        SDL_RenderDebugText(renderer, summary.x + 540.0F,
+        render_ui_debug_text(renderer, summary.x + 540.0F,
                             summary.y + 22.0F, scores.c_str());
     }
     if (active_statistics_postgame) {
@@ -14978,7 +15037,7 @@ void render_statistics_overlay(
                                         13.0F, 13.0F};
             SDL_RenderRect(renderer, &button_icon);
             set_color(renderer, {210, 224, 168, 255});
-            SDL_RenderDebugText(
+            render_ui_debug_text(
                 renderer,
                 button.x + (button.w -
                     static_cast<float>(actions[index].size() * 8)) * 0.5F,
@@ -14988,7 +15047,7 @@ void render_statistics_overlay(
         }
     } else {
         set_color(renderer, {169, 204, 139, 255});
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer, panel.x + 350.0F, panel.y + 596.0F,
             "F12 / ESC CLOSE"
         );
@@ -15004,7 +15063,7 @@ void render_save_browser_overlay(SDL_Renderer* renderer) {
     const SDL_FRect panel{150.0F, 54.0F, 980.0F, 590.0F};
     render_beveled_panel(renderer, panel, {42, 33, 23, 255});
     set_color(renderer, {238, 214, 145, 255});
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 28.0F, panel.y + 22.0F,
         ui_debug_text("browser.title").c_str()
     );
@@ -15015,19 +15074,19 @@ void render_save_browser_overlay(SDL_Renderer* renderer) {
               static_cast<std::int64_t>(active_browser_entries.size())
           ))
         : std::to_string(active_browser_entries.size()) + " ENTRIES";
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 790.0F, panel.y + 22.0F,
         entry_count.c_str()
     );
     set_color(renderer, {160, 142, 104, 255});
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 28.0F, panel.y + 48.0F,
         "BOUNDED SDL USER-DATA ROOT; NO DELETE OR ARBITRARY PATH"
     );
     float y = panel.y + 88.0F;
     if (active_browser_entries.empty()) {
         set_color(renderer, {180, 164, 126, 255});
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer, panel.x + 44.0F, y, "NO BOUNDED SAVE OR REPLAY FILES"
         );
     }
@@ -15053,7 +15112,7 @@ void render_save_browser_overlay(SDL_Renderer* renderer) {
         const std::string line =
             (index == active_browser_selection ? "> " : "  ") +
             entry.filename + "  [" + kind + "]  " + entry.modified_time;
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer, panel.x + 44.0F, y, line.substr(0, 105).c_str()
         );
         y += 46.0F;
@@ -15082,12 +15141,12 @@ void render_save_browser_overlay(SDL_Renderer* renderer) {
                 ? "ALLIED VICTORY" : "DRAW";
         metadata << "  OUTCOME " << saved_outcome;
         set_color(renderer, {169, 204, 139, 255});
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer, panel.x + 44.0F, panel.y + 470.0F,
             metadata.str().c_str()
         );
         set_color(renderer, {214, 157, 113, 255});
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer, panel.x + 44.0F, panel.y + 494.0F,
             entry.diagnostic.substr(0, 108).c_str()
         );
@@ -15096,15 +15155,15 @@ void render_save_browser_overlay(SDL_Renderer* renderer) {
     const std::string slot =
         std::string{"SLOT: "} + active_save_slot +
         (active_save_slot_input ? "_" : "");
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 44.0F, panel.y + 526.0F, slot.c_str()
     );
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 360.0F, panel.y + 526.0F,
         "N NAME/SAVE   ENTER LOAD/PLAY   UP/DOWN SELECT   ESC CLOSE"
     );
     set_color(renderer, {169, 204, 139, 255});
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 44.0F, panel.y + 554.0F,
         active_save_browser_status.substr(0, 112).c_str()
     );
@@ -15342,7 +15401,7 @@ void render_diplomacy_panel(
     const SDL_FRect panel{250.0F, 74.0F, 780.0F, 560.0F};
     render_beveled_panel(renderer, panel, {43, 34, 23, 255});
     set_color(renderer, {238, 214, 145, 255});
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 28.0F, panel.y + 24.0F,
         ui_text("diplomacy.title").data()
     );
@@ -15360,7 +15419,7 @@ void render_diplomacy_panel(
         "BLUE  CIV " + std::string{name(
             simulation.civilization(Player::blue))} +
         "  TEAM " + std::to_string(blue_team);
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 38.0F, panel.y + 72.0F,
         blue.c_str()
     );
@@ -15369,7 +15428,7 @@ void render_diplomacy_panel(
         "RED   CIV " + std::string{name(
             simulation.civilization(Player::red))} +
         "  TEAM " + std::to_string(red_team);
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 38.0F, panel.y + 100.0F,
         red.c_str()
     );
@@ -15378,7 +15437,7 @@ void render_diplomacy_panel(
         relation == Diplomacy::ally &&
         simulation.has_technology(
             active_view_player, Technology::cartography);
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 38.0F, panel.y + 142.0F,
         (std::string{"STANCE: "} + stance +
          "   ALLIED VICTORY: " +
@@ -15386,7 +15445,7 @@ void render_diplomacy_panel(
          "   SHARED VISION: " +
          (shared_vision ? "ON" : "OFF")).c_str()
     );
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 38.0F, panel.y + 180.0F,
         "A ALLY   N NEUTRAL   E ENEMY"
     );
@@ -15406,7 +15465,7 @@ void render_diplomacy_panel(
                  active_view_player, MarketResource::stone) << '/'
           << simulation.market_sell_price(
                  active_view_player, MarketResource::stone);
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 38.0F, panel.y + 224.0F,
         rates.str().c_str()
     );
@@ -15419,11 +15478,11 @@ void render_diplomacy_panel(
         "TRIBUTE " + std::to_string(active_tribute_amount) + " " +
         std::string{name(active_tribute_resource)} +
         "   FEE " + std::to_string(tribute_fee) + "%";
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 38.0F, panel.y + 276.0F,
         tribute.c_str()
     );
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 38.0F, panel.y + 308.0F,
         "1 FOOD  2 WOOD  3 GOLD  4 STONE   -/+ AMOUNT"
     );
@@ -15443,24 +15502,24 @@ void render_diplomacy_panel(
             ? SDL_Color{169, 204, 139, 255}
             : SDL_Color{150, 118, 105, 255}
     );
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 38.0F, panel.y + 346.0F,
         available
             ? "ENTER: SEND TRIBUTE"
             : "TRIBUTE DISABLED: ALLY + RESOURCES REQUIRED"
     );
     set_color(renderer, {238, 230, 198, 255});
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 38.0F, panel.y + 392.0F,
         "T CHAT ALL   Y CHAT ALLIES   F10/ESC CLOSE"
     );
     set_color(renderer, {169, 204, 139, 255});
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 38.0F, panel.y + 438.0F,
         active_diplomacy_status.substr(0, 80).c_str()
     );
     set_color(renderer, {135, 126, 102, 255});
-    SDL_RenderDebugText(
+    render_ui_debug_text(
         renderer, panel.x + 38.0F, panel.y + panel.h - 30.0F,
         "RECONSTRUCTION PANEL; NO ORIGINAL DIPLOMACY ART CLAIM"
     );
@@ -16633,7 +16692,7 @@ std::size_t render(
         }
         const SDL_FPoint label = tile_top(*active_build_preview_tile);
         set_color(renderer, color);
-        SDL_RenderDebugText(
+        render_ui_debug_text(
             renderer,
             label.x - 40.0F,
             label.y - 18.0F,
@@ -17162,43 +17221,48 @@ int SdlApp::run() {
         SDL_Quit();
         throw std::runtime_error(SDL_GetError());
     }
-    const std::string_view requested_locale =
+    const std::string requested_locale =
         SDL_getenv("AOE_LOCALE") != nullptr
-        ? SDL_getenv("AOE_LOCALE")
-        : "en";
+        ? std::string{SDL_getenv("AOE_LOCALE")}
+        : active_settings.locale;
     const std::optional<std::filesystem::path> language_file =
         SDL_getenv("AOE_LANGUAGE_FILE") != nullptr &&
         SDL_getenv("AOE_LANGUAGE_FILE")[0] != '\0'
         ? std::optional<std::filesystem::path>{
               SDL_getenv("AOE_LANGUAGE_FILE")
           }
-        : std::nullopt;
-    LocalizationResult localization =
-        negotiate_localization(requested_locale, language_file);
-    if (!language_file) {
-        if (const auto asset_root = configured_asset_root()) {
-            const std::filesystem::path language_root =
-                *asset_root / "Bin" / "en";
-            const std::vector<std::filesystem::path> sources{
-                language_root / "language.dll",
-                language_root / "language_x1.dll",
-                language_root / "language_x1_p1.dll",
-            };
+        : !active_settings.language_file.empty()
+            ? std::optional<std::filesystem::path>{
+                  active_settings.language_file
+              }
+            : std::nullopt;
+    const auto load_localization = [](
+        std::string_view locale,
+        const std::optional<std::filesystem::path>& file
+    ) {
+        LocalizationResult result = negotiate_localization(locale, file);
+        if (!file) {
+          if (const auto asset_root = configured_asset_root()) {
             try {
+                const LanguageProfile& profile =
+                    language_profile(locale);
+                const auto sources = discover_legacy_language_sources(
+                    *asset_root, locale
+                );
+                if (sources.empty()) {
+                    throw std::runtime_error(
+                        "selected locale has no packaged language archives"
+                    );
+                }
                 LegacyLanguageReport legacy =
                     load_legacy_language_sources(
-                        requested_locale, 0x0409, sources,
-                        {
-                            {9500, "frontend.main.single_player"},
-                            {9501, "frontend.main.multiplayer"},
-                            {9503, "frontend.main.learn_to_play"},
-                            {9504, "frontend.main.map_editor"},
-                            {9505, "frontend.main.history"},
-                            {9506, "frontend.main.options"},
-                            {9509, "frontend.main.exit"},
-                        }
+                        locale,
+                        profile.windows_language_id,
+                        sources,
+                        legacy_ui_string_catalog()
                     );
-                localization.table = std::move(legacy.table);
+                result.table = std::move(legacy.table);
+                result.external_loaded = true;
                 SDL_Log(
                     "using packaged legacy localization: %zu strings from "
                     "%zu sources",
@@ -17212,9 +17276,14 @@ int SdlApp::run() {
                     error.what()
                 );
             }
+          }
         }
-    }
+        return result;
+    };
+    LocalizationResult localization =
+        load_localization(requested_locale, language_file);
     active_string_table = &localization.table;
+    if (audio) audio->set_locale(localization.table.locale());
     ScenarioStartup startup = load_startup_scenario();
     Scenario demo_scenario = std::move(startup.scenario);
     std::optional<CampaignPresentation> campaign_presentation =
@@ -17912,8 +17981,9 @@ int SdlApp::run() {
         }
         if (const char* requested =
                 SDL_getenv("AOE_AUDIO_PROOF_TAUNT")) {
-            audio->play_taunt(
-                static_cast<unsigned>(SDL_atoi(requested))
+        audio->play_taunt(
+                static_cast<unsigned>(SDL_atoi(requested)),
+                localization.table.locale()
             );
         }
         if (const char* requested =
@@ -18283,6 +18353,23 @@ int SdlApp::run() {
         return succeeded;
     };
     auto apply_options = [&]() {
+        try {
+            const std::optional<std::filesystem::path> selected_file =
+                draft_settings.language_file.empty()
+                    ? std::nullopt
+                    : std::optional<std::filesystem::path>{
+                          draft_settings.language_file
+                      };
+            localization = load_localization(
+                draft_settings.locale, selected_file
+            );
+            active_string_table = &localization.table;
+            if (audio) audio->set_locale(localization.table.locale());
+        } catch (const std::exception& error) {
+            active_options_status =
+                std::string{"LANGUAGE FAILED: "} + error.what();
+            return false;
+        }
         active_settings = draft_settings;
         if (audio) {
             audio->apply_mix(AudioMix::from_settings(active_settings));
@@ -21075,6 +21162,21 @@ int SdlApp::run() {
                         draft_settings.minimap_mode = minimap::next_mode(
                             draft_settings.minimap_mode
                         );
+                    } else if (event.key.key == SDLK_L) {
+                        const auto& profiles = shipped_language_profiles();
+                        const auto current = std::ranges::find_if(
+                            profiles,
+                            [](const LanguageProfile& profile) {
+                                return draft_settings.locale.starts_with(
+                                    profile.locale
+                                );
+                            }
+                        );
+                        const auto next = current == profiles.end() ||
+                                std::next(current) == profiles.end()
+                            ? profiles.begin() : std::next(current);
+                        draft_settings.locale = next->locale;
+                        draft_settings.language_file.clear();
                     } else if (event.key.key == SDLK_H) {
                         active_options_hotkeys = true;
                     } else if (event.key.key == SDLK_A) {
@@ -24330,7 +24432,9 @@ int SdlApp::run() {
                 }
                 if (audio) {
                     if (const auto number = taunt_number(message.text)) {
-                        audio->play_taunt(*number);
+                            audio->play_taunt(
+                                *number, active_string_table->locale()
+                            );
                     }
                 }
                 active_last_taunt_sequence = message.sequence;

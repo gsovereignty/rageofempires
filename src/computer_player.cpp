@@ -2477,7 +2477,9 @@ void ComputerPlayer::update(Simulation& simulation) {
     if (!state_.retreating && land_target && !land_army.empty()) {
         const bool defending = state_.home_anchor.x >= 0 &&
             distance(state_.home_anchor, *land_target) <= 14;
-        if (defending || state_.home_anchor.x < 0 || (attack_timer_ready &&
+        if (defending || (victory_target_objective &&
+            static_cast<int>(land_army.size()) >= attack_threshold) ||
+            state_.home_anchor.x < 0 || (attack_timer_ready &&
             static_cast<int>(land_army.size()) >= attack_threshold)) {
             std::vector<EntityId> order_army;
             for (const EntityId id : land_army) {
@@ -2492,14 +2494,16 @@ void ComputerPlayer::update(Simulation& simulation) {
                 }
             }
             bool formed = order_army.empty();
-            if (defending || state_.home_anchor.x < 0) {
+            if ((defending && order_army.size() == 1) ||
+                state_.home_anchor.x < 0) {
                 for (const EntityId id : order_army) {
                     formed = simulation.command_unit(id, *land_target) ||
                         formed;
                 }
             } else {
                 formed = simulation.command_formation_order(
-                    order_army, *land_target, FormationKind::flank,
+                    order_army, *land_target,
+                    defending ? FormationKind::box : FormationKind::flank,
                     FormationOrderKind::attack_move
                 );
             }

@@ -4644,7 +4644,8 @@ LegacySprites load_local_legacy_sprites(
             static_cast<void>(root);
         }
         std::set<std::int16_t> damage_roots;
-        for (int kind = 0; kind <= static_cast<int>(BuildingKind::wonder);
+        for (int kind = 0;
+             kind < static_cast<int>(building_kind_count);
              ++kind) {
             if (static_cast<BuildingKind>(kind) ==
                 BuildingKind::fish_trap) {
@@ -6432,6 +6433,7 @@ bool render_legacy_animated_composite(
     else if (dx == 1 && dy == 0) direction = 6;
     else if (dx == 1 && dy == 1) direction = 7;
 
+    bool rendered_any = false;
     for (const LegacyAnimatedCompositePart& part : composite.parts) {
         const LegacyAnimation& animation = part.animation;
         if (animation.frames.empty() ||
@@ -6478,8 +6480,15 @@ bool render_legacy_animated_composite(
             static_cast<std::size_t>(angle) *
                 animation.frames_per_angle +
             *action_frame;
-        if (frame_index >= animation.frames.size() ||
-            !render_legacy_sprite(
+        if (frame_index >= animation.frames.size()) {
+            return false;
+        }
+        // Independent damage deltas may intentionally contain an empty
+        // frame. Keep rendering sibling flames/debris in that case.
+        if (animation.frames[frame_index].texture == nullptr) {
+            continue;
+        }
+        if (!render_legacy_sprite(
                 renderer,
                 animation.frames[frame_index],
                 {
@@ -6491,8 +6500,9 @@ bool render_legacy_animated_composite(
             )) {
             return false;
         }
+        rendered_any = true;
     }
-    return true;
+    return rendered_any;
 }
 
 [[maybe_unused]] bool render_legacy_construction_composite(
@@ -7628,6 +7638,14 @@ std::uint64_t building_damage_elapsed(
         active_building_damage_animation.erase(building);
         return 0;
     }
+    // Screenshot audit samples a proved non-initial animation point without
+    // making process startup timing part of pixel evidence.
+    if (SDL_getenv("AOE_TOWER_DAMAGE_AUDIT_PERCENT") != nullptr) {
+        const char* sample = SDL_getenv("AOE_TOWER_DAMAGE_AUDIT_SAMPLE_MS");
+        return sample != nullptr
+            ? static_cast<std::uint64_t>(std::max(std::stoi(sample), 0))
+            : 0U;
+    }
     auto [found, inserted] = active_building_damage_animation.try_emplace(
         building,
         std::pair{*graphic, tick}
@@ -7657,8 +7675,9 @@ void render_building(
     const auto owner_slot = building.owner.slot_index();
     const bool legacy_two_player_owner =
         owner_slot && *owner_slot < 2;
-    const bool wall_damage_screenshot_audit =
-        SDL_getenv("AOE_WALL_DAMAGE_AUDIT_PERCENT") != nullptr;
+    const bool damage_screenshot_audit =
+        SDL_getenv("AOE_WALL_DAMAGE_AUDIT_PERCENT") != nullptr ||
+        SDL_getenv("AOE_TOWER_DAMAGE_AUDIT_PERCENT") != nullptr;
     const int maximum_hit_points = memory != nullptr
         ? memory->maximum_hit_points
         : simulation.maximum_hit_points(building);
@@ -7737,7 +7756,7 @@ void render_building(
                     true,
                     remembered_topology
                 )) {
-                if (!wall_damage_screenshot_audit &&
+                if (!damage_screenshot_audit &&
                     (building.hit_points < maximum_hit_points ||
                      simulation.selected_building() == building.id)) {
                     render_health_bar(
@@ -8093,7 +8112,7 @@ void render_building(
                 *sprite,
                 {top.x, top.y + half_tile_height}
             )) {
-            if (!wall_damage_screenshot_audit &&
+            if (!damage_screenshot_audit &&
                 (building.hit_points < maximum_hit_points ||
                  simulation.selected_building() == building.id)) {
                 render_health_bar(
@@ -8169,8 +8188,9 @@ void render_building(
                     *composite,
                     {top.x, top.y + half_tile_height}
                 )) {
-                if (building.hit_points < maximum_hit_points ||
-                    simulation.selected_building() == building.id) {
+                if (!damage_screenshot_audit &&
+                    (building.hit_points < maximum_hit_points ||
+                     simulation.selected_building() == building.id)) {
                     render_health_bar(
                         renderer,
                         top.x,
@@ -8970,8 +8990,9 @@ void render_building(
             }
         }
     }
-    if (building.hit_points < maximum_hit_points ||
-        simulation.selected_building() == building.id) {
+    if (!damage_screenshot_audit &&
+        (building.hit_points < maximum_hit_points ||
+         simulation.selected_building() == building.id)) {
         render_health_bar(
             renderer,
             top.x,
@@ -16916,6 +16937,31 @@ int SdlApp::run() {
             const int maximum = simulation.maximum_hit_points(building);
             building.hit_points = std::max(
                 1, maximum * (100 - damage) / 100
+            );
+        }
+        simulation.replace_state(
+            simulation.units(),
+            std::move(buildings),
+            simulation.economy(Player::blue),
+            simulation.economy(Player::red),
+            simulation.tick_number()
+        );
+    }
+    // Deterministic screenshot-only tower-damage checkpoint. Effective tower
+    // identity selects its own DAT attachment roots at strict threshold edges.
+    if (const char* requested = SDL_getenv("AOE_TOWER_DAMAGE_AUDIT_PERCENT");
+        requested != nullptr && requested[0] != '\0') {
+        const int damage = std::clamp(std::stoi(requested), 0, 99);
+        std::vector<Building> buildings = simulation.buildings();
+        for (Building& building : buildings) {
+            if (building.kind != BuildingKind::watch_tower &&
+                building.kind != BuildingKind::guard_tower &&
+                building.kind != BuildingKind::keep) {
+                continue;
+            }
+            const int maximum = simulation.maximum_hit_points(building);
+            building.hit_points = std::max(
+                1, (maximum * (100 - damage) + 99) / 100
             );
         }
         simulation.replace_state(

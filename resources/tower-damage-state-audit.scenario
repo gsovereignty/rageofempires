@@ -1,0 +1,13 @@
+# Watch/Guard/Keep DAT damage-attachment audit template.
+AOE-ARCHAEOLOGY-SCENARIO 31
+map 12 10
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue imperial
+age red imperial
+civilization blue generic
+civilization red generic
+# guard technology
+# keep technology
+
+building watch_tower blue 5 4

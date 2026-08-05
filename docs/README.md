@@ -45,6 +45,8 @@ Sprite, technology, civilization, renderer, and asset-coverage mappings:
 
 ## Evidence
 
+- [Tower damage presentation evidence](evidence/TOWER_DAMAGE_PRESENTATION_EVIDENCE.md)
+  binds Watch/Guard/Keep bodies and damage roots across every civilization.
 - [Supplied HD multiplayer protocol evidence](evidence/COMMERCIAL_MULTIPLAYER_PROTOCOL_EVIDENCE.md)
   pins recovered Steam P2P outer records and exact interoperability blockers.
 - [Frontend game-mode evidence](evidence/FRONTEND_GAME_MODES_EVIDENCE.md)

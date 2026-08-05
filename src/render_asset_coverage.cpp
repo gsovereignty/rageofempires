@@ -1022,6 +1022,14 @@ AssetResolution resolve_building_asset(
     const RenderStateKey& state,
     BuildingKind kind
 ) {
+    BuildingKind damage_kind = kind;
+    if (kind == BuildingKind::watch_tower) {
+        damage_kind = state.upgrade_variant >= 2
+            ? BuildingKind::keep
+            : state.upgrade_variant == 1
+                ? BuildingKind::guard_tower
+                : BuildingKind::watch_tower;
+    }
     kind = kind == BuildingKind::guard_tower || kind == BuildingKind::keep
         ? BuildingKind::watch_tower
         : kind == BuildingKind::fortified_gate_x
@@ -1133,7 +1141,7 @@ AssetResolution resolve_building_asset(
             return result;
         }
         const auto records = canonical_building_damage_records(
-            kind, state.civilization
+            damage_kind, state.civilization
         );
         const BuildingDamageRecord& overlay = records[
             static_cast<std::size_t>(state.damage_stage - 1)

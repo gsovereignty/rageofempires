@@ -135,6 +135,13 @@ int main() {
         ) == "23 ENTRIES",
         "plural grammar path"
     );
+    check(
+        english.count_text(
+            "control_group.units_one", "control_group.units_other", 2,
+            {{"group", "4"}}
+        ) == "Group 4: 2 units",
+        "plural grammar preserves named arguments"
+    );
     check(english.contains("hud.wood"), "known key membership");
     check(!english.contains("missing"), "unknown key membership");
     check(

@@ -7452,19 +7452,23 @@ void render_garrison_presentation(
             : SDL_Color{220, 92, 76, 255}
     );
     SDL_RenderRect(renderer, &badge);
-    std::ostringstream text;
-    if (building.owner == Player::blue) {
-        text << "G" << occupants;
-    }
-    if (active_volley > 0) {
-        if (building.owner == Player::blue) text << ' ';
-        text << "V" << active_volley;
-    }
+    const std::string text = building.owner == Player::blue
+        ? active_volley > 0
+            ? active_string_table->format(
+                  "world.garrison_volley_badge",
+                  {{"garrison", std::to_string(occupants)},
+                   {"volley", std::to_string(active_volley)}})
+            : active_string_table->format(
+                  "world.garrison_badge",
+                  {{"count", std::to_string(occupants)}})
+        : active_string_table->format(
+              "world.volley_badge",
+              {{"count", std::to_string(active_volley)}});
     render_ui_debug_text(
         renderer,
         badge.x + 4.0F,
         badge.y + 3.0F,
-        text.str().c_str()
+        text.c_str()
     );
 }
 
@@ -12057,24 +12061,27 @@ void render_hud(
             }
             const TechnologyRules& technology_rules =
                 rules_for(technology);
-            std::ostringstream label;
-            label << name(technology) << " (";
-            bool wrote_cost = false;
-            const auto add_cost = [&label, &wrote_cost](
+            std::string cost;
+            const auto add_cost = [&cost](
                 int amount,
                 std::string_view resource
             ) {
                 if (amount <= 0) return;
-                if (wrote_cost) label << '/';
-                label << amount << resource;
-                wrote_cost = true;
+                if (!cost.empty()) cost += '/';
+                cost += std::to_string(amount);
+                cost += resource;
             };
             add_cost(technology_rules.wood_cost, "W");
             add_cost(technology_rules.food_cost, "F");
             add_cost(technology_rules.gold_cost, "G");
             add_cost(technology_rules.stone_cost, "S");
-            label << ')';
-            append_control(key, label.str());
+            append_control(
+                key,
+                active_string_table->format(
+                    "technology.command_cost",
+                    {{"name", std::string{name(technology)}},
+                     {"cost", cost}})
+            );
         }
         if (technology_available_to_player(
                 simulation, active_view_player, Technology::conscription
@@ -12456,85 +12463,15 @@ void render_hud(
         );
     }
     SDL_SetRenderClipRect(renderer, nullptr);
-    std::ostringstream status;
-    status << name(simulation.civilization(active_view_player))
-           << ' ' << name(simulation.age(active_view_player))
-           << " T" << simulation.tick_number()
-           << ' ' << name(simulation.outcome())
-           << ' '
-           << (simulation.diplomacy(
-                   active_view_player,
-                   opposing_player(active_view_player)
-               ) ==
-                       Diplomacy::ally
-                   ? "ALLY"
-                   : simulation.diplomacy(
-                         active_view_player,
-                         opposing_player(active_view_player)
-                     ) == Diplomacy::neutral
-                       ? "NEUTRAL"
-                       : "ENEMY");
-    if (show_legacy_no_selection_debug &&
-        !has_selection && !observer_mode) {
-        render_ui_debug_text(
-            renderer,
-            static_cast<float>(hud_layout::information_content_x),
-            top + 52.0F,
-            status.str().c_str()
-        );
-    }
-    const auto countdown_name = [](VictoryCountdownKind kind) {
-        return kind == VictoryCountdownKind::wonder
-            ? "WONDER"
-            : kind == VictoryCountdownKind::relic
-                ? "RELIC"
-                : "VICTORY";
-    };
-    std::ostringstream countdown_status;
-    const int red_countdown =
-        simulation.victory_countdown(Player::red);
-    const int blue_countdown =
-        simulation.victory_countdown(active_view_player);
-    if (red_countdown > 0) {
-        countdown_status << "WARNING RED "
-                         << countdown_name(
-                                simulation.countdown_kind(Player::red)
-                            )
-                         << ' ' << red_countdown << " TICKS";
-    } else if (blue_countdown > 0) {
-        countdown_status << "BLUE "
-                         << countdown_name(
-                                simulation.countdown_kind(active_view_player)
-                            )
-                         << ' ' << blue_countdown << " TICKS";
-    } else if (simulation.match_rules().wonder_enabled ||
-               simulation.match_rules().relic_enabled) {
-        countdown_status << "VICTORY: "
-                         << (simulation.match_rules().wonder_enabled
-                             ? "WONDER "
-                             : "")
-                         << (simulation.match_rules().relic_enabled
-                             ? "RELIC"
-                             : "");
-    }
-    if (show_legacy_no_selection_debug &&
-        !has_selection && !observer_mode) {
-        render_ui_debug_text(
-            renderer,
-            static_cast<float>(hud_layout::information_content_x),
-            top + 72.0F,
-            countdown_status.str().c_str()
-        );
-    }
-    const char* active_mode =
-        pending_trade_route ? "TRADE ROUTE" :
-        pending_conversion ? "CONVERT TARGET" :
-        pending_guard ? "GUARD TARGET" :
-        pending_attack_ground ? "ATTACK GROUND" :
-        pending_patrol ? "PATROL ENDPOINT" :
-        pending_attack_move ? "ATTACK MOVE" :
-        pending_building ? "BUILD PLACEMENT" : nullptr;
-    if (active_mode != nullptr) {
+    const char* active_mode_key =
+        pending_trade_route ? "hud.mode_trade_route" :
+        pending_conversion ? "hud.mode_conversion" :
+        pending_guard ? "hud.mode_guard" :
+        pending_attack_ground ? "hud.mode_attack_ground" :
+        pending_patrol ? "hud.mode_patrol" :
+        pending_attack_move ? "hud.mode_attack_move" :
+        pending_building ? "hud.mode_build" : nullptr;
+    if (active_mode_key != nullptr) {
         const SDL_FRect mode_badge{
             static_cast<float>(view_pixel_width) * 0.5F - 150.0F,
             top - 40.0F,
@@ -12544,7 +12481,8 @@ void render_hud(
         render_beveled_panel(renderer, mode_badge, {116, 72, 25, 246});
         set_color(renderer, {255, 226, 100, 255});
         const std::string mode_text = active_string_table->format(
-            "hud.active_mode", {{"mode", active_mode}}
+            "hud.active_mode",
+            {{"mode", std::string{ui_text(active_mode_key)}}}
         );
         render_ui_debug_text(
             renderer,
@@ -12605,48 +12543,6 @@ void render_hud(
             group_text.c_str()
         );
         SDL_SetRenderClipRect(renderer, nullptr);
-    }
-    if (false && simulation.selected_building()) {
-        const auto selected = std::ranges::find_if(
-            simulation.buildings(),
-            [&simulation](const Building& building) {
-                return building.id == *simulation.selected_building();
-            }
-        );
-        if (selected != simulation.buildings().end() &&
-            !selected->production_queue.empty()) {
-            const ProductionOrder& order =
-                selected->production_queue.front();
-            const int total = rules_for(order.kind).training_ticks;
-            const float progress = std::clamp(
-                1.0F - static_cast<float>(order.ticks_remaining) /
-                    static_cast<float>(total),
-                0.0F,
-                1.0F
-            );
-            const SDL_FRect track{728.0F, top + 48.0F, 190.0F, 8.0F};
-            set_color(renderer, {8, 10, 12, 255});
-            SDL_RenderFillRect(renderer, &track);
-            const SDL_FRect fill{
-                track.x,
-                track.y,
-                track.w * progress,
-                track.h,
-            };
-            set_color(renderer, {196, 160, 58, 255});
-            SDL_RenderFillRect(renderer, &fill);
-            set_color(renderer, {235, 235, 220, 255});
-            std::ostringstream queue;
-            queue << name(order.kind) << ' '
-                  << static_cast<int>(progress * 100.0F) << "%  +"
-                  << selected->production_queue.size() - 1;
-            render_ui_debug_text(
-                renderer,
-                track.x + track.w + 8.0F,
-                top + 59.0F,
-                queue.str().c_str()
-            );
-        }
     }
     if (active_settings.minimap) {
         render_minimap(renderer, simulation, top, camera);
@@ -14855,25 +14751,24 @@ void render_diplomacy_panel(
         renderer, panel.x + 38.0F, panel.y + 180.0F,
         "A ALLY   N NEUTRAL   E ENEMY"
     );
-    std::ostringstream rates;
-    rates << "MARKET BUY/SELL  F "
-          << simulation.market_buy_price(
-                 active_view_player, MarketResource::food) << '/'
-          << simulation.market_sell_price(
-                 active_view_player, MarketResource::food)
-          << "  W "
-          << simulation.market_buy_price(
-                 active_view_player, MarketResource::wood) << '/'
-          << simulation.market_sell_price(
-                 active_view_player, MarketResource::wood)
-          << "  S "
-          << simulation.market_buy_price(
-                 active_view_player, MarketResource::stone) << '/'
-          << simulation.market_sell_price(
-                 active_view_player, MarketResource::stone);
+    const std::string rates = active_string_table->format(
+        "diplomacy.market_rates",
+        {{"food_buy", std::to_string(simulation.market_buy_price(
+             active_view_player, MarketResource::food))},
+         {"food_sell", std::to_string(simulation.market_sell_price(
+             active_view_player, MarketResource::food))},
+         {"wood_buy", std::to_string(simulation.market_buy_price(
+             active_view_player, MarketResource::wood))},
+         {"wood_sell", std::to_string(simulation.market_sell_price(
+             active_view_player, MarketResource::wood))},
+         {"stone_buy", std::to_string(simulation.market_buy_price(
+             active_view_player, MarketResource::stone))},
+         {"stone_sell", std::to_string(simulation.market_sell_price(
+             active_view_player, MarketResource::stone))}}
+    );
     render_ui_debug_text(
         renderer, panel.x + 38.0F, panel.y + 224.0F,
-        rates.str().c_str()
+        rates.c_str()
     );
     const int tribute_fee =
         simulation.has_technology(
@@ -18566,12 +18461,15 @@ int SdlApp::run() {
                         event.motion.x, event.motion.y
                     };
                     if (SDL_PointInRectFloat(&pointer, &box)) {
-                        std::ostringstream detail;
-                        detail << node.label << "  COST W" << node.wood
-                               << " F" << node.food << " G" << node.gold
-                               << " S" << node.stone << "  "
-                               << node.requirement;
-                        active_tree_hover = detail.str();
+                        active_tree_hover = active_string_table->format(
+                            "technology_tree.detail",
+                            {{"name", node.label},
+                             {"wood", std::to_string(node.wood)},
+                             {"food", std::to_string(node.food)},
+                             {"gold", std::to_string(node.gold)},
+                             {"stone", std::to_string(node.stone)},
+                             {"requirement", node.requirement}}
+                        );
                         break;
                     }
                 }
@@ -21595,16 +21493,26 @@ int SdlApp::run() {
                             "Control group %zu assigned",
                             *group_index
                         );
-                        std::ostringstream status;
-                        status << "Group " << *group_index << ": ";
                         if (!group.units.empty()) {
-                            status << group.units.size() << " units";
+                            control_group_status =
+                                active_string_table->count_text(
+                                    "control_group.units_one",
+                                    "control_group.units_other",
+                                    static_cast<int>(group.units.size()),
+                                    {{"group", std::to_string(*group_index)}}
+                                );
                         } else if (group.building) {
-                            status << "building #" << *group.building;
+                            control_group_status = active_string_table->format(
+                                "control_group.building",
+                                {{"group", std::to_string(*group_index)},
+                                 {"building", std::to_string(*group.building)}}
+                            );
                         } else {
-                            status << "cleared";
+                            control_group_status = active_string_table->format(
+                                "control_group.cleared",
+                                {{"group", std::to_string(*group_index)}}
+                            );
                         }
-                        control_group_status = status.str();
                         continue;
                     }
 
@@ -21670,10 +21578,12 @@ int SdlApp::run() {
                                 }
                             }
                         }
-                        std::ostringstream status;
-                        status << "Group " << *group_index
-                               << (center ? " centered" : " recalled");
-                        control_group_status = status.str();
+                        control_group_status = active_string_table->format(
+                            center
+                                ? "control_group.centered"
+                                : "control_group.recalled",
+                            {{"group", std::to_string(*group_index)}}
+                        );
                         pending_building.reset();
                         pending_attack_move = false;
                         pending_attack_ground = false;
@@ -22676,11 +22586,11 @@ int SdlApp::run() {
                                 active_view_player
                             );
                             last_idle_villager = idle[index];
-                            std::ostringstream status;
-                            status << "Idle villager "
-                                   << index + 1 << '/'
-                                   << idle.size();
-                            control_group_status = status.str();
+                            control_group_status = active_string_table->format(
+                                "selection.idle_villager",
+                                {{"index", std::to_string(index + 1)},
+                                 {"count", std::to_string(idle.size())}}
+                            );
                         }
                         pending_building.reset();
                         pending_attack_move = false;
@@ -22728,11 +22638,11 @@ int SdlApp::run() {
                                 active_view_player
                             );
                             last_idle_military = idle[index];
-                            std::ostringstream status;
-                            status << "Idle military "
-                                   << index + 1 << '/'
-                                   << idle.size();
-                            control_group_status = status.str();
+                            control_group_status = active_string_table->format(
+                                "selection.idle_military",
+                                {{"index", std::to_string(index + 1)},
+                                 {"count", std::to_string(idle.size())}}
+                            );
                         }
                         pending_building.reset();
                         pending_attack_move = false;

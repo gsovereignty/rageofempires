@@ -242,6 +242,25 @@ int main() {
         "town center must not expose non-original root substitutes"
     );
     expect(
+        simulation.command_town_bell(*simulation.selected_building()),
+        "Town Bell activation rejected"
+    );
+    panel = aoe::build_selection_panel(simulation, aoe::Player::blue);
+    expect(
+        panel.status == "TOWN BELL ACTIVE" &&
+        std::ranges::any_of(panel.commands, [](const auto& button) {
+            return button.command == aoe::PanelCommand::town_bell &&
+                button.selected && button.grid_slot == 14 &&
+                button.icon && button.icon->frame == 61 &&
+                button.label == "SEND VILLAGERS BACK TO WORK";
+        }),
+        "active Town Bell must expose original frame 61 recall state"
+    );
+    expect(
+        simulation.command_town_bell(*simulation.selected_building()),
+        "Town Bell recall rejected"
+    );
+    expect(
         std::ranges::any_of(panel.commands, [](const auto& button) {
             return button.command == aoe::PanelCommand::research &&
                 button.technology.has_value() &&

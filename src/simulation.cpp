@@ -5087,6 +5087,15 @@ bool Simulation::delete_building(EntityId building_id) {
     if (garrison_capacity(building->kind) > 0) {
         ungarrison_at(building_id);
     }
+    for (Unit& unit : units_) {
+        if (unit.town_bell_source_id == building_id) {
+            unit.town_bell_source_id = 0;
+            unit.town_bell_return_position = {-1, -1};
+            if (unit.garrison_target_id == building_id) {
+                unit.garrison_target_id = 0;
+            }
+        }
+    }
     if (!building->completed()) {
         const BuildingRules& rules = rules_for(building->kind);
         Economy& economy = building->owner == Player::blue
@@ -6029,12 +6038,122 @@ int Simulation::garrison_count(EntityId building_id) const {
     ));
 }
 
+bool Simulation::command_town_bell(EntityId town_center_id) {
+    Building* source = find_building(town_center_id);
+    if (outcome_ != MatchOutcome::ongoing || source == nullptr ||
+        source->kind != BuildingKind::town_center || !source->completed() ||
+        source->hit_points <= 0 || !player_commands_allowed(source->owner)) {
+        return false;
+    }
+
+    const EntityId alarm_source = source->town_bell_source_id;
+    if (alarm_source != 0) {
+        bool still_sheltered = false;
+        for (Unit& unit : units_) {
+            if (unit.town_bell_source_id != alarm_source) continue;
+            if (unit.garrisoned_in != 0) {
+                Building* shelter = find_building(unit.garrisoned_in);
+                const auto exit = shelter == nullptr
+                    ? std::nullopt : spawn_position(*shelter);
+                if (!exit) {
+                    still_sheltered = true;
+                    continue;
+                }
+                unit.position = *exit;
+                unit.previous_position = *exit;
+                unit.garrisoned_in = 0;
+            }
+            unit.garrison_target_id = 0;
+            unit.moving = false;
+            unit.path.clear();
+            unit.next_path_step = 0;
+            if (map_.contains(unit.town_bell_return_position) &&
+                unit.position != unit.town_bell_return_position) {
+                static_cast<void>(route_unit(
+                    unit, unit.town_bell_return_position
+                ));
+            }
+            unit.town_bell_source_id = 0;
+            unit.town_bell_return_position = {-1, -1};
+        }
+        for (Building& shelter : buildings_) {
+            if (shelter.town_bell_source_id == alarm_source) {
+                shelter.town_bell_source_id = still_sheltered
+                    ? alarm_source : 0;
+            }
+        }
+        return true;
+    }
+
+    // FUN_005a6530 queries a 25-by-25 coordinate radius around selected Town
+    // Center, gathers eligible Town Centers/towers/castles, then assigns each
+    // villager to nearest shelter with remaining capacity.
+    constexpr int town_bell_radius = 25;
+    const auto in_alarm_box = [source](TilePosition position) {
+        return std::abs(position.x - source->position.x) <= town_bell_radius &&
+            std::abs(position.y - source->position.y) <= town_bell_radius;
+    };
+    std::vector<Building*> shelters;
+    std::map<EntityId, int> reserved;
+    for (Building& shelter : buildings_) {
+        if (shelter.owner != source->owner || !shelter.completed() ||
+            shelter.hit_points <= 0 ||
+            garrison_capacity(shelter.kind) == 0 ||
+            !in_alarm_box(shelter.position)) continue;
+        shelters.push_back(&shelter);
+        reserved[shelter.id] = garrison_count(shelter.id);
+    }
+    std::ranges::sort(shelters, {}, &Building::id);
+    for (const Unit& unit : units_) {
+        if (unit.garrison_target_id != 0 && reserved.contains(
+                unit.garrison_target_id
+            )) {
+            ++reserved[unit.garrison_target_id];
+        }
+    }
+    for (Unit& unit : units_) {
+        if (unit.owner != source->owner ||
+            unit.kind != UnitKind::villager || unit.hit_points <= 0 ||
+            unit.garrisoned_in != 0 || unit.garrison_target_id != 0 ||
+            unit.town_bell_source_id != 0 ||
+            !in_alarm_box(unit.position)) {
+            continue;
+        }
+        Building* nearest{};
+        int nearest_distance = std::numeric_limits<int>::max();
+        for (Building* shelter : shelters) {
+            if (reserved[shelter->id] >=
+                    garrison_capacity(shelter->kind) ||
+                !can_garrison(unit, *shelter)) continue;
+            const int dx = unit.position.x - shelter->position.x;
+            const int dy = unit.position.y - shelter->position.y;
+            const int distance = dx * dx + dy * dy;
+            if (distance < nearest_distance) {
+                nearest = shelter;
+                nearest_distance = distance;
+            }
+        }
+        if (nearest == nullptr) continue;
+        const TilePosition return_position = unit.destination;
+        if (!route_unit(unit, nearest->position)) continue;
+        unit.town_bell_source_id = source->id;
+        unit.town_bell_return_position = return_position;
+        unit.garrison_target_id = nearest->id;
+        ++reserved[nearest->id];
+    }
+    for (Building* shelter : shelters) {
+        shelter->town_bell_source_id = source->id;
+    }
+    return true;
+}
+
 bool Simulation::ungarrison_at(EntityId building_id) {
     Building* building = find_building(building_id);
     if (outcome_ != MatchOutcome::ongoing || building == nullptr ||
         garrison_capacity(building->kind) == 0) {
         return false;
     }
+    const EntityId bell_source = building->town_bell_source_id;
     bool released = false;
     for (Unit& unit : units_) {
         if (unit.garrisoned_in != building_id) {
@@ -6054,10 +6173,26 @@ bool Simulation::ungarrison_at(EntityId building_id) {
         unit.destination = *position;
         unit.garrisoned_in = 0;
         unit.garrison_target_id = 0;
+        if (bell_source != 0 && unit.town_bell_source_id == bell_source) {
+            unit.town_bell_source_id = 0;
+            unit.town_bell_return_position = {-1, -1};
+        }
         unit.moving = false;
         unit.path.clear();
         unit.next_path_step = 0;
         released = true;
+    }
+    if (bell_source != 0 && std::ranges::none_of(
+            units_,
+            [bell_source](const Unit& unit) {
+                return unit.town_bell_source_id == bell_source;
+            }
+        )) {
+        for (Building& shelter : buildings_) {
+            if (shelter.town_bell_source_id == bell_source) {
+                shelter.town_bell_source_id = 0;
+            }
+        }
     }
     return released;
 }
@@ -7252,6 +7387,10 @@ void Simulation::update() {
                 garrison_count(shelter->id) >=
                     garrison_capacity(shelter->kind)) {
                 unit.garrison_target_id = 0;
+                if (unit.town_bell_source_id != 0) {
+                    unit.town_bell_source_id = 0;
+                    unit.town_bell_return_position = {-1, -1};
+                }
             } else if (distance_to_building(unit.position, *shelter) <= 1) {
                 if (unit.carried_amount > 0) {
                     Economy& economy = unit.owner == Player::blue

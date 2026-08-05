@@ -32,7 +32,7 @@ upgrade unresolved original-game behavior to exact parity.
 | CP-026 | Evidence-blocked by design | Exact original nesting, mixed-selection rules, hidden/disabled behavior, and hotkeys remain unproved. The reconstruction behavior above is deterministic and tested. |
 | CP-027 | Implemented | Town Center DAT positions are Villager 1, Loom 6, Wheelbarrow/Hand Cart 7, Town Watch/Patrol 8, and age-up 11. Production, research, and age-up commands render directly in sparse slots instead of proxy submenus. |
 | CP-028 | Implemented for Villager-only selection | Original runtime screenshot proves economic 0, military 1, repair 2, delete 3, garrison 4, and stop 9 with exact `btncmd` frames; see `docs/evidence/VILLAGER_COMMAND_PANEL_EVIDENCE.md`. |
-| CP-029 | Visual parity implemented; activation pending | Five original-HD runtime captures prove Town Center frame 45 at slot 4 and Town Bell at slot 14 with frame 49. Frame 45 remains semantically classified as a best-fit Ungarrison reconstruction and retains its replayable path. Rally/skull substitutes were removed. Town Bell is presently a visual command only. |
+| CP-029 | Implemented | Five original-HD runtime captures prove Town Center frame 45 at slot 4 and Town Bell at slot 14 with frame 49. Decompiled panel construction proves action `0xa3`, inactive frame 49, active frame 61, and help string 41111; audio initialization proves `townbell.wav`/`townrcal.wav`. Decompiled call logic proves a 25-coordinate box and nearest capacity-bearing Town Center/tower/castle assignment. Alarm/return state persists; tagged villagers recall to prior work destinations through replay/lockstep command paths. Frame 45 remains a best-fit Ungarrison reconstruction. |
 
 ## Icon contract
 

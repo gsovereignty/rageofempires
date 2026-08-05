@@ -57,6 +57,7 @@ public:
         float pan = 0.0F,
         std::optional<Civilization> source_civilization = std::nullopt
     );
+    void play_named_interface_effect(std::string_view filename);
     void update();
 
     ~AudioSystem();

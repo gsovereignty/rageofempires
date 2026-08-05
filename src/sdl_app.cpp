@@ -18982,6 +18982,33 @@ int SdlApp::run() {
                                 );
                             }
                         } else if (
+                            button.command == PanelCommand::town_bell &&
+                            simulation.selected_building()) {
+                            const bool recalling = std::ranges::any_of(
+                                simulation.buildings(),
+                                [id = *simulation.selected_building()](
+                                    const Building& building
+                                ) {
+                                    return building.id == id &&
+                                        building.town_bell_source_id != 0;
+                                }
+                            );
+                            GameCommand command = TownBellCommand{
+                                *simulation.selected_building()};
+                            if (execute(simulation, command)) {
+                                if (audio) {
+                                    audio->play_named_interface_effect(
+                                        recalling
+                                            ? "townrcal.wav"
+                                            : "townbell.wav"
+                                    );
+                                }
+                                replay.record(
+                                    simulation.tick_number(),
+                                    std::move(command)
+                                );
+                            }
+                        } else if (
                             button.command == PanelCommand::rally) {
                             pending_rally_building =
                                 simulation.selected_building();

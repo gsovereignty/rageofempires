@@ -489,6 +489,7 @@ public:
     );
     bool queue_waypoint(EntityId unit_id, TilePosition destination);
     bool set_unit_stance(EntityId unit_id, UnitStance stance);
+    bool command_town_bell(EntityId town_center_id);
     bool command_pack_trebuchet(EntityId unit_id, bool pack);
     bool delete_unit(EntityId unit_id);
     bool delete_building(EntityId building_id);

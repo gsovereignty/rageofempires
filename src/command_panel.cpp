@@ -755,7 +755,8 @@ SelectionPanelModel build_selection_panel(
                 0, 100
             );
         } else {
-            panel.status = "READY";
+            panel.status = selected->town_bell_source_id != 0
+                ? "TOWN BELL ACTIVE" : "READY";
         }
         if (!selected->completed()) return panel;
 
@@ -902,9 +903,15 @@ SelectionPanelModel build_selection_panel(
             add(panel, PanelCommand::ungarrison, "UNGARRISON", "U",
                 "Release all units garrisoned in this building.",
                 true, std::nullopt, false, 45, 4);
-            add(panel, PanelCommand::town_bell, "TOWN BELL", "B",
-                "Call villagers to shelter in the Town Center.", true,
-                std::nullopt, false, 49, 14);
+            add(panel, PanelCommand::town_bell,
+                selected->town_bell_source_id != 0
+                    ? "SEND VILLAGERS BACK TO WORK" : "TOWN BELL",
+                "B",
+                selected->town_bell_source_id != 0
+                    ? "Release villagers called by this Town Bell."
+                    : "Call nearby villagers to shelter in the Town Center.",
+                true, std::nullopt, selected->town_bell_source_id != 0,
+                selected->town_bell_source_id != 0 ? 61 : 49, 14);
             return panel;
         }
 

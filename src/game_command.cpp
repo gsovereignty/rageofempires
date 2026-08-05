@@ -59,6 +59,7 @@ std::optional<EntityOwner> command_player(
                 std::is_same_v<Type, CancelProductionCommand> ||
                 std::is_same_v<Type, ReseedFarmCommand> ||
                 std::is_same_v<Type, UngarrisonCommand> ||
+                std::is_same_v<Type, TownBellCommand> ||
                 std::is_same_v<Type, AdvanceAgeCommand> ||
                 std::is_same_v<Type, ResearchTechnologyCommand> ||
                 std::is_same_v<Type, QueueCommercialObjectCommand> ||
@@ -291,6 +292,8 @@ bool execute(
                     : simulation.reseed_farm(value.building);
             } else if constexpr (std::is_same_v<Type, UngarrisonCommand>) {
                 return simulation.ungarrison_at(value.building);
+            } else if constexpr (std::is_same_v<Type, TownBellCommand>) {
+                return simulation.command_town_bell(value.building);
             } else if constexpr (std::is_same_v<Type, AdvanceAgeCommand>) {
                 return simulation.advance_age_at(value.building);
             } else if constexpr (
@@ -556,6 +559,11 @@ void save_replay(const Replay& replay, const std::filesystem::path& path) {
                     std::is_same_v<Type, UngarrisonCommand>
                 ) {
                     output << "ungarrison " << tick << ' ' << value.building
+                           << '\n';
+                } else if constexpr (
+                    std::is_same_v<Type, TownBellCommand>
+                ) {
+                    output << "town-bell " << tick << ' ' << value.building
                            << '\n';
                 } else if constexpr (
                     std::is_same_v<Type, AdvanceAgeCommand>
@@ -879,6 +887,10 @@ Replay load_replay(const std::filesystem::path& path) {
             replay.record(tick, command);
         } else if (record == "ungarrison" && version >= 20) {
             UngarrisonCommand command;
+            input >> tick >> command.building;
+            replay.record(tick, command);
+        } else if (record == "town-bell" && version >= 67) {
+            TownBellCommand command;
             input >> tick >> command.building;
             replay.record(tick, command);
         } else if (record == "advance" && version >= 3) {

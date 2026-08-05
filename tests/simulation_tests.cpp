@@ -24246,6 +24246,141 @@ void slot_indexed_entity_ownership_and_diplomacy_are_checked() {
     require(restored.match_statistics().timeline.back().score[2] == 321);
 }
 
+void town_bell_is_bounded_recallable_and_persistent() {
+    // Alarm state belongs to selected Town Center, not global UI state.
+    aoe::Simulation simulation(aoe::GameMap(40, 20));
+    const auto town_center = simulation.add_building(
+        aoe::BuildingKind::town_center, aoe::Player::blue, {10, 10}
+    );
+    simulation.add_building(
+        aoe::BuildingKind::town_center, aoe::Player::red, {22, 10}
+    );
+    const auto castle = simulation.add_building(
+        aoe::BuildingKind::castle, aoe::Player::blue, {30, 10}
+    );
+    const auto first = simulation.add_unit(
+        aoe::UnitKind::villager, aoe::Player::blue, {5, 10}
+    );
+    const auto second = simulation.add_unit(
+        aoe::UnitKind::villager, aoe::Player::blue, {7, 12}
+    );
+    const auto remote = simulation.add_unit(
+        aoe::UnitKind::villager, aoe::Player::blue, {39, 18}
+    );
+    const auto near_castle = simulation.add_unit(
+        aoe::UnitKind::villager, aoe::Player::blue, {29, 10}
+    );
+    const auto enemy = simulation.add_unit(
+        aoe::UnitKind::villager, aoe::Player::red, {9, 10}
+    );
+    require(simulation.command_unit(first, {4, 10}));
+    require(aoe::execute(
+        simulation, aoe::TownBellCommand{town_center}
+    ));
+    const auto active = std::ranges::find(
+        simulation.buildings(), town_center, &aoe::Building::id
+    );
+    require(active != simulation.buildings().end());
+    require(active->town_bell_source_id == town_center);
+    require(std::ranges::find(
+        simulation.units(), first, &aoe::Unit::id
+    )->town_bell_source_id == town_center);
+    require(std::ranges::find(
+        simulation.units(), second, &aoe::Unit::id
+    )->town_bell_source_id == town_center);
+    require(std::ranges::find(
+        simulation.units(), remote, &aoe::Unit::id
+    )->town_bell_source_id == 0);
+    require(std::ranges::find(
+        simulation.units(), near_castle, &aoe::Unit::id
+    )->garrison_target_id == castle);
+    require(std::ranges::find(
+        simulation.buildings(), castle, &aoe::Building::id
+    )->town_bell_source_id == town_center);
+    require(std::ranges::find(
+        simulation.units(), enemy, &aoe::Unit::id
+    )->town_bell_source_id == 0);
+
+    const auto save_path = std::filesystem::temp_directory_path() /
+        "aoe-town-bell.save";
+    aoe::save_game(simulation, save_path);
+    aoe::Simulation loaded = aoe::load_game(save_path);
+    std::filesystem::remove(save_path);
+    require(std::ranges::find(
+        loaded.buildings(), town_center, &aoe::Building::id
+    )->town_bell_source_id == town_center);
+    require(std::ranges::find(
+        loaded.units(), first, &aoe::Unit::id
+    )->town_bell_source_id == town_center);
+
+    for (int tick = 0; tick < 80 &&
+         std::ranges::find(
+             loaded.units(), first, &aoe::Unit::id
+         )->garrisoned_in == 0; ++tick) {
+        loaded.update();
+    }
+    require(std::ranges::find(
+        loaded.units(), first, &aoe::Unit::id
+    )->garrisoned_in == town_center);
+    require(aoe::execute(loaded, aoe::TownBellCommand{town_center}));
+    const auto recalled = std::ranges::find(
+        loaded.units(), first, &aoe::Unit::id
+    );
+    require(recalled->garrisoned_in == 0);
+    require(recalled->town_bell_source_id == 0);
+    require(recalled->destination == aoe::TilePosition{4, 10});
+    require(std::ranges::find(
+        loaded.buildings(), town_center, &aoe::Building::id
+    )->town_bell_source_id == 0);
+
+    aoe::Replay replay;
+    replay.record(0, aoe::TownBellCommand{town_center});
+    const auto replay_path = std::filesystem::temp_directory_path() /
+        "aoe-town-bell.replay";
+    aoe::save_replay(replay, replay_path);
+    const aoe::Replay decoded = aoe::load_replay(replay_path);
+    std::filesystem::remove(replay_path);
+    require(decoded.commands().size() == 1);
+    require(std::get<aoe::TownBellCommand>(
+        decoded.commands().front().command
+    ).building == town_center);
+
+    aoe::LockstepFrame frame{
+        aoe::LockstepFrameKind::turn,
+        aoe::lockstep_protocol_version,
+        aoe::Player::blue,
+        "town-bell-scenario",
+        0,
+        0,
+        aoe::deterministic_state_hash(simulation),
+        {aoe::TownBellCommand{town_center}},
+    };
+    const auto wire = aoe::decode_lockstep_frame(
+        aoe::encode_lockstep_frame(frame)
+    );
+    require(wire.commands.size() == 1);
+    require(std::get<aoe::TownBellCommand>(wire.commands.front()).building ==
+            town_center);
+
+    aoe::Simulation full(aoe::GameMap(30, 20));
+    const auto full_center = full.add_building(
+        aoe::BuildingKind::town_center, aoe::Player::blue, {10, 10}
+    );
+    for (int index = 0; index < 15; ++index) {
+        const auto occupant = full.add_unit(
+            aoe::UnitKind::archer, aoe::Player::blue, {3 + index, 2}
+        );
+        require(full.restore_garrison(occupant, full_center));
+    }
+    const auto overflow = full.add_unit(
+        aoe::UnitKind::villager, aoe::Player::blue, {8, 10}
+    );
+    require(full.command_town_bell(full_center));
+    require(std::ranges::find(
+        full.units(), overflow, &aoe::Unit::id
+    )->town_bell_source_id == 0);
+}
+
 int main() {
     if (std::getenv("AOE_ATTACK_REVEAL_TEST") != nullptr) {
         enemy_attackers_reveal_per_victim_through_attack_action();
@@ -25104,6 +25239,10 @@ int main() {
     run(
         "checked slot entity ownership and diplomacy",
         slot_indexed_entity_ownership_and_diplomacy_are_checked
+    );
+    run(
+        "Town Bell shelter recall and persistence",
+        town_bell_is_bounded_recallable_and_persistent
     );
     std::cout << "All simulation tests passed\n";
 }

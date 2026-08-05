@@ -59,5 +59,26 @@ Frames 45 and 49 were matched against the complete locally decoded 69-frame
 semantic label, so `ungarrison` remains the reconstruction's best-fit behavior
 rather than an exact semantic claim. The screenshots prove that the previous
 rally arrow and skull Delete substitutes were visually wrong in these slots.
-Town Bell activation semantics are not yet reconstructed; its bell identity,
-icon, and slot are visually explicit.
+## Decompiled activation evidence
+
+Read-only `AoK-HD-patched.c` command-panel construction at lines
+326805–326840 identifies Town Center DAT ID 109, grid slot 14, action `0xa3`,
+help string 41111, and `btncmd` frame 49 while inactive. Object state byte
+`+0x161` changes that same command to frame 61 while Town Bell is active.
+English string 41111 says nearby work stops, villagers garrison in Town Center,
+and ringing again sends them back to work. Separate recall help 41015 names
+"Send Villagers Back to Work." Decompiled audio initialization at lines
+202492–202502 loads exact command sounds `townbell.wav` and `townrcal.wav`.
+`FUN_005a6530` at lines 279876–280107 performs call behavior: bounds are
+selected Town Center coordinates ±25; shelter candidates include Town Centers,
+building class 52, and Castle ID 82; villagers are repeatedly matched to nearest
+shelter while decrementing its free capacity. `FUN_005a68b0` immediately after
+it clears alarm state and recalls those occupants.
+
+Reconstruction models this as authoritative `TownBellCommand`: completed,
+owned Town Center validation; decompiled 25-coordinate search box; only living
+same-owner villagers; nearest eligible Town Center/tower/castle assignment with
+capacity reservations; work-return destination preservation; tagged recall that
+does not release unrelated manual occupants; blocked-exit retention; and active
+frame 61/status feedback. Command, active shelter state, and affected-villager
+return state persist through replay, lockstep, and native save version 126.

@@ -46,6 +46,7 @@ public:
         std::map<EntityId, std::uint64_t> attack_reveal_expiries;
         Age age{Age::dark};
         std::array<bool, technology_count> technologies{};
+        std::array<bool, 460> commercial_technologies{};
         Civilization civilization{Civilization::generic};
         int farm_reseed_queue{};
         int mayan_resource_remainder{};
@@ -319,6 +320,11 @@ public:
     EntityId add_unit(
         UnitKind kind, PlayerSlotId owner, TilePosition position
     );
+    EntityId add_commercial_object(
+        CommercialObjectIdentity identity,
+        EntityOwner owner,
+        TilePosition position
+    );
     EntityId add_building(
         BuildingKind kind,
         Player owner,
@@ -471,6 +477,10 @@ public:
         TilePosition position
     );
     bool queue_unit_at(EntityId building_id, UnitKind kind);
+    bool queue_commercial_object_at(
+        EntityId building_id,
+        CommercialObjectIdentity identity
+    );
     bool queue_unit(UnitKind kind);
     bool cancel_production_at(EntityId building_id);
     bool set_rally_point(EntityId building_id, TilePosition position);
@@ -486,6 +496,14 @@ public:
         EntityId building_id,
         Technology technology
     );
+    bool research_commercial_technology_at(
+        EntityId building_id,
+        CommercialTechnologyId technology
+    );
+    [[nodiscard]] bool has_commercial_technology(
+        EntityOwner owner,
+        CommercialTechnologyId technology
+    ) const;
     void update();
 
     void replace_state(
@@ -612,6 +630,14 @@ private:
     );
     void update_building_defenses();
     void update_projectiles();
+    void apply_commercial_effect(
+        EntityOwner owner,
+        CommercialEffectId effect
+    );
+    [[nodiscard]] bool commercial_object_enabled(
+        EntityOwner owner,
+        CommercialObjectIdentity identity
+    ) const;
     void reveal_attacker_to(
         const Unit& attacker,
         EntityOwner victim,

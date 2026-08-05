@@ -53,6 +53,7 @@
 #include "aoe/multiplayer.hpp"
 #include "aoe/multiplayer_transport.hpp"
 #include "aoe/minimap_contract.hpp"
+#include "aoe/ordinary_match_setup.hpp"
 #include "aoe/projectile_catalog.hpp"
 #include "aoe/random_map.hpp"
 #include "aoe/render_asset_coverage.hpp"
@@ -308,6 +309,8 @@ RandomMapSize next_random_map_size(RandomMapSize size) {
 }
 
 Civilization active_setup_civilization{Civilization::britons};
+OrdinaryMatchSetup active_ordinary_setup = OrdinaryMatchSetup::standard();
+std::size_t active_setup_slot{};
 ComputerDifficulty active_setup_difficulty{ComputerDifficulty::moderate};
 int active_setup_victory{};  // 0 conquest, 1 wonder, 2 relic.
 FrontendGameMode active_frontend_game_mode{FrontendGameMode::standard};
@@ -14502,9 +14505,8 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
             seed_line.c_str()
         );
         const std::string player_line =
-            "C CIV: " +
-            std::string{name(active_setup_civilization)} +
-            "   D AI: " + difficulty;
+            "S SLOT  P OPEN/CLOSED  C CIV  T TEAM   D AI: " +
+            std::string{difficulty};
         SDL_RenderDebugText(
             renderer, panel.x + 70.0F, panel.y + 238.0F,
             player_line.c_str()
@@ -14521,9 +14523,36 @@ void render_frontend_overlay(SDL_Renderer* renderer) {
             victory_line.c_str()
         );
         SDL_RenderDebugText(
-            renderer, panel.x + 70.0F, panel.y + 322.0F,
+            renderer, panel.x + 70.0F, panel.y + 430.0F,
             "ENTER: GENERATE / START   ESC: MAIN MENU"
         );
+        for (std::size_t index = 0;
+             index < active_ordinary_setup.slots.size(); ++index) {
+            const OrdinaryPlayerSlot& slot =
+                active_ordinary_setup.slots[index];
+            const char* kind = slot.kind == OrdinarySlotKind::human
+                ? "HUMAN" : slot.kind == OrdinarySlotKind::computer
+                ? "COMPUTER" : "CLOSED";
+            std::string row = index == active_setup_slot ? "> " : "  ";
+            row += std::string{player_slot_color(
+                *PlayerSlotId::from_index(index)
+            )};
+            row += "  ";
+            row += kind;
+            if (slot.kind != OrdinarySlotKind::closed) {
+                row += "  ";
+                row += std::string{name(slot.civilization)};
+                row += "  TEAM ";
+                row += slot.team.has_team()
+                    ? std::to_string(slot.team.number()) : "-";
+            }
+            SDL_RenderDebugText(
+                renderer,
+                panel.x + 70.0F,
+                panel.y + 306.0F + static_cast<float>(index * 14),
+                row.c_str()
+            );
+        }
         if (active_random_preview != nullptr) {
             // Every generated map is square, so the preview is square too.
             // A 128x96 rect stretched one by 4:3, and one filled rect per
@@ -17620,7 +17649,10 @@ int SdlApp::run() {
     const auto refresh_random_map_preview = [&] {
         try {
             RandomMapSettings settings = active_random_settings;
-            settings.blue_civilization = active_setup_civilization;
+            settings.blue_civilization =
+                active_ordinary_setup.slots[0].civilization;
+            settings.red_civilization =
+                active_ordinary_setup.slots[1].civilization;
             std::optional<std::filesystem::path> custom_path;
             if (const char* path = SDL_getenv("AOE_RMS_PATH");
                 path != nullptr && path[0] != '\0') {
@@ -18299,6 +18331,30 @@ int SdlApp::run() {
         );
     };
     center_camera_on_local_start();
+    const auto start_configured_random_map = [&] {
+        if (!random_map_preview) refresh_random_map_preview();
+        if (!random_map_preview || active_ordinary_setup.validate()) {
+            return false;
+        }
+        Scenario configured = configure_ordinary_random_map(
+            *random_map_preview, active_ordinary_setup
+        );
+        MatchRules& rules = configured.match_rules;
+        rules.conquest_enabled = active_setup_victory == 0;
+        rules.wonder_enabled = active_setup_victory == 1;
+        rules.relic_enabled = active_setup_victory == 2;
+        demo_scenario = configure_frontend_game_mode(
+            configured, active_frontend_game_mode
+        );
+        simulation = create_simulation(demo_scenario);
+        active_view_player = entity_owner_from_slot(
+            active_ordinary_setup.local_slot
+        );
+        center_camera_on_local_start();
+        computer = ComputerPlayer(Player::red, active_setup_difficulty);
+        active_frontend_screen = FrontendScreen::hidden;
+        return true;
+    };
     // Modern choice: no original equivalent. Headless captures need to aim
     // at a named tile, because on a full-size map the start view covers a
     // small fraction of the world.
@@ -18550,19 +18606,22 @@ int SdlApp::run() {
     };
 
     const auto launch_ai_arabia = [&](RandomMapSize size) {
+        active_ordinary_setup = OrdinaryMatchSetup::standard();
+        active_setup_slot = 0;
         active_random_settings.kind = RandomMapKind::arabia;
         active_random_settings.size = size;
         active_setup_difficulty = ComputerDifficulty::moderate;
         active_setup_victory = 0;
         refresh_random_map_preview();
         if (!random_map_preview) return;
-        random_map_preview->blue_civilization =
-            active_setup_civilization;
-        MatchRules& rules = random_map_preview->match_rules;
+        Scenario configured = configure_ordinary_random_map(
+            *random_map_preview, active_ordinary_setup
+        );
+        MatchRules& rules = configured.match_rules;
         rules.conquest_enabled = true;
         rules.wonder_enabled = false;
         rules.relic_enabled = false;
-        demo_scenario = *random_map_preview;
+        demo_scenario = std::move(configured);
         simulation = create_simulation(demo_scenario);
         center_camera_on_local_start();
         computer = ComputerPlayer(
@@ -18897,22 +18956,7 @@ int SdlApp::run() {
                             "\"random map generation failed\"}"
                         };
                     }
-                    random_map_preview->blue_civilization =
-                        active_setup_civilization;
-                    MatchRules& rules = random_map_preview->match_rules;
-                    rules.conquest_enabled = active_setup_victory == 0;
-                    rules.wonder_enabled = active_setup_victory == 1;
-                    rules.relic_enabled = active_setup_victory == 2;
-                    demo_scenario = configure_frontend_game_mode(
-                        *random_map_preview, active_frontend_game_mode
-                    );
-                    simulation = create_simulation(demo_scenario);
-                    center_camera_on_local_start();
-                    computer = ComputerPlayer(
-                        Player::red,
-                        active_setup_difficulty
-                    );
-                    active_frontend_screen = FrontendScreen::hidden;
+                    start_configured_random_map();
                     return GameplayTestApi::execute(
                         simulation, active_view_player, "state"
                     );
@@ -19617,29 +19661,7 @@ int SdlApp::run() {
                                 refresh_random_map_preview();
                             }
                             if (random_map_preview) {
-                                random_map_preview->blue_civilization =
-                                    active_setup_civilization;
-                                MatchRules& rules =
-                                    random_map_preview->match_rules;
-                                rules.conquest_enabled =
-                                    active_setup_victory == 0;
-                                rules.wonder_enabled =
-                                    active_setup_victory == 1;
-                                rules.relic_enabled =
-                                    active_setup_victory == 2;
-                                demo_scenario = configure_frontend_game_mode(
-                                    *random_map_preview,
-                                    active_frontend_game_mode
-                                );
-                                simulation =
-                                    create_simulation(demo_scenario);
-                                center_camera_on_local_start();
-                                computer = ComputerPlayer(
-                                    Player::red,
-                                    active_setup_difficulty
-                                );
-                                active_frontend_screen =
-                                    FrontendScreen::hidden;
+                                start_configured_random_map();
                             }
                         } else {
                             const auto logical =
@@ -21340,15 +21362,48 @@ int SdlApp::run() {
                             }
                             refresh_random_map_preview();
                         } else if (event.key.key == SDLK_C) {
+                            OrdinaryPlayerSlot& slot =
+                                active_ordinary_setup.slots[active_setup_slot];
+                            int civilization =
+                                static_cast<int>(slot.civilization) + 1;
+                            if (civilization >
+                                static_cast<int>(Civilization::mayans)) {
+                                civilization =
+                                    static_cast<int>(Civilization::britons);
+                            }
+                            slot.civilization =
+                                static_cast<Civilization>(civilization);
                             active_setup_civilization =
-                                active_setup_civilization ==
-                                        Civilization::britons
-                                    ? Civilization::franks
-                                : active_setup_civilization ==
-                                        Civilization::franks
-                                    ? Civilization::mongols
-                                    : Civilization::britons;
+                                active_ordinary_setup.slots[0].civilization;
                             refresh_random_map_preview();
+                        } else if (event.key.key == SDLK_P) {
+                            if (active_setup_slot !=
+                                *active_ordinary_setup.local_slot.index()) {
+                                OrdinaryPlayerSlot& slot =
+                                    active_ordinary_setup.slots[
+                                        active_setup_slot];
+                                slot.kind =
+                                    slot.kind == OrdinarySlotKind::closed
+                                        ? OrdinarySlotKind::computer
+                                    : slot.kind ==
+                                            OrdinarySlotKind::computer
+                                        ? OrdinarySlotKind::closed
+                                        : OrdinarySlotKind::closed;
+                                refresh_random_map_preview();
+                            }
+                        } else if (event.key.key == SDLK_S) {
+                            active_setup_slot =
+                                (active_setup_slot + 1) % 8;
+                        } else if (event.key.key == SDLK_T) {
+                            OrdinaryPlayerSlot& slot =
+                                active_ordinary_setup.slots[active_setup_slot];
+                            if (slot.kind != OrdinarySlotKind::closed) {
+                                const int next =
+                                    (slot.team.number() + 1) % 5;
+                                slot.team = next == 0
+                                    ? TeamId::none()
+                                    : *TeamId::numbered(next);
+                            }
                         } else if (event.key.key == SDLK_D) {
                             active_setup_difficulty =
                                 active_setup_difficulty ==
@@ -21374,29 +21429,7 @@ int SdlApp::run() {
                                 refresh_random_map_preview();
                             }
                             if (random_map_preview) {
-                                random_map_preview->blue_civilization =
-                                    active_setup_civilization;
-                                MatchRules& rules =
-                                    random_map_preview->match_rules;
-                                rules.conquest_enabled =
-                                    active_setup_victory == 0;
-                                rules.wonder_enabled =
-                                    active_setup_victory == 1;
-                                rules.relic_enabled =
-                                    active_setup_victory == 2;
-                                demo_scenario = configure_frontend_game_mode(
-                                    *random_map_preview,
-                                    active_frontend_game_mode
-                                );
-                                simulation =
-                                    create_simulation(demo_scenario);
-                                center_camera_on_local_start();
-                                computer = ComputerPlayer(
-                                    Player::red,
-                                    active_setup_difficulty
-                                );
-                                active_frontend_screen =
-                                    FrontendScreen::hidden;
+                                start_configured_random_map();
                             }
                         }
                     } else if (

@@ -1,5 +1,8 @@
 ## Main menu
 
+Ordinary random-map roster controls are documented in
+[`../ui/ORDINARY_MATCH_SETUP.md`](../ui/ORDINARY_MATCH_SETUP.md).
+
 Set `AOE_MAIN_MENU=1` to open main menu, or
 `AOE_MENU_REFERENCE=1` to open Single Player flyout with Campaigns focused.
 Mouse motion changes focus; left click activates. Up/Down wraps focus,

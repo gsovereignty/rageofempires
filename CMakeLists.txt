@@ -129,6 +129,7 @@ add_library(aoe_core
     src/legacy_assets.cpp
     src/scenario.cpp
     src/random_map.cpp
+    src/ordinary_match_setup.cpp
     src/rms_import.cpp
     src/classic_save_import.cpp
     src/scenario_editor.cpp
@@ -823,6 +824,14 @@ target_link_libraries(aoe_core_tests PRIVATE aoe_core)
 add_executable(aoe_random_map_tests tests/random_map_tests.cpp)
 target_link_libraries(aoe_random_map_tests PRIVATE aoe_core)
 
+add_executable(
+    ordinary_match_setup_tests tests/ordinary_match_setup_tests.cpp
+)
+target_link_libraries(ordinary_match_setup_tests PRIVATE aoe_core)
+target_compile_options(
+    ordinary_match_setup_tests PRIVATE -Wall -Wextra -Wpedantic
+)
+
 add_executable(aoe_rms_import_tests tests/rms_import_tests.cpp)
 target_link_libraries(aoe_rms_import_tests PRIVATE aoe_core)
 add_executable(aoe_rms_parity_probe tools/rms_parity_probe.cpp)
@@ -1001,6 +1010,7 @@ endforeach()
 
 add_test(NAME aoe_core_tests COMMAND aoe_core_tests)
 add_test(NAME aoe_random_map_tests COMMAND aoe_random_map_tests)
+add_test(NAME ordinary_match_setup_tests COMMAND ordinary_match_setup_tests)
 add_test(NAME aoe_rms_import_tests COMMAND aoe_rms_import_tests)
 add_test(
     NAME aoe_rms_parity_probe

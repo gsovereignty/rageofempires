@@ -86,14 +86,40 @@ atomically captures kind, owner/color, position, construction and gate state,
 hit points/damage inputs, owner age, civilization architecture, maximum hit
 points, and wall topology. Hidden mutation or destruction cannot change record.
 Seeing remembered footprint again refreshes live record or removes destroyed or
-replaced one. Diplomacy changes remove records no longer enemy; Cartography uses
-same shared-LOS path. Observers bypass memory and see live state.
+replaced one. Diplomacy changes remove records no longer enemy, except Town
+Centers retained by starting-team reconnaissance; Cartography uses same
+shared-LOS path. Observers bypass memory and see live state.
 
 World and minimap consume only frozen record while footprint stays hidden. No
 production queue, garrison, live damage overlay, current age, current
 civilization, current maximum HP, or changed wall topology feeds stale image.
 Native save version 118 serializes records in entity-ID order; lockstep hash
 therefore covers every player's distinct information state.
+
+## Starting allied Town Centers
+
+Supplied Age of Kings manual, printed page 45, says allied Town Centers are
+visible when a team game starts; Cartography separately makes all allied units
+and buildings visible. This establishes a narrow initial object reveal, not
+pre-Cartography sharing of each Town Center's sight radius. Decompiled fog
+rendering keeps explored and currently visible tile lists distinct, matching
+that two-state contract; manual remains authority for special starting object.
+
+During tick-zero setup, each occupied viewer slot snapshots every Town Center
+owned by a player it regards as allied. All footprint tiles become explored,
+but none becomes currently visible from this rule and no surrounding tile,
+allied unit, or other allied building is revealed. Directed diplomacy is read
+from viewer toward owner, so asymmetric scenario diplomacy remains
+deterministic. Multiple and unfinished starting Town Centers retain independent
+frozen construction, HP, age, civilization, and owner images.
+
+Snapshot uses same ordered `BuildingMemory` consumed by world and minimap.
+Later hidden construction, damage, age change, destruction, replacement, or
+diplomacy change cannot leak live state. A post-start alliance cannot reveal a
+previously hidden Town Center. Cartography suppresses frozen image whenever
+normal shared LOS sees live building and terrain; observers continue to bypass
+fog entirely. Native save/load and replay checkpoints serialize snapshot, and
+lockstep hash covers it for multiplayer determinism.
 
 ## Reproduction and tests
 
@@ -118,3 +144,7 @@ Tests verify exact 256-to-47 normalization, all 93,281 derived span records,
 pointer rejection, recovered dither constants, and enabled archive renderer.
 `aoe_core_tests` additionally verifies stale destruction and age state,
 per-viewer isolation, sight-return invalidation, save/load, and lockstep hash.
+Starting-allied-Town-Center coverage includes four roster slots, team and
+directed diplomacy, disabled broad shared vision, multiple/unfinished centers,
+footprint-only exploration, post-start diplomacy, Cartography, observer view,
+save/load, and deterministic hash.

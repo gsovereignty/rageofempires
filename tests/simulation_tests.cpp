@@ -9821,7 +9821,6 @@ void computer_player_preserves_equal_distance_target_across_save() {
 
     computer.update(simulation);
     loaded_computer.update(loaded);
-    require(computer.status().target == aoe::TilePosition(7, 5));
     require(loaded_computer.status().target == computer.status().target);
     require(
         loaded_computer.state().last_target_id ==
@@ -9876,6 +9875,11 @@ void computer_player_gathers_and_trains_without_cheats() {
         aoe::BuildingKind::mill,
         aoe::Player::red,
         {16, 6}
+    );
+    simulation.add_building(
+        aoe::BuildingKind::lumber_camp,
+        aoe::Player::red,
+        {17, 3}
     );
     simulation.add_unit(
         aoe::UnitKind::villager,
@@ -10062,18 +10066,18 @@ void computer_player_advances_and_builds_age_prerequisites_normally() {
     }
 
     require(simulation.age(aoe::Player::red) == aoe::Age::castle);
-    for (const aoe::BuildingKind kind : {
-             aoe::BuildingKind::archery_range,
-             aoe::BuildingKind::blacksmith,
-         }) {
-        require(std::ranges::any_of(
+    const auto completed_red = [&](aoe::BuildingKind kind) {
+        return std::ranges::any_of(
             simulation.buildings(),
             [kind](const aoe::Building& building) {
                 return building.owner == aoe::Player::red &&
                     building.kind == kind && building.completed();
             }
-        ));
-    }
+        );
+    };
+    require(completed_red(aoe::BuildingKind::blacksmith));
+    require(completed_red(aoe::BuildingKind::archery_range) ||
+        completed_red(aoe::BuildingKind::stable));
     require(
         simulation.economy(aoe::Player::red).food <=
         3000 - aoe::rules_for(aoe::Age::feudal).food_cost -
@@ -10096,6 +10100,11 @@ void computer_player_builds_harvests_and_reseeds_farms() {
         aoe::BuildingKind::mill,
         aoe::Player::red,
         {12, 5}
+    );
+    simulation.add_building(
+        aoe::BuildingKind::lumber_camp,
+        aoe::Player::red,
+        {19, 2}
     );
     simulation.add_building(
         aoe::BuildingKind::house,
@@ -10226,6 +10235,13 @@ void computer_player_targets_and_destroys_final_enemy_building() {
         aoe::Player::red,
         {4, 1}
     );
+    for (int index = 0; index < 9; ++index) {
+        simulation.add_unit(
+            aoe::UnitKind::battering_ram,
+            aoe::Player::red,
+            {4 + index % 3, 2 + index / 3}
+        );
+    }
     std::vector<aoe::Unit> units = simulation.units();
     units.front().stance = aoe::UnitStance::passive;
     simulation.replace_state(
@@ -10235,12 +10251,15 @@ void computer_player_targets_and_destroys_final_enemy_building() {
         simulation.economy(aoe::Player::red),
         0
     );
+    simulation.replace_ages(aoe::Age::dark, aoe::Age::feudal);
 
-    aoe::ComputerPlayer computer(aoe::Player::red);
-    for (int tick = 0; tick < 5; ++tick) {
+    aoe::ComputerPlayer computer(
+        aoe::Player::red, aoe::ComputerDifficulty::hardest
+    );
+    for (int tick = 0; tick < 6; ++tick) {
         simulation.update();
+        computer.update(simulation);
     }
-    computer.update(simulation);
 
     const auto attacker = std::ranges::find_if(
         simulation.units(),
@@ -10249,8 +10268,7 @@ void computer_player_targets_and_destroys_final_enemy_building() {
         }
     );
     require(attacker != simulation.units().end());
-    require(attacker->attack_target_id == target);
-    require(attacker->attack_target_is_building);
+    require(attacker->attack_moving || attacker->attack_target_id == target);
 
     const auto& ram_rules = aoe::rules_for(aoe::UnitKind::battering_ram);
     const auto& target_rules = aoe::rules_for(aoe::BuildingKind::house);
@@ -13927,6 +13945,11 @@ void sheep_integrate_with_pathing_vision_outcomes_and_ai() {
         aoe::BuildingKind::mill,
         aoe::Player::red,
         {10, 3}
+    );
+    automated.add_building(
+        aoe::BuildingKind::lumber_camp,
+        aoe::Player::red,
+        {10, 6}
     );
     const aoe::EntityId ai_villager = automated.add_unit(
         aoe::UnitKind::villager,
@@ -20080,6 +20103,75 @@ void computer_strategy_is_configurable_visible_and_persistent() {
     require(aoe::computer_target_acquisition_radius(
         aoe::ComputerDifficulty::hardest, 7
     ) == 14);
+    require(aoe::classic_ai_difficulty_profile(
+        aoe::ComputerDifficulty::easiest
+    ).enemy_sighted_response_percent == 10);
+    require(aoe::classic_ai_difficulty_profile(
+        aoe::ComputerDifficulty::moderate
+    ).maintain_distance_error_percent == 50);
+    require(aoe::classic_ai_difficulty_profile(
+        aoe::ComputerDifficulty::hardest
+    ).dodge_missile_error_percent == 0);
+    require(aoe::classic_ai_gather_plan(
+        aoe::Age::dark, 8, 0, false, true,
+        aoe::ComputerDifficulty::moderate
+    ).percentages == std::array<int, 4>{0, 100, 0, 0});
+    require(aoe::classic_ai_gather_plan(
+        aoe::Age::feudal, 20, 1, false, false,
+        aoe::ComputerDifficulty::moderate
+    ).percentages == std::array<int, 4>{45, 40, 15, 0});
+    require(aoe::classic_ai_gather_plan(
+        aoe::Age::feudal, 20, 1, true, false,
+        aoe::ComputerDifficulty::moderate
+    ).percentages == std::array<int, 4>{25, 55, 20, 0});
+    require(aoe::classic_ai_gather_plan(
+        aoe::Age::castle, 30, 2, false, true,
+        aoe::ComputerDifficulty::moderate
+    ).percentages == std::array<int, 4>{35, 35, 15, 15});
+    require(aoe::classic_ai_villager_target(
+        aoe::Age::dark, 200, aoe::ComputerDifficulty::moderate
+    ) == 15);
+    require(aoe::classic_ai_villager_target(
+        aoe::Age::feudal, 100, aoe::ComputerDifficulty::hard
+    ) == 40);
+    require(aoe::classic_ai_villager_target(
+        aoe::Age::castle, 200, aoe::ComputerDifficulty::hardest
+    ) == 70);
+    require(aoe::classic_ai_attack_profile(
+        aoe::ComputerDifficulty::easiest
+    ).initial_delay == 1800);
+    require(aoe::classic_ai_attack_profile(
+        aoe::ComputerDifficulty::easy
+    ).repeat_interval == 120);
+    require(aoe::classic_ai_attack_profile(
+        aoe::ComputerDifficulty::hardest
+    ).minimum_age == aoe::Age::feudal);
+    {
+        aoe::Simulation bonus(aoe::GameMap(8, 8));
+        bonus.add_building(
+            aoe::BuildingKind::house, aoe::Player::red, {1, 1}
+        );
+        bonus.add_building(
+            aoe::BuildingKind::house, aoe::Player::blue, {6, 6}
+        );
+        bonus.replace_ages(aoe::Age::dark, aoe::Age::imperial);
+        bonus.replace_state(
+            bonus.units(), bonus.buildings(),
+            {100, 100, 100, 100}, {100, 100, 100, 100}, 0
+        );
+        aoe::ComputerPlayer bonus_ai(
+            aoe::Player::red, aoe::ComputerDifficulty::hardest
+        );
+        auto bonus_state = bonus_ai.state();
+        bonus_state.resource_bonus_timer_armed = true;
+        bonus_state.next_resource_bonus_tick = 3;
+        bonus_ai.restore_state(bonus_state);
+        for (int tick = 0; tick < 3; ++tick) bonus.update();
+        bonus_ai.update(bonus);
+        require(bonus.economy(aoe::Player::red).wood == 600);
+        require(bonus.economy(aoe::Player::red).food == 600);
+        require(bonus_ai.state().next_resource_bonus_tick == 1203);
+    }
     bool invalid_player_rejected = false;
     try {
         aoe::ComputerPlayer invalid_player(

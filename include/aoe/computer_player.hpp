@@ -18,6 +18,49 @@ enum class ComputerDifficulty {
     expert = hardest,
 };
 
+// Values recovered from Petersen difficulty/gather rules stored as BINA
+// resources 60008 and 60019 in the supplied gamedata_x1.drs. Percentages use
+// classic resource order: wood, food, gold, stone.
+struct ClassicAiDifficultyProfile {
+    int enemy_sighted_response_percent{};
+    int maintain_distance_error_percent{};
+    int dodge_missile_error_percent{};
+    int alliance_change_hits{};
+};
+
+struct ClassicAiGatherPlan {
+    std::array<int, 4> percentages{};
+};
+
+struct ClassicAiAttackProfile {
+    std::uint64_t initial_delay{};
+    std::uint64_t repeat_interval{};
+    Age minimum_age{Age::feudal};
+};
+
+[[nodiscard]] ClassicAiDifficultyProfile classic_ai_difficulty_profile(
+    ComputerDifficulty difficulty
+);
+
+[[nodiscard]] ClassicAiGatherPlan classic_ai_gather_plan(
+    Age age,
+    int civilian_population,
+    int mining_camp_count,
+    bool reserving_for_age,
+    bool needs_first_castle,
+    ComputerDifficulty difficulty
+);
+
+[[nodiscard]] int classic_ai_villager_target(
+    Age age,
+    int population_cap,
+    ComputerDifficulty difficulty
+);
+
+[[nodiscard]] ClassicAiAttackProfile classic_ai_attack_profile(
+    ComputerDifficulty difficulty
+);
+
 // Commercial target search uses one effective LOS on the two lower
 // difficulties and two effective LOS on the other three.
 [[nodiscard]] int computer_target_acquisition_radius(
@@ -68,10 +111,14 @@ struct ComputerPlayerState {
     std::uint64_t last_command_tick{};
     std::uint64_t last_attack_tick{};
     std::uint64_t strategy_epoch{};
+    std::uint64_t next_attack_tick{};
+    std::uint64_t next_resource_bonus_tick{};
     EntityId last_target_id{};
     TilePosition home_anchor{-1, -1};
     TilePosition rally_point{-1, -1};
     bool retreating{};
+    bool attack_timer_armed{};
+    bool resource_bonus_timer_armed{};
 };
 
 // Small deterministic opponent. It sees only public simulation state and

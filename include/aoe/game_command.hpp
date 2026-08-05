@@ -142,6 +142,14 @@ struct QueueCommercialObjectCommand {
     CommercialObjectIdentity identity;
 };
 
+struct CommercialTaskCommand {
+    EntityId unit;
+    std::uint16_t task_id{};
+    EntityId target{};
+    bool target_is_building{};
+    TilePosition destination{};
+};
+
 struct SetRallyPointCommand {
     EntityId building;
     TilePosition destination;
@@ -215,6 +223,7 @@ using GameCommand = std::variant<
     ConstructBuildingCommand,
     QueueUnitCommand,
     QueueCommercialObjectCommand,
+    CommercialTaskCommand,
     SetRallyPointCommand,
     CancelProductionCommand,
     ReseedFarmCommand,

@@ -2401,21 +2401,22 @@ EntityId Simulation::add_commercial_object(
         throw std::invalid_argument("unknown commercial object identity");
     }
     const auto owner_slot = owner.slot_index();
-    if (!owner_slot) {
-        throw std::invalid_argument("commercial object requires player owner");
-    }
-    PlayerState& player = player_states_[*owner_slot];
-    if (player.commercial_civilization &&
-        *player.commercial_civilization != identity.civilization_id) {
-        throw std::invalid_argument("commercial civilization mismatch");
-    }
-    player.commercial_civilization = identity.civilization_id;
-    if (!player.commercial_civilization_initialized) {
-        if (const auto setup = commercial_content_catalog()
-                .civilization_effect(identity.civilization_id)) {
-            apply_commercial_effect(owner, *setup);
+    if (owner_slot) {
+        PlayerState& player = player_states_[*owner_slot];
+        if (player.commercial_civilization &&
+            *player.commercial_civilization != identity.civilization_id) {
+            throw std::invalid_argument("commercial civilization mismatch");
         }
-        player.commercial_civilization_initialized = true;
+        player.commercial_civilization = identity.civilization_id;
+        if (!player.commercial_civilization_initialized) {
+            if (const auto setup = commercial_content_catalog()
+                    .civilization_effect(identity.civilization_id)) {
+                apply_commercial_effect(owner, *setup);
+            }
+            player.commercial_civilization_initialized = true;
+        }
+    } else if (!owner.is_neutral()) {
+        throw std::invalid_argument("commercial object owner unavailable");
     }
     const int effective_hp = std::max(1, static_cast<int>(std::lround(
         effective_commercial_attribute(
@@ -2435,6 +2436,14 @@ EntityId Simulation::add_commercial_object(
         value.owner = owner;
         value.position = position;
         value.hit_points = effective_hp;
+        if (!record->stored_resources.empty()) {
+            value.resource_amount = std::max(0, static_cast<int>(std::lround(
+                effective_commercial_attribute(
+                    owner, identity, 21,
+                    record->stored_resources.front().amount
+                )
+            )));
+        }
         buildings_.push_back(value);
         update_exploration();
         return value.id;
@@ -2454,6 +2463,14 @@ EntityId Simulation::add_commercial_object(
     value.attack = static_cast<int>(std::lround(
         effective_commercial_attribute(owner, identity, 9, record->attack)
     ));
+    if (!record->stored_resources.empty()) {
+        value.food_remaining = std::max(0, static_cast<int>(std::lround(
+            effective_commercial_attribute(
+                owner, identity, 21,
+                record->stored_resources.front().amount
+            )
+        )));
+    }
     if (record->speed <= 0.0f) value.stance = UnitStance::passive;
     units_.push_back(value);
     initialize_unit_render_elevation(units_.back());
@@ -2477,7 +2494,12 @@ bool Simulation::command_gather_unit(
          !commercial_has_ability(*villager, CommercialTaskAbility::hunt) &&
          !commercial_has_ability(*villager, CommercialTaskAbility::graze)) ||
         villager->garrisoned_in != 0 ||
-        !is_animal(herdable->kind) ||
+        (!is_animal(herdable->kind) &&
+         (!herdable->commercial_identity ||
+          !commercial_content_catalog().object(
+              herdable->commercial_identity->civilization_id,
+              herdable->commercial_identity->object_id
+          )->track_as_resource)) ||
         (is_herdable(herdable->kind) &&
          herdable->owner != villager->owner &&
          !herdable->owner.is_neutral()) ||
@@ -2650,6 +2672,26 @@ bool Simulation::command_commercial_task(
         case CommercialTaskAbility::off_map_trade:
             return target_building && command_trade_route(unit_id, target_id);
         case CommercialTaskAbility::garrison:
+            if (target_building && target_building->commercial_identity) {
+                const auto* target_record = commercial_content_catalog().object(
+                    target_building->commercial_identity->civilization_id,
+                    target_building->commercial_identity->object_id
+                );
+                const int capacity = target_record
+                    ? std::max(0, static_cast<int>(std::lround(
+                          effective_commercial_attribute(
+                              target_building->owner,
+                              *target_building->commercial_identity, 2,
+                              static_cast<float>(target_record->garrison_capacity)
+                          )
+                      ))) : 0;
+                if (capacity > 0 && garrison_count(target_id) < capacity &&
+                    route_unit(*unit, target_building->position)) {
+                    unit->garrison_target_id = target_id;
+                    return true;
+                }
+                return false;
+            }
             if (target_building && route_unit(*unit, target_building->position)) {
                 unit->garrison_target_id = target_id;
                 return true;
@@ -4487,10 +4529,15 @@ bool Simulation::command_embark(EntityId unit_id, EntityId transport_id) {
         std::ranges::count_if(units_, [transport_id](const Unit& passenger) {
             return passenger.garrisoned_in == transport_id;
         }) >= (transport->commercial_identity
-            ? std::max(0, commercial_content_catalog().object(
-                  transport->commercial_identity->civilization_id,
-                  transport->commercial_identity->object_id
-              )->garrison_capacity)
+            ? std::max(0, static_cast<int>(std::lround(
+                  effective_commercial_attribute(
+                      transport->owner, *transport->commercial_identity, 2,
+                      static_cast<float>(commercial_content_catalog().object(
+                          transport->commercial_identity->civilization_id,
+                          transport->commercial_identity->object_id
+                      )->garrison_capacity)
+                  )
+              )))
             : transport_capacity(transport->owner))) {
         return false;
     }
@@ -4710,17 +4757,31 @@ void Simulation::validate_loaded_state() const {
              unit.trade_work_ticks_remaining != 0)) {
             throw std::runtime_error("invalid trade route state in save");
         }
+        const auto* commercial_record = unit.commercial_identity
+            ? commercial_content_catalog().object(
+                  unit.commercial_identity->civilization_id,
+                  unit.commercial_identity->object_id
+              )
+            : nullptr;
+        const bool commercial_resource = commercial_record != nullptr &&
+            !commercial_record->stored_resources.empty();
         if (unit.food_decay_remainder < 0 ||
             unit.food_decay_remainder >= 500 ||
-            (!is_animal(unit.kind) &&
+            (!is_animal(unit.kind) && !commercial_resource &&
              (unit.food_remaining != 0 ||
               unit.food_decay_remainder != 0))) {
             throw std::runtime_error("invalid animal food state in save");
         }
-        const int maximum_animal_food =
-            unit.kind == UnitKind::sheep ? 100 :
-            unit.kind == UnitKind::deer ? 140 :
-            unit.kind == UnitKind::boar ? 340 : 0;
+        const int maximum_animal_food = commercial_resource
+            ? std::max(0, static_cast<int>(std::lround(
+                  effective_commercial_attribute(
+                      unit.owner, *unit.commercial_identity, 21,
+                      commercial_record->stored_resources.front().amount
+                  )
+              )))
+            : unit.kind == UnitKind::sheep ? 100
+            : unit.kind == UnitKind::deer ? 140
+            : unit.kind == UnitKind::boar ? 340 : 0;
         if (unit.food_remaining < 0 ||
             unit.food_remaining > maximum_animal_food) {
             throw std::runtime_error("invalid animal food in save");
@@ -6797,8 +6858,25 @@ void Simulation::update() {
         // Bounded contract: interpret raw DAT rates 0.1/0.2 as HP/s.
         // At five ticks per represented second, that is one whole HP
         // every 50/25 ticks without a fractional save-state accumulator.
-        std::uint64_t healing_interval =
-            shelter->kind == BuildingKind::castle ? 25 : 50;
+        std::uint64_t healing_interval{};
+        if (shelter->commercial_identity) {
+            const auto* record = commercial_content_catalog().object(
+                shelter->commercial_identity->civilization_id,
+                shelter->commercial_identity->object_id
+            );
+            const float rate = record == nullptr ? 0.0f
+                : effective_commercial_attribute(
+                      shelter->owner, *shelter->commercial_identity, 108,
+                      record->garrison_heal_rate
+                  );
+            if (rate <= 0.0f) continue;
+            healing_interval = std::max<std::uint64_t>(
+                1, static_cast<std::uint64_t>(std::lround(5.0f / rate))
+            );
+        } else {
+            healing_interval =
+                shelter->kind == BuildingKind::castle ? 25 : 50;
+        }
         if (has_technology(unit.owner, Technology::herbal_medicine)) {
             healing_interval = std::max<std::uint64_t>(
                 1, healing_interval / 4
@@ -10674,7 +10752,8 @@ void Simulation::gather(Unit& unit) {
           has_technology(
               unit.owner, Technology::stone_shaft_mining
           )));
-    const int base_work = extended_rate ? 10000 : 5;
+    const bool commercial_worker = unit.commercial_identity.has_value();
+    const int base_work = extended_rate || commercial_worker ? 10000 : 5;
     int work = base_work;
     if (resource == ResourceKind::wood) {
         if (extended_rate) {
@@ -10710,6 +10789,20 @@ void Simulation::gather(Unit& unit) {
             )) work = work * 23 / 20;
     }
     if (mongol_hunter) work = work * 3 / 2;
+    if (commercial_worker) {
+        const auto* record = commercial_content_catalog().object(
+            unit.commercial_identity->civilization_id,
+            unit.commercial_identity->object_id
+        );
+        const float rate = record == nullptr ? 0.0f
+            : effective_commercial_attribute(
+                  unit.owner, *unit.commercial_identity, 13,
+                  record->work_rate
+              );
+        work = std::max(0, static_cast<int>(std::lround(
+            static_cast<float>(base_work) * rate
+        )));
+    }
     unit.gather_work_remainder += work;
     const int resource_per_tick =
         unit.gather_work_remainder / base_work;
@@ -10719,8 +10812,11 @@ void Simulation::gather(Unit& unit) {
     int credited_this_tick{};
     if (unit.resource_unit_id != 0) {
         Unit* herdable = find_unit(unit.resource_unit_id);
-        if (herdable != nullptr && is_animal(herdable->kind) &&
-            (is_huntable(herdable->kind) ||
+        if (herdable != nullptr &&
+            (is_animal(herdable->kind) ||
+             herdable->commercial_identity.has_value()) &&
+            (herdable->commercial_identity.has_value() ||
+             is_huntable(herdable->kind) ||
              herdable->owner == unit.owner)) {
             const auto [credited, consumed] = finite_resource_yield(
                 unit.owner, herdable->food_remaining, requested
@@ -10818,15 +10914,31 @@ ResourceKind Simulation::work_resource(const Unit& unit) const {
             units_,
             [&unit](const Unit& target) {
                 return target.id == unit.resource_unit_id &&
-                    is_animal(target.kind) &&
-                    (is_huntable(target.kind) ||
+                    (is_animal(target.kind) || target.commercial_identity) &&
+                    (target.commercial_identity || is_huntable(target.kind) ||
                      target.owner == unit.owner) &&
                     target.food_remaining > 0;
             }
         );
-        return found == units_.end()
-            ? ResourceKind::none
-            : ResourceKind::food;
+        if (found == units_.end()) return ResourceKind::none;
+        if (found->commercial_identity) {
+            const auto* record = commercial_content_catalog().object(
+                found->commercial_identity->civilization_id,
+                found->commercial_identity->object_id
+            );
+            if (!record || record->stored_resources.empty()) {
+                return ResourceKind::none;
+            }
+            switch (record->stored_resources.front().resource_id) {
+                case 0: return ResourceKind::food;
+                case 1: return ResourceKind::wood;
+                case 2: return ResourceKind::stone;
+                case 3: return ResourceKind::gold;
+                case 17: return ResourceKind::food;
+                default: return ResourceKind::none;
+            }
+        }
+        return ResourceKind::food;
     }
     if (unit.resource_building_id != 0) {
         const auto found = std::ranges::find_if(
@@ -10854,7 +10966,7 @@ int Simulation::work_resource_amount(const Unit& unit) const {
             units_,
             [&unit](const Unit& target) {
                 return target.id == unit.resource_unit_id &&
-                    is_animal(target.kind);
+                    (is_animal(target.kind) || target.commercial_identity);
             }
         );
         return found == units_.end() ? 0 : found->food_remaining;
@@ -12999,12 +13111,20 @@ bool Simulation::acquire_nearby_target(
     Unit& unit,
     bool allow_chase
 ) {
-    if (rules_for(unit.kind).attack <= 0 ||
+    if ((rules_for(unit.kind).attack <= 0 &&
+         !commercial_has_ability(unit, CommercialTaskAbility::combat)) ||
         unit.trebuchet_transform_ticks_remaining > 0 ||
         unit.kind == UnitKind::packed_trebuchet) {
         return false;
     }
-    const int vision = effective_unit_vision_range(unit);
+    const int vision = unit.commercial_identity
+        ? std::max(0, static_cast<int>(std::lround(
+              effective_commercial_attribute(
+                  unit.owner, *unit.commercial_identity, 23,
+                  static_cast<float>(effective_unit_vision_range(unit))
+              )
+          )))
+        : effective_unit_vision_range(unit);
     const auto within_vision = [&unit, vision](TilePosition position) {
         const int x = position.x - unit.position.x;
         const int y = position.y - unit.position.y;

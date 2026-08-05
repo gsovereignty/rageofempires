@@ -268,6 +268,13 @@ bool execute(
                     value.building, value.identity
                 );
             } else if constexpr (
+                std::is_same_v<Type, CommercialTaskCommand>
+            ) {
+                return simulation.command_commercial_task(
+                    value.unit, value.task_id, value.target,
+                    value.target_is_building, value.destination
+                );
+            } else if constexpr (
                 std::is_same_v<Type, SetRallyPointCommand>
             ) {
                 return simulation.set_rally_point(
@@ -575,6 +582,15 @@ void save_replay(const Replay& replay, const std::filesystem::path& path) {
                            << static_cast<int>(
                                   value.identity.civilization_id
                               ) << ' ' << value.identity.object_id << '\n';
+                } else if constexpr (
+                    std::is_same_v<Type, CommercialTaskCommand>
+                ) {
+                    output << "commercial-task " << tick << ' '
+                           << value.unit << ' ' << value.task_id << ' '
+                           << value.target << ' '
+                           << static_cast<int>(value.target_is_building) << ' '
+                           << value.destination.x << ' '
+                           << value.destination.y << '\n';
                 } else if constexpr (std::is_same_v<Type, ResignCommand>) {
                     output << "resign " << tick << ' '
                            << encode_player_wire(value.player) << '\n';
@@ -921,6 +937,20 @@ Replay load_replay(const std::filesystem::path& path) {
                 static_cast<CommercialCivilizationId>(civilization),
                 static_cast<CommercialObjectId>(object),
             };
+            replay.record(tick, command);
+        } else if (record == "commercial-task" && version >= 66) {
+            CommercialTaskCommand command;
+            int task_id{};
+            int target_is_building{};
+            input >> tick >> command.unit >> task_id >> command.target
+                  >> target_is_building >> command.destination.x
+                  >> command.destination.y;
+            if (task_id < 0 || task_id > 65535 ||
+                (target_is_building != 0 && target_is_building != 1)) {
+                throw std::runtime_error("invalid commercial task record");
+            }
+            command.task_id = static_cast<std::uint16_t>(task_id);
+            command.target_is_building = target_is_building != 0;
             replay.record(tick, command);
         } else if (record == "resign" && version >= 60) {
             ResignCommand command;

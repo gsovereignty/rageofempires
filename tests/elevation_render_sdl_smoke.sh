@@ -47,4 +47,25 @@ pixels = data[offset:]
 step = bpp // 8
 if len(set(pixels[index:index + step] for index in range(0, len(pixels), step))) < 256:
     raise SystemExit("elevation capture lost filtered terrain variation")
+
+# Central viewport covers graded hills but excludes map-edge background.
+# Pin chromatic grass and reject transparent FilterMaps holes or white terrain.
+stride = ((width * step + 3) // 4) * 4
+black = white = grass = 0
+for screen_y in range(80, 390):
+    source_y = height - 1 - screen_y
+    for x in range(250, 750):
+        at = offset + source_y * stride + x * step
+        blue, green, red = data[at:at + 3]
+        black += max(red, green, blue) < 35
+        white += min(red, green, blue) > 235
+        grass += (
+            green > red * 1.08 and green > blue * 1.08 and green > 70
+        )
+if black > 8_000:
+    raise SystemExit(f"elevation capture has transparent terrain holes: {black}")
+if white > 1_000:
+    raise SystemExit(f"grass terrain rendered near-white: {white}")
+if grass < 90_000:
+    raise SystemExit(f"grass terrain lost expected chroma: {grass}")
 PY

@@ -35,6 +35,7 @@
 #include "aoe/building_damage.hpp"
 #include "aoe/command_panel.hpp"
 #include "aoe/cursor_contract.hpp"
+#include "aoe/elevation_render.hpp"
 #include "aoe/frontend_audio.hpp"
 #include "aoe/frontend_game_modes.hpp"
 #include "aoe/frontend_menu.hpp"
@@ -387,6 +388,8 @@ struct TerrainTextures {
     std::vector<RgbaFrame> beach_archive_rgba;
     std::vector<RgbaFrame> shallows_archive_rgba;
     std::optional<BlendomaticData> blendomatic;
+    std::optional<std::array<elevation_render::FilterMap, 17>> elevation_filters;
+    std::optional<elevation_render::Lighting> elevation_lighting;
     std::map<std::string, SDL_Texture*> transition_cache;
 
     void destroy() {
@@ -428,6 +431,8 @@ struct TerrainTextures {
         }
         transition_cache.clear();
         blendomatic.reset();
+        elevation_filters.reset();
+        elevation_lighting.reset();
     }
 };
 
@@ -2434,6 +2439,10 @@ void center_camera_on(CameraView& camera, TilePosition tile) {
     );
     const float world_y = static_cast<float>(
         map_origin_y + (tile.x + tile.y) * half_tile_height
+    ) - static_cast<float>(
+        active_render_map != nullptr && active_render_map->contains(tile)
+            ? active_render_map->elevation_at(tile) * elevation_pixel_step
+            : 0
     );
     camera.x =
         world_x - static_cast<float>(view_pixel_width) / camera.zoom * 0.5F;
@@ -2579,74 +2588,6 @@ void render_explored_fog_dither(SDL_Renderer* renderer, SDL_FPoint top) {
             renderer, points.data(), static_cast<int>(points.size())
         );
     }
-}
-
-void render_elevation_faces(
-    SDL_Renderer* renderer,
-    const Simulation& simulation,
-    TilePosition position,
-    SDL_FPoint top
-) {
-    const int elevation = simulation.map().elevation_at(position);
-    if (elevation == 0) return;
-    const auto face = [&](TilePosition neighbor,
-                          SDL_FPoint first,
-                          SDL_FPoint second,
-                          SDL_Color color) {
-        const int neighbor_elevation =
-            simulation.map().contains(neighbor)
-            ? simulation.map().elevation_at(neighbor)
-            : 0;
-        const int difference = elevation - neighbor_elevation;
-        if (difference <= 0) return;
-        const float drop = static_cast<float>(
-            difference * elevation_pixel_step
-        );
-        const SDL_FColor vertex_color{
-            color.r / 255.0F,
-            color.g / 255.0F,
-            color.b / 255.0F,
-            1.0F,
-        };
-        const std::array<SDL_Vertex, 4> vertices{{
-            {first, vertex_color, {}},
-            {second, vertex_color, {}},
-            {{second.x, second.y + drop}, vertex_color, {}},
-            {{first.x, first.y + drop}, vertex_color, {}},
-        }};
-        constexpr std::array<int, 6> indices{{0, 1, 2, 0, 2, 3}};
-        SDL_RenderGeometry(
-            renderer, nullptr,
-            vertices.data(), static_cast<int>(vertices.size()),
-            indices.data(), static_cast<int>(indices.size())
-        );
-        SDL_SetRenderDrawColor(
-            renderer,
-            static_cast<Uint8>(color.r * 0.62F),
-            static_cast<Uint8>(color.g * 0.62F),
-            static_cast<Uint8>(color.b * 0.62F),
-            210
-        );
-        SDL_RenderLine(
-            renderer,
-            first.x,
-            first.y + drop,
-            second.x,
-            second.y + drop
-        );
-    };
-    face(
-        {position.x + 1, position.y},
-        {top.x + half_tile_width, top.y + half_tile_height},
-        {top.x, top.y + tile_height},
-        {83, 67, 43, 255}
-    );
-    face(
-        {position.x, position.y + 1},
-        {top.x, top.y + tile_height},
-        {top.x - half_tile_width, top.y + half_tile_height},
-        {67, 54, 37, 255}
-    );
 }
 
 bool configure_terrain_sampling(SDL_Texture* texture) {
@@ -2899,6 +2840,39 @@ TerrainTextures load_local_terrain_textures(SDL_Renderer* renderer) {
             if (disable_blendomatic) {
                 SDL_Log("terrain audit disabled Blendomatic composition");
             }
+            const std::filesystem::path filter_path =
+                data_root / "FilterMaps.dat";
+            if (std::filesystem::is_regular_file(filter_path)) {
+                const auto bytes_from = [](const std::filesystem::path& path) {
+                    std::ifstream input(path, std::ios::binary);
+                    if (!input) throw LegacyAssetError{"cannot open elevation asset"};
+                    const std::vector<char> chars{
+                        std::istreambuf_iterator<char>{input},
+                        std::istreambuf_iterator<char>{},
+                    };
+                    std::vector<std::byte> bytes(chars.size());
+                    std::transform(
+                        chars.begin(), chars.end(), bytes.begin(),
+                        [](char value) {
+                            return static_cast<std::byte>(
+                                static_cast<unsigned char>(value)
+                            );
+                        }
+                    );
+                    return bytes;
+                };
+                const std::vector<std::byte> bytes = bytes_from(filter_path);
+                textures.elevation_filters =
+                    elevation_render::decode_filter_maps(bytes);
+                textures.elevation_lighting =
+                    elevation_render::decode_lighting(
+                        bytes_from(data_root / "PatternMasks.dat"),
+                        bytes_from(data_root / "lightMaps.dat"),
+                        bytes_from(data_root / "view_icm.dat"),
+                        palette
+                    );
+                SDL_Log("using exact classic FilterMaps.dat slope scanlines");
+            }
         } catch (const std::exception& error) {
             SDL_LogWarn(
                 SDL_LOG_CATEGORY_APPLICATION,
@@ -3031,6 +3005,117 @@ SDL_Texture* terrain_transition_texture(
             "cannot enable linear transition sampling: %s",
             SDL_GetError()
         );
+        SDL_DestroyTexture(texture);
+        return nullptr;
+    }
+    textures.transition_cache.emplace(key.str(), texture);
+    return texture;
+}
+
+elevation_render::Topology terrain_elevation_topology(
+    const GameMap& map,
+    TilePosition position
+) {
+    const auto level = [&](TilePosition tile) {
+        return map.contains(tile)
+            ? map.elevation_at(tile)
+            : map.elevation_at(position);
+    };
+    return elevation_render::classify({
+        level({position.x - 1, position.y - 1}),
+        level({position.x, position.y - 1}),
+        level({position.x + 1, position.y - 1}),
+        level({position.x - 1, position.y}),
+        level(position),
+        level({position.x + 1, position.y}),
+        level({position.x - 1, position.y + 1}),
+        level({position.x, position.y + 1}),
+        level({position.x + 1, position.y + 1}),
+    });
+}
+
+SDL_Texture* terrain_elevation_texture(
+    SDL_Renderer* renderer,
+    const Simulation& simulation,
+    TilePosition position,
+    std::size_t frame_index
+) {
+    TerrainTextures& textures = active_terrain_textures;
+    if (!textures.elevation_filters) return nullptr;
+    const auto topology = terrain_elevation_topology(
+        simulation.map(), position
+    );
+    if (topology.slope_id == 0) return nullptr;
+    const Terrain terrain = simulation.map().terrain_at(position);
+    const std::vector<RgbaFrame>* frames = terrain_archive_rgba(terrain);
+    if (frame_index >= frames->size()) return nullptr;
+    RgbaFrame flat = (*frames)[frame_index];
+    std::ostringstream key;
+    key << "slope:" << static_cast<int>(terrain) << ':' << frame_index
+        << ':' << static_cast<int>(topology.slope_id);
+    if (textures.blendomatic) {
+        constexpr std::array<TilePosition, 8> offsets{{
+            {0, -1}, {1, -1}, {1, 0}, {1, 1},
+            {0, 1}, {-1, 1}, {-1, 0}, {-1, -1},
+        }};
+        std::array<std::optional<Terrain>, 8> neighbors;
+        for (std::size_t index = 0; index < offsets.size(); ++index) {
+            const TilePosition neighbor{
+                position.x + offsets[index].x,
+                position.y + offsets[index].y,
+            };
+            if (simulation.map().contains(neighbor) &&
+                (!active_settings.fog ||
+                 simulation.is_explored_to_controller(
+                     active_view_player, neighbor))) {
+                neighbors[index] = simulation.map().terrain_at(neighbor);
+            }
+        }
+        const auto selections = select_terrain_transition_masks(
+            terrain, neighbors, position
+        );
+        for (const TerrainMaskSelection& selected : selections) {
+            const std::vector<RgbaFrame>* overlay =
+                terrain_archive_rgba(selected.overlay);
+            if (frame_index >= overlay->size() || selected.blend_mode < 0 ||
+                static_cast<std::size_t>(selected.blend_mode) >=
+                    textures.blendomatic->modes.size()) return nullptr;
+            for (const int mask_id : selected.fixed_mask_ids) {
+                const auto& masks = textures.blendomatic->modes[
+                    static_cast<std::size_t>(selected.blend_mode)];
+                if (mask_id < 0 ||
+                    static_cast<std::size_t>(mask_id) >= masks.size()) {
+                    return nullptr;
+                }
+                key << '/' << static_cast<int>(selected.overlay) << ':'
+                    << selected.blend_mode << ':' << mask_id;
+                flat = compose_terrain_transition(
+                    flat, (*overlay)[frame_index],
+                    masks[static_cast<std::size_t>(mask_id)]
+                );
+            }
+        }
+    }
+    if (const auto found = textures.transition_cache.find(key.str());
+        found != textures.transition_cache.end()) {
+        return found->second;
+    }
+    const RgbaFrame composed = elevation_render::compose(
+        flat,
+        (*textures.elevation_filters)[topology.slope_id],
+        textures.elevation_lighting
+            ? &*textures.elevation_lighting
+            : nullptr,
+        elevation_render::lighting_orientation(topology.slope_id)
+    );
+    SDL_Surface* surface = SDL_CreateSurfaceFrom(
+        composed.width, composed.height, SDL_PIXELFORMAT_RGBA32,
+        const_cast<std::uint8_t*>(composed.rgba.data()), composed.width * 4
+    );
+    if (surface == nullptr) return nullptr;
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_DestroySurface(surface);
+    if (texture == nullptr || !configure_terrain_sampling(texture)) {
         SDL_DestroyTexture(texture);
         return nullptr;
     }
@@ -14998,8 +15083,12 @@ std::size_t render(
     SDL_SetRenderViewport(renderer, &world_viewport);
     SDL_SetRenderScale(renderer, camera.zoom, camera.zoom);
 
-    for (int y = 0; y < simulation.map().height(); ++y) {
-        for (int x = 0; x < simulation.map().width(); ++x) {
+    for (int depth = 0;
+         depth < simulation.map().width() + simulation.map().height() - 1;
+         ++depth) {
+        for (int y = 0; y < simulation.map().height(); ++y) {
+            const int x = depth - y;
+            if (x < 0 || x >= simulation.map().width()) continue;
             const TilePosition position{x, y};
             if (!tile_near_world_view(position, 96.0F)) {
                 continue;
@@ -15034,6 +15123,7 @@ std::size_t render(
             }
             const SDL_FPoint top = tile_top(position);
             SDL_Texture* texture = nullptr;
+            SDL_Texture* elevation_texture = nullptr;
             const Terrain terrain =
                 simulation.map().terrain_at(position);
             bool full_texture_diamond = false;
@@ -15079,6 +15169,9 @@ std::size_t render(
                             )) {
                         texture = transition;
                     }
+                    elevation_texture = terrain_elevation_texture(
+                        renderer, simulation, position, frame_index
+                    );
                 }
             }
             if (texture != nullptr) {
@@ -15096,19 +15189,37 @@ std::size_t render(
                     color = {128, 128, 128, 255};
                 }
             }
-            if (explored) {
-                render_elevation_faces(
-                    renderer, simulation, position, top
+            if (elevation_texture != nullptr) {
+                float source_width{};
+                float source_height{};
+                SDL_GetTextureSize(
+                    elevation_texture, &source_width, &source_height
+                );
+                const float height = source_height *
+                    static_cast<float>(tile_height) / 49.0F;
+                const SDL_FRect destination{
+                    top.x - half_tile_width,
+                    top.y + half_tile_height - height * 0.5F,
+                    static_cast<float>(tile_width),
+                    height,
+                };
+                SDL_SetTextureColorMod(
+                    elevation_texture, color.r, color.g, color.b
+                );
+                SDL_SetTextureAlphaMod(elevation_texture, color.a);
+                SDL_RenderTexture(
+                    renderer, elevation_texture, nullptr, &destination
+                );
+            } else {
+                fill_diamond(
+                    renderer,
+                    top,
+                    color,
+                    texture,
+                    position,
+                    full_texture_diamond
                 );
             }
-            fill_diamond(
-                renderer,
-                top,
-                color,
-                texture,
-                position,
-                full_texture_diamond
-            );
             if (active_settings.fog && explored) {
                 const auto selection = fog::select_assets(
                     visible ? fog::WorldState::visible
@@ -15153,19 +15264,6 @@ std::size_t render(
                 if (!visible) {
                     render_explored_fog_dither(renderer, top);
                 }
-            }
-            if (explored && simulation.map().cliff_at(position)) {
-                set_color(renderer, visible
-                    ? SDL_Color{73, 54, 38, 255}
-                    : SDL_Color{34, 30, 26, 255});
-                const std::array<SDL_FPoint, 5> edge{{
-                    top,
-                    {top.x + half_tile_width, top.y + half_tile_height},
-                    {top.x, top.y + 2.0F * half_tile_height},
-                    {top.x - half_tile_width, top.y + half_tile_height},
-                    top,
-                }};
-                SDL_RenderLines(renderer, edge.data(), edge.size());
             }
             if (visible && texture == nullptr) {
                 render_procedural_terrain_transitions(

@@ -110,6 +110,7 @@ endif()
 
 add_library(aoe_core
     src/building_damage.cpp
+    src/elevation_render.cpp
     src/content_catalog.cpp
     src/campaign.cpp
     src/commercial_multiplayer_protocol.cpp
@@ -1067,6 +1068,31 @@ add_test(NAME aoe_localization_tests COMMAND aoe_localization_tests)
 add_test(NAME aoe_ui_assets_tests COMMAND aoe_ui_assets_tests)
 add_test(NAME aoe_ui_perspective_tests COMMAND aoe_ui_perspective_tests)
 add_test(NAME aoe_elevation_tests COMMAND aoe_elevation_tests)
+
+add_executable(aoe_elevation_render_tests tests/elevation_render_tests.cpp)
+target_link_libraries(aoe_elevation_render_tests PRIVATE aoe_core)
+target_compile_definitions(
+    aoe_elevation_render_tests PRIVATE
+    AOE_TEST_DATA_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/game_data/Data"
+)
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    target_compile_options(
+        aoe_elevation_render_tests PRIVATE -Wall -Wextra -Wpedantic
+    )
+endif()
+add_test(NAME aoe_elevation_render_tests COMMAND aoe_elevation_render_tests)
+
+add_test(
+    NAME elevation_render_sdl_smoke
+    COMMAND
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/elevation_render_sdl_smoke.sh
+        $<TARGET_FILE:aoe_reconstruction>
+)
+set_tests_properties(
+    elevation_render_sdl_smoke PROPERTIES
+    TIMEOUT 30
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
 add_test(NAME aoe_scenario_editor_tests COMMAND aoe_scenario_editor_tests)
 add_test(NAME aoe_technology_tree_tests COMMAND aoe_technology_tree_tests)
 add_test(
@@ -1372,6 +1398,7 @@ set_tests_properties(
     battering_ram_composite_sdl_smoke
     building_contact_layering_sdl_smoke
     classic_campaign_sdl_smoke
+    elevation_render_sdl_smoke
     PROPERTIES ENVIRONMENT
         "AOE_DISABLE_LEGACY_ASSETS=0;AOE_MAIN_MENU=0"
 )

@@ -65,6 +65,9 @@ std::map<std::string, std::string> english_strings() {
         {"statistics.rematch", "REMATCH"},
         {"statistics.back", "BACK TO MENU"},
         {"technology_tree.title", "CIVILIZATION TECHNOLOGY TREE"},
+        {"technology_tree.title_civilization", "{title}: {civilization}"},
+        {"technology_tree.detail",
+         "{name}  COST W{wood} F{food} G{gold} S{stone}  {requirement}"},
         {"technology_tree.help",
          "Q/E CIV  ARROWS FOCUS  WASD PAN  TAB NEXT  +/- ZOOM  F9/ESC CLOSE"},
         {"technology_tree.dark_age", "DARK AGE"},
@@ -497,7 +500,7 @@ LegacyLanguageReport load_legacy_language_sources(
     const std::string normalized = normalize_locale(locale);
     auto fonts = extract_legacy_font_styles(extracted);
     return {
-        StringTable(normalized, std::move(translated)),
+        StringTable(normalized, std::move(translated), extracted),
         std::move(extracted),
         std::move(unknown),
         external_dlls,
@@ -508,8 +511,10 @@ LegacyLanguageReport load_legacy_language_sources(
 
 StringTable::StringTable(
     std::string locale,
-    std::map<std::string, std::string> strings
-) : locale_(std::move(locale)), strings_(std::move(strings)) {
+    std::map<std::string, std::string> strings,
+    std::map<std::uint32_t, std::string> numeric_strings
+) : locale_(std::move(locale)), strings_(std::move(strings)),
+    numeric_strings_(std::move(numeric_strings)) {
     if (locale_.empty() || strings_.empty()) {
         throw std::invalid_argument("empty string table");
     }
@@ -537,6 +542,19 @@ std::string StringTable::translate_literal(std::string_view english) const {
     return found == strings_.end() ? std::string{english} : found->second;
 }
 
+std::string StringTable::text_or(
+    std::uint32_t numeric_id,
+    std::string_view fallback
+) const {
+    const auto found = numeric_strings_.find(numeric_id);
+    return found == numeric_strings_.end()
+        ? std::string{fallback} : found->second;
+}
+
+bool StringTable::contains(std::uint32_t numeric_id) const noexcept {
+    return numeric_strings_.contains(numeric_id);
+}
+
 std::string stable_literal_key(std::string_view english) {
     // FNV-1a gives deterministic source-independent IDs. Collision safety is
     // enforced by language-file duplicate rejection and generated catalogs.
@@ -549,6 +567,29 @@ std::string stable_literal_key(std::string_view english) {
     output << "ui.literal." << std::hex << std::setfill('0')
            << std::setw(16) << hash;
     return output.str();
+}
+
+std::string fit_localized_text(
+    std::string_view text,
+    std::size_t maximum_codepoints,
+    bool ellipsis
+) {
+    if (!valid_utf8(text)) throw std::invalid_argument("invalid UTF-8 text");
+    if (maximum_codepoints == 0) return {};
+    std::size_t offset{};
+    std::size_t count{};
+    while (offset < text.size() && count < maximum_codepoints) {
+        static_cast<void>(next_utf8(text, offset));
+        ++count;
+    }
+    if (offset == text.size()) return std::string{text};
+    if (!ellipsis) return std::string{text.substr(0, offset)};
+    if (maximum_codepoints == 1) return "\xe2\x80\xa6";
+    offset = 0;
+    for (std::size_t index = 0; index < maximum_codepoints - 1; ++index) {
+        static_cast<void>(next_utf8(text, offset));
+    }
+    return std::string{text.substr(0, offset)} + "\xe2\x80\xa6";
 }
 
 const std::vector<LanguageProfile>& shipped_language_profiles() {
@@ -671,6 +712,35 @@ std::vector<std::filesystem::path> discover_legacy_language_sources(
     return {};
 }
 
+std::vector<std::filesystem::path> localized_audio_directories(
+    const std::filesystem::path& packaged_asset_root,
+    std::string_view locale,
+    std::string_view category
+) {
+    if (category != "scenario" && category != "campaign" &&
+        category != "taunt") {
+        throw std::invalid_argument("unknown localized audio category");
+    }
+    std::string selected{"en"};
+    try { selected = language_profile(locale).audio_directory; }
+    catch (const std::invalid_argument&) {
+        const auto found = std::ranges::find_if(
+            shipped_language_profiles(), [locale](const LanguageProfile& p) {
+                return p.audio_directory == locale;
+            }
+        );
+        if (found != shipped_language_profiles().end()) {
+            selected = found->audio_directory;
+        }
+    }
+    const std::filesystem::path family = category == "taunt"
+        ? packaged_asset_root / "Taunt"
+        : packaged_asset_root / "Sound" / std::filesystem::path{category};
+    std::vector<std::filesystem::path> result{family / selected};
+    if (selected != "en") result.push_back(family / "en");
+    return result;
+}
+
 std::map<std::uint32_t, LegacyFontStyle> extract_legacy_font_styles(
     const std::map<std::uint32_t, std::string>& strings
 ) {
@@ -727,6 +797,13 @@ std::string StringTable::count_text(
         position += replacement.size();
     }
     return result;
+}
+
+std::string StringTable::format(
+    std::string_view key,
+    const std::map<std::string, std::string>& arguments
+) const {
+    return format_localized(text(key), arguments);
 }
 
 bool valid_utf8(std::string_view text) noexcept {

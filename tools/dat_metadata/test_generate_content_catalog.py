@@ -19,10 +19,10 @@ class ContentCatalogGeneratorTests(unittest.TestCase):
                 "Tech { required_techs: [TechID(1), TechID(2)], effects: "
                 "[TechEffectRef { effect_type: 9, amount: 3, enabled: true }], "
                 "civilization_id: Some(CivilizationID(4)), full_tech_mode: 1, "
-                "location: Some(UnitTypeID(109)), language_dll_name: None, "
-                "language_dll_description: None, time: 50, time2: 60, "
+                "location: Some(UnitTypeID(109)), language_dll_name: Some(Num(7007)), "
+                "language_dll_description: Some(Num(8007)), time: 50, time2: 60, "
                 "type_: 2, icon_id: Some(8), button_id: 6, "
-                "language_dll_help: None, help_page_id: 0, hotkey: None, "
+                "language_dll_help: Some(Num(107007)), help_page_id: 0, hotkey: None, "
                 'name: "Example" }'
             ),
         })
@@ -30,6 +30,9 @@ class ContentCatalogGeneratorTests(unittest.TestCase):
         self.assertEqual(value["costs"][0]["resource_id"], 9)
         self.assertEqual(value["civilization_id"], 4)
         self.assertEqual(value["research_location_object_id"], 109)
+        self.assertEqual(value["language_name_id"], 7007)
+        self.assertEqual(value["language_description_id"], 8007)
+        self.assertEqual(value["language_help_id"], 107007)
         self.assertNotIn("record", value)
 
     def test_reduces_full_counts_and_never_copies_opaque_records(self):

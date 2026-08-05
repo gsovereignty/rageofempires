@@ -1,4 +1,5 @@
 #include "aoe/content_catalog.hpp"
+#include "aoe/localization.hpp"
 
 #include <algorithm>
 #include <stdexcept>
@@ -113,6 +114,53 @@ ContentCatalog::object_variants() const noexcept {
 std::span<const CommercialEffectRecord> ContentCatalog::effects()
     const noexcept {
     return effects_;
+}
+
+std::string ContentCatalog::localized_object_name(
+    const StringTable& strings,
+    CommercialCivilizationId civilization,
+    CommercialObjectId id,
+    std::string_view fallback
+) const {
+    const auto* value = object(civilization, id);
+    return value == nullptr
+        ? std::string{fallback}
+        : strings.text_or(value->language_name_id, fallback);
+}
+
+std::string ContentCatalog::localized_object_help(
+    const StringTable& strings,
+    CommercialCivilizationId civilization,
+    CommercialObjectId id,
+    std::string_view fallback
+) const {
+    const auto* value = object(civilization, id);
+    return value == nullptr
+        ? std::string{fallback}
+        : strings.text_or(value->language_help_id, fallback);
+}
+
+std::string ContentCatalog::localized_technology_name(
+    const StringTable& strings,
+    CommercialTechnologyId id
+) const {
+    const auto* value = technology(id);
+    if (value == nullptr) return {};
+    return value->language_name_id
+        ? strings.text_or(*value->language_name_id, value->internal_name)
+        : std::string{value->internal_name};
+}
+
+std::string ContentCatalog::localized_technology_help(
+    const StringTable& strings,
+    CommercialTechnologyId id,
+    std::string_view fallback
+) const {
+    const auto* value = technology(id);
+    if (value == nullptr) return std::string{fallback};
+    return value->language_help_id
+        ? strings.text_or(*value->language_help_id, fallback)
+        : std::string{fallback};
 }
 
 const ContentCatalog& commercial_content_catalog() {

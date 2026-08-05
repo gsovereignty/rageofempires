@@ -14,7 +14,8 @@ class StringTable {
 public:
     StringTable(
         std::string locale,
-        std::map<std::string, std::string> strings
+        std::map<std::string, std::string> strings,
+        std::map<std::uint32_t, std::string> numeric_strings = {}
     );
 
     [[nodiscard]] const std::string& locale() const { return locale_; }
@@ -24,6 +25,11 @@ public:
         return has_literal_overrides_;
     }
     [[nodiscard]] std::string translate_literal(std::string_view english) const;
+    [[nodiscard]] std::string text_or(
+        std::uint32_t numeric_id,
+        std::string_view fallback
+    ) const;
+    [[nodiscard]] bool contains(std::uint32_t numeric_id) const noexcept;
     [[nodiscard]] const std::map<std::string, std::string>& strings() const {
         return strings_;
     }
@@ -32,11 +38,16 @@ public:
         std::string_view plural_key,
         std::int64_t count
     ) const;
+    [[nodiscard]] std::string format(
+        std::string_view key,
+        const std::map<std::string, std::string>& arguments
+    ) const;
 
 private:
     std::string locale_;
     std::map<std::string, std::string> strings_;
     bool has_literal_overrides_{};
+    std::map<std::uint32_t, std::string> numeric_strings_;
 };
 
 enum class PluralCategory { zero, one, two, few, many, other };
@@ -88,10 +99,20 @@ struct LegacyLanguageReport {
     const std::map<std::string, std::string>& arguments
 );
 [[nodiscard]] std::string stable_literal_key(std::string_view english);
+[[nodiscard]] std::string fit_localized_text(
+    std::string_view text,
+    std::size_t maximum_codepoints,
+    bool ellipsis = true
+);
 [[nodiscard]] std::map<std::uint32_t, std::string> legacy_ui_string_catalog();
 [[nodiscard]] std::vector<std::filesystem::path> discover_legacy_language_sources(
     const std::filesystem::path& packaged_asset_root,
     std::string_view locale
+);
+[[nodiscard]] std::vector<std::filesystem::path> localized_audio_directories(
+    const std::filesystem::path& packaged_asset_root,
+    std::string_view locale,
+    std::string_view category
 );
 [[nodiscard]] std::map<std::uint32_t, LegacyFontStyle> extract_legacy_font_styles(
     const std::map<std::uint32_t, std::string>& strings

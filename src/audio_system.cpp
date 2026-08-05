@@ -1002,12 +1002,13 @@ void AudioSystem::play_narration(
         ));
         return;
     }
-    const std::array<std::filesystem::path, 4> directories{
-        impl_->root / "Sound" / "scenario" / impl_->audio_locale,
-        impl_->root / "Sound" / "campaign" / impl_->audio_locale,
-        impl_->root / "Sound" / "scenario" / "en",
-        impl_->root / "Sound" / "campaign" / "en",
-    };
+    auto directories = localized_audio_directories(
+        impl_->root, impl_->audio_locale, "scenario"
+    );
+    const auto campaign = localized_audio_directories(
+        impl_->root, impl_->audio_locale, "campaign"
+    );
+    directories.insert(directories.end(), campaign.begin(), campaign.end());
     for (const auto& directory : directories) {
         const auto path = directory / filename.filename();
         if (impl_->start_loose_effect(

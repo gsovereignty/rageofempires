@@ -1,5 +1,7 @@
 #include "aoe/window_mode.hpp"
 
+#include <algorithm>
+
 namespace aoe {
 
 std::optional<RenderExtent> render_extent_for_window(
@@ -18,6 +20,34 @@ std::optional<RenderExtent> render_extent_for_window(
         window_height,
         window_height - hud_height,
     };
+}
+
+std::vector<DisplayMode> supported_display_modes(
+    std::span<const DisplayMode> reported
+) {
+    std::vector<DisplayMode> result;
+    for (const auto mode : reported) {
+        if (mode.width < 800 || mode.height < 600) continue;
+        if (std::ranges::find(result, mode) == result.end()) {
+            result.push_back(mode);
+        }
+    }
+    std::ranges::sort(result, {}, [](const DisplayMode& mode) {
+        return std::pair{mode.width, mode.height};
+    });
+    return result;
+}
+
+std::optional<RenderExtent> fixed_canvas_extent(
+    int canvas_width,
+    int canvas_height,
+    int drawable_width,
+    int drawable_height,
+    int hud_height
+) {
+    if (canvas_width < 800 || canvas_height <= hud_height ||
+        drawable_width <= 0 || drawable_height <= 0) return std::nullopt;
+    return RenderExtent{canvas_width, canvas_height, canvas_height - hud_height};
 }
 
 WindowModeState window_mode_result(

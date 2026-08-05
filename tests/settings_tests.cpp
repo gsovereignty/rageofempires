@@ -24,7 +24,10 @@ int main() {
     settings.music_volume = 35;
     settings.effects_volume = 64;
     settings.fullscreen = true;
+    settings.screen_width = 1920;
+    settings.screen_height = 1080;
     settings.scroll_speed = 175;
+    settings.mouse_speed = 125;
     settings.locale = "pt";
     settings.language_file = "strings/pt.lang";
     settings.minimap_mode = aoe::MinimapMode::economic;
@@ -69,6 +72,11 @@ int main() {
     expect(
         aoe::load_settings(path).status == aoe::SettingsLoadStatus::invalid,
         "invalid file rejected"
+    );
+    settings.hotkeys[1] = settings.hotkeys[0];
+    expect(
+        !aoe::save_settings_atomic(settings, path, error),
+        "conflicting hotkeys rejected"
     );
     std::filesystem::remove_all(directory);
     if (failures == 0) std::cout << "settings tests passed\n";

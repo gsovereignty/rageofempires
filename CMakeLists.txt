@@ -1100,6 +1100,14 @@ add_test(
 )
 set_tests_properties(window_mode_sdl_smoke PROPERTIES TIMEOUT 60)
 add_test(
+    NAME options_settings_sdl_smoke
+    COMMAND
+        bash
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/options_settings_sdl_smoke.sh
+        $<TARGET_FILE:aoe_reconstruction>
+)
+set_tests_properties(options_settings_sdl_smoke PROPERTIES TIMEOUT 60)
+add_test(
     NAME aoe_self_containment_guard
     COMMAND
         "${Python3_EXECUTABLE}"

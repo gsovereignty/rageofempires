@@ -1,8 +1,40 @@
 #include "aoe/content_catalog.hpp"
 
 #include <algorithm>
+#include <stdexcept>
 
 namespace aoe {
+
+CommercialTaskAbility commercial_task_ability(std::uint16_t action_type) {
+    switch (action_type) {
+        case 3: return CommercialTaskAbility::garrison;
+        case 5: return CommercialTaskAbility::gather;
+        case 6: return CommercialTaskAbility::graze;
+        case 7: return CommercialTaskAbility::combat;
+        case 10: return CommercialTaskAbility::bird;
+        case 11: return CommercialTaskAbility::predator;
+        case 12: return CommercialTaskAbility::transport;
+        case 13: return CommercialTaskAbility::guard;
+        case 21: return CommercialTaskAbility::make;
+        case 101: return CommercialTaskAbility::build;
+        case 104: return CommercialTaskAbility::convert;
+        case 105: return CommercialTaskAbility::heal;
+        case 106: return CommercialTaskAbility::repair;
+        case 107: return CommercialTaskAbility::auto_convert;
+        case 109: return CommercialTaskAbility::retreat;
+        case 110: return CommercialTaskAbility::hunt;
+        case 111: return CommercialTaskAbility::trade;
+        case 120: return CommercialTaskAbility::wonder_victory;
+        case 121: return CommercialTaskAbility::deselect;
+        case 122: return CommercialTaskAbility::loot;
+        case 125: return CommercialTaskAbility::unpack_attack;
+        case 131: return CommercialTaskAbility::off_map_trade;
+        case 132: return CommercialTaskAbility::pickup;
+        case 135: return CommercialTaskAbility::kidnap;
+        case 136: return CommercialTaskAbility::deposit;
+        default: throw std::invalid_argument("unknown commercial task type");
+    }
+}
 
 std::span<const CommercialCivilizationId>
 ContentCatalog::civilization_ids() const noexcept {

@@ -72,6 +72,17 @@ struct CommercialTask {
     std::optional<std::uint16_t> secondary_work_sound;
 };
 
+enum class CommercialTaskAbility : std::uint8_t {
+    garrison, gather, graze, combat, bird, predator, transport, guard, make,
+    build, convert, heal, repair, auto_convert, retreat, hunt, trade,
+    wonder_victory, deselect, loot, unpack_attack, off_map_trade, pickup,
+    kidnap, deposit,
+};
+
+[[nodiscard]] CommercialTaskAbility commercial_task_ability(
+    std::uint16_t action_type
+);
+
 struct CommercialObjectRecord {
     CommercialObjectId id{};
     CommercialObjectId copy_id{};

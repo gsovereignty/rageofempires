@@ -43,6 +43,23 @@ bool parse_speed(std::string_view text, SinglePlayerSpeed& speed) {
     return true;
 }
 
+std::string minimap_mode_name(MinimapMode mode) {
+    switch (mode) {
+        case MinimapMode::normal: return "normal";
+        case MinimapMode::combat: return "combat";
+        case MinimapMode::economic: return "economic";
+    }
+    return "normal";
+}
+
+bool parse_minimap_mode(std::string_view text, MinimapMode& mode) {
+    if (text == "normal") mode = MinimapMode::normal;
+    else if (text == "combat") mode = MinimapMode::combat;
+    else if (text == "economic") mode = MinimapMode::economic;
+    else return false;
+    return true;
+}
+
 }  // namespace
 
 bool validate_settings(
@@ -117,6 +134,7 @@ SettingsLoadResult load_settings(const std::filesystem::path& path) {
     const std::string* edge = required("edge_scroll");
     const std::string* fog = required("fog");
     const std::string* minimap = required("minimap");
+    const std::string* minimap_mode = required("minimap_mode");
     const std::string* locale = required("locale");
     if (!speed || !music || !effects || !fullscreen || !scroll || !edge ||
         !fog || !minimap || !locale ||
@@ -127,7 +145,10 @@ SettingsLoadResult load_settings(const std::filesystem::path& path) {
         !parse_int(*scroll, result.settings.scroll_speed) ||
         !parse_bool(*edge, result.settings.edge_scroll) ||
         !parse_bool(*fog, result.settings.fog) ||
-        !parse_bool(*minimap, result.settings.minimap)) {
+        !parse_bool(*minimap, result.settings.minimap) ||
+        (version >= 4 &&
+         (!minimap_mode ||
+          !parse_minimap_mode(*minimap_mode, result.settings.minimap_mode)))) {
         result.status = SettingsLoadStatus::invalid;
         result.message = "missing or malformed setting";
         return result;
@@ -177,7 +198,7 @@ bool save_settings_atomic(
             error = "could not create temporary settings file";
             return false;
         }
-        output << "aoe-reconstruction-settings 3\n"
+        output << "aoe-reconstruction-settings 4\n"
                << "game_speed=" << speed_name(settings.game_speed) << '\n'
                << "music_volume=" << settings.music_volume << '\n'
                << "effects_volume=" << settings.effects_volume << '\n'
@@ -186,6 +207,8 @@ bool save_settings_atomic(
                << "edge_scroll=" << settings.edge_scroll << '\n'
                << "fog=" << settings.fog << '\n'
                << "minimap=" << settings.minimap << '\n'
+               << "minimap_mode="
+               << minimap_mode_name(settings.minimap_mode) << '\n'
                << "locale=" << settings.locale << '\n'
                << "language_file=" << settings.language_file << '\n';
         output.flush();

@@ -6,9 +6,10 @@
 namespace aoe {
 
 enum class SinglePlayerSpeed { slow, normal, fast };
+enum class MinimapMode { normal, combat, economic };
 
 struct ReconstructionSettings {
-    static constexpr int current_version = 3;
+    static constexpr int current_version = 4;
 
     SinglePlayerSpeed game_speed{SinglePlayerSpeed::normal};
     // Original sliders store attenuation: 0 is loudest, 99 is quietest.
@@ -19,6 +20,7 @@ struct ReconstructionSettings {
     bool edge_scroll{true};
     bool fog{true};
     bool minimap{true};
+    MinimapMode minimap_mode{MinimapMode::normal};
     std::string locale{"en"};
     std::string language_file;
 

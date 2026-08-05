@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
+#include <string>
 
 namespace aoe::minimap {
 
@@ -105,6 +106,91 @@ ViewportBounds proved_viewport_bounds(
         transformed_y +
             positive_floor(static_cast<double>(viewport_height + 4) * scale_y),
     };
+}
+
+bool shows_unit(MinimapMode mode, UnitKind kind) {
+    if (mode == MinimapMode::normal) return true;
+    const bool economic = kind == UnitKind::villager ||
+        kind == UnitKind::trade_cart || kind == UnitKind::trade_cog ||
+        kind == UnitKind::fishing_ship || kind == UnitKind::sheep ||
+        kind == UnitKind::deer || kind == UnitKind::boar ||
+        kind == UnitKind::relic;
+    return mode == MinimapMode::economic ? economic : !economic;
+}
+
+bool shows_building(MinimapMode mode, BuildingKind kind) {
+    if (mode == MinimapMode::normal) return true;
+    const bool economic = kind == BuildingKind::town_center ||
+        kind == BuildingKind::mill || kind == BuildingKind::lumber_camp ||
+        kind == BuildingKind::mining_camp || kind == BuildingKind::farm ||
+        kind == BuildingKind::market || kind == BuildingKind::dock ||
+        kind == BuildingKind::fish_trap;
+    return mode == MinimapMode::economic ? economic : !economic;
+}
+
+bool highlights_resource(MinimapMode mode, Terrain terrain) {
+    if (mode != MinimapMode::economic) return false;
+    return terrain == Terrain::forest || terrain == Terrain::pine_forest ||
+        terrain == Terrain::oak_forest || terrain == Terrain::bamboo_forest ||
+        terrain == Terrain::palm_forest ||
+        terrain == Terrain::jungle_forest ||
+        terrain == Terrain::berry_bush || terrain == Terrain::gold_mine ||
+        terrain == Terrain::stone_mine || terrain == Terrain::fish ||
+        terrain == Terrain::fish_shore || terrain == Terrain::fish_deep;
+}
+
+const char* mode_name(MinimapMode mode) {
+    switch (mode) {
+        case MinimapMode::normal: return "NORMAL";
+        case MinimapMode::combat: return "COMBAT";
+        case MinimapMode::economic: return "ECONOMIC";
+    }
+    return "NORMAL";
+}
+
+const char* mode_help(MinimapMode mode) {
+    switch (mode) {
+        case MinimapMode::normal:
+            return "Normal map: terrain, resources, units, buildings; Statistics shows score.";
+        case MinimapMode::combat:
+            return "Combat map: military units and buildings; Statistics shows combat totals.";
+        case MinimapMode::economic:
+            return "Economic map: resources, workers, trade and economy buildings; Statistics shows resources.";
+    }
+    return "";
+}
+
+MinimapMode next_mode(MinimapMode mode) {
+    switch (mode) {
+        case MinimapMode::normal: return MinimapMode::combat;
+        case MinimapMode::combat: return MinimapMode::economic;
+        case MinimapMode::economic: return MinimapMode::normal;
+    }
+    return MinimapMode::normal;
+}
+
+StatisticsSummary statistics_summary(
+    MinimapMode mode,
+    const MatchStatistics& statistics
+) {
+    StatisticsSummary result;
+    result.heading = mode == MinimapMode::normal ? "SCORE" :
+        mode == MinimapMode::combat ? "KILLS/LOSSES" : "RESOURCES";
+    for (std::size_t index = 0; index < result.values.size(); ++index) {
+        const PlayerStatistics& player = statistics.players[index];
+        if (mode == MinimapMode::normal) {
+            result.values[index] = std::to_string(statistics.current_score[index]);
+        } else if (mode == MinimapMode::combat) {
+            result.values[index] = std::to_string(player.units_killed) + "/" +
+                std::to_string(player.units_lost);
+        } else {
+            result.values[index] = std::to_string(
+                player.gathered.wood + player.gathered.food +
+                player.gathered.gold + player.gathered.stone
+            );
+        }
+    }
+    return result;
 }
 
 }  // namespace aoe::minimap

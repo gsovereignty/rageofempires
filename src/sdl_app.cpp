@@ -334,6 +334,7 @@ std::string active_options_status{"LETTER KEYS CHANGE  A APPLY  S SAVE"};
 bool active_statistics_visible{};
 bool active_statistics_postgame{};
 StatisticsTab active_statistics_tab{StatisticsTab::economy};
+bool active_minimap_statistics{};
 bool active_save_browser_visible{};
 bool active_save_slot_input{};
 bool active_save_overwrite_armed{};
@@ -10903,9 +10904,21 @@ void render_minimap(
                 simulation.is_explored_to_controller(
                     active_view_player, position
                 )) {
-                color = terrain_color(
-                    simulation.map().terrain_at(position)
-                );
+                const Terrain terrain = simulation.map().terrain_at(position);
+                color = minimap::highlights_resource(
+                            active_settings.minimap_mode, terrain
+                        )
+                    ? (terrain == Terrain::gold_mine
+                           ? SDL_Color{255, 214, 48, 255}
+                       : terrain == Terrain::stone_mine
+                           ? SDL_Color{220, 220, 220, 255}
+                       : terrain == Terrain::berry_bush ||
+                                 terrain == Terrain::fish ||
+                                 terrain == Terrain::fish_shore ||
+                                 terrain == Terrain::fish_deep
+                           ? SDL_Color{255, 92, 170, 255}
+                           : SDL_Color{40, 235, 65, 255})
+                    : terrain_color(terrain);
                 if (active_settings.fog &&
                     !simulation.is_visible_to_controller(active_view_player, position)) {
                     color = {
@@ -10953,6 +10966,9 @@ void render_minimap(
     }
 
     for (const Building& building : simulation.buildings()) {
+        if (!minimap::shows_building(
+                active_settings.minimap_mode, building.kind
+            )) continue;
         if (active_settings.fog &&
             !simulation.observer_perspective(active_view_player) &&
             building.owner != active_view_player &&
@@ -10980,6 +10996,9 @@ void render_minimap(
         for (const auto& [id, memory] :
              simulation.remembered_buildings(active_view_player)) {
             const Building& building = memory.building;
+            if (!minimap::shows_building(
+                    active_settings.minimap_mode, building.kind
+                )) continue;
             if (simulation.is_building_visible(
                     active_view_player, building
                 )) {
@@ -11005,7 +11024,8 @@ void render_minimap(
         }
     }
     for (const Unit& unit : simulation.units()) {
-        if (unit.garrisoned_in != 0 ||
+        if (!minimap::shows_unit(active_settings.minimap_mode, unit.kind) ||
+            unit.garrisoned_in != 0 ||
             (unit.owner != active_view_player &&
              !simulation.is_unit_visible_to_controller(
                  active_view_player, unit
@@ -11133,6 +11153,86 @@ void render_minimap(
             SDL_RenderLine(renderer, start.x, start.y, end.x, end.y);
             const SDL_FRect endpoint{end.x - 3.0F, end.y - 3.0F, 7.0F, 7.0F};
             SDL_RenderRect(renderer, &endpoint);
+        }
+    }
+
+    const float button_y = panel.y + panel.h - 24.0F;
+    const std::array<SDL_FRect, 4> buttons{{
+        {panel.x + 8.0F, button_y, 62.0F, 18.0F},
+        {panel.x + 73.0F, button_y, 62.0F, 18.0F},
+        {panel.x + 138.0F, button_y, 72.0F, 18.0F},
+        {panel.x + 213.0F, button_y, 104.0F, 18.0F},
+    }};
+    const std::array<MinimapMode, 3> modes{{
+        MinimapMode::normal, MinimapMode::combat, MinimapMode::economic,
+    }};
+    for (std::size_t index = 0; index < modes.size(); ++index) {
+        render_beveled_panel(
+            renderer, buttons[index],
+            active_settings.minimap_mode == modes[index]
+                ? SDL_Color{125, 91, 38, 255}
+                : SDL_Color{54, 45, 34, 255}
+        );
+        set_color(renderer, active_settings.minimap_mode == modes[index]
+            ? SDL_Color{255, 226, 105, 255}
+            : SDL_Color{225, 214, 184, 255});
+        SDL_RenderDebugText(
+            renderer, buttons[index].x + 5.0F, buttons[index].y + 6.0F,
+            minimap::mode_name(modes[index])
+        );
+    }
+    render_beveled_panel(
+        renderer, buttons[3],
+        active_minimap_statistics ? SDL_Color{125, 91, 38, 255}
+                                  : SDL_Color{54, 45, 34, 255}
+    );
+    set_color(renderer, {255, 226, 105, 255});
+    SDL_RenderDebugText(
+        renderer, buttons[3].x + 5.0F, buttons[3].y + 6.0F, "STATISTICS"
+    );
+
+    float mouse_x{};
+    float mouse_y{};
+    SDL_GetMouseState(&mouse_x, &mouse_y);
+    const SDL_FPoint pointer{mouse_x, mouse_y};
+    for (std::size_t index = 0; index < buttons.size(); ++index) {
+        if (!SDL_PointInRectFloat(&pointer, &buttons[index])) continue;
+        set_color(renderer, {255, 238, 172, 255});
+        const char* help = index < modes.size()
+            ? minimap::mode_help(modes[index])
+            : "Statistics: show information for selected minimap mode.";
+        SDL_RenderDebugText(
+            renderer, 263.0F, static_cast<float>(view_pixel_height + 142),
+            help
+        );
+    }
+    if (active_minimap_statistics) {
+        const minimap::StatisticsSummary summary =
+            minimap::statistics_summary(
+                active_settings.minimap_mode, simulation.match_statistics()
+            );
+        const SDL_FRect summary_panel{
+            panel.x + 8.0F, panel.y + 7.0F, panel.w - 16.0F, 40.0F,
+        };
+        set_color(renderer, {16, 13, 10, 230});
+        SDL_RenderFillRect(renderer, &summary_panel);
+        set_color(renderer, {255, 238, 172, 255});
+        SDL_RenderDebugText(
+            renderer, summary_panel.x + 6.0F, summary_panel.y + 9.0F,
+            summary.heading.c_str()
+        );
+        for (std::size_t index = 0; index < summary.values.size(); ++index) {
+            set_color(renderer, marker_colors[index]);
+            const std::string value = "P" + std::to_string(index + 1) + ":" +
+                summary.values[index];
+            SDL_RenderDebugText(
+                renderer,
+                summary_panel.x + 62.0F +
+                    static_cast<float>(index % 4) * 60.0F,
+                summary_panel.y + 9.0F +
+                    static_cast<float>(index / 4) * 14.0F,
+                value.c_str()
+            );
         }
     }
 
@@ -14177,7 +14277,7 @@ void render_options_overlay(SDL_Renderer* renderer) {
         draft_settings.game_speed == SinglePlayerSpeed::slow ? "SLOW" :
         draft_settings.game_speed == SinglePlayerSpeed::fast ? "FAST" :
         "NORMAL";
-    const std::array<std::string, 10> lines{{
+    const std::array<std::string, 11> lines{{
         std::string{"G  SINGLE-PLAYER SPEED: "} + speed,
         "M  MUSIC VOLUME: " + std::to_string(draft_settings.music_volume),
         "E  EFFECTS VOLUME: " + std::to_string(draft_settings.effects_volume),
@@ -14186,6 +14286,8 @@ void render_options_overlay(SDL_Renderer* renderer) {
         std::string{"X  EDGE SCROLL: "} + on_off(draft_settings.edge_scroll),
         std::string{"V  FOG DISPLAY: "} + on_off(draft_settings.fog),
         std::string{"P  MINIMAP: "} + on_off(draft_settings.minimap),
+        std::string{"N  MINIMAP MODE: "} +
+            minimap::mode_name(draft_settings.minimap_mode),
         "LOCALE: " + draft_settings.locale +
             "   FILE: " +
             (draft_settings.language_file.empty()
@@ -17653,6 +17755,20 @@ int SdlApp::run() {
         );
         SDL_PushEvent(&click);
     }
+    if (const char* proof = SDL_getenv("AOE_MINIMAP_MODE_PROOF");
+        proof != nullptr && proof[0] != '\0') {
+        const std::string_view requested{proof};
+        active_settings.minimap_mode =
+            requested.starts_with("combat") ? MinimapMode::combat :
+            requested.starts_with("economic") ? MinimapMode::economic :
+            MinimapMode::normal;
+        active_minimap_statistics = requested.ends_with("-statistics");
+        SDL_Log(
+            "minimap mode proof: %s statistics=%d",
+            minimap::mode_name(active_settings.minimap_mode),
+            active_minimap_statistics ? 1 : 0
+        );
+    }
     if (statistics_click_proof) {
         SDL_Event click{};
         click.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
@@ -19349,6 +19465,58 @@ int SdlApp::run() {
                     }
                     continue;
                 }
+                if (event.button.button == SDL_BUTTON_LEFT &&
+                    active_settings.minimap) {
+                    const hud_layout::Rect frame =
+                        hud_layout::anchored_large_panel(
+                            view_pixel_width, view_pixel_height + hud_height
+                        );
+                    const float button_y = static_cast<float>(
+                        frame.y + frame.height - 24
+                    );
+                    const std::array<SDL_FRect, 4> buttons{{
+                        {static_cast<float>(frame.x + 8), button_y, 62.0F, 18.0F},
+                        {static_cast<float>(frame.x + 73), button_y, 62.0F, 18.0F},
+                        {static_cast<float>(frame.x + 138), button_y, 72.0F, 18.0F},
+                        {static_cast<float>(frame.x + 213), button_y, 104.0F, 18.0F},
+                    }};
+                    const SDL_FPoint click{
+                        event.button.x, event.button.y,
+                    };
+                    bool handled{};
+                    for (std::size_t index = 0; index < buttons.size(); ++index) {
+                        if (!SDL_PointInRectFloat(&click, &buttons[index])) {
+                            continue;
+                        }
+                        if (index < 3) {
+                            active_settings.minimap_mode =
+                                static_cast<MinimapMode>(index);
+                            draft_settings.minimap_mode =
+                                active_settings.minimap_mode;
+                            control_group_status = std::string{"MINIMAP: "} +
+                                minimap::mode_name(
+                                    active_settings.minimap_mode
+                                );
+                            std::string error;
+                            if (!save_settings_atomic(
+                                    active_settings,
+                                    active_settings_path,
+                                    error
+                                )) {
+                                SDL_Log("cannot persist minimap mode: %s", error.c_str());
+                            }
+                        } else {
+                            active_minimap_statistics =
+                                !active_minimap_statistics;
+                        }
+                        handled = true;
+                        break;
+                    }
+                    if (handled) {
+                        selection_drag.reset();
+                        continue;
+                    }
+                }
                 TilePosition minimap_tile;
                 if (event.button.button == SDL_BUTTON_LEFT &&
                     minimap_tile_at(
@@ -20295,6 +20463,29 @@ int SdlApp::run() {
                 selection_drag.reset();
             } else if (event.type == SDL_EVENT_KEY_DOWN) {
                 if (!event.key.repeat &&
+                    (SDL_GetModState() & SDL_KMOD_ALT) != 0 &&
+                    (event.key.key == SDLK_M ||
+                     event.key.key == SDLK_N ||
+                     event.key.key == SDLK_C ||
+                     event.key.key == SDLK_E)) {
+                    active_settings.minimap_mode =
+                        event.key.key == SDLK_N ? MinimapMode::normal :
+                        event.key.key == SDLK_C ? MinimapMode::combat :
+                        event.key.key == SDLK_E ? MinimapMode::economic :
+                        minimap::next_mode(active_settings.minimap_mode);
+                    draft_settings.minimap_mode =
+                        active_settings.minimap_mode;
+                    control_group_status = std::string{"MINIMAP: "} +
+                        minimap::mode_name(active_settings.minimap_mode);
+                    std::string error;
+                    if (!save_settings_atomic(
+                            active_settings, active_settings_path, error
+                        )) {
+                        SDL_Log("cannot persist minimap mode: %s", error.c_str());
+                    }
+                    continue;
+                }
+                if (!event.key.repeat &&
                     event.key.key == SDLK_ESCAPE &&
                     pending_building) {
                     pending_building.reset();
@@ -20504,6 +20695,10 @@ int SdlApp::run() {
                     } else if (event.key.key == SDLK_P) {
                         draft_settings.minimap =
                             !draft_settings.minimap;
+                    } else if (event.key.key == SDLK_N) {
+                        draft_settings.minimap_mode = minimap::next_mode(
+                            draft_settings.minimap_mode
+                        );
                     } else if (event.key.key == SDLK_H) {
                         active_options_hotkeys = true;
                     } else if (event.key.key == SDLK_A) {

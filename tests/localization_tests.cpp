@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <string_view>
 #include <vector>
+#include <map>
 
 namespace {
 
@@ -127,6 +128,52 @@ int main() {
         ) == "23 ENTRIES",
         "plural grammar path"
     );
+    check(english.contains("hud.wood"), "known key membership");
+    check(!english.contains("missing"), "unknown key membership");
+    check(
+        aoe::shipped_language_profiles().size() == 11,
+        "all shipped language profiles represented"
+    );
+    check(
+        aoe::language_profile("pt-PT").audio_directory == "br",
+        "regional locale selects packaged audio alias"
+    );
+    check(
+        aoe::language_profile("ja-JP").windows_language_id == 0x0411,
+        "locale selects exact Windows language ID"
+    );
+    check_throws(
+        [] { (void)aoe::language_profile("ar"); },
+        "unsupported shipped locale explicit"
+    );
+    check(
+        aoe::plural_category("ru", 1) == aoe::PluralCategory::one &&
+        aoe::plural_category("ru", 2) == aoe::PluralCategory::few &&
+        aoe::plural_category("ru", 5) == aoe::PluralCategory::many &&
+        aoe::plural_category("ru", 11) == aoe::PluralCategory::many &&
+        aoe::plural_category("ru", 21) == aoe::PluralCategory::one,
+        "Russian plural grammar"
+    );
+    check(
+        aoe::plural_category("ja", 1) == aoe::PluralCategory::other &&
+        aoe::plural_category("fr", 0) == aoe::PluralCategory::one,
+        "East Asian and French plural grammar"
+    );
+    check(
+        aoe::format_localized(
+            "{player}: {count}", {{"player", "Ada"}, {"count", "3"}}
+        ) == "Ada: 3",
+        "named grammar arguments"
+    );
+    check(
+        aoe::stable_literal_key("OPTIONS") ==
+            "ui.literal.87cc05b46a17cf65",
+        "stable literal ID"
+    );
+    check_throws(
+        [] { (void)aoe::format_localized("{missing}", {}); },
+        "unresolved grammar argument rejected"
+    );
     check(aoe::valid_utf8("ÁRVORE"), "valid UTF-8 accepted");
     check(
         !aoe::valid_utf8(std::string_view{"\xc0\xaf", 2}),
@@ -157,6 +204,7 @@ int main() {
         "string \"hud.food\" \"PÃO\"\n"
         "string \"ui.objectives\" \"OBJETIVOS\"\n"
         "string \"objective.required\" \"OBRIGATORIO\"\n"
+        "literal \"OPTIONS\" \"OPÇÕES\"\n"
     );
     const aoe::LocalizationResult selected =
         aoe::negotiate_localization("pt_PT", portuguese);
@@ -164,6 +212,11 @@ int main() {
     check(selected.table.locale() == "pt-pt", "locale normalized");
     check(selected.table.text("hud.wood") == "MADEIRA", "override loaded");
     check(selected.table.text("hud.food") == "PÃO", "UTF-8 override loaded");
+    check(
+        selected.table.translate_literal("OPTIONS") == "OPÇÕES" &&
+        selected.table.translate_literal("UNMAPPED") == "UNMAPPED",
+        "every UI literal has stable override and English fallback"
+    );
     check(
         selected.table.text("hud.gold") == "GOLD",
         "missing string falls back to English"
@@ -227,6 +280,54 @@ int main() {
     check(legacy.table.text("hud.wood") == "EXP", "later DLL precedence");
     check(legacy.unknown.at(1) == "\xc3\x81", "unknown ID reported");
     check(legacy.sources.size() == 2, "external sources reported");
+    check(
+        aoe::legacy_ui_string_catalog().size() == 7,
+        "proven menu ID catalog complete"
+    );
+
+    const std::map<std::uint32_t, std::string> font_strings{
+        {119, "Georgia"}, {120, "9"}, {121, "BI"},
+        {200, "Georgia"}, {201, "9"}, {202, "B"},
+    };
+    const auto fonts = aoe::extract_legacy_font_styles(font_strings);
+    check(
+        fonts.at(7).family == "Georgia" &&
+        fonts.at(7).pixel_height == 9 && fonts.at(7).bold &&
+        fonts.at(7).italic,
+        "localized font triplet grammar"
+    );
+    check(
+        fonts.at(32).bold && !fonts.at(32).italic,
+        "technology-tree font slot mapping"
+    );
+    check_throws(
+        [] {
+            (void)aoe::extract_legacy_font_styles({
+                {119, "Georgia"}, {120, "large"}, {121, "B"}
+            });
+        },
+        "invalid localized font height rejected"
+    );
+
+    const auto archive_root =
+        std::filesystem::temp_directory_path() / "aoe-locale-assets";
+    std::filesystem::create_directories(archive_root / "Bin" / "br");
+    {
+        std::ofstream output(archive_root / "Bin" / "br" / "language.dll");
+        output << "fixture";
+    }
+    const auto discovered = aoe::discover_legacy_language_sources(
+        archive_root, "pt-BR"
+    );
+    check(
+        discovered.size() == 1 &&
+        discovered.front().parent_path().filename() == "br",
+        "locale-specific packaged archive discovery"
+    );
+    check(
+        aoe::discover_legacy_language_sources(archive_root, "de").empty(),
+        "missing locale archive has explicit empty result"
+    );
     check_throws(
         [&] {
             (void)aoe::load_legacy_language_sources(
@@ -254,5 +355,6 @@ int main() {
     std::filesystem::remove(base_dll);
     std::filesystem::remove(expansion_dll);
     std::filesystem::remove(malformed_dll);
+    std::filesystem::remove_all(archive_root);
     return failures == 0 ? 0 : 1;
 }

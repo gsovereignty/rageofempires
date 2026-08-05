@@ -1,6 +1,8 @@
 #include "aoe/localization.hpp"
 
 #include <algorithm>
+#include <array>
+#include <charconv>
 #include <cctype>
 #include <cstdint>
 #include <fstream>
@@ -176,6 +178,12 @@ bool locale_matches(
     return language(requested) == language(available);
 }
 
+std::string primary_language(std::string_view locale) {
+    const std::string normalized = normalize_locale(locale);
+    const auto separator = normalized.find('-');
+    return normalized.substr(0, separator);
+}
+
 StringTable load_external_table(const std::filesystem::path& path) {
     std::ifstream input(path);
     if (!input) throw std::runtime_error("cannot open language file");
@@ -222,6 +230,19 @@ StringTable load_external_table(const std::filesystem::path& path) {
                 );
             }
             translated[key] = std::move(value);
+        } else if (keyword == "literal" && saw_locale) {
+            std::string english;
+            std::string value;
+            record >> std::quoted(english) >> std::quoted(value);
+            const std::string key = stable_literal_key(english);
+            if (!overridden.insert(key).second || !valid_value(english) ||
+                !valid_value(value)) {
+                throw std::runtime_error(
+                    "invalid language literal at line " +
+                    std::to_string(line_number)
+                );
+            }
+            translated.emplace(key, std::move(value));
         } else {
             throw std::runtime_error(
                 "invalid language record at line " +
@@ -474,12 +495,14 @@ LegacyLanguageReport load_legacy_language_sources(
         translated[mapping->second] = value;
     }
     const std::string normalized = normalize_locale(locale);
+    auto fonts = extract_legacy_font_styles(extracted);
     return {
         StringTable(normalized, std::move(translated)),
         std::move(extracted),
         std::move(unknown),
         external_dlls,
         language_id,
+        std::move(fonts),
     };
 }
 
@@ -490,6 +513,11 @@ StringTable::StringTable(
     if (locale_.empty() || strings_.empty()) {
         throw std::invalid_argument("empty string table");
     }
+    has_literal_overrides_ = std::ranges::any_of(
+        strings_, [](const auto& entry) {
+            return entry.first.starts_with("ui.literal.");
+        }
+    );
 }
 
 std::string_view StringTable::text(std::string_view key) const {
@@ -500,13 +528,195 @@ std::string_view StringTable::text(std::string_view key) const {
     return found->second;
 }
 
+bool StringTable::contains(std::string_view key) const noexcept {
+    return strings_.contains(std::string{key});
+}
+
+std::string StringTable::translate_literal(std::string_view english) const {
+    const auto found = strings_.find(stable_literal_key(english));
+    return found == strings_.end() ? std::string{english} : found->second;
+}
+
+std::string stable_literal_key(std::string_view english) {
+    // FNV-1a gives deterministic source-independent IDs. Collision safety is
+    // enforced by language-file duplicate rejection and generated catalogs.
+    std::uint64_t hash = 14695981039346656037ULL;
+    for (const unsigned char byte : english) {
+        hash ^= byte;
+        hash *= 1099511628211ULL;
+    }
+    std::ostringstream output;
+    output << "ui.literal." << std::hex << std::setfill('0')
+           << std::setw(16) << hash;
+    return output.str();
+}
+
+const std::vector<LanguageProfile>& shipped_language_profiles() {
+    // Classic/HD package directory aliases and Win32 LANGIDs. Payload remains
+    // user-owned; these values are executable/resource semantics only.
+    static const std::vector<LanguageProfile> profiles{
+        {"en", 0x0409, {"en"}, "en", false},
+        {"de", 0x0407, {"de"}, "de", false},
+        {"fr", 0x040c, {"fr"}, "fr", false},
+        {"es", 0x040a, {"es"}, "es", false},
+        {"it", 0x0410, {"it"}, "it", false},
+        {"pt", 0x0416, {"br", "pt"}, "br", false},
+        {"nl", 0x0413, {"nl"}, "nl", false},
+        {"ru", 0x0419, {"ru"}, "ru", false},
+        {"ja", 0x0411, {"jp", "ja"}, "jp", false},
+        {"ko", 0x0412, {"ko"}, "ko", false},
+        {"zh", 0x0804, {"zh", "zh-cn"}, "zh", false},
+    };
+    return profiles;
+}
+
+const LanguageProfile& language_profile(std::string_view locale) {
+    const std::string language = primary_language(locale);
+    const auto& profiles = shipped_language_profiles();
+    const auto found = std::ranges::find_if(
+        profiles,
+        [&language](const LanguageProfile& profile) {
+            return profile.locale == language;
+        }
+    );
+    if (found == profiles.end()) {
+        throw std::invalid_argument("unsupported shipped locale");
+    }
+    return *found;
+}
+
+PluralCategory plural_category(
+    std::string_view locale,
+    std::int64_t count
+) {
+    const std::string language = primary_language(locale);
+    const std::uint64_t magnitude = count < 0
+        ? static_cast<std::uint64_t>(-(count + 1)) + 1
+        : static_cast<std::uint64_t>(count);
+    const auto mod10 = magnitude % 10;
+    const auto mod100 = magnitude % 100;
+    if (language == "ru") {
+        if (mod10 == 1 && mod100 != 11) return PluralCategory::one;
+        if (mod10 >= 2 && mod10 <= 4 &&
+            (mod100 < 12 || mod100 > 14)) return PluralCategory::few;
+        if (mod10 == 0 || mod10 >= 5 ||
+            (mod100 >= 11 && mod100 <= 14)) return PluralCategory::many;
+        return PluralCategory::other;
+    }
+    if (language == "fr" || language == "pt") {
+        return magnitude == 0 || magnitude == 1
+            ? PluralCategory::one : PluralCategory::other;
+    }
+    if (language == "ja" || language == "ko" || language == "zh") {
+        return PluralCategory::other;
+    }
+    return magnitude == 1 ? PluralCategory::one : PluralCategory::other;
+}
+
+std::string format_localized(
+    std::string_view pattern,
+    const std::map<std::string, std::string>& arguments
+) {
+    std::string result{pattern};
+    for (const auto& [name, value] : arguments) {
+        if (name.empty() || name.find_first_not_of(
+                "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
+            ) != std::string::npos) {
+            throw std::invalid_argument("invalid localization argument name");
+        }
+        const std::string marker = "{" + name + "}";
+        std::size_t offset{};
+        while ((offset = result.find(marker, offset)) != std::string::npos) {
+            result.replace(offset, marker.size(), value);
+            offset += value.size();
+        }
+    }
+    if (result.find('{') != std::string::npos ||
+        result.find('}') != std::string::npos) {
+        throw std::runtime_error("unresolved localization argument");
+    }
+    return result;
+}
+
+std::map<std::uint32_t, std::string> legacy_ui_string_catalog() {
+    // IDs proven by supplied language resources and menu dispatch.
+    return {
+        {9500, "frontend.main.single_player"},
+        {9501, "frontend.main.multiplayer"},
+        {9503, "frontend.main.learn_to_play"},
+        {9504, "frontend.main.map_editor"},
+        {9505, "frontend.main.history"},
+        {9506, "frontend.main.options"},
+        {9509, "frontend.main.exit"},
+    };
+}
+
+std::vector<std::filesystem::path> discover_legacy_language_sources(
+    const std::filesystem::path& packaged_asset_root,
+    std::string_view locale
+) {
+    const LanguageProfile& profile = language_profile(locale);
+    constexpr std::array<std::string_view, 3> names{
+        "language.dll", "language_x1.dll", "language_x1_p1.dll"
+    };
+    for (const std::string& directory : profile.archive_directories) {
+        const auto root = packaged_asset_root / "Bin" / directory;
+        std::vector<std::filesystem::path> found;
+        for (const auto name : names) {
+            const auto path = root / name;
+            if (std::filesystem::is_regular_file(path)) found.push_back(path);
+        }
+        if (!found.empty()) return found;
+    }
+    return {};
+}
+
+std::map<std::uint32_t, LegacyFontStyle> extract_legacy_font_styles(
+    const std::map<std::uint32_t, std::string>& strings
+) {
+    static constexpr std::array<std::pair<std::uint32_t, std::uint32_t>, 35>
+        slots{{
+            {0,110},{1,113},{2,134},{3,137},{4,116},{6,131},{7,119},
+            {8,128},{9,122},{10,125},{11,128},{12,140},{13,143},
+            {14,146},{15,149},{16,152},{17,155},{18,158},{19,161},
+            {20,164},{21,167},{22,170},{23,173},{24,176},{25,179},
+            {26,182},{27,185},{28,188},{29,191},{30,194},{31,197},
+            {32,200},{33,203},{34,206},{35,209}
+        }};
+    std::map<std::uint32_t, LegacyFontStyle> result;
+    for (const auto [slot, base] : slots) {
+        const auto family = strings.find(base);
+        const auto height = strings.find(base + 1);
+        const auto style = strings.find(base + 2);
+        if (family == strings.end() || height == strings.end() ||
+            style == strings.end()) continue;
+        int parsed{};
+        const auto [end, error] = std::from_chars(
+            height->second.data(),
+            height->second.data() + height->second.size(), parsed
+        );
+        if (error != std::errc{} || end != height->second.data() +
+                height->second.size() || parsed <= 0 || parsed > 256) {
+            throw std::runtime_error("invalid localized font height");
+        }
+        LegacyFontStyle font{family->second, parsed, false, false};
+        for (const unsigned char c : style->second) {
+            if (c == 'B' || c == 'b') font.bold = true;
+            if (c == 'I' || c == 'i') font.italic = true;
+        }
+        result.emplace(slot, std::move(font));
+    }
+    return result;
+}
+
 std::string StringTable::count_text(
     std::string_view singular_key,
     std::string_view plural_key,
     std::int64_t count
 ) const {
     std::string result{
-        text(count == 1 ? singular_key : plural_key)
+        text(plural_category(locale_, count) == PluralCategory::one
+            ? singular_key : plural_key)
     };
     constexpr std::string_view marker{"{count}"};
     std::size_t position{};

@@ -30,6 +30,7 @@ public:
     // Plays an optional original WAV resource once. Missing or malformed
     // user-supplied assets are ignored without affecting gameplay.
     void set_listener_civilization(Civilization civilization);
+    void set_locale(std::string_view locale);
     void set_music_context(
         AudioMusicContext context,
         bool expansion_content = true

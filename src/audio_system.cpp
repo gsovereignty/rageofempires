@@ -1,4 +1,5 @@
 #include "aoe/audio_system.hpp"
+#include "aoe/localization.hpp"
 #include "aoe/asset_root.hpp"
 #include "aoe/legacy_assets.hpp"
 #include "aoe/legacy_dat.hpp"
@@ -609,6 +610,7 @@ struct AudioSystem::Impl {
     std::filesystem::path music_path;
     std::filesystem::path ambience_path;
     std::filesystem::path root;
+    std::string audio_locale{"en"};
     std::unique_ptr<LegacyDatFile> dat;
     std::unique_ptr<LegacyWavResources> sounds;
     std::vector<std::unique_ptr<AudioTrack>> effects;
@@ -920,6 +922,15 @@ void AudioSystem::set_listener_civilization(Civilization civilization) {
     }
 }
 
+void AudioSystem::set_locale(std::string_view locale) {
+    if (impl_ == nullptr) return;
+    try {
+        impl_->audio_locale = language_profile(locale).audio_directory;
+    } catch (const std::invalid_argument&) {
+        impl_->audio_locale = "en";
+    }
+}
+
 void AudioSystem::set_music_context(
     AudioMusicContext context,
     bool expansion_content
@@ -960,8 +971,10 @@ void AudioSystem::set_music_context(
 void AudioSystem::play_taunt(unsigned number, std::string_view locale) {
     if (impl_ == nullptr || number == 0 || number > 999) return;
     update();
-    const auto directory =
-        impl_->root / "Taunt" / std::filesystem::path{locale};
+    std::string audio_locale = impl_->audio_locale;
+    try { audio_locale = language_profile(locale).audio_directory; }
+    catch (const std::invalid_argument&) {}
+    const auto directory = impl_->root / "Taunt" / audio_locale;
     const std::string prefix =
         (number < 10 ? "0" : "") + std::to_string(number) + " ";
     std::error_code error;
@@ -989,10 +1002,13 @@ void AudioSystem::play_narration(
         ));
         return;
     }
-    for (const auto& directory : {
-             impl_->root / "Sound" / "scenario" / "en",
-             impl_->root / "Sound" / "campaign" / "en"
-         }) {
+    const std::array<std::filesystem::path, 4> directories{
+        impl_->root / "Sound" / "scenario" / impl_->audio_locale,
+        impl_->root / "Sound" / "campaign" / impl_->audio_locale,
+        impl_->root / "Sound" / "scenario" / "en",
+        impl_->root / "Sound" / "campaign" / "en",
+    };
+    for (const auto& directory : directories) {
         const auto path = directory / filename.filename();
         if (impl_->start_loose_effect(
                 path, AudioCategory::interface

@@ -41,6 +41,9 @@ public:
         std::vector<bool> explored;
         // Per-viewer stale images. std::map keeps save/hash ordering stable.
         std::map<EntityId, BuildingMemory> remembered_buildings;
+        // Enemy mobile attackers temporarily exposed to this viewer. Values
+        // are exclusive simulation-tick expiries and remain deterministic.
+        std::map<EntityId, std::uint64_t> attack_reveal_expiries;
         Age age{Age::dark};
         std::array<bool, technology_count> technologies{};
         Civilization civilization{Civilization::generic};
@@ -128,6 +131,15 @@ public:
     }
     [[nodiscard]] bool is_visible_to_controller(
         Player player, TilePosition position
+    ) const;
+    [[nodiscard]] bool is_unit_visible(
+        Player player, const Unit& unit
+    ) const;
+    [[nodiscard]] bool is_unit_visible(
+        EntityOwner player, const Unit& unit
+    ) const;
+    [[nodiscard]] bool is_unit_visible_to_controller(
+        Player player, const Unit& unit
     ) const;
     [[nodiscard]] bool is_explored_to_controller(
         Player player, TilePosition position
@@ -600,6 +612,21 @@ private:
     );
     void update_building_defenses();
     void update_projectiles();
+    void reveal_attacker_to(
+        const Unit& attacker,
+        EntityOwner victim,
+        int minimum_duration_ticks = 1
+    );
+    void reveal_attacker_to_ground_victims(
+        const Unit& attacker,
+        TilePosition center,
+        int radius,
+        int minimum_duration_ticks
+    );
+    [[nodiscard]] bool has_attack_reveal(
+        EntityOwner viewer, EntityId attacker
+    ) const;
+    void prune_attack_reveals();
     void gather(Unit& unit);
     std::pair<int, int> finite_resource_yield(
         Player player, int available, int requested

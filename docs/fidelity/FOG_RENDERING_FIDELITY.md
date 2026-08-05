@@ -93,7 +93,7 @@ shared-LOS path. Observers bypass memory and see live state.
 World and minimap consume only frozen record while footprint stays hidden. No
 production queue, garrison, live damage overlay, current age, current
 civilization, current maximum HP, or changed wall topology feeds stale image.
-Native save version 118 serializes records in entity-ID order; lockstep hash
+Native save version 119 serializes records in entity-ID order; lockstep hash
 therefore covers every player's distinct information state.
 
 ## Starting allied Town Centers
@@ -120,6 +120,37 @@ previously hidden Town Center. Cartography suppresses frozen image whenever
 normal shared LOS sees live building and terrain; observers continue to bypass
 fog entirely. Native save/load and replay checkpoints serialize snapshot, and
 lockstep hash covers it for multiplayer determinism.
+
+## Temporary enemy attacker reveal
+
+Supplied Age of Kings manual, printed page 34, says enemy villagers, military
+units, and ships are visible when they attack or enter friendly sight. This
+proves mobile-unit attack as reveal trigger across land and sea. Decompiled
+`FUN_0053d600` at `0x0053d600` independently proves mobile minimap objects must
+pass both current world-mask tests; explored terrain alone cannot expose them.
+No exact post-attack timer was recoverable from inspected decompiler output or
+manual, so reconstruction does not claim one.
+
+Bounded reconstruction contract starts reveal at actual melee damage or
+projectile launch, including inaccurate shots. Reveal belongs only to attacked
+enemy player slots; attack-ground adds enemy owners whose live unit or building
+occupies splash area. Direct and splash victims may therefore create separate
+per-viewer records without exposing unrelated players. Cartography shares an
+ally's record through same directed allied-vision rule. Observer controller
+bypass remains presentation-only.
+
+Each record contains only attacker entity ID and exclusive expiry tick. Window
+lasts at least attack interval and, for missiles, through scheduled projectile
+flight. Repeated attacks extend same record. Moving or stopping in fog does not
+cancel it; expiry or attacker removal does. Ordinary terrain visibility stays
+unchanged, preventing reveal of terrain, co-located buildings, queues,
+resources, or other hidden live state. Entity targeting, world unit draw,
+minimap marker draw, and attack audio consume same unit-visibility decision.
+
+Native save version 119 serializes active records in player/entity order.
+Replay checkpoints use native save, and lockstep hash covers serialized expiry
+state, so restore and multiplayer cannot derive visibility from wall-clock or
+frontend polling.
 
 ## Reproduction and tests
 
@@ -148,3 +179,7 @@ Starting-allied-Town-Center coverage includes four roster slots, team and
 directed diplomacy, disabled broad shared vision, multiple/unfinished centers,
 footprint-only exploration, post-start diplomacy, Cartography, observer view,
 save/load, and deterministic hash.
+Temporary-attacker coverage includes victim-only ranged siege, naval misses,
+attack-ground, projectile flight, retreat/expiry, three-player Cartography
+sharing, unchanged terrain visibility, save/load, observer view, and lockstep
+hash.

@@ -1833,6 +1833,46 @@ bool Simulation::is_visible_to_controller(
         : is_visible(player, position);
 }
 
+bool Simulation::has_attack_reveal(
+    EntityOwner viewer, EntityId attacker
+) const {
+    const auto slot = entity_owner_slot(viewer);
+    if (!slot || slot->is_neutral()) return false;
+    const auto active = [this, attacker](PlayerSlotId source) {
+        const auto& reveals = player_state(source).attack_reveal_expiries;
+        const auto found = reveals.find(attacker);
+        return found != reveals.end() && tick_number_ < found->second;
+    };
+    if (active(*slot)) return true;
+    if (!has_technology(viewer, Technology::cartography)) return false;
+    for (std::size_t index = 0; index < player_states_.size(); ++index) {
+        const PlayerSlotId ally = *PlayerSlotId::from_index(index);
+        if (ally == *slot || !roster_.slot(ally).occupied ||
+            !is_ally(entity_owner_from_slot(ally), viewer)) continue;
+        if (active(ally)) return true;
+    }
+    return false;
+}
+
+bool Simulation::is_unit_visible(
+    Player player, const Unit& unit
+) const {
+    return is_unit_visible(EntityOwner{player}, unit);
+}
+
+bool Simulation::is_unit_visible(
+    EntityOwner player, const Unit& unit
+) const {
+    return unit.owner == player || is_visible(player, unit.position) ||
+        (is_enemy(player, unit.owner) && has_attack_reveal(player, unit.id));
+}
+
+bool Simulation::is_unit_visible_to_controller(
+    Player player, const Unit& unit
+) const {
+    return observer_perspective(player) || is_unit_visible(player, unit);
+}
+
 bool Simulation::is_explored_to_controller(
     Player player, TilePosition position
 ) const {
@@ -3324,7 +3364,7 @@ bool Simulation::command_convert(EntityId monk_id, EntityId target_id) {
          !has_technology(monk->owner, Technology::atonement)) ||
         (siege_target &&
          !has_technology(monk->owner, Technology::redemption)) ||
-        !is_visible(monk->owner, target->position)) {
+        !is_unit_visible(monk->owner, *target)) {
         return false;
     }
     const int distance_squared =
@@ -5785,6 +5825,7 @@ void Simulation::update() {
         return;
     }
     ++tick_number_;
+    prune_attack_reveals();
     for (Unit& unit : units_) {
         if (!unit.render_subtile_initialized) {
             unit.render_current_subtile = {
@@ -6250,7 +6291,7 @@ void Simulation::update() {
                   target->kind != UnitKind::packed_trebuchet &&
                   target->kind != UnitKind::trebuchet) ||
                  has_technology(unit.owner, Technology::redemption)) &&
-                is_visible(unit.owner, target->position);
+                is_unit_visible(unit.owner, *target);
             const int distance_squared = valid
                 ? combat_distance_squared(
                     unit.position, target->position
@@ -6588,7 +6629,7 @@ void Simulation::update() {
                 is_enemy(ordered_unit->owner, unit.owner) &&
                 ordered_unit->hit_points > 0 &&
                 (unit.kind == UnitKind::boar ||
-                 is_visible(unit.owner, ordered_unit->position));
+                 is_unit_visible(unit.owner, *ordered_unit));
             const bool valid_building =
                 ordered_building != nullptr &&
                 is_enemy(ordered_building->owner, unit.owner) &&
@@ -7397,6 +7438,7 @@ void Simulation::update() {
     );
     if (units_.size() != unit_count_before_cleanup) {
         prune_unit_render_elevations();
+        prune_attack_reveals();
     }
     buildings_.erase(
         std::remove_if(
@@ -7426,6 +7468,60 @@ void Simulation::update() {
     update_match_outcome();
     update_exploration();
     if (tick_number_ % 100 == 0) sample_match_statistics();
+}
+
+void Simulation::reveal_attacker_to(
+    const Unit& attacker,
+    EntityOwner victim,
+    int minimum_duration_ticks
+) {
+    if (attacker.hit_points <= 0 || attacker.garrisoned_in != 0 ||
+        victim.is_neutral() || !is_enemy(victim, attacker.owner)) return;
+    const auto slot = entity_owner_slot(victim);
+    if (!slot || slot->is_neutral() || !roster_.slot(*slot).occupied) return;
+    const std::uint64_t duration = static_cast<std::uint64_t>(std::max(
+        {1, effective_attack_interval(attacker), minimum_duration_ticks}
+    ));
+    auto& expiry = player_states_.at(*slot->index())
+        .attack_reveal_expiries[attacker.id];
+    expiry = std::max(expiry, tick_number_ + duration);
+}
+
+void Simulation::reveal_attacker_to_ground_victims(
+    const Unit& attacker,
+    TilePosition center,
+    int radius,
+    int minimum_duration_ticks
+) {
+    const int bounded_radius = std::max(0, radius);
+    for (const Unit& victim : units_) {
+        if (victim.id == attacker.id || victim.hit_points <= 0 ||
+            victim.garrisoned_in != 0 ||
+            !is_enemy(victim.owner, attacker.owner)) continue;
+        const int dx = victim.position.x - center.x;
+        const int dy = victim.position.y - center.y;
+        if (dx * dx + dy * dy <= bounded_radius * bounded_radius) {
+            reveal_attacker_to(attacker, victim.owner, minimum_duration_ticks);
+        }
+    }
+    for (const Building& victim : buildings_) {
+        if (victim.hit_points <= 0 ||
+            !is_enemy(victim.owner, attacker.owner) ||
+            distance_to_building(center, victim) > bounded_radius) continue;
+        reveal_attacker_to(attacker, victim.owner, minimum_duration_ticks);
+    }
+}
+
+void Simulation::prune_attack_reveals() {
+    for (PlayerState& state : player_states_) {
+        std::erase_if(
+            state.attack_reveal_expiries,
+            [this](const auto& entry) {
+                return entry.second <= tick_number_ ||
+                    find_unit(entry.first) == nullptr;
+            }
+        );
+    }
 }
 
 void Simulation::refresh_unit_render_subtile(Unit& unit) {
@@ -8588,6 +8684,13 @@ std::optional<TilePosition> Simulation::spawn_position(
 }
 
 void Simulation::perform_attack(Unit& attacker, Unit& defender) {
+    reveal_attacker_to(attacker, defender.owner);
+    const UnitRules& reveal_rules = rules_for(attacker.kind);
+    if (reveal_rules.splash_radius > 0) {
+        reveal_attacker_to_ground_victims(
+            attacker, defender.position, reveal_rules.splash_radius, 1
+        );
+    }
     if (attacker.kind == UnitKind::petard) {
         const UnitRules& rules = rules_for(attacker.kind);
         const int bonus = receives_siege_engineers(defender.kind)
@@ -8756,6 +8859,13 @@ void Simulation::perform_attack(Unit& attacker, Unit& defender) {
 }
 
 void Simulation::perform_attack(Unit& attacker, Building& defender) {
+    reveal_attacker_to(attacker, defender.owner);
+    const UnitRules& reveal_rules = rules_for(attacker.kind);
+    if (reveal_rules.splash_radius > 0) {
+        reveal_attacker_to_ground_victims(
+            attacker, defender.position, reveal_rules.splash_radius, 1
+        );
+    }
     if (attacker.kind == UnitKind::petard) {
         const UnitRules& rules = rules_for(attacker.kind);
         int building_bonus = rules.bonus_vs_buildings;
@@ -9002,6 +9112,16 @@ void Simulation::launch_projectile(
         combat_distance_squared(attacker.position, defender.position),
         0
     );
+    reveal_attacker_to(attacker, defender.owner, travel_ticks + 1);
+    reveal_attacker_to_ground_victims(
+        attacker,
+        defender.position,
+        std::max(
+            attacker_rules.splash_radius,
+            (attacker_rules.splash_radius_half_tiles + 1) / 2
+        ),
+        travel_ticks + 1
+    );
     projectiles_.push_back({
         attacker.owner,
         hits ? defender.id : 0,
@@ -9129,6 +9249,16 @@ void Simulation::launch_projectile(
         combat_distance_squared(attacker.position, defender),
         0
     );
+    reveal_attacker_to(attacker, defender.owner, travel_ticks + 1);
+    reveal_attacker_to_ground_victims(
+        attacker,
+        destination,
+        std::max(
+            attacker_rules.splash_radius,
+            (attacker_rules.splash_radius_half_tiles + 1) / 2
+        ),
+        travel_ticks + 1
+    );
     projectiles_.push_back({
         attacker.owner,
         hits ? defender.id : 0,
@@ -9173,6 +9303,15 @@ void Simulation::launch_ground_projectile(
     const int travel_ticks = projectile_travel_ticks(
         combat_distance_squared(attacker.position, destination),
         0
+    );
+    reveal_attacker_to_ground_victims(
+        attacker,
+        destination,
+        std::max(
+            rules_for(attacker.kind).splash_radius,
+            (rules_for(attacker.kind).splash_radius_half_tiles + 1) / 2
+        ),
+        travel_ticks + 1
     );
     projectiles_.push_back({
         attacker.owner,

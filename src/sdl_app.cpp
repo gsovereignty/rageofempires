@@ -38,6 +38,7 @@
 #include "aoe/frontend_audio.hpp"
 #include "aoe/frontend_game_modes.hpp"
 #include "aoe/frontend_menu.hpp"
+#include "aoe/fog_rendering_contract.hpp"
 #include "aoe/frame_timing.hpp"
 #include "aoe/computer_player.hpp"
 #include "aoe/game_command.hpp"
@@ -2393,6 +2394,77 @@ void fill_diamond(
         indices.data(),
         static_cast<int>(indices.size())
     );
+}
+
+std::uint8_t fog_neighbor_mask(
+    const Simulation& simulation,
+    TilePosition position,
+    EntityOwner viewer,
+    bool visible
+) {
+    constexpr std::array<TilePosition, 8> offsets{{
+        {-1, -1}, {-1, 1}, {1, 1}, {1, -1},
+        {-1, 0}, {0, 1}, {1, 0}, {0, -1},
+    }};
+    std::array<bool, 8> fogged{};
+    for (std::size_t index = 0; index < offsets.size(); ++index) {
+        const TilePosition neighbor{
+            position.x + offsets[index].x,
+            position.y + offsets[index].y,
+        };
+        fogged[index] = !simulation.map().contains(neighbor) ||
+            !(visible
+                ? simulation.is_visible_to_controller(viewer, neighbor)
+                : simulation.is_explored_to_controller(viewer, neighbor));
+    }
+    return fog::neighbor_mask(fogged);
+}
+
+void render_fog_edge_spans(
+    SDL_Renderer* renderer,
+    SDL_FPoint top,
+    std::uint8_t edge_class,
+    fog::EdgeLayer layer,
+    SDL_Color color
+) {
+    const auto bytes = fog::encoded_spans(0, edge_class, layer);
+    set_color(renderer, color);
+    for (std::size_t index = 0; index < bytes.size(); index += 3) {
+        const float y = top.y + static_cast<float>(bytes[index]) *
+            static_cast<float>(tile_height) / 48.0F;
+        const float left = top.x - half_tile_width +
+            static_cast<float>(bytes[index + 1]) *
+                static_cast<float>(tile_width) / 96.0F;
+        const float right = top.x - half_tile_width +
+            static_cast<float>(bytes[index + 2]) *
+                static_cast<float>(tile_width) / 96.0F;
+        SDL_RenderLine(renderer, left, y, right, y);
+    }
+}
+
+void render_explored_fog_dither(SDL_Renderer* renderer, SDL_FPoint top) {
+    std::vector<SDL_FPoint> points;
+    points.reserve(256);
+    for (int row = 0; row < tile_height; ++row) {
+        const int distance = std::abs(row - half_tile_height);
+        const int half_span = half_tile_width - distance * 2;
+        const std::uint8_t pattern = (row & 1) == 0
+            ? fog::explored_dither_pattern
+            : 0;
+        for (int offset = -half_span; offset <= half_span; ++offset) {
+            const unsigned bit = static_cast<unsigned>(offset + half_tile_width) & 7U;
+            if ((pattern & (1U << bit)) != 0) {
+                points.push_back({top.x + static_cast<float>(offset),
+                                  top.y + static_cast<float>(row)});
+            }
+        }
+    }
+    set_color(renderer, {0, 0, 0, 255});
+    if (!points.empty()) {
+        SDL_RenderPoints(
+            renderer, points.data(), static_cast<int>(points.size())
+        );
+    }
 }
 
 void render_elevation_faces(
@@ -10794,7 +10866,9 @@ void render_minimap(
     for (int y = 0; y < simulation.map().height(); y += block_step) {
         for (int x = 0; x < simulation.map().width(); x += block_step) {
             const TilePosition position{x, y};
-            SDL_Color color{24, 29, 25, 255};
+            SDL_Color color{
+                fog::hidden_rgb, fog::hidden_rgb, fog::hidden_rgb, 255
+            };
             bool cliff_in_block{};
             for (int sample_y = y;
                  sample_y < std::min(y + block_step, simulation.map().height()) &&
@@ -10808,9 +10882,7 @@ void render_minimap(
                     }
                 }
             }
-            // Original executable proves an explored-tile minimap pass, but
-            // not its colors/masks. Keep this procedural contract until
-            // generated/fog_rendering_catalog.json's missing links close.
+            // Use same recovered hidden/explored state colors as world pass.
             if (!active_settings.fog ||
                 simulation.is_explored_to_controller(
                     active_view_player, position
@@ -10821,9 +10893,9 @@ void render_minimap(
                 if (active_settings.fog &&
                     !simulation.is_visible_to_controller(active_view_player, position)) {
                     color = {
-                        static_cast<Uint8>(color.r * 0.55F),
-                        static_cast<Uint8>(color.g * 0.55F),
-                        static_cast<Uint8>(color.b * 0.55F),
+                        static_cast<Uint8>(color.r / 2),
+                        static_cast<Uint8>(color.g / 2),
+                        static_cast<Uint8>(color.b / 2),
                         255,
                     };
                 }
@@ -14966,37 +15038,18 @@ std::size_t render(
                 simulation.is_explored_to_controller(active_view_player, position);
             SDL_Color color =
                 terrain_color(simulation.map().terrain_at(position));
-            // TileEdge.Dat/BlkEdge.Dat dimensions and 47-class normalization
-            // are proved, but state/compass/shape/palette/blend mappings are
-            // not. Partial archive use would invent the state-to-frame map.
             if (!explored) {
-                const int shroud_variation =
-                    (x * 29 + y * 43 + x * y * 3) % 9;
                 color = {
-                    static_cast<Uint8>(18 + shroud_variation),
-                    static_cast<Uint8>(22 + shroud_variation),
-                    static_cast<Uint8>(19 + shroud_variation),
+                    fog::hidden_rgb,
+                    fog::hidden_rgb,
+                    fog::hidden_rgb,
                     255,
                 };
-                const std::array<TilePosition, 4> neighbors{{
-                    {x - 1, y}, {x + 1, y}, {x, y - 1}, {x, y + 1},
-                }};
-                if (std::ranges::any_of(
-                        neighbors,
-                        [&simulation](TilePosition neighbor) {
-                            return simulation.map().contains(neighbor) &&
-                                simulation.is_explored_to_controller(
-                                    active_view_player, neighbor
-                                );
-                        }
-                    )) {
-                    color = {35, 43, 36, 255};
-                }
             } else if (!visible) {
                 color = {
-                    static_cast<Uint8>(color.r * 0.32F),
-                    static_cast<Uint8>(color.g * 0.32F),
-                    static_cast<Uint8>(color.b * 0.32F),
+                    static_cast<Uint8>(color.r / 2),
+                    static_cast<Uint8>(color.g / 2),
+                    static_cast<Uint8>(color.b / 2),
                     255,
                 };
             } else {
@@ -15065,7 +15118,7 @@ std::size_t render(
                         255,
                     };
                 } else {
-                    color = {82, 82, 82, 255};
+                    color = {128, 128, 128, 255};
                 }
             }
             if (explored) {
@@ -15081,6 +15134,51 @@ std::size_t render(
                 position,
                 full_texture_diamond
             );
+            if (active_settings.fog && explored) {
+                const auto selection = fog::select_assets(
+                    visible ? fog::WorldState::visible
+                            : fog::WorldState::explored,
+                    fog_neighbor_mask(
+                        simulation, position, active_view_player, true
+                    ),
+                    fog_neighbor_mask(
+                        simulation, position, active_view_player, false
+                    )
+                );
+                fill_diamond(
+                    renderer,
+                    top,
+                    {fog::hidden_rgb, fog::hidden_rgb,
+                     fog::hidden_rgb, 255}
+                );
+                render_fog_edge_spans(
+                    renderer,
+                    top,
+                    selection.tile_edge_class,
+                    fog::EdgeLayer::tile_left,
+                    color
+                );
+                render_fog_edge_spans(
+                    renderer,
+                    top,
+                    selection.tile_edge_class,
+                    fog::EdgeLayer::tile_right,
+                    color
+                );
+                if (selection.apply_black_edge) {
+                    render_fog_edge_spans(
+                        renderer,
+                        top,
+                        selection.black_edge_class,
+                        fog::EdgeLayer::black,
+                        {fog::hidden_rgb, fog::hidden_rgb,
+                         fog::hidden_rgb, 255}
+                    );
+                }
+                if (!visible) {
+                    render_explored_fog_dither(renderer, top);
+                }
+            }
             if (explored && simulation.map().cliff_at(position)) {
                 set_color(renderer, visible
                     ? SDL_Color{73, 54, 38, 255}

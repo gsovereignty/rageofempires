@@ -75,7 +75,7 @@ class FogContractTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "unterminated"):
                 MODULE.edge_table(path, 4)
 
-    def test_catalog_promotes_proved_selector_but_not_incomplete_renderer(self):
+    def test_catalog_promotes_proved_archive_renderer(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             exe = root / "game.exe"
@@ -94,13 +94,13 @@ class FogContractTests(unittest.TestCase):
             report = MODULE.make_catalog(
                 exe, tile, black, interface, graphics
             )
-            self.assertFalse(
+            self.assertTrue(
                 report["renderer_decision"]["archive_backed_world_fog"]
             )
             self.assertIn(
                 "compass_bit_order", report["proved"]
             )
-            self.assertIn("palette_dither", report["unproved"])
+            self.assertNotIn("palette_dither", report["unproved"])
 
 
 if __name__ == "__main__":

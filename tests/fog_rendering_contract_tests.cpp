@@ -78,6 +78,31 @@ void tile_shape_selection_is_fail_closed() {
     assert(!aoe::fog::valid_shape(255));
 }
 
+void embedded_archive_geometry_is_exact_and_total() {
+    using aoe::fog::EdgeLayer;
+    std::size_t tile_records = 0;
+    std::size_t black_records = 0;
+    for (std::uint8_t shape = 0; shape < 17; ++shape) {
+        for (std::uint8_t edge = 0; edge < 47; ++edge) {
+            for (const auto layer : {EdgeLayer::tile_left, EdgeLayer::tile_right}) {
+                const auto bytes = aoe::fog::encoded_spans(shape, edge, layer);
+                assert(bytes.size() % 3 == 0);
+                tile_records += bytes.size() / 3;
+            }
+            const auto black = aoe::fog::encoded_spans(shape, edge, EdgeLayer::black);
+            assert(black.size() % 3 == 0);
+            black_records += black.size() / 3;
+        }
+    }
+    assert(tile_records == 66011);
+    assert(black_records == 26270);
+    assert(aoe::fog::span_count(0, 0, EdgeLayer::tile_left) == 49);
+    assert(aoe::fog::span_count(0, 0, EdgeLayer::tile_right) == 0);
+    assert(aoe::fog::span_count(0, 0, EdgeLayer::black) == 0);
+    assert(aoe::fog::explored_dither_pattern == 0x56);
+    assert(aoe::fog::hidden_dither_pattern == 0x28);
+}
+
 }  // namespace
 
 int main() {
@@ -85,4 +110,5 @@ int main() {
     normalization_is_total_and_has_exact_class_count();
     state_selects_original_edge_tables();
     tile_shape_selection_is_fail_closed();
+    embedded_archive_geometry_is_exact_and_total();
 }

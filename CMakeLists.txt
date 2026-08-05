@@ -162,7 +162,7 @@ add_library(aoe_core
     src/simulation.cpp
     src/save_game.cpp
 )
-target_include_directories(aoe_core PUBLIC include)
+target_include_directories(aoe_core PUBLIC include PRIVATE generated)
 target_link_libraries(aoe_core PUBLIC ZLIB::ZLIB)
 target_compile_options(aoe_core PRIVATE -Wall -Wextra -Wpedantic)
 

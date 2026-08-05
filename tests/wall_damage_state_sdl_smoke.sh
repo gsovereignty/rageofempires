@@ -6,7 +6,7 @@ script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 smoke_dir=$(mktemp -d "${TMPDIR:-/tmp}/aoe-wall-damage.XXXXXX")
 trap 'rm -rf "$smoke_dir"' EXIT
 
-civilizations="britons franks celts spanish goths teutons vikings huns japanese chinese mongols koreans byzantines persians saracens turks aztecs mayans"
+civilizations=${AOE_WALL_DAMAGE_AUDIT_CIVILIZATIONS:-"britons franks celts spanish goths teutons vikings huns japanese chinese mongols koreans byzantines persians saracens turks aztecs mayans"}
 for civilization in $civilizations; do
     scenario="$smoke_dir/$civilization.scenario"
     sed "s/civilization blue generic/civilization blue $civilization/" \
@@ -30,13 +30,13 @@ for civilization in $civilizations; do
     done
 done
 
-python3 - "$smoke_dir" <<'PY'
+python3 - "$smoke_dir" "$civilizations" <<'PY'
 import hashlib
 import pathlib
 import sys
 
 root = pathlib.Path(sys.argv[1])
-civilizations = "britons franks celts spanish goths teutons vikings huns japanese chinese mongols koreans byzantines persians saracens turks aztecs mayans".split()
+civilizations = sys.argv[2].split()
 for civilization in civilizations:
     digests = {
         damage: hashlib.sha256(

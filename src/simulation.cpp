@@ -1,4 +1,5 @@
 #include "aoe/simulation.hpp"
+#include "aoe/frontend_audio.hpp"
 
 #include <algorithm>
 #include <array>
@@ -6767,7 +6768,48 @@ void Simulation::update() {
     if (outcome_ != MatchOutcome::ongoing) {
         return;
     }
+    std::map<EntityId, std::pair<int, bool>> prior_units;
+    std::map<EntityId, int> prior_work;
+    for (const Unit& unit : units_) {
+        prior_units.emplace(unit.id, std::pair{unit.attack_cooldown, unit.moving});
+        prior_work.emplace(unit.id, unit.has_resource_target ? 1 :
+            unit.repair_target_id ? 2 : unit.conversion_target_id ? 3 :
+            unit.healing_target_id ? 4 : unit.trade_target_market_id ? 5 : 0);
+    }
+    std::map<EntityId, int> prior_buildings;
+    for (const Building& building : buildings_)
+        prior_buildings.emplace(building.id, building.attack_cooldown);
+    reactive_sound_events_.clear();
     ++tick_number_;
+    for (EntityId id : pending_movement_sound_ids_) {
+        if (const Unit* unit = find_unit(id)) {
+            const int sound = movement_sound(unit->kind);
+            if (sound >= 0) reactive_sound_events_.push_back({
+                next_reactive_sound_sequence_++, tick_number_,
+                ReactiveSoundKind::direct, id, unit->owner,
+                unit->position, sound
+            });
+        }
+    }
+    pending_movement_sound_ids_.clear();
+    for (auto iterator = attack_sound_frames_.begin();
+         iterator != attack_sound_frames_.end();) {
+        const Unit* unit = find_unit(iterator->first);
+        const int remaining = iterator->second / 16;
+        const int angle = iterator->second % 16;
+        if (unit == nullptr || remaining <= 0) {
+            iterator = attack_sound_frames_.erase(iterator);
+            continue;
+        }
+        const auto [slp, frames] = scheduled_attack_animation(unit->kind);
+        reactive_sound_events_.push_back({
+            next_reactive_sound_sequence_++, tick_number_,
+            ReactiveSoundKind::graphic_frame, unit->id, unit->owner,
+            unit->position, -1, slp, frames - remaining, angle, -1
+        });
+        iterator->second -= 16;
+        ++iterator;
+    }
     prune_attack_reveals();
     for (Unit& unit : units_) {
         if (!unit.render_subtile_initialized) {
@@ -8523,6 +8565,100 @@ void Simulation::update() {
         selected_building_.reset();
     }
     update_production();
+
+    const auto emit_direct = [this](EntityId id, EntityOwner owner,
+                                    TilePosition position, int sound) {
+        if (sound < 0) return;
+        reactive_sound_events_.push_back({
+            next_reactive_sound_sequence_++, tick_number_,
+            ReactiveSoundKind::direct, id, owner, position, sound
+        });
+    };
+    const auto angle_for = [](TilePosition from, TilePosition to) {
+        constexpr double pi = 3.14159265358979323846;
+        const double radians = std::atan2(
+            static_cast<double>(to.y - from.y),
+            static_cast<double>(to.x - from.x));
+        return (static_cast<int>(std::lround(radians * 4.0 / pi)) + 8) % 8;
+    };
+    for (const Unit& unit : units_) {
+        const auto old = prior_units.find(unit.id);
+        if (old == prior_units.end()) {
+            emit_direct(unit.id, unit.owner, unit.position, trained_sound(unit.kind));
+            continue;
+        }
+        if (unit.moving && !old->second.second &&
+            !pending_movement_sound_ids_.contains(unit.id))
+            emit_direct(unit.id, unit.owner, unit.position, movement_sound(unit.kind));
+        const int work = unit.has_resource_target ? 1 : unit.repair_target_id ? 2 :
+            unit.conversion_target_id ? 3 : unit.healing_target_id ? 4 :
+            unit.trade_target_market_id ? 5 : 0;
+        if (work != 0 && prior_work.at(unit.id) != work) {
+            int sound = -1;
+            if (unit.commercial_identity) {
+                if (const auto* record = commercial_content_catalog().object(
+                        unit.commercial_identity->civilization_id,
+                        unit.commercial_identity->object_id)) {
+                    const CommercialTaskAbility ability = work == 1
+                        ? CommercialTaskAbility::gather : work == 2
+                        ? CommercialTaskAbility::repair : work == 3
+                        ? CommercialTaskAbility::convert : work == 4
+                        ? CommercialTaskAbility::heal : CommercialTaskAbility::trade;
+                    const auto task = std::ranges::find_if(record->tasks,
+                        [ability](const CommercialTask& value) {
+                            return commercial_task_ability(value.action_type) == ability;
+                        });
+                    if (task != record->tasks.end())
+                        sound = task->work_sound ? *task->work_sound :
+                            task->secondary_work_sound ? *task->secondary_work_sound : -1;
+                }
+            }
+            emit_direct(unit.id, unit.owner, unit.position, sound);
+        }
+        if (unit.attack_cooldown > old->second.first) {
+            const auto [slp, frames] = scheduled_attack_animation(unit.kind);
+            TilePosition target = unit.destination;
+            if (const Unit* other = find_unit(unit.attack_target_id)) target = other->position;
+            else if (const Building* other = find_building(unit.attack_target_id))
+                target = other->position;
+            const int angle = angle_for(unit.position, target);
+            if (slp >= 0 && frames > 0) {
+                attack_sound_frames_[unit.id] = (frames - 1) * 16 + angle;
+                reactive_sound_events_.push_back({
+                    next_reactive_sound_sequence_++, tick_number_,
+                    ReactiveSoundKind::graphic_frame, unit.id, unit.owner,
+                    unit.position, -1, slp, 0, angle, scheduled_attack_sound(unit.kind)
+                });
+            } else emit_direct(unit.id, unit.owner, unit.position, scheduled_attack_sound(unit.kind));
+        }
+    }
+    for (const UnitDeathEffect& effect : death_effects_) {
+        const int frame = effect.total_ticks - effect.ticks_remaining;
+        if (frame != 0) continue;
+        reactive_sound_events_.push_back({
+            next_reactive_sound_sequence_++, tick_number_,
+            ReactiveSoundKind::graphic_frame, effect.entity_id, effect.owner,
+            effect.position, -1, scheduled_death_animation_slp(effect.kind), 0,
+            angle_for(effect.previous_position, effect.position), scheduled_death_sound(effect.kind)
+        });
+    }
+    for (const BuildingRubbleEffect& effect : rubble_effects_)
+        if (effect.ticks_remaining == effect.total_ticks &&
+            scheduled_building_has_death_sound(effect.kind))
+            emit_direct(effect.entity_id, effect.owner, effect.position, 323);
+    for (const Building& building : buildings_) {
+        const auto old = prior_buildings.find(building.id);
+        if (old == prior_buildings.end()) {
+            if (building.kind == BuildingKind::wonder) emit_direct(
+                building.id, building.owner, building.position, 383);
+            else if (building.kind == BuildingKind::bombard_tower ||
+                     building.kind == BuildingKind::outpost) emit_direct(
+                building.id, building.owner, building.position, 23);
+        } else if (building.attack_cooldown > old->second &&
+                   building.kind == BuildingKind::bombard_tower) {
+            emit_direct(building.id, building.owner, building.position, 411);
+        }
+    }
     update_match_outcome();
     update_exploration();
     if (tick_number_ % 100 == 0) sample_match_statistics();
@@ -9514,6 +9650,7 @@ void Simulation::detach_builder(EntityId unit_id) {
 }
 
 bool Simulation::route_unit(Unit& unit, TilePosition destination) {
+    const bool was_moving = unit.moving;
     const bool fishing_ship = is_ship(unit.kind);
     const auto traversable = [this, fishing_ship](TilePosition position) {
         return fishing_ship
@@ -9636,6 +9773,9 @@ bool Simulation::route_unit(Unit& unit, TilePosition destination) {
     unit.next_path_step = 0;
     unit.movement_cooldown = 0;
     unit.moving = !unit.path.empty();
+    if (unit.moving && !was_moving) {
+        pending_movement_sound_ids_.insert(unit.id);
+    }
     return true;
 }
 

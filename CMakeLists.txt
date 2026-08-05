@@ -820,6 +820,11 @@ endif()
 
 add_executable(aoe_core_tests tests/simulation_tests.cpp)
 target_link_libraries(aoe_core_tests PRIVATE aoe_core)
+add_executable(reactive_audio_scheduler_tests
+    tests/reactive_audio_scheduler_tests.cpp)
+target_link_libraries(reactive_audio_scheduler_tests PRIVATE aoe_core)
+add_test(NAME reactive_audio_scheduler_tests
+    COMMAND reactive_audio_scheduler_tests)
 
 add_executable(aoe_random_map_tests tests/random_map_tests.cpp)
 target_link_libraries(aoe_random_map_tests PRIVATE aoe_core)

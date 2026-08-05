@@ -1,6 +1,7 @@
 #pragma once
 
 #include "aoe/types.hpp"
+#include <utility>
 
 namespace aoe {
 
@@ -11,5 +12,10 @@ namespace aoe {
 [[nodiscard]] int movement_sound(UnitKind kind) noexcept;
 [[nodiscard]] int trained_sound(UnitKind kind) noexcept;
 [[nodiscard]] int selected_sound(BuildingKind kind) noexcept;
+[[nodiscard]] int scheduled_attack_sound(UnitKind kind) noexcept;
+[[nodiscard]] int scheduled_death_sound(UnitKind kind) noexcept;
+[[nodiscard]] int scheduled_death_animation_slp(UnitKind kind) noexcept;
+[[nodiscard]] std::pair<int, int> scheduled_attack_animation(UnitKind kind) noexcept;
+[[nodiscard]] bool scheduled_building_has_death_sound(BuildingKind kind) noexcept;
 
 }  // namespace aoe

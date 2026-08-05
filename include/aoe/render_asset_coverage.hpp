@@ -114,9 +114,25 @@ struct AssetRequest {
     std::vector<std::int32_t> composite_slp_ids;
     std::vector<std::int16_t> overlay_graphic_ids;
     std::optional<std::int32_t> shadow_slp_id;
+    // Construction is a two-part original render: current civilization/Age
+    // standing body revealed from ground upward, then footprint scaffold.
+    std::optional<std::int32_t> construction_body_graphic_id;
+    std::optional<std::int32_t> construction_body_slp_id;
     int required_frame_count{};
     int required_direction_count{};
     std::string source_mapping;
+};
+
+enum class ConstructionBodyMode {
+    progressive_completed_body,
+    dedicated_construction_body,
+};
+
+struct BuildingConstructionContract {
+    BuildingKind kind{BuildingKind::town_center};
+    ConstructionBodyMode body_mode{
+        ConstructionBodyMode::progressive_completed_body};
+    std::int16_t scaffold_graphic_root{-1};
 };
 
 struct AssetResolution {
@@ -378,6 +394,19 @@ render_unit_elevation_endpoints(
     const Building& building,
     int construction_ticks
 );
+[[nodiscard]] int render_construction_progress_basis_points(
+    const Building& building,
+    int construction_ticks
+);
+[[nodiscard]] int render_building_damage_reference_hit_points(
+    const Building& building,
+    int construction_ticks,
+    int maximum_hit_points
+);
+[[nodiscard]] std::span<const BuildingConstructionContract>
+canonical_building_construction_contracts();
+[[nodiscard]] const BuildingConstructionContract*
+building_construction_contract(BuildingKind kind);
 [[nodiscard]] int render_damage_stage(int hit_points, int maximum_hit_points);
 [[nodiscard]] int render_architecture_family(Civilization civilization);
 [[nodiscard]] int render_building_architecture_family(

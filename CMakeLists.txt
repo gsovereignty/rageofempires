@@ -566,6 +566,16 @@ add_test(
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/building_age_graphics_sdl_smoke.sh
         $<TARGET_FILE:aoe_reconstruction>
 )
+add_test(
+    NAME building_construction_body_sdl_smoke
+    COMMAND bash
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/building_construction_body_sdl_smoke.sh
+        $<TARGET_FILE:aoe_reconstruction>
+)
+set_tests_properties(
+    building_construction_body_sdl_smoke
+    PROPERTIES TIMEOUT 30
+)
 set_tests_properties(
     building_age_graphics_sdl_smoke
     PROPERTIES TIMEOUT 30

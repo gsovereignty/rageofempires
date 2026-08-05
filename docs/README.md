@@ -34,6 +34,7 @@ Bounded findings about commercial formats and behavior:
 - [Movement presentation timing](fidelity/MOVEMENT_PRESENTATION_FIDELITY.md)
 - [Main-menu fidelity](fidelity/MAIN_MENU_FIDELITY.md)
 - [Civilization technology-tree fidelity](fidelity/TECHNOLOGY_TREE_FIDELITY.md)
+- [Building body-state fidelity](fidelity/BUILDING_BODY_STATE_FIDELITY.md)
 
 ## Assets
 

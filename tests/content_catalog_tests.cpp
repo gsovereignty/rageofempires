@@ -76,6 +76,7 @@ int main() {
         tasks += object.tasks.size();
         for (const auto& task : object.tasks) {
             ++task_types[task.action_type];
+            (void)aoe::commercial_task_ability(task.action_type);
         }
     }
     require(tasks > 1000, "task catalog represented semantically");

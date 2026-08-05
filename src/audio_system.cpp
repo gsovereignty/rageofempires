@@ -1021,6 +1021,23 @@ void AudioSystem::play_narration(
     }
 }
 
+void AudioSystem::play_named_interface_effect(std::string_view filename) {
+    if (impl_ == nullptr || filename.empty()) return;
+    update();
+    const std::filesystem::path leaf{
+        std::filesystem::path{filename}.filename()
+    };
+    for (const auto& directory : {
+             impl_->root / "Sound",
+             impl_->root / "Sound" / "interface",
+             impl_->root / "Data" / "Sound",
+         }) {
+        if (impl_->start_loose_effect(
+                directory / leaf, AudioCategory::interface
+            )) return;
+    }
+}
+
 bool AudioSystem::play_graphic_frame_sounds(
     int slp_id,
     int frame,

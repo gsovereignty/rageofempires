@@ -685,6 +685,8 @@ struct Unit {
     int food_decay_remainder{};
     EntityId garrison_target_id{};
     EntityId garrisoned_in{};
+    EntityId town_bell_source_id{};
+    TilePosition town_bell_return_position{-1, -1};
     TilePosition attack_move_destination{-1, -1};
     bool attack_moving{};
     TilePosition patrol_origin{-1, -1};
@@ -749,6 +751,7 @@ struct Building {
     TilePosition rally_point{};
     bool has_rally_point{};
     bool gate_open{};
+    EntityId town_bell_source_id{};
     std::optional<EntityOwner> last_damage_owner;
     std::optional<CommercialObjectIdentity> commercial_identity;
 

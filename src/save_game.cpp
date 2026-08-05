@@ -5,7 +5,9 @@
 #include <cmath>
 #include <fstream>
 #include <iomanip>
+#include <map>
 #include <optional>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -852,6 +854,20 @@ void save_game(const Simulation& simulation, const std::filesystem::path& path) 
         }
         output << '\n';
     }
+    for (const Building& building : simulation.buildings()) {
+        if (building.town_bell_source_id != 0) {
+            output << "town-bell-building " << building.id << ' '
+                   << building.town_bell_source_id << '\n';
+        }
+    }
+    for (const Unit& unit : simulation.units()) {
+        if (unit.town_bell_source_id != 0) {
+            output << "town-bell-unit " << unit.id << ' '
+                   << unit.town_bell_source_id << ' '
+                   << unit.town_bell_return_position.x << ' '
+                   << unit.town_bell_return_position.y << '\n';
+        }
+    }
     for (const Unit& unit : simulation.units()) {
         if (!unit.commercial_identity) continue;
         output << "commercial-unit " << unit.id << ' '
@@ -1000,6 +1016,8 @@ Simulation load_game(const std::filesystem::path& path) {
     std::vector<Technology> red_technologies;
     std::vector<Unit> units;
     std::vector<Building> buildings;
+    std::map<EntityId, EntityId> active_town_bells;
+    std::map<EntityId, std::tuple<EntityId, TilePosition>> town_bell_units;
     std::vector<Projectile> projectiles;
     std::vector<ImpactEffect> impact_effects;
     std::vector<UnitDeathEffect> death_effects;
@@ -2478,6 +2496,25 @@ Simulation load_game(const std::filesystem::path& path) {
                 building.production_queue.push_back(order);
             }
             buildings.push_back(std::move(building));
+        } else if (record == "town-bell-building" && version >= 126) {
+            EntityId id{};
+            EntityId source{};
+            input >> id >> source;
+            if (id == 0 || source == 0 ||
+                !active_town_bells.emplace(id, source).second) {
+                throw std::runtime_error("invalid active Town Bell record");
+            }
+        } else if (record == "town-bell-unit" && version >= 126) {
+            EntityId id{};
+            EntityId source{};
+            TilePosition return_position;
+            input >> id >> source >> return_position.x >> return_position.y;
+            if (id == 0 || source == 0 ||
+                !town_bell_units.emplace(
+                    id, std::tuple{source, return_position}
+                ).second) {
+                throw std::runtime_error("invalid Town Bell unit record");
+            }
         } else if (record == "commercial-unit" && version >= 120) {
             EntityId id{};
             int civilization{};
@@ -2815,6 +2852,35 @@ Simulation load_game(const std::filesystem::path& path) {
 
     if (!map) {
         map = GameMap::create_demo_map();
+    }
+    for (const auto& [id, source] : active_town_bells) {
+        const auto found = std::ranges::find(buildings, id, &Building::id);
+        const auto origin = std::ranges::find(
+            buildings, source, &Building::id
+        );
+        if (found == buildings.end() || origin == buildings.end() ||
+            origin->kind != BuildingKind::town_center ||
+            found->owner != origin->owner) {
+            throw std::runtime_error("active Town Bell has invalid source");
+        }
+        found->town_bell_source_id = source;
+    }
+    for (const auto& [id, state] : town_bell_units) {
+        const auto unit = std::ranges::find(units, id, &Unit::id);
+        const auto [source, return_position] = state;
+        const auto building = std::ranges::find(
+            buildings, source, &Building::id
+        );
+        if (unit == units.end() || building == buildings.end() ||
+            unit->kind != UnitKind::villager ||
+            building->kind != BuildingKind::town_center ||
+            unit->owner != building->owner ||
+            building->town_bell_source_id != source ||
+            !map->contains(return_position)) {
+            throw std::runtime_error("Town Bell unit has invalid state");
+        }
+        unit->town_bell_source_id = source;
+        unit->town_bell_return_position = return_position;
     }
     std::optional<MatchRoster> native_roster;
     std::optional<RosterDiplomacy> native_roster_diplomacy;

@@ -168,6 +168,10 @@ struct UngarrisonCommand {
     EntityId building;
 };
 
+struct TownBellCommand {
+    EntityId building;
+};
+
 struct AdvanceAgeCommand {
     EntityId building;
 };
@@ -228,6 +232,7 @@ using GameCommand = std::variant<
     CancelProductionCommand,
     ReseedFarmCommand,
     UngarrisonCommand,
+    TownBellCommand,
     AdvanceAgeCommand,
     ResearchTechnologyCommand,
     ResearchCommercialTechnologyCommand,

@@ -459,7 +459,10 @@ GameCommand decode_command(std::istream& input) {
         const auto path = temporary_codec_path("aoe-lockstep-command");
         {
             std::ofstream output(path);
-            output << "AOE-ARCHAEOLOGY-REPLAY 62\n" << line << '\n';
+            output << "AOE-ARCHAEOLOGY-REPLAY "
+                   << reconstruction_command_schema_version << '\n'
+                   << "source -1\n"
+                   << line << '\n';
         }
         Replay replay = load_replay(path);
         std::filesystem::remove(path);
@@ -1120,6 +1123,7 @@ bool LockstepSession::validate_command_owner(
             std::is_same_v<Type, CancelProductionCommand> ||
             std::is_same_v<Type, ReseedFarmCommand> ||
             std::is_same_v<Type, UngarrisonCommand> ||
+            std::is_same_v<Type, TownBellCommand> ||
             std::is_same_v<Type, AdvanceAgeCommand> ||
             std::is_same_v<Type, ResearchTechnologyCommand>) {
             return building_owned(value.building);

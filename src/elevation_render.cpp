@@ -238,7 +238,21 @@ RgbaFrame compose(
         flat.rgba.size() != 97U * 49U * 4U || filter.rows.empty()) {
         throw LegacyAssetError{"elevation composition requires 97x49 terrain"};
     }
-    std::vector<std::array<std::uint8_t, 4>> source(2468);
+    // FUN_0054eb10 addresses the complete 2,468-byte terrain SLP command
+    // stream, not a packed array of only visible RGBA pixels. Preserve the
+    // command-byte slots as opaque palette colors too. FilterMaps normally
+    // target literal pixels, but command slots remain valid source bytes and
+    // must never become transparent holes when sampled at a slope boundary.
+    const auto command_color = [&](std::uint8_t value) {
+        if (lighting == nullptr) {
+            return std::array<std::uint8_t, 4>{value, value, value, 255};
+        }
+        const auto& rgb = lighting->palette.colors[value];
+        return std::array<std::uint8_t, 4>{rgb[0], rgb[1], rgb[2], 255};
+    };
+    std::vector<std::array<std::uint8_t, 4>> source(
+        2468, command_color(0)
+    );
     std::size_t encoded = 0;
     for (int y = 0; y < flat.height; ++y) {
         std::vector<std::array<std::uint8_t, 4>> row;
@@ -248,14 +262,23 @@ RgbaFrame compose(
             row.push_back({flat.rgba[at], flat.rgba[at + 1],
                            flat.rgba[at + 2], flat.rgba[at + 3]});
         }
-        encoded += row.size() < 64 ? 1 : 2;
+        if (row.size() < 64) {
+            source[encoded++] = command_color(
+                static_cast<std::uint8_t>(row.size() << 2U)
+            );
+        } else {
+            source[encoded++] = command_color(0x02);
+            source[encoded++] = command_color(
+                static_cast<std::uint8_t>(row.size())
+            );
+        }
         for (const auto& color : row) {
             if (encoded >= source.size()) {
                 throw LegacyAssetError{"terrain command stream exceeds classic size"};
             }
             source[encoded++] = color;
         }
-        ++encoded;
+        source[encoded++] = command_color(0x0f);
     }
     RgbaFrame output{
         97, static_cast<int>(filter.rows.size()), 48,
@@ -286,6 +309,9 @@ RgbaFrame compose(
                     std::min<std::uint64_t>(255, (sum[channel] + weights / 2) / weights)
                 );
             }
+            // Classic output is an indexed SLP literal command. Every
+            // FilterMaps output pixel is opaque; source alpha is not data.
+            color[3] = 255;
             if (lighting != nullptr) {
                 if (orientation < 0 || orientation >= 4 ||
                     pixels[x].lighting_offset >= 4096) {

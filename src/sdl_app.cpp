@@ -2599,6 +2599,59 @@ void render_explored_fog_dither(SDL_Renderer* renderer, SDL_FPoint top) {
     }
 }
 
+void render_elevation_faces(
+    SDL_Renderer* renderer,
+    const Simulation& simulation,
+    TilePosition position,
+    SDL_FPoint top
+) {
+    const int elevation = simulation.map().elevation_at(position);
+    if (elevation == 0) return;
+    const auto face = [&](TilePosition neighbor,
+                          SDL_FPoint first,
+                          SDL_FPoint second,
+                          SDL_Color color) {
+        const int neighbor_elevation = simulation.map().contains(neighbor)
+            ? simulation.map().elevation_at(neighbor)
+            : 0;
+        const int difference = elevation - neighbor_elevation;
+        if (difference <= 0) return;
+        const float drop = static_cast<float>(
+            difference * elevation_pixel_step
+        );
+        const SDL_FColor vertex_color{
+            color.r / 255.0F,
+            color.g / 255.0F,
+            color.b / 255.0F,
+            1.0F,
+        };
+        const std::array<SDL_Vertex, 4> vertices{{
+            {first, vertex_color, {}},
+            {second, vertex_color, {}},
+            {{second.x, second.y + drop}, vertex_color, {}},
+            {{first.x, first.y + drop}, vertex_color, {}},
+        }};
+        constexpr std::array<int, 6> indices{{0, 1, 2, 0, 2, 3}};
+        SDL_RenderGeometry(
+            renderer, nullptr,
+            vertices.data(), static_cast<int>(vertices.size()),
+            indices.data(), static_cast<int>(indices.size())
+        );
+    };
+    face(
+        {position.x + 1, position.y},
+        {top.x + half_tile_width, top.y + half_tile_height},
+        {top.x, top.y + tile_height},
+        {83, 67, 43, 255}
+    );
+    face(
+        {position.x, position.y + 1},
+        {top.x, top.y + tile_height},
+        {top.x - half_tile_width, top.y + half_tile_height},
+        {67, 54, 37, 255}
+    );
+}
+
 bool configure_terrain_sampling(SDL_Texture* texture) {
     constexpr SDL_ScaleMode expected = SDL_SCALEMODE_LINEAR;
     if (!SDL_SetTextureScaleMode(texture, expected)) return false;
@@ -15250,6 +15303,23 @@ std::size_t render(
                     color = {128, 128, 128, 255};
                 }
             }
+            // Keep the complete top diamond underneath the filtered slope.
+            // FilterMaps records contain only the slope scanlines; treating
+            // them as a replacement tile exposed the cleared world through
+            // every omitted scanline and broke ordinary grass terrain.
+            if (explored) {
+                render_elevation_faces(
+                    renderer, simulation, position, top
+                );
+            }
+            fill_diamond(
+                renderer,
+                top,
+                color,
+                texture,
+                position,
+                full_texture_diamond
+            );
             if (elevation_texture != nullptr) {
                 float source_width{};
                 float source_height{};
@@ -15270,15 +15340,6 @@ std::size_t render(
                 SDL_SetTextureAlphaMod(elevation_texture, color.a);
                 SDL_RenderTexture(
                     renderer, elevation_texture, nullptr, &destination
-                );
-            } else {
-                fill_diamond(
-                    renderer,
-                    top,
-                    color,
-                    texture,
-                    position,
-                    full_texture_diamond
                 );
             }
             if (active_settings.fog && explored) {

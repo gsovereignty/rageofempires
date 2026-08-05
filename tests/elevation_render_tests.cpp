@@ -105,6 +105,16 @@ int main() {
         "composed scanline hash"
     );
     const aoe::RgbaFrame lit = compose(flat, filters[1], &lighting, 2);
+    for (std::size_t y = 0; y < filters[1].rows.size(); ++y) {
+        const auto& row = filters[1].rows[y];
+        const std::size_t left = (97U - row.pixels.size()) / 2U;
+        for (std::size_t x = 0; x < row.pixels.size(); ++x) {
+            require(
+                lit.rgba[(y * 97U + left + x) * 4U + 3U] == 255,
+                "filtered slope pixels remain opaque"
+            );
+        }
+    }
     require(
         hash(lit.rgba) == 704675108723462888ULL,
         "lit scanline hash"

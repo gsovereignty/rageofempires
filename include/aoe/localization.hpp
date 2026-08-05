@@ -36,7 +36,8 @@ public:
     [[nodiscard]] std::string count_text(
         std::string_view singular_key,
         std::string_view plural_key,
-        std::int64_t count
+        std::int64_t count,
+        const std::map<std::string, std::string>& arguments = {}
     ) const;
     [[nodiscard]] std::string format(
         std::string_view key,

@@ -1,5 +1,6 @@
 import importlib.util
 import pathlib
+import re
 import tempfile
 import unittest
 
@@ -42,6 +43,64 @@ class LiteralCatalogTests(unittest.TestCase):
         self.assertGreater(renderer.count("SDL_RenderDebugText("), 0)
         self.assertNotIn(
             "SDL_RenderDebugText(", source[:start] + source[end:]
+        )
+
+    def test_visible_stream_builders_are_confined_to_skipped_families(self):
+        source = (ROOT / "src/sdl_app.cpp").read_text(encoding="utf-8")
+        allowed_functions = {
+            # Non-visible cache/evidence identifiers.
+            "terrain_transition_texture",
+            "begin_overlap_case",
+            # Bug families explicitly excluded from this localization pass.
+            "render_campaign_presentation",
+            "render_multiplayer_presentation",
+            "render_save_browser_overlay",
+        }
+
+        function_declarations = {
+            "terrain_transition_texture":
+                "SDL_Texture* terrain_transition_texture(",
+            "begin_overlap_case": "void begin_overlap_case(",
+            "render_campaign_presentation":
+                "void render_campaign_presentation(",
+            "render_multiplayer_presentation":
+                "void render_multiplayer_presentation(",
+            "render_save_browser_overlay":
+                "void render_save_browser_overlay(",
+        }
+
+        def function_span(name):
+            start = source.index(function_declarations[name])
+            opening = source.index(") {", start) + 2
+            depth = 0
+            for offset in range(opening, len(source)):
+                depth += source[offset] == "{"
+                depth -= source[offset] == "}"
+                if depth == 0:
+                    return opening, offset
+            self.fail(f"unterminated audited function {name}")
+
+        allowed_spans = {
+            name: function_span(name) for name in allowed_functions
+        }
+
+        def allowed_owner(offset):
+            return next((
+                name for name, (start, end) in allowed_spans.items()
+                if start <= offset <= end
+            ), None)
+
+        streams = [
+            (match.start(), allowed_owner(match.start()))
+            for match in re.finditer(r"\bstd::ostringstream\b", source)
+        ]
+        self.assertGreater(len(streams), 0)
+        self.assertEqual(
+            [],
+            [(source.count("\n", 0, offset) + 1, function)
+             for offset, function in streams
+             if function not in allowed_functions],
+            "user-visible stream composition must use localization templates",
         )
 
 

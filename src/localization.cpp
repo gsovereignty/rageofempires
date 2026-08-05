@@ -57,6 +57,13 @@ std::map<std::string, std::string> english_strings() {
         {"hud.population_value", "POP {population}/{capacity}"},
         {"hud.population_paused", "POP {population}/{capacity} PAUSED"},
         {"hud.active_mode", "MODE: {mode}  |  ESC CANCEL"},
+        {"hud.mode_trade_route", "TRADE ROUTE"},
+        {"hud.mode_conversion", "CONVERT TARGET"},
+        {"hud.mode_guard", "GUARD TARGET"},
+        {"hud.mode_attack_ground", "ATTACK GROUND"},
+        {"hud.mode_patrol", "PATROL ENDPOINT"},
+        {"hud.mode_attack_move", "ATTACK MOVE"},
+        {"hud.mode_build", "BUILD PLACEMENT"},
         {"hud.match_complete", "MATCH COMPLETE: {outcome}"},
         {"ai.debug_summary",
          "AI DEBUG  {difficulty}  Phase {phase}  Age goal {age}  Objective {objective}"},
@@ -67,6 +74,20 @@ std::map<std::string, std::string> english_strings() {
         {"ai.debug_target", "  T {x},{y}"},
         {"ai.stance_retreat", "retreat"},
         {"ai.stance_advance", "advance"},
+        {"world.garrison_badge", "G{count}"},
+        {"world.volley_badge", "V{count}"},
+        {"world.garrison_volley_badge", "G{garrison} V{volley}"},
+        {"technology.command_cost", "{name} ({cost})"},
+        {"diplomacy.market_rates",
+         "MARKET BUY/SELL  F {food_buy}/{food_sell}  W {wood_buy}/{wood_sell}  S {stone_buy}/{stone_sell}"},
+        {"control_group.units_one", "Group {group}: {count} unit"},
+        {"control_group.units_other", "Group {group}: {count} units"},
+        {"control_group.building", "Group {group}: building #{building}"},
+        {"control_group.cleared", "Group {group}: cleared"},
+        {"control_group.centered", "Group {group} centered"},
+        {"control_group.recalled", "Group {group} recalled"},
+        {"selection.idle_villager", "Idle villager {index}/{count}"},
+        {"selection.idle_military", "Idle military {index}/{count}"},
         {"multiplayer.title", "BOUNDED LOCKSTEP SESSION"},
         {"objective.done", "DONE"},
         {"objective.failed", "FAILED"},
@@ -800,21 +821,16 @@ std::map<std::uint32_t, LegacyFontStyle> extract_legacy_font_styles(
 std::string StringTable::count_text(
     std::string_view singular_key,
     std::string_view plural_key,
-    std::int64_t count
+    std::int64_t count,
+    const std::map<std::string, std::string>& arguments
 ) const {
-    std::string result{
+    std::map<std::string, std::string> values = arguments;
+    values["count"] = std::to_string(count);
+    return format_localized(
         text(plural_category(locale_, count) == PluralCategory::one
-            ? singular_key : plural_key)
-    };
-    constexpr std::string_view marker{"{count}"};
-    std::size_t position{};
-    const std::string replacement = std::to_string(count);
-    while ((position = result.find(marker, position)) !=
-           std::string::npos) {
-        result.replace(position, marker.size(), replacement);
-        position += replacement.size();
-    }
-    return result;
+            ? singular_key : plural_key),
+        values
+    );
 }
 
 std::string StringTable::format(

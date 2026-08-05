@@ -101,6 +101,15 @@ repair destination. Save/load and replay need no presentation-only state:
 persisted kind, civilization, HP, maximum HP, owner, and wall neighbors derive
 the same deterministic replacement after restore or command playback.
 
+Tower upgrades use separate unit-79/234/235 attachment tables. Effective
+Watch/Guard/Keep identity selects distinct family roots and retains each DAT
+delta's original offset, layer, timing, and owner palette. Contract tests cover
+all civilizations, tiers, stages, and owner slots. `tower_damage_state_sdl_smoke`
+captures every named civilization and researched tier at pristine plus strict
+25/26, 50/51, and 75/76 boundaries. Save/load, replay, repair, and downgrade
+need no visual state because persisted building identity and HP deterministically
+select standing body plus damage record.
+
 ## Reproduction
 
 ```sh

@@ -1241,6 +1241,70 @@ void wall_damage_replacements_cover_every_civilization_stage_and_topology() {
     }
 }
 
+void tower_damage_overlays_cover_every_civilization_tier_stage_and_owner() {
+    for (int raw_civilization =
+             static_cast<int>(aoe::Civilization::generic);
+         raw_civilization <= static_cast<int>(aoe::Civilization::mayans);
+         ++raw_civilization) {
+        const auto civilization =
+            static_cast<aoe::Civilization>(raw_civilization);
+        for (const auto [kind, variant] : {
+                 std::pair{aoe::BuildingKind::watch_tower, 0},
+                 std::pair{aoe::BuildingKind::guard_tower, 1},
+                 std::pair{aoe::BuildingKind::keep, 2},
+             }) {
+            const auto records = aoe::canonical_building_damage_records(
+                kind, civilization
+            );
+            for (int owner = 0;
+                 owner <= aoe::EntityOwner::neutral_stable_id;
+                 ++owner) {
+                for (int stage = 0; stage <= 3; ++stage) {
+                    aoe::RenderStateKey state;
+                    state.category = aoe::RenderObjectCategory::building;
+                    state.object_kind = "watch_tower";
+                    state.building_state = stage == 0
+                        ? aoe::RenderBuildingState::completed
+                        : aoe::RenderBuildingState::damaged;
+                    state.owner = owner;
+                    state.civilization = civilization;
+                    state.architecture_family =
+                        aoe::render_building_architecture_family(
+                            kind, civilization
+                        );
+                    state.age = aoe::Age::imperial;
+                    state.upgrade_variant = variant;
+                    state.damage_stage = stage;
+                    const auto resolution = aoe::resolve_building_asset(
+                        state, aoe::BuildingKind::watch_tower
+                    );
+                    require(
+                        resolution.status ==
+                            aoe::AssetCoverageStatus::renderable,
+                        "tower tier damage state must remain renderable"
+                    );
+                    if (stage == 0) {
+                        require(
+                            resolution.request.overlay_graphic_ids.empty(),
+                            "pristine tower tier must have no damage overlay"
+                        );
+                    } else {
+                        require(
+                            resolution.request.overlay_graphic_ids ==
+                                std::vector<std::int16_t>{
+                                    records[static_cast<std::size_t>(
+                                        stage - 1
+                                    )].graphic_id
+                                },
+                            "effective tower tier must select exact damage root"
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -1259,6 +1323,7 @@ int main() {
         resource_resolver_covers_all_depletion_frames();
         building_resolver_selects_age_family_and_reviewed_farm();
         wall_damage_replacements_cover_every_civilization_stage_and_topology();
+        tower_damage_overlays_cover_every_civilization_tier_stage_and_owner();
     } catch (const std::exception& error) {
         std::cerr << "render_asset_coverage_tests: " << error.what() << '\n';
         return 1;

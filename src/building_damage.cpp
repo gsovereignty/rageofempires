@@ -75,10 +75,12 @@ std::array<BuildingDamageRecord, 3> canonical_building_damage_records(
         case BuildingKind::watch_tower: roots = family_roots({{
             {5198,5202,5206},{5195,5199,5203},{5196,5200,5204},
             {5197,5201,5205},{7110,7111,7112}}}); break;
-        case BuildingKind::guard_tower:
+        case BuildingKind::guard_tower: roots = family_roots({{
+            {5214,5218,5222},{5211,5215,5219},{5212,5216,5220},
+            {5213,5217,5221},{7117,7118,7119}}}); break;
         case BuildingKind::keep: roots = family_roots({{
-            {5198,5202,5206},{5195,5199,5203},{5196,5200,5204},
-            {5197,5201,5205},{7110,7111,7112}}}); break;
+            {5230,5234,5238},{5227,5231,5235},{5228,5232,5236},
+            {5229,5233,5237},{7125,7126,7127}}}); break;
         case BuildingKind::stone_wall:
             roots = family_roots({{
                 {3794,3798,3802},{3791,3795,3799},{3792,3796,3800},

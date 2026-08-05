@@ -1592,20 +1592,6 @@ bool siege_sound(UnitKind kind) {
     }
 }
 
-bool siege_engineers_unit(UnitKind kind) {
-    return kind == UnitKind::battering_ram ||
-        kind == UnitKind::capped_ram ||
-        kind == UnitKind::siege_ram ||
-        kind == UnitKind::mangonel ||
-        kind == UnitKind::onager ||
-        kind == UnitKind::siege_onager ||
-        kind == UnitKind::scorpion ||
-        kind == UnitKind::heavy_scorpion ||
-        kind == UnitKind::packed_trebuchet ||
-        kind == UnitKind::trebuchet ||
-        kind == UnitKind::bombard_cannon;
-}
-
 bool arrow_sound(UnitKind kind) {
     switch (kind) {
         case UnitKind::archer:
@@ -1752,21 +1738,6 @@ const CommercialObjectRecord* commercial_record(const Building& building) {
               building.commercial_identity->object_id
           )
         : nullptr;
-}
-
-std::string localized_commercial_name(
-    const std::optional<CommercialObjectIdentity>& identity,
-    std::string_view fallback
-) {
-    if (!identity || active_string_table == nullptr) {
-        return std::string{fallback};
-    }
-    return commercial_content_catalog().localized_object_name(
-        *active_string_table,
-        identity->civilization_id,
-        identity->object_id,
-        fallback
-    );
 }
 
 int commercial_task_sound(
@@ -10579,634 +10550,6 @@ void capture_requested_frame(
     SDL_DestroySurface(surface);
 }
 
-std::string_view formation_name(FormationKind kind);
-
-std::string selection_text(const Simulation& simulation) {
-    if (simulation.selected_units().size() > 1) {
-        std::ostringstream text;
-        text << "Selected: " << simulation.selected_units().size()
-             << " blue units  Formation "
-             << formation_name(
-                    simulation.formation_kind(active_view_player)
-                )
-             << "  Ctrl+F1..F5";
-        const int regrouping = static_cast<int>(
-            std::ranges::count_if(
-                simulation.units(),
-                [&simulation](const Unit& unit) {
-                    return unit.moving &&
-                        std::ranges::find(
-                            simulation.selected_units(),
-                            unit.id
-                        ) != simulation.selected_units().end();
-                }
-            )
-        );
-        if (regrouping > 0) {
-            text << "  Regrouping " << regrouping;
-        }
-        return text.str();
-    }
-    if (simulation.selected_unit()) {
-        for (const Unit& unit : simulation.units()) {
-            if (unit.id == simulation.selected_unit()) {
-                std::ostringstream text;
-                const UnitRules& rules = rules_for(unit.kind);
-                text << "Selected: blue " << localized_commercial_name(
-                    unit.commercial_identity, name(unit.kind)
-                )
-                     << "  HP " << unit.hit_points
-                     << '/' << simulation.maximum_hit_points(unit)
-                     << "  ATK " << unit.attack
-                     << "  ARM " << simulation.melee_armor(unit) << '/'
-                     << simulation.pierce_armor(unit)
-                     << "  Speed ";
-                if (unit.kind == UnitKind::scout_cavalry ||
-                    unit.kind == UnitKind::knight ||
-                    unit.kind == UnitKind::cavalier ||
-                    unit.kind == UnitKind::paladin ||
-                    unit.kind == UnitKind::light_cavalry ||
-                    unit.kind == UnitKind::hussar ||
-                    unit.kind == UnitKind::war_elephant ||
-                    unit.kind == UnitKind::elite_war_elephant) {
-                    double speed =
-                        (unit.kind == UnitKind::war_elephant ||
-                         unit.kind == UnitKind::elite_war_elephant)
-                        ? static_cast<double>(
-                              simulation.unique_unit_movement_numerator(unit)
-                          ) / 100.0
-                        : (unit.kind == UnitKind::light_cavalry ||
-                         unit.kind == UnitKind::hussar)
-                        ? 1.50
-                        : (unit.kind == UnitKind::knight ||
-                         unit.kind == UnitKind::cavalier ||
-                         unit.kind == UnitKind::paladin)
-                        ? 1.35
-                        : (simulation.age(unit.owner) >= Age::feudal
-                            ? 1.55
-                            : 1.20);
-                    if (simulation.has_technology(
-                            unit.owner, Technology::husbandry
-                        )) {
-                        speed *= 1.10;
-                    }
-                    text << std::fixed << std::setprecision(2) << speed;
-                } else if (
-                    unit.kind == UnitKind::battering_ram ||
-                    unit.kind == UnitKind::mangonel
-                ) {
-                    text << 'x' << std::fixed << std::setprecision(2)
-                         << static_cast<double>(
-                                simulation
-                                    .effective_siege_movement_numerator(unit)
-                            ) / 100.0;
-                } else if (unit.kind == UnitKind::missionary) {
-                    int speed = rules.movement_speed_percent;
-                    if (simulation.has_technology(
-                            unit.owner, Technology::fervor
-                        )) {
-                        speed = speed * 115 / 100;
-                    }
-                    text << 'x' << std::fixed << std::setprecision(2)
-                         << static_cast<double>(speed) / 100.0;
-                } else {
-                    text << (rules.movement_interval_ticks == 1
-                                ? "fast"
-                                : "normal");
-                }
-                const int regeneration =
-                    simulation.berserk_regeneration_per_three_ticks(unit);
-                if (regeneration > 0) {
-                    text << "  Regen +" << regeneration << "/3 ticks";
-                }
-                if (rules.attack_range > 1) {
-                    text << "  RNG "
-                         << simulation.effective_attack_range(unit);
-                    if (unit.kind == UnitKind::cannon_galleon ||
-                        unit.kind == UnitKind::elite_cannon_galleon) {
-                        text << "  MIN 3";
-                    }
-                }
-                if (siege_engineers_unit(unit.kind)) {
-                    int building_bonus = rules.bonus_vs_buildings;
-                    if (simulation.has_technology(
-                            unit.owner, Technology::siege_engineers
-                        )) {
-                        building_bonus = building_bonus * 120 / 100;
-                    }
-                    text << "  LOS "
-                         << simulation.effective_unit_vision_range(unit)
-                         << "  BLD +" << building_bonus;
-                } else if (unit.kind == UnitKind::petard) {
-                    const int building_bonus =
-                        rules.bonus_vs_buildings +
-                        (simulation.has_technology(
-                             unit.owner, Technology::siege_engineers
-                         ) ? 200 : 0);
-                    text << "  LOS "
-                         << simulation.effective_unit_vision_range(unit)
-                         << "  BLD +" << building_bonus;
-                }
-                if (unit.kind == UnitKind::missionary) {
-                    text << "  RECH " << unit.conversion_cooldown << '/'
-                         << (simulation.has_technology(
-                                 unit.owner, Technology::illumination
-                             ) ? 10 : 20)
-                         << "  Targets units";
-                    if (simulation.has_technology(
-                            unit.owner, Technology::redemption
-                        )) {
-                        text << "+buildings";
-                    }
-                    if (simulation.has_technology(
-                            unit.owner, Technology::atonement
-                        )) {
-                        text << "+monks";
-                    }
-                    if (unit.conversion_target_id != 0) {
-                        text << "  Converting #"
-                             << unit.conversion_target_id;
-                    } else if (unit.healing_target_id != 0) {
-                        text << "  Healing #" << unit.healing_target_id;
-                    }
-                }
-                if (unit.carried_amount > 0) {
-                    text << "  Carrying " << unit.carried_amount << ' '
-                         << name(unit.carried_resource);
-                }
-                if (unit.kind == UnitKind::villager) {
-                    double gather_multiplier = 1.0;
-                    if (unit.carried_resource == ResourceKind::wood) {
-                        gather_multiplier *= simulation.has_technology(
-                            unit.owner, Technology::double_bit_axe
-                        ) ? 1.20 : 1.0;
-                        gather_multiplier *= simulation.has_technology(
-                            unit.owner, Technology::bow_saw
-                        ) ? 1.20 : 1.0;
-                        gather_multiplier *= simulation.has_technology(
-                            unit.owner, Technology::two_man_saw
-                        ) ? 1.10 : 1.0;
-                    } else if (
-                        unit.carried_resource == ResourceKind::gold
-                    ) {
-                        gather_multiplier *= simulation.has_technology(
-                            unit.owner, Technology::gold_mining
-                        ) ? 1.15 : 1.0;
-                        gather_multiplier *= simulation.has_technology(
-                            unit.owner, Technology::gold_shaft_mining
-                        ) ? 1.15 : 1.0;
-                    } else if (
-                        unit.carried_resource == ResourceKind::stone
-                    ) {
-                        gather_multiplier *= simulation.has_technology(
-                            unit.owner, Technology::stone_mining
-                        ) ? 1.15 : 1.0;
-                        gather_multiplier *= simulation.has_technology(
-                            unit.owner, Technology::stone_shaft_mining
-                        ) ? 1.15 : 1.0;
-                    }
-                    text << "  Gather x" << std::fixed
-                         << std::setprecision(4) << gather_multiplier
-                         << "  Carry " << unit.carried_amount << '/'
-                         << ((simulation.has_technology(
-                                  unit.owner, Technology::hand_cart
-                              ) ? 18
-                              : simulation.has_technology(
-                                    unit.owner, Technology::wheelbarrow
-                                ) ? 12 : 10) +
-                             (unit.carried_resource == ResourceKind::food &&
-                              simulation.has_technology(
-                                  unit.owner, Technology::heavy_plow
-                              ) ? 1 : 0) +
-                             (simulation.civilization(unit.owner) ==
-                                  Civilization::aztecs ? 3 : 0));
-                    if (unit.has_resource_target) {
-                        text << "  Remaining "
-                             << simulation.map().resource_amount_at(
-                                    unit.resource_target
-                                );
-                    }
-                    if (simulation.has_technology(
-                            unit.owner, Technology::sappers
-                        )) {
-                        const Building* target{};
-                        if (unit.attack_target_is_building &&
-                            unit.attack_target_id != 0) {
-                            const auto found = std::ranges::find_if(
-                                simulation.buildings(),
-                                [&unit](const Building& building) {
-                                    return building.id ==
-                                        unit.attack_target_id;
-                                }
-                            );
-                            if (found != simulation.buildings().end()) {
-                                target = &*found;
-                            }
-                        }
-                        if (target == nullptr) {
-                            text << "  Sappers target-aware";
-                        } else if (
-                            target->kind == BuildingKind::fish_trap
-                        ) {
-                            text << "  Sappers +0 Fish Trap excluded";
-                        } else {
-                            text << "  Sappers class11 +15";
-                            if (target->kind ==
-                                    BuildingKind::watch_tower ||
-                                target->kind ==
-                                    BuildingKind::bombard_tower ||
-                                target->kind ==
-                                    BuildingKind::stone_wall) {
-                                text << " class13 +15";
-                            }
-                        }
-                    }
-                }
-                if (unit.attack_target_id != 0) {
-                    text << "  Target #" << unit.attack_target_id;
-                }
-                if (unit.repair_target_id != 0) {
-                    text << "  Repairing #" << unit.repair_target_id;
-                }
-                if (unit.attack_moving) {
-                    if (unit.patrolling) {
-                        text << "  Patrol " << unit.patrol_origin.x << ','
-                             << unit.patrol_origin.y << " <> "
-                             << unit.patrol_destination.x << ','
-                             << unit.patrol_destination.y;
-                    } else {
-                        text << "  Attack-move "
-                             << unit.attack_move_destination.x << ','
-                             << unit.attack_move_destination.y;
-                    }
-                }
-                if (unit.guard_target_id != 0) {
-                    text << "  Guard #"
-                         << unit.guard_target_id;
-                }
-                if (unit.attacking_ground) {
-                    text << "  Attack ground "
-                         << unit.attack_ground_target.x << ','
-                         << unit.attack_ground_target.y;
-                }
-                if (!unit.waypoints.empty()) {
-                    text << "  Waypoints " << unit.waypoints.size();
-                }
-                if (unit.kind == UnitKind::trade_cart ||
-                    unit.kind == UnitKind::trade_cog) {
-                    if (unit.trade_target_market_id != 0) {
-                        text << "  Trade #"
-                             << unit.trade_home_market_id
-                             << "<->#" << unit.trade_target_market_id
-                             << (unit.trade_returning
-                                 ? " returning"
-                                 : " outbound");
-                        const Building* home{};
-                        const Building* target{};
-                        for (const Building& building :
-                             simulation.buildings()) {
-                            if (building.id ==
-                                unit.trade_home_market_id) {
-                                home = &building;
-                            } else if (
-                                building.id ==
-                                unit.trade_target_market_id
-                            ) {
-                                target = &building;
-                            }
-                        }
-                        if (home != nullptr && target != nullptr) {
-                            const int distance =
-                                std::abs(
-                                    home->position.x -
-                                    target->position.x
-                                ) +
-                                std::abs(
-                                    home->position.y -
-                                    target->position.y
-                                );
-                            text << "  Distance " << distance
-                                 << "  Gold " << std::max(1, distance * 2);
-                        }
-                        if (unit.kind == UnitKind::trade_cog) {
-                            int speed = 132;
-                            if (simulation.has_technology(
-                                    unit.owner, Technology::dry_dock
-                                )) {
-                                speed = speed * 115 / 100;
-                            }
-                            if (simulation.has_technology(
-                                    unit.owner, Technology::caravan
-                                )) {
-                                speed = speed * 3 / 2;
-                            }
-                            text << "  Speed x" << std::fixed
-                                 << std::setprecision(2)
-                                 << static_cast<double>(speed) / 100.0;
-                        }
-                    } else {
-                        text << "  No trade route";
-                    }
-                }
-                if (unit.kind == UnitKind::fishing_ship &&
-                    simulation.has_technology(
-                        unit.owner, Technology::fish_trap_gate
-                    )) {
-                    text << "  P Fish Trap";
-                }
-                if (unit.kind == UnitKind::transport_ship) {
-                    int passengers{};
-                    for (const Unit& candidate : simulation.units()) {
-                        passengers +=
-                            candidate.garrisoned_in == unit.id ? 1 : 0;
-                    }
-                    text << "  Passengers " << passengers << "/5"
-                         << (passengers > 0
-                             ? "  Right-click shore to disembark"
-                             : "  Units right-click ship to embark");
-                }
-                if (unit.kind == UnitKind::packed_trebuchet) {
-                    text << "  \\ Unpack";
-                } else if (unit.kind == UnitKind::trebuchet) {
-                    text << "  \\ Pack";
-                }
-                text << "  Stance " << name(unit.stance);
-                if (simulation.selected_units().size() > 1) {
-                    text << "  Group "
-                         << simulation.selected_units().size()
-                         << "  Formation "
-                         << formation_name(
-                                simulation.formation_kind(unit.owner)
-                            )
-                         << "  Ctrl+F1..F5";
-                }
-                return text.str();
-            }
-        }
-    }
-    if (simulation.selected_building()) {
-        for (const Building& building : simulation.buildings()) {
-            if (building.id == simulation.selected_building()) {
-                std::ostringstream text;
-                const BuildingRules& rules = rules_for(building.kind);
-                const bool defense_class_3_or_52 =
-                    building.kind != BuildingKind::farm &&
-                    building.kind != BuildingKind::fish_trap &&
-                    building.kind != BuildingKind::palisade_wall &&
-                    building.kind != BuildingKind::stone_wall &&
-                    building.kind != BuildingKind::palisade_gate_x &&
-                    building.kind != BuildingKind::palisade_gate_y &&
-                    building.kind != BuildingKind::stone_gate_x &&
-                    building.kind != BuildingKind::stone_gate_y;
-                text << "Selected: blue " << localized_commercial_name(
-                    building.commercial_identity, name(building.kind)
-                )
-                     << "  HP " << building.hit_points
-                     << '/' << simulation.maximum_hit_points(building);
-                if (is_defensive_garrison_building(building.kind)) {
-                    text << "  Garrison "
-                         << simulation.garrison_count(building.id);
-                    if (building.kind == BuildingKind::town_center) {
-                        text << "/15";
-                    }
-                }
-                text << "  ARM " << simulation.melee_armor(building) << '/'
-                     << simulation.pierce_armor(building);
-                int effective_los = rules.vision_range;
-                if (defense_class_3_or_52) {
-                    effective_los += simulation.has_technology(
-                        building.owner, Technology::town_watch
-                    ) ? 4 : 0;
-                    effective_los += simulation.has_technology(
-                        building.owner, Technology::town_patrol
-                    ) ? 4 : 0;
-                }
-                text << "  LOS " << effective_los;
-                if (defense_class_3_or_52) {
-                    const int class_11_armor =
-                        (simulation.has_technology(
-                             building.owner, Technology::masonry
-                         ) ? 3 : 0) +
-                        (simulation.has_technology(
-                             building.owner, Technology::architecture
-                         ) ? 3 : 0);
-                    if (class_11_armor > 0) {
-                        text << "  Class11 ARM +"
-                             << class_11_armor;
-                    }
-                }
-                if (rules.attack > 0) {
-                    const bool fletching =
-                        (building.kind == BuildingKind::castle ||
-                         building.kind == BuildingKind::watch_tower ||
-                         building.kind == BuildingKind::guard_tower ||
-                         building.kind == BuildingKind::keep ||
-                         building.kind == BuildingKind::town_center) &&
-                        simulation.has_technology(
-                            building.owner,
-                            Technology::fletching
-                        );
-                    const bool bodkin =
-                        (building.kind == BuildingKind::castle ||
-                         building.kind == BuildingKind::watch_tower ||
-                         building.kind == BuildingKind::guard_tower ||
-                         building.kind == BuildingKind::keep ||
-                         building.kind == BuildingKind::town_center) &&
-                        simulation.has_technology(
-                            building.owner,
-                            Technology::bodkin_arrow
-                        );
-                    const bool bracer =
-                        (building.kind == BuildingKind::castle ||
-                         building.kind == BuildingKind::watch_tower ||
-                         building.kind == BuildingKind::guard_tower ||
-                         building.kind == BuildingKind::keep ||
-                         building.kind == BuildingKind::town_center) &&
-                        simulation.has_technology(
-                            building.owner,
-                            Technology::bracer
-                        );
-                    text << "  ATK " << rules.attack +
-                            (fletching ? 1 : 0) +
-                            (bodkin ? 1 : 0) +
-                            (bracer ? 1 : 0)
-                         << "  RNG "
-                         << simulation.effective_building_attack_range(
-                                building
-                            )
-                         << "  ACC " << rules.accuracy_percent << '%';
-                    if (simulation.has_technology(
-                            building.owner, Technology::ballistics
-                        ) &&
-                        (building.kind == BuildingKind::town_center ||
-                         building.kind == BuildingKind::castle ||
-                         building.kind == BuildingKind::watch_tower ||
-                         building.kind == BuildingKind::guard_tower ||
-                         building.kind == BuildingKind::keep ||
-                         building.kind ==
-                            BuildingKind::bombard_tower)) {
-                        text << "  Ballistics tracking";
-                    }
-                    if (simulation.has_technology(
-                            building.owner, Technology::heated_shot
-                        )) {
-                        if (building.kind == BuildingKind::castle) {
-                            text << "  Ship +4";
-                        } else if (
-                            building.kind == BuildingKind::watch_tower ||
-                            building.kind ==
-                                BuildingKind::bombard_tower
-                        ) {
-                            text << "  Ship x2.25";
-                        }
-                    }
-                    if (building.kind == BuildingKind::bombard_tower) {
-                        text << "  MIN " << rules.minimum_attack_range;
-                    }
-                }
-                if (!building.completed()) {
-                    const int progress =
-                        100 * (rules.construction_ticks -
-                               building.construction_ticks_remaining) /
-                        rules.construction_ticks;
-                    text << "  Building " << progress << '%'
-                         << "  Builders "
-                         << building.builder_ids.size();
-                } else if (building.age_research_ticks_remaining > 0) {
-                    const AgeRules& age_rules =
-                        rules_for(building.age_research_target);
-                    const int progress =
-                        100 * (age_rules.research_ticks -
-                               building.age_research_ticks_remaining) /
-                        age_rules.research_ticks;
-                    text << "  " << name(building.age_research_target)
-                         << ' ' << progress << '%';
-                } else if (
-                    building.technology_research_ticks_remaining > 0
-                ) {
-                    const TechnologyRules& technology_rules =
-                        rules_for(building.technology_research_target);
-                    const int progress =
-                        100 * (technology_rules.research_ticks -
-                               building.technology_research_ticks_remaining) /
-                        technology_rules.research_ticks;
-                    text << "  " << name(building.technology_research_target)
-                         << ' ' << progress << '%';
-                } else if (building.kind == BuildingKind::farm) {
-                    text << "  Food " << building.resource_amount << '/'
-                         << simulation.farm_capacity(building.owner);
-                } else if (
-                    building.kind == BuildingKind::fish_trap
-                ) {
-                    text << "  Food remaining "
-                         << building.resource_amount;
-                } else if (
-                    building.kind == BuildingKind::wonder
-                ) {
-                    const int countdown =
-                        simulation.victory_countdown(building.owner);
-                    const VictoryCountdownKind kind =
-                        simulation.countdown_kind(building.owner);
-                    text << "  Wonder victory ";
-                    if (kind == VictoryCountdownKind::wonder &&
-                        countdown > 0) {
-                        text << countdown << " ticks";
-                    } else {
-                        text << (building.completed()
-                            ? "countdown pending"
-                            : "starts on completion");
-                    }
-                } else if (
-                    is_defensive_garrison_building(building.kind)
-                ) {
-                    text << "  Queue "
-                         << building.production_queue.size();
-                } else if (
-                    building.kind == BuildingKind::monastery
-                ) {
-                    text << "  Relics " << building.relic_count
-                         << "  Gold income +" << building.relic_count
-                         << "  Queue "
-                         << building.production_queue.size();
-                    if (simulation.countdown_kind(building.owner) ==
-                        VictoryCountdownKind::relic) {
-                        text << "  Relic victory "
-                             << simulation.victory_countdown(
-                                    building.owner
-                                )
-                             << " ticks";
-                    }
-                } else if (
-                    building.kind == BuildingKind::market
-                ) {
-                    const int fee =
-                        simulation.civilization(building.owner) ==
-                            Civilization::saracens
-                        ? 5
-                        : simulation.has_technology(
-                              building.owner, Technology::guilds
-                          ) ? 15 : 30;
-                    const int tribute_fee =
-                        simulation.has_technology(
-                            building.owner, Technology::banking
-                        ) ? 0
-                        : simulation.has_technology(
-                              building.owner, Technology::coinage
-                          ) ? 20 : 30;
-                    text << "  Fee " << fee << "%"
-                         << "  Tribute fee " << tribute_fee << "%"
-                         << "  Prices B/S"
-                         << " F "
-                         << simulation.market_buy_price(
-                                MarketResource::food
-                            )
-                         << '/'
-                         << simulation.market_sell_price(
-                                MarketResource::food
-                            )
-                         << " W "
-                         << simulation.market_buy_price(
-                                MarketResource::wood
-                            )
-                         << '/'
-                         << simulation.market_sell_price(
-                                MarketResource::wood
-                            )
-                         << " S "
-                         << simulation.market_buy_price(
-                                MarketResource::stone
-                            )
-                         << '/'
-                         << simulation.market_sell_price(
-                                MarketResource::stone
-                            );
-                } else {
-                    text << "  Queue " << building.production_queue.size();
-                    if (!building.production_queue.empty()) {
-                        const ProductionOrder& order =
-                            building.production_queue.front();
-                        const int total =
-                            std::max(rules_for(order.kind).training_ticks, 1);
-                        const int progress = std::clamp(
-                            100 * (total - order.ticks_remaining) / total,
-                            0,
-                            100
-                        );
-                        text << "  " << name(order.kind)
-                             << ' ' << progress << '%';
-                    }
-                }
-                if (building.has_rally_point) {
-                    text << "  Rally " << building.rally_point.x << ','
-                         << building.rally_point.y;
-                }
-                return text.str();
-            }
-        }
-    }
-    return "Selected: none";
-}
-
 void render_minimap(
     SDL_Renderer* renderer,
     const Simulation& simulation,
@@ -11746,34 +11089,47 @@ void render_computer_status(
     set_color(renderer, {218, 174, 66, 255});
     SDL_RenderRect(renderer, &panel);
 
-    std::ostringstream first;
-    first << "AI DEBUG  " << computer_difficulty_name(computer.difficulty())
-          << "  Phase " << computer_phase_name(status.phase)
-          << "  Age goal " << name(status.age_goal)
-          << "  Objective " << computer_objective_name(status.objective);
-    render_ui_debug_text(renderer, 22.0F, 22.0F, first.str().c_str());
+    const std::string first = active_string_table->format(
+        "ai.debug_summary",
+        {{"difficulty", std::string{computer_difficulty_name(computer.difficulty())}},
+         {"phase", std::string{computer_phase_name(status.phase)}},
+         {"age", std::string{name(status.age_goal)}},
+         {"objective", std::string{computer_objective_name(status.objective)}}}
+    );
+    render_ui_debug_text(renderer, 22.0F, 22.0F, first.c_str());
 
-    std::ostringstream second;
-    second << "Workers W/F/G/S "
-           << status.resource_workers[0] << '/'
-           << status.resource_workers[1] << '/'
-           << status.resource_workers[2] << '/'
-           << status.resource_workers[3]
-           << "  Army M/R/C/S/N "
-           << status.melee_units << '/' << status.ranged_units << '/'
-           << status.cavalry_units << '/' << status.siege_units << '/'
-           << status.naval_units;
-    render_ui_debug_text(renderer, 22.0F, 42.0F, second.str().c_str());
+    const std::string second = active_string_table->format(
+        "ai.debug_forces",
+        {{"wood", std::to_string(status.resource_workers[0])},
+         {"food", std::to_string(status.resource_workers[1])},
+         {"gold", std::to_string(status.resource_workers[2])},
+         {"stone", std::to_string(status.resource_workers[3])},
+         {"melee", std::to_string(status.melee_units)},
+         {"ranged", std::to_string(status.ranged_units)},
+         {"cavalry", std::to_string(status.cavalry_units)},
+         {"siege", std::to_string(status.siege_units)},
+         {"naval", std::to_string(status.naval_units)}}
+    );
+    render_ui_debug_text(renderer, 22.0F, 42.0F, second.c_str());
 
-    std::ostringstream third;
-    third << "Desired " << name(status.desired_counter)
-          << "  Stance " << (status.retreating ? "retreat" : "advance")
-          << "  H " << status.home.x << ',' << status.home.y
-          << "  R " << status.rally.x << ',' << status.rally.y;
-    if (status.target) {
-        third << "  T " << status.target->x << ',' << status.target->y;
-    }
-    render_ui_debug_text(renderer, 22.0F, 62.0F, third.str().c_str());
+    const std::string target = status.target
+        ? active_string_table->format(
+              "ai.debug_target",
+              {{"x", std::to_string(status.target->x)},
+               {"y", std::to_string(status.target->y)}})
+        : std::string{};
+    const std::string third = active_string_table->format(
+        "ai.debug_position",
+        {{"counter", std::string{name(status.desired_counter)}},
+         {"stance", std::string{ui_text(
+             status.retreating ? "ai.stance_retreat" : "ai.stance_advance")}},
+         {"home_x", std::to_string(status.home.x)},
+         {"home_y", std::to_string(status.home.y)},
+         {"rally_x", std::to_string(status.rally.x)},
+         {"rally_y", std::to_string(status.rally.y)},
+         {"target", target}}
+    );
+    render_ui_debug_text(renderer, 22.0F, 62.0F, third.c_str());
 }
 
 bool render_original_hud_background(
@@ -11991,12 +11347,15 @@ void render_hud(
                 &icon
             );
             }
-            std::ostringstream amount;
-            if (!field.icon) amount << labels[index] << ' ';
-            amount << amounts[index];
+            const std::string amount = field.icon
+                ? std::to_string(amounts[index])
+                : active_string_table->format(
+                      "hud.resource_value",
+                      {{"resource", labels[index]},
+                       {"amount", std::to_string(amounts[index])}});
             const std::string amount_text =
                 hud_layout::truncate_debug_text(
-                    amount.str(), field.text.width
+                    amount, field.text.width
                 );
             render_hud_text(
                 renderer, static_cast<float>(field.text.x),
@@ -12006,14 +11365,17 @@ void render_hud(
         } else if (index == 4) {
             const bool show_paused =
                 paused && simulation.outcome() == MatchOutcome::ongoing;
-            const std::string population_text =
-                "POP " + std::to_string(
-                    stress_resource_values ? 999999 :
-                    simulation.population(active_view_player)
-                ) + "/" + std::to_string(
-                    stress_resource_values ? 999999 :
-                    simulation.population_capacity(active_view_player)
-                ) + (show_paused ? " PAUSED" : "");
+            const std::string population_text = active_string_table->format(
+                show_paused
+                    ? "hud.population_paused"
+                    : "hud.population_value",
+                {{"population", std::to_string(
+                      stress_resource_values ? 999999 :
+                      simulation.population(active_view_player))},
+                 {"capacity", std::to_string(
+                      stress_resource_values ? 999999 :
+                      simulation.population_capacity(active_view_player))}}
+            );
             render_hud_text(
                 renderer, static_cast<float>(field.text.x),
                 static_cast<float>(field.bounds.y + 1), field.text.width,
@@ -12204,27 +11566,43 @@ void render_hud(
                 original_background ? SDL_Color{54, 38, 23, 255}
                                     : SDL_Color{239, 226, 185, 255}
             );
-            std::ostringstream hit_points;
-            hit_points << "HP " << selection_panel.hit_points << '/'
-                       << selection_panel.maximum_hit_points;
+            const std::string hit_points = active_string_table->format(
+                "hud.hit_points",
+                {{"current", std::to_string(selection_panel.hit_points)},
+                 {"maximum", std::to_string(
+                     selection_panel.maximum_hit_points
+                 )}}
+            );
             render_hud_text(
                 renderer, text_x, top + 39.0F, text_width,
                 hud_layout::truncate_debug_text(
-                    hit_points.str(), text_width
+                    hit_points, text_width
                 ), original_background ? SDL_Color{54, 38, 23, 255}
                                        : SDL_Color{239, 226, 185, 255}
             );
-            std::ostringstream detail;
-            detail << "STATUS  " << selection_panel.status;
+            std::string detail = active_string_table->format(
+                "hud.status", {{"status", selection_panel.status}}
+            );
             if (selection_panel.garrison_count > 0) {
-                detail << "  GARRISON " << selection_panel.garrison_count;
+                detail += active_string_table->format(
+                    "hud.garrison",
+                    {{"count", std::to_string(
+                        selection_panel.garrison_count
+                    )}}
+                );
             }
             if (selection_panel.carried_amount > 0) {
-                detail << "  CARRY " << selection_panel.carried_amount << ' '
-                       << name(selection_panel.carried_resource);
+                detail += active_string_table->format(
+                    "hud.carry",
+                    {{"amount", std::to_string(
+                        selection_panel.carried_amount
+                    )}, {"resource", std::string{name(
+                        selection_panel.carried_resource
+                    )}}}
+                );
             }
             const std::string detail_text = hud_layout::truncate_debug_text(
-                detail.str(), text_width
+                detail, text_width
             );
             render_hud_text(
                 renderer, text_x, top + 60.0F, text_width, detail_text,
@@ -13165,8 +12543,9 @@ void render_hud(
         };
         render_beveled_panel(renderer, mode_badge, {116, 72, 25, 246});
         set_color(renderer, {255, 226, 100, 255});
-        const std::string mode_text =
-            std::string{"MODE: "} + active_mode + "  |  ESC CANCEL";
+        const std::string mode_text = active_string_table->format(
+            "hud.active_mode", {{"mode", active_mode}}
+        );
         render_ui_debug_text(
             renderer,
             mode_badge.x +
@@ -13188,14 +12567,15 @@ void render_hud(
         SDL_RenderFillRect(renderer, &terminal);
         set_color(renderer, {221, 188, 103, 255});
         SDL_RenderRect(renderer, &terminal);
-        std::ostringstream terminal_text;
-        terminal_text << "MATCH COMPLETE: "
-                      << name(simulation.outcome());
+        const std::string terminal_text = active_string_table->format(
+            "hud.match_complete",
+            {{"outcome", std::string{name(simulation.outcome())}}}
+        );
         render_ui_debug_text(
             renderer,
             terminal.x + 24.0F,
             terminal.y + 38.0F,
-            terminal_text.str().c_str()
+            terminal_text.c_str()
         );
     }
     if (false && (simulation.selected_unit() ||

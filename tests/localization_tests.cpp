@@ -108,6 +108,13 @@ int main() {
     check(english.locale() == "en", "English locale");
     check(english.text("hud.wood") == "WOOD", "English HUD string");
     check(
+        english.format(
+            "hud.population_paused",
+            {{"population", "12"}, {"capacity", "20"}}
+        ) == "POP 12/20 PAUSED",
+        "dynamic HUD population template"
+    );
+    check(
         english.text("technology_tree.title") ==
             "CIVILIZATION TECHNOLOGY TREE",
         "technology browser chrome is localized"

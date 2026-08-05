@@ -136,6 +136,8 @@ int main() {
     assert(truncate_debug_text("VILLAGER", 64) == "VILLAGER");
     assert(truncate_debug_text("VILLAGER", 56) == "VILL...");
     assert(truncate_debug_text("VILLAGER", 16).empty());
+    assert(truncate_debug_text("日本語表示中", 40) == "日本...");
+    assert(truncate_debug_text("日本語", 24) == "日本語");
     assert(population_status_text(3, 5, 1, 0, false, 160) ==
            "POP 3/5 IDLE 1/0");
     assert(population_status_text(3, 5, 1, 0, true, 112) ==

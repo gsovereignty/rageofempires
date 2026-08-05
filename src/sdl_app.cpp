@@ -7657,6 +7657,8 @@ void render_building(
     const auto owner_slot = building.owner.slot_index();
     const bool legacy_two_player_owner =
         owner_slot && *owner_slot < 2;
+    const bool wall_damage_screenshot_audit =
+        SDL_getenv("AOE_WALL_DAMAGE_AUDIT_PERCENT") != nullptr;
     const int maximum_hit_points = memory != nullptr
         ? memory->maximum_hit_points
         : simulation.maximum_hit_points(building);
@@ -7735,8 +7737,9 @@ void render_building(
                     true,
                     remembered_topology
                 )) {
-                if (building.hit_points < maximum_hit_points ||
-                    simulation.selected_building() == building.id) {
+                if (!wall_damage_screenshot_audit &&
+                    (building.hit_points < maximum_hit_points ||
+                     simulation.selected_building() == building.id)) {
                     render_health_bar(
                         renderer, top.x, top.y - 62.0F,
                         building.hit_points, maximum_hit_points
@@ -8090,8 +8093,9 @@ void render_building(
                 *sprite,
                 {top.x, top.y + half_tile_height}
             )) {
-            if (building.hit_points < maximum_hit_points ||
-                simulation.selected_building() == building.id) {
+            if (!wall_damage_screenshot_audit &&
+                (building.hit_points < maximum_hit_points ||
+                 simulation.selected_building() == building.id)) {
                 render_health_bar(
                     renderer, top.x, top.y - 62.0F,
                     building.hit_points, maximum_hit_points

@@ -408,6 +408,111 @@ int computer_target_acquisition_radius(
         : effective_line_of_sight * 2;
 }
 
+ClassicAiDifficultyProfile classic_ai_difficulty_profile(
+    ComputerDifficulty difficulty
+) {
+    switch (difficulty) {
+        case ComputerDifficulty::easiest:
+            return {10, 100, 100, 0};
+        case ComputerDifficulty::easy:
+            return {25, 75, 75, 50};
+        case ComputerDifficulty::moderate:
+            return {75, 50, 50, 25};
+        case ComputerDifficulty::hard:
+            return {99, 25, 25, 10};
+        case ComputerDifficulty::hardest:
+            return {99, 0, 0, 10};
+    }
+    throw std::invalid_argument("invalid computer difficulty");
+}
+
+ClassicAiGatherPlan classic_ai_gather_plan(
+    Age age,
+    int civilian_population,
+    int mining_camp_count,
+    bool reserving_for_age,
+    bool needs_first_castle,
+    ComputerDifficulty difficulty
+) {
+    if (civilian_population < 0 || mining_camp_count < 0 ||
+        difficulty < ComputerDifficulty::easiest ||
+        difficulty > ComputerDifficulty::hardest) {
+        throw std::invalid_argument("invalid classic AI gather input");
+    }
+    if (age == Age::dark) {
+        return civilian_population < 9
+            ? ClassicAiGatherPlan{{0, 100, 0, 0}}
+            : ClassicAiGatherPlan{{30, 70, 0, 0}};
+    }
+    if (age == Age::feudal) {
+        if (mining_camp_count == 0) return {{30, 70, 0, 0}};
+        if (mining_camp_count == 1) {
+            return reserving_for_age
+                ? ClassicAiGatherPlan{{25, 55, 20, 0}}
+                : ClassicAiGatherPlan{{45, 40, 15, 0}};
+        }
+        return {{35, 40, 15, 10}};
+    }
+    if (age == Age::castle) {
+        if (mining_camp_count == 0) return {{30, 70, 0, 0}};
+        if (mining_camp_count == 1) return {{25, 55, 20, 0}};
+        if (difficulty <= ComputerDifficulty::moderate &&
+            needs_first_castle) {
+            return {{35, 35, 15, 15}};
+        }
+        return {{30, 35, 25, 10}};
+    }
+    // Imperial Petersen rules retask toward the active unit/upgrade goal.
+    // This represented controller has no complete goal lattice, so preserve
+    // its stable late-game base mix instead of inventing a resource goal.
+    return {{30, 35, 25, 10}};
+}
+
+int classic_ai_villager_target(
+    Age age,
+    int population_cap,
+    ComputerDifficulty difficulty
+) {
+    if (population_cap <= 0 ||
+        difficulty < ComputerDifficulty::easiest ||
+        difficulty > ComputerDifficulty::hardest) {
+        throw std::invalid_argument("invalid classic AI population input");
+    }
+    constexpr std::array caps{25, 50, 75, 100, 125, 150, 175, 200};
+    constexpr std::array dark{11, 20, 25, 25, 25, 25, 25, 25};
+    constexpr std::array feudal{13, 30, 35, 40, 40, 40, 40, 40};
+    constexpr std::array castle{15, 35, 40, 50, 55, 60, 65, 70};
+    std::size_t profile = 0;
+    while (profile + 1 < caps.size() && population_cap > caps[profile]) {
+        ++profile;
+    }
+    // Petersen moderate rules use reduced civ-*-mod constants.
+    if (difficulty == ComputerDifficulty::moderate) {
+        if (age == Age::dark) return population_cap <= 25 ? 10 : 15;
+        if (age == Age::feudal) return population_cap <= 25 ? 12 : 20;
+    }
+    if (age == Age::dark) return dark[profile];
+    if (age == Age::feudal) return feudal[profile];
+    return castle[profile];
+}
+
+ClassicAiAttackProfile classic_ai_attack_profile(
+    ComputerDifficulty difficulty
+) {
+    switch (difficulty) {
+        case ComputerDifficulty::easiest:
+            return {1800, 900, Age::castle};
+        case ComputerDifficulty::easy:
+            return {1200, 120, Age::castle};
+        case ComputerDifficulty::moderate:
+            return {1, 120, Age::castle};
+        case ComputerDifficulty::hard:
+        case ComputerDifficulty::hardest:
+            return {1, 300, Age::feudal};
+    }
+    throw std::invalid_argument("invalid computer difficulty");
+}
+
 ComputerPlayer::ComputerPlayer(
     Player player,
     ComputerDifficulty difficulty
@@ -445,16 +550,20 @@ void save_computer_player(
         throw std::runtime_error("could not write computer player state");
     }
     const ComputerPlayerState& state = computer.state();
-    output << "AOE-COMPUTER-PLAYER 3\n"
+    output << "AOE-COMPUTER-PLAYER 4\n"
            << static_cast<int>(state.player) << ' '
            << static_cast<int>(state.difficulty) << ' '
            << state.last_command_tick << ' '
            << state.last_attack_tick << ' '
            << state.strategy_epoch << ' '
+           << state.next_attack_tick << ' '
+           << state.next_resource_bonus_tick << ' '
            << state.last_target_id << ' '
            << state.home_anchor.x << ' ' << state.home_anchor.y << ' '
            << state.rally_point.x << ' ' << state.rally_point.y << ' '
-           << state.retreating << '\n';
+           << state.retreating << ' '
+           << state.attack_timer_armed << ' '
+           << state.resource_bonus_timer_armed << '\n';
 }
 
 ComputerPlayer load_computer_player(const std::filesystem::path& path) {
@@ -467,13 +576,20 @@ ComputerPlayer load_computer_player(const std::filesystem::path& path) {
     input >> magic >> version >> player >> difficulty >>
         state.last_command_tick >> state.last_attack_tick >>
         state.strategy_epoch;
+    if (version >= 4) {
+        input >> state.next_attack_tick >> state.next_resource_bonus_tick;
+    }
     if (version >= 2) {
         input >> state.last_target_id;
     }
     input >> state.home_anchor.x >> state.home_anchor.y >>
         state.rally_point.x >> state.rally_point.y >> state.retreating;
+    if (version >= 4) {
+        input >> state.attack_timer_armed >>
+            state.resource_bonus_timer_armed;
+    }
     if (!input || magic != "AOE-COMPUTER-PLAYER" ||
-        (version != 1 && version != 2 && version != 3) ||
+        (version != 1 && version != 2 && version != 3 && version != 4) ||
         player < static_cast<int>(Player::blue) ||
         player > static_cast<int>(Player::red) ||
         difficulty < 0 ||
@@ -677,6 +793,33 @@ void ComputerPlayer::update(Simulation& simulation) {
             sheltered_villagers.end();
     });
     const Age current_age = simulation.age(player_);
+    if (state_.difficulty == ComputerDifficulty::hardest &&
+        current_age == Age::imperial) {
+        if (!state_.resource_bonus_timer_armed) {
+            state_.resource_bonus_timer_armed = true;
+            state_.next_resource_bonus_tick =
+                simulation.tick_number() + 1800;
+        } else if (simulation.tick_number() >=
+                   state_.next_resource_bonus_tick) {
+            const auto slot = player_slot_from_legacy(player_);
+            if (slot) {
+                Simulation::PlayerState player_state =
+                    simulation.player_state(*slot);
+                player_state.economy.wood += 500;
+                player_state.economy.food += 500;
+                player_state.economy.gold += 500;
+                player_state.economy.stone += 500;
+                simulation.replace_player_state(
+                    *slot, std::move(player_state)
+                );
+            }
+            state_.next_resource_bonus_tick =
+                simulation.tick_number() + 1200;
+        }
+    } else {
+        state_.resource_bonus_timer_armed = false;
+        state_.next_resource_bonus_tick = 0;
+    }
     status_.age_goal =
         current_age == Age::dark ? Age::feudal :
         current_age == Age::feudal ? Age::castle : Age::imperial;
@@ -722,11 +865,9 @@ void ComputerPlayer::update(Simulation& simulation) {
         break;
     }
     status_.desired_counter = planned_counter;
-    const int villager_target =
-        state_.difficulty == ComputerDifficulty::easiest ? 5 :
-        state_.difficulty == ComputerDifficulty::easy ? 5 :
-        state_.difficulty == ComputerDifficulty::moderate ? 6 :
-        state_.difficulty == ComputerDifficulty::hard ? 9 : 12;
+    const int villager_target = classic_ai_villager_target(
+        current_age, 200, state_.difficulty
+    );
     bool ready_for_next_age = false;
     if (current_age == Age::dark) {
         int prerequisites = 0;
@@ -1264,6 +1405,7 @@ void ComputerPlayer::update(Simulation& simulation) {
                 Technology::banking, Technology::caravan,
                 Technology::guilds,
             };
+            bool started_trade_technology = false;
             for (Technology technology : trade_technologies) {
                 if (civilization_has_technology(
                         simulation.civilization(player_), technology
@@ -1272,39 +1414,110 @@ void ComputerPlayer::update(Simulation& simulation) {
                     simulation.research_technology_at(
                         building->id, technology
                     )) {
+                    started_trade_technology = true;
                     break;
                 }
             }
-        } else if (building->kind == BuildingKind::dock) {
-            const std::uint64_t naval_cycle =
-                state_.strategy_epoch % 6;
-            if (current_age >= Age::feudal && naval_cycle == 0 &&
-                civilization_has_unit(
-                    simulation.civilization(player_),
-                    UnitKind::transport_ship
-                )) {
+            if (started_trade_technology) continue;
+            const bool allied_market = std::ranges::any_of(
+                simulation.buildings(), [&](const Building& candidate) {
+                    return candidate.owner != player_ &&
+                        !simulation.is_enemy(candidate.owner, player_) &&
+                        candidate.kind == BuildingKind::market &&
+                        candidate.completed();
+                }
+            );
+            const bool owns_trade_cart = std::ranges::any_of(
+                simulation.units(), [&](const Unit& unit) {
+                    return unit.owner == player_ &&
+                        unit.kind == UnitKind::trade_cart;
+                }
+            );
+            const Economy& trade_economy = simulation.economy(player_);
+            if (allied_market && !owns_trade_cart &&
+                trade_economy.wood > 300 && trade_economy.gold > 300) {
                 simulation.queue_unit_at(
-                    building->id, UnitKind::transport_ship
-                );
-            } else if (current_age >= Age::feudal &&
-                       naval_cycle <= 2 &&
-                       civilization_has_unit(
-                           simulation.civilization(player_),
-                           UnitKind::galley
-                       )) {
-                simulation.queue_unit_at(
-                    building->id, UnitKind::galley
-                );
-            } else if (current_age >= Age::feudal &&
-                naval_cycle == 3) {
-                simulation.queue_unit_at(
-                    building->id, UnitKind::trade_cog
-                );
-            } else {
-                simulation.queue_unit_at(
-                    building->id, UnitKind::fishing_ship
+                    building->id, UnitKind::trade_cart
                 );
             }
+        } else if (building->kind == BuildingKind::dock) {
+            const auto unit_count = [&](UnitKind kind) {
+                return static_cast<int>(std::ranges::count_if(
+                    simulation.units(), [&, kind](const Unit& unit) {
+                        return unit.owner == player_ && unit.kind == kind;
+                    }
+                ));
+            };
+            const int transports = unit_count(UnitKind::transport_ship);
+            const int fishing_ships = unit_count(UnitKind::fishing_ship);
+            const int galleys = unit_count(UnitKind::galley) +
+                unit_count(UnitKind::war_galley) +
+                unit_count(UnitKind::galleon);
+            const int warboats = static_cast<int>(std::ranges::count_if(
+                simulation.units(), [&](const Unit& unit) {
+                    return unit.owner == player_ && is_ship(unit.kind) &&
+                        unit.kind != UnitKind::fishing_ship &&
+                        unit.kind != UnitKind::transport_ship &&
+                        unit.kind != UnitKind::trade_cog;
+                }
+            ));
+            const int military_population = static_cast<int>(
+                std::ranges::count_if(
+                    simulation.units(), [&](const Unit& unit) {
+                        return unit.owner == player_ &&
+                            unit.kind != UnitKind::villager &&
+                            unit.kind != UnitKind::monk &&
+                            unit.kind != UnitKind::missionary &&
+                            !is_ship(unit.kind) &&
+                            !is_animal(unit.kind) && !is_relic(unit.kind);
+                    }
+                )
+            );
+            const bool allied_dock = std::ranges::any_of(
+                simulation.buildings(), [&](const Building& candidate) {
+                    return candidate.owner != player_ &&
+                        !simulation.is_enemy(candidate.owner, player_) &&
+                        candidate.kind == BuildingKind::dock &&
+                        candidate.completed();
+                }
+            );
+            UnitKind desired_ship = UnitKind::fishing_ship;
+            if (military_population > 10 && transports < 2) {
+                desired_ship = UnitKind::transport_ship;
+            } else if (current_age >= Age::feudal && warboats < 10 &&
+                       galleys == 0) {
+                const Civilization civilization =
+                    simulation.civilization(player_);
+                desired_ship = civilization == Civilization::vikings
+                    ? UnitKind::longboat
+                    : civilization == Civilization::koreans
+                        ? UnitKind::turtle_ship
+                        : UnitKind::galley;
+            } else if (current_age >= Age::feudal && galleys > 0 &&
+                       fishing_ships < 20) {
+                desired_ship = UnitKind::fishing_ship;
+            } else if (current_age >= Age::castle &&
+                       unit_count(UnitKind::demolition_ship) == 0) {
+                desired_ship = UnitKind::demolition_ship;
+            } else if (current_age >= Age::castle &&
+                       civilization_has_unit(
+                           simulation.civilization(player_),
+                           UnitKind::fire_ship
+                       )) {
+                desired_ship = UnitKind::fire_ship;
+            } else if (allied_dock &&
+                       unit_count(UnitKind::trade_cog) == 0) {
+                desired_ship = UnitKind::trade_cog;
+            } else {
+                desired_ship = UnitKind::galley;
+            }
+            if (!civilization_has_unit(
+                    simulation.civilization(player_), desired_ship
+                )) {
+                desired_ship = current_age >= Age::feudal
+                    ? UnitKind::galley : UnitKind::fishing_ship;
+            }
+            simulation.queue_unit_at(building->id, desired_ship);
         } else if (building->kind == BuildingKind::castle) {
             constexpr std::array castle_defense_technologies{
                 Technology::hoardings, Technology::sappers,
@@ -1719,13 +1932,19 @@ void ComputerPlayer::update(Simulation& simulation) {
             if (spare_population <= 2 && !house_under_construction) {
                 desired = BuildingKind::house;
             } else if (current_age == Age::dark) {
-                if (!has_building(BuildingKind::barracks, false)) {
-                    desired = BuildingKind::barracks;
-                } else if (!has_building(
-                               BuildingKind::mill,
-                               false
-                           )) {
+                if (!has_building(BuildingKind::mill, false)) {
                     desired = BuildingKind::mill;
+                } else if (!has_building(
+                               BuildingKind::lumber_camp, false
+                           )) {
+                    desired = BuildingKind::lumber_camp;
+                } else if (!has_building(BuildingKind::barracks, false)) {
+                    desired = BuildingKind::barracks;
+                } else if (villager_count >= 10 &&
+                           !has_building(
+                               BuildingKind::mining_camp, false
+                           )) {
+                    desired = BuildingKind::mining_camp;
                 }
             } else if (current_age == Age::feudal) {
                 const bool explored_water = std::ranges::any_of(
@@ -1759,30 +1978,42 @@ void ComputerPlayer::update(Simulation& simulation) {
                 if (explored_water &&
                     !has_building(BuildingKind::dock, false)) {
                     desired = BuildingKind::dock;
-                } else if (!has_building(BuildingKind::outpost, false)) {
-                    desired = BuildingKind::outpost;
-                } else if (!has_building(
-                        BuildingKind::archery_range,
-                        false
-                    )) {
-                    desired = BuildingKind::archery_range;
-                } else if (!has_building(
-                               BuildingKind::blacksmith,
-                               false
-                           )) {
+                } else if (!has_building(BuildingKind::market, false)) {
+                    desired = BuildingKind::market;
+                } else if (!has_building(BuildingKind::blacksmith, false)) {
                     desired = BuildingKind::blacksmith;
+                } else if (planned_counter == UnitKind::skirmisher ||
+                           planned_counter == UnitKind::archer) {
+                    if (!has_building(
+                            BuildingKind::archery_range, false
+                        )) {
+                        desired = BuildingKind::archery_range;
+                    }
+                } else if (!has_building(BuildingKind::stable, false)) {
+                    desired = BuildingKind::stable;
                 }
             } else if (current_age == Age::castle) {
-                if (!has_building(
-                        BuildingKind::university,
-                        false
-                    )) {
-                    desired = BuildingKind::university;
+                const int town_centers = static_cast<int>(
+                    std::ranges::count_if(
+                        owned_buildings, [](const Building* building) {
+                            return building->kind ==
+                                BuildingKind::town_center;
+                        }
+                    )
+                );
+                if (state_.difficulty <= ComputerDifficulty::moderate &&
+                    town_centers < 2) {
+                    desired = BuildingKind::town_center;
                 } else if (!has_building(
                                BuildingKind::siege_workshop,
                                false
                            )) {
                     desired = BuildingKind::siege_workshop;
+                } else if (!has_building(
+                           BuildingKind::university,
+                           false
+                       )) {
+                    desired = BuildingKind::university;
                 } else if (!has_building(
                                BuildingKind::monastery, false
                            )) {
@@ -1822,22 +2053,23 @@ void ComputerPlayer::update(Simulation& simulation) {
         }
     }
 
-    const Economy& economy = simulation.economy(player_);
-    std::array<std::pair<int, ResourceKind>, 4> priorities{{
-        {economy.food, ResourceKind::food},
-        {economy.wood, ResourceKind::wood},
-        {economy.gold, ResourceKind::gold},
-        {economy.stone, ResourceKind::stone},
-    }};
-    std::ranges::sort(
-        priorities,
-        [](const auto& left, const auto& right) {
-            if (left.first != right.first) {
-                return left.first < right.first;
-            }
-            return static_cast<int>(left.second) <
-                static_cast<int>(right.second);
+    const int mining_camp_count = static_cast<int>(std::ranges::count_if(
+        owned_buildings, [](const Building* building) {
+            return building->kind == BuildingKind::mining_camp &&
+                building->completed();
         }
+    ));
+    const bool needs_first_castle =
+        !has_building(BuildingKind::castle, true) &&
+        static_cast<int>(std::ranges::count_if(
+            owned_buildings, [](const Building* building) {
+                return building->kind == BuildingKind::town_center &&
+                    building->completed();
+            }
+        )) < 2;
+    const ClassicAiGatherPlan gather_plan = classic_ai_gather_plan(
+        current_age, villager_count, mining_camp_count, reserving_for_age,
+        needs_first_castle, state_.difficulty
     );
     for (const Unit& worker : simulation.units()) {
         if (worker.owner != player_ ||
@@ -1870,12 +2102,30 @@ void ComputerPlayer::update(Simulation& simulation) {
         if (villager == simulation.units().end()) {
             continue;
         }
-        for (std::size_t offset = 0; offset < priorities.size(); ++offset) {
-            const ResourceKind resource =
-                priorities[(index + offset) % priorities.size()].second;
+        std::array<ResourceKind, 4> priorities{
+            ResourceKind::wood, ResourceKind::food,
+            ResourceKind::gold, ResourceKind::stone,
+        };
+        std::ranges::stable_sort(
+            priorities, [&](ResourceKind left, ResourceKind right) {
+                const auto left_index = static_cast<std::size_t>(left) - 1;
+                const auto right_index = static_cast<std::size_t>(right) - 1;
+                const int left_deficit =
+                    gather_plan.percentages[left_index] * villager_count -
+                    status_.resource_workers[left_index] * 100;
+                const int right_deficit =
+                    gather_plan.percentages[right_index] * villager_count -
+                    status_.resource_workers[right_index] * 100;
+                return left_deficit > right_deficit;
+            }
+        );
+        for (const ResourceKind resource : priorities) {
             if (const auto target =
                     nearest_resource(*villager, resource, simulation);
                 target && simulation.command_unit(villager->id, *target)) {
+                ++status_.resource_workers[
+                    static_cast<std::size_t>(resource) - 1
+                ];
                 break;
             }
         }
@@ -1884,8 +2134,6 @@ void ComputerPlayer::update(Simulation& simulation) {
     std::vector<EntityId> land_army;
     std::vector<EntityId> naval_army;
     std::vector<EntityId> transports;
-    int army_hit_points{};
-    int army_maximum_hit_points{};
     for (const Unit& unit : simulation.units()) {
         if (unit.owner != player_ || unit.garrisoned_in != 0 ||
             unit.kind == UnitKind::villager ||
@@ -2027,9 +2275,6 @@ void ComputerPlayer::update(Simulation& simulation) {
             ++status_.naval_units;
         } else {
             land_army.push_back(unit.id);
-            army_hit_points += unit.hit_points;
-            army_maximum_hit_points +=
-                simulation.maximum_hit_points(unit);
             if (unit.kind == UnitKind::battering_ram ||
                 unit.kind == UnitKind::capped_ram ||
                 unit.kind == UnitKind::siege_ram ||
@@ -2167,15 +2412,29 @@ void ComputerPlayer::update(Simulation& simulation) {
         }
     }
 
-    const int attack_threshold =
-        state_.difficulty == ComputerDifficulty::easiest ? 7 :
-        state_.difficulty == ComputerDifficulty::easy ? 7 :
-        state_.difficulty == ComputerDifficulty::moderate ? 5 :
-        state_.difficulty == ComputerDifficulty::hard ? 4 : 3;
-    const bool badly_damaged =
-        army_maximum_hit_points > 0 &&
-        army_hit_points * 100 < army_maximum_hit_points * 38;
-    if (badly_damaged && state_.home_anchor.x >= 0 &&
+    int enemy_land_military = 0;
+    for (const Unit& unit : simulation.units()) {
+        if (!simulation.is_enemy(unit.owner, player_) ||
+            is_ship(unit.kind) || is_animal(unit.kind) ||
+            is_relic(unit.kind) || unit.kind == UnitKind::villager ||
+            unit.kind == UnitKind::monk ||
+            unit.kind == UnitKind::missionary ||
+            unit.kind == UnitKind::trade_cart ||
+            unit.kind == UnitKind::fishing_ship ||
+            unit.kind == UnitKind::transport_ship) {
+            continue;
+        }
+        ++enemy_land_military;
+    }
+    const int own_land_military = static_cast<int>(land_army.size());
+    const bool outnumbered =
+        (enemy_land_military > 50 && own_land_military < 45) ||
+        (enemy_land_military > 40 && own_land_military < 35) ||
+        (enemy_land_military > 30 && own_land_military < 25) ||
+        (enemy_land_military > 20 && own_land_military < 15) ||
+        (enemy_land_military > 10 && own_land_military < 5) ||
+        (enemy_land_military > 0 && own_land_military == 0);
+    if (outnumbered && state_.home_anchor.x >= 0 &&
         !land_army.empty()) {
         if (state_.rally_point.x >= 0 &&
             simulation.command_formation(
@@ -2185,20 +2444,70 @@ void ComputerPlayer::update(Simulation& simulation) {
             status_.objective = ComputerObjective::regroup;
             status_.target = state_.rally_point;
         }
-    } else if (state_.retreating &&
-               army_hit_points * 100 >= army_maximum_hit_points * 70) {
+    } else if (state_.retreating && !outnumbered) {
         state_.retreating = false;
+    }
+
+    const ClassicAiAttackProfile attack_profile =
+        classic_ai_attack_profile(state_.difficulty);
+    if (!state_.attack_timer_armed && current_age >=
+            attack_profile.minimum_age) {
+        state_.attack_timer_armed = true;
+        state_.next_attack_tick = simulation.tick_number() +
+            attack_profile.initial_delay;
+    }
+    bool attack_timer_ready = state_.attack_timer_armed &&
+        simulation.tick_number() >= state_.next_attack_tick;
+    if (attack_timer_ready) {
+        state_.next_attack_tick = simulation.tick_number() +
+            attack_profile.repeat_interval;
+    }
+
+    int attack_threshold = enemy_land_military <= 10 ? 10 :
+        enemy_land_military <= 20 ? 20 : 30;
+    if (state_.difficulty == ComputerDifficulty::easiest) {
+        attack_threshold = 1;
+    }
+    if (victory_target_objective) {
+        attack_threshold = std::max(
+            1, simulation.population_capacity(player_) * 15 / 100
+        );
     }
 
     if (!state_.retreating && land_target && !land_army.empty()) {
         const bool defending = state_.home_anchor.x >= 0 &&
             distance(state_.home_anchor, *land_target) <= 14;
-        if (static_cast<int>(land_army.size()) >= attack_threshold) {
-            simulation.command_formation_order(
-                land_army, *land_target,
-                defending ? FormationKind::box : FormationKind::flank,
-                FormationOrderKind::attack_move
-            );
+        if (defending || state_.home_anchor.x < 0 || (attack_timer_ready &&
+            static_cast<int>(land_army.size()) >= attack_threshold)) {
+            std::vector<EntityId> order_army;
+            for (const EntityId id : land_army) {
+                const auto unit = std::ranges::find_if(
+                    simulation.units(), [id](const Unit& candidate) {
+                        return candidate.id == id;
+                    }
+                );
+                if (unit == simulation.units().end() ||
+                    unit->attack_target_id == 0) {
+                    order_army.push_back(id);
+                }
+            }
+            bool formed = order_army.empty();
+            if (defending || state_.home_anchor.x < 0) {
+                for (const EntityId id : order_army) {
+                    formed = simulation.command_unit(id, *land_target) ||
+                        formed;
+                }
+            } else {
+                formed = simulation.command_formation_order(
+                    order_army, *land_target, FormationKind::flank,
+                    FormationOrderKind::attack_move
+                );
+            }
+            if (!formed) {
+                for (const EntityId id : order_army) {
+                    simulation.command_unit(id, *land_target);
+                }
+            }
             state_.last_attack_tick = simulation.tick_number();
             status_.objective = defending
                 ? ComputerObjective::defend
@@ -2206,7 +2515,7 @@ void ComputerPlayer::update(Simulation& simulation) {
                       ComputerObjective::attack
                   );
             status_.target = *land_target;
-        } else if (defending || state_.home_anchor.x < 0) {
+        } else if (state_.home_anchor.x < 0 && attack_timer_ready) {
             for (EntityId id : land_army) {
                 const auto unit = std::ranges::find_if(
                     simulation.units(), [id](const Unit& candidate) {

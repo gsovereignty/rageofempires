@@ -290,6 +290,7 @@ def emit_cpp(catalog: dict[str, Any], output: Path) -> None:
         combat = unit.get("combat") or {}
         creation = unit.get("creation") or {}
         action = unit.get("action") or {}
+        building = unit.get("building") or {}
         attacks = cpp_vector("CommercialClassAmount", [
             "{%s,%s}" % (value["class"], value["amount"])
             for value in combat.get("weapons", [])
@@ -326,6 +327,11 @@ def emit_cpp(catalog: dict[str, Any], output: Path) -> None:
                 cpp_optional(task["secondary_work_sound"]),
             ) for task in action.get("tasks", [])
         ])
+        stored_resources = cpp_vector("CommercialStoredResource", [
+            "{%s,%s,%s}" % (
+                value["type"], cpp_float(value["amount"]), value["flag"]
+            ) for value in unit.get("attributes", [])
+        ])
         graphics = [cpp_optional(unit.get(name)) for name in (
             "standing_graphic", "standing_graphic_2", "walking_graphic",
             "running_graphic", "dying_graphic", "attack_graphic",
@@ -340,7 +346,9 @@ def emit_cpp(catalog: dict[str, Any], output: Path) -> None:
             "true" if unit["enabled"] else "false",
             "true" if unit["disabled"] else "false",
             str(unit["hit_points"]), cpp_float(unit["line_of_sight"]),
-            cpp_float(unit["speed"]), str(unit["garrison_capacity"]),
+            cpp_float(unit["speed"]), cpp_float(action.get("work_rate", 0)),
+            cpp_float(building.get("garrison_heal_rate", 0)),
+            str(unit["garrison_capacity"]),
             str(unit["terrain_restriction_id"]), str(unit["resource_group"]),
             "true" if unit["track_as_resource"] else "false",
             "{" + ",".join(cpp_float(v) for v in radius) + "}",
@@ -355,6 +363,7 @@ def emit_cpp(catalog: dict[str, Any], output: Path) -> None:
             str(creation.get("create_time", 0)),
             cpp_optional(creation.get("create_at_unit")),
             str(creation.get("create_button", 0)), *graphics, tasks,
+            stored_resources,
         ]
         lines.append(
             "catalog.object_variants_.push_back({" + ",".join(fields) + "});"

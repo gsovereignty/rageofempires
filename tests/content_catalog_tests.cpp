@@ -97,6 +97,20 @@ int main() {
     const auto town_center_id = simulation.add_commercial_object(
         {1, 109}, aoe::EntityOwner{aoe::Player::blue}, {5, 5}
     );
+    const auto berry_id = simulation.add_commercial_object(
+        {0, 59}, aoe::EntityOwner{aoe::Player::neutral}, {2, 3}
+    );
+    require(simulation.command_gather_unit(villager_id, berry_id),
+            "commercial gather targets DAT stored resource");
+    for (int tick = 0; tick < 8; ++tick) simulation.update();
+    const auto gathered_berry = std::ranges::find_if(
+        simulation.units(), [berry_id](const auto& unit) {
+            return unit.id == berry_id;
+        }
+    );
+    require(gathered_berry != simulation.units().end() &&
+                gathered_berry->food_remaining < 125,
+            "commercial gather consumes DAT stored resource");
     const auto archer_id = simulation.add_commercial_object(
         {1, 4}, aoe::EntityOwner{aoe::Player::blue}, {3, 3}
     );
@@ -236,17 +250,27 @@ int main() {
     replay.record(4, aoe::ResearchCommercialTechnologyCommand{
         town_center_id, 22
     });
+    replay.record(5, aoe::CommercialTaskCommand{
+        archer_id, 0, enemy_id, false, {9, 3}
+    });
     const auto replay_path = std::filesystem::temp_directory_path() /
         "aoe-content-catalog-roundtrip.replay";
     aoe::save_replay(replay, replay_path);
     const aoe::Replay restored_replay = aoe::load_replay(replay_path);
     std::filesystem::remove(replay_path);
-    require(restored_replay.commands().size() == 2, "commercial commands persist");
+    require(restored_replay.commands().size() == 3,
+            "commercial commands persist");
     require(
         std::get<aoe::QueueCommercialObjectCommand>(
             restored_replay.commands()[0].command
         ).identity == aoe::CommercialObjectIdentity{1, 4},
         "commercial queue identity survives replay"
+    );
+    require(
+        std::get<aoe::CommercialTaskCommand>(
+            restored_replay.commands()[2].command
+        ).target == enemy_id,
+        "commercial task survives replay"
     );
     std::cout << "content catalog tests passed\n";
 }

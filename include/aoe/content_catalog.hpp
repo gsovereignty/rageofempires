@@ -46,6 +46,12 @@ struct CommercialResourceCost {
     auto operator<=>(const CommercialResourceCost&) const = default;
 };
 
+struct CommercialStoredResource {
+    std::int16_t resource_id{};
+    float amount{};
+    std::uint8_t flag{};
+};
+
 struct CommercialTask {
     std::uint16_t id{};
     bool is_default{};
@@ -94,6 +100,8 @@ struct CommercialObjectRecord {
     int hit_points{};
     float line_of_sight{};
     float speed{};
+    float work_rate{};
+    float garrison_heal_rate{};
     int garrison_capacity{};
     std::uint16_t terrain_restriction_id{};
     std::int16_t resource_group{};
@@ -131,6 +139,7 @@ struct CommercialObjectRecord {
     std::optional<std::uint16_t> damage_sound;
     std::optional<std::uint16_t> death_sound;
     std::vector<CommercialTask> tasks;
+    std::vector<CommercialStoredResource> stored_resources;
 };
 
 struct CommercialTechnologyCost {

@@ -15338,26 +15338,13 @@ std::size_t render(
                         simulation, position, active_view_player, false
                     )
                 );
-                fill_diamond(
-                    renderer,
-                    top,
-                    {fog::hidden_rgb, fog::hidden_rgb,
-                     fog::hidden_rgb, 255}
-                );
-                render_fog_edge_spans(
-                    renderer,
-                    top,
-                    selection.tile_edge_class,
-                    fog::EdgeLayer::tile_left,
-                    color
-                );
-                render_fog_edge_spans(
-                    renderer,
-                    top,
-                    selection.tile_edge_class,
-                    fog::EdgeLayer::tile_right,
-                    color
-                );
+                // TileEdge is an indexed terrain-preservation mask in the
+                // original renderer, not replacement terrain.  The terrain
+                // diamond above is already clipped and color-modulated for
+                // visible or explored state, so drawing TileEdge as opaque
+                // flat-color scanlines destroys the texture.  Keep that
+                // composited terrain and apply only the independent black
+                // shroud edge and explored stipple layers.
                 if (selection.apply_black_edge) {
                     render_fog_edge_spans(
                         renderer,

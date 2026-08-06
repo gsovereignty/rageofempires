@@ -1100,6 +1100,17 @@ add_test(
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/elevation_render_sdl_smoke.sh
         $<TARGET_FILE:aoe_reconstruction>
 )
+add_test(
+    NAME fog_terrain_texture_sdl_smoke
+    COMMAND
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/fog_terrain_texture_sdl_smoke.sh
+        $<TARGET_FILE:aoe_reconstruction>
+)
+set_tests_properties(
+    fog_terrain_texture_sdl_smoke PROPERTIES
+    TIMEOUT 30
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+)
 set_tests_properties(
     elevation_render_sdl_smoke PROPERTIES
     TIMEOUT 30
@@ -1411,6 +1422,7 @@ set_tests_properties(
     building_contact_layering_sdl_smoke
     classic_campaign_sdl_smoke
     elevation_render_sdl_smoke
+    fog_terrain_texture_sdl_smoke
     PROPERTIES ENVIRONMENT
         "AOE_DISABLE_LEGACY_ASSETS=0;AOE_MAIN_MENU=0"
 )

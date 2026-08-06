@@ -31,6 +31,15 @@ MAXIMUM_RESUME_SECONDS = 2.0
 MAXIMUM_HEAP_BYTES = 256 * 1024 * 1024
 MAXIMUM_SECOND_VICTORY_GROWTH = 16 * 1024 * 1024
 MAXIMUM_RESTART_DELTA = 16 * 1024 * 1024
+POINTER_EDGE_OFFSETS = (
+    (0.0, 0.0),
+    (-4.0, 0.0),
+    (4.0, 0.0),
+    (0.0, -4.0),
+    (0.0, 4.0),
+    (0.0, 0.0),
+    (0.0, 0.0),
+)
 
 
 class Failure(RuntimeError):
@@ -423,6 +432,108 @@ class Journey:
         if int(audio["liveEffectInstances"]) != 1:
             raise Failure(f"unexpected live effect instances: {audio}")
 
+    def prepare_pointer_matrix(self) -> None:
+        self.pointer("villager")
+        self.pointer("resource", button=2)
+        wait_until(
+            "pointer-matrix gold",
+            lambda: int(self.telemetry()["resources"]["gold"]) >= 60,
+        )
+        villager_before = float(
+            self.telemetry()["targets"]["villager"]["x"]
+        )
+        self.pointer("resource", button=2, logical_dx=80)
+        wait_until(
+            "pointer-matrix villager parking",
+            lambda: abs(
+                float(self.telemetry()["targets"]["villager"]["x"])
+                - villager_before
+            )
+            > 20,
+        )
+        self.pointer("barracks")
+        self.key("m")
+        wait_until(
+            "pointer-matrix military",
+            lambda: int(self.telemetry()["blueMilitaryCount"]) >= 1,
+        )
+        time.sleep(1.0)
+
+    def pointer_case(
+        self, name: str, offset: tuple[float, float]
+    ) -> dict[str, object]:
+        dx, dy = offset
+        self.driver.save_screenshot(str(ARTIFACTS / f"pointer-{name}-pre.png"))
+        self.pointer("villager", logical_dx=dx, logical_dy=dy)
+        villager = wait_until(
+            f"villager pointer in {name}",
+            lambda: (
+                value
+                if int((value := self.telemetry())["selectedUnit"]) != 0
+                else None
+            ),
+        )
+
+        gold_before = int(villager["resources"]["gold"])
+        self.pointer("resource", button=2, logical_dx=dx, logical_dy=dy)
+        wait_until(
+            f"resource target in {name}",
+            lambda: int(self.telemetry()["resources"]["gold"])
+            > gold_before
+            and int(self.telemetry()["resources"]["gold"]) >= 60,
+        )
+
+        self.pointer("barracks")
+        self.key("m")
+        wait_until(
+            f"military training in {name}",
+            lambda: int(self.telemetry()["blueMilitaryCount"]) >= 1,
+        )
+        time.sleep(1.0)
+        self.pointer("barracks")
+        self.pointer("military", logical_dx=dx, logical_dy=dy)
+        military = wait_until(
+            f"military pointer in {name}",
+            lambda: (
+                value
+                if int((value := self.telemetry())["selectedUnit"]) != 0
+                else None
+            ),
+        )
+
+        for _ in range(14):
+            target_x = float(
+                self.telemetry()["targets"]["enemyBuilding"]["x"]
+            )
+            logical_width = float(self.telemetry()["logicalWidth"])
+            if 80 < target_x < logical_width - 80:
+                break
+            self.key(Keys.ARROW_RIGHT)
+            time.sleep(0.05)
+        hit_points = int(self.telemetry()["enemyBuildingHitPoints"])
+        self.pointer(
+            "enemyBuilding", button=2, logical_dx=dx, logical_dy=dy
+        )
+        wait_until(
+            f"enemy target in {name}",
+            lambda: int(self.telemetry()["enemyBuildingHitPoints"])
+            < hit_points,
+        )
+        self.pointer("resource", button=2)
+        state = self.record(f"pointer-{name}", screenshot=True)
+        return {
+            "offset": {"x": dx, "y": dy},
+            "display": self.script(
+                "return {...Module.browserDisplayMetrics(), "
+                "visualViewportScale: window.visualViewport?.scale || 1}"
+            ),
+            "logical": {
+                "width": state["logicalWidth"],
+                "height": state["logicalHeight"],
+            },
+            "targets": state["targets"],
+        }
+
 
 def run(browser: str, headed: bool) -> dict[str, object]:
     if not (DIST / PAGE).is_file():
@@ -561,6 +672,96 @@ def run(browser: str, headed: bool) -> dict[str, object]:
         ]
         if severe:
             raise Failure(f"browser console failures: {severe}")
+        return evidence
+
+
+def run_display_matrix(browser: str, headed: bool) -> dict[str, object]:
+    evidence: dict[str, object] = {"browser": browser, "cases": {}}
+    with static_server() as (base_url, requests):
+        driver = make_driver(browser, headed)
+        journey = Journey(driver, base_url, evidence)
+        try:
+            def metrics(width: int, height: int, dpr: float) -> None:
+                if not hasattr(driver, "execute_cdp_cmd"):
+                    raise Failure("display emulation requires Chrome CDP")
+                driver.execute_cdp_cmd(
+                    "Emulation.setDeviceMetricsOverride",
+                    {
+                        "width": width,
+                        "height": height,
+                        "deviceScaleFactor": dpr,
+                        "mobile": False,
+                    },
+                )
+                time.sleep(0.5)
+
+            def clear_metrics() -> None:
+                if hasattr(driver, "execute_cdp_cmd"):
+                    driver.execute_cdp_cmd(
+                        "Emulation.clearDeviceMetricsOverride", {}
+                    )
+                    driver.execute_cdp_cmd(
+                        "Emulation.setPageScaleFactor",
+                        {"pageScaleFactor": 1},
+                    )
+
+            cases: list[tuple[str, Callable[[], None]]] = [
+                ("dpr1", lambda: None),
+                ("dpr2", lambda: metrics(1280, 900, 2)),
+                (
+                    "zoom125",
+                    lambda: (
+                        metrics(1280, 900, 1),
+                        driver.execute_cdp_cmd(
+                            "Emulation.setPageScaleFactor",
+                            {"pageScaleFactor": 1.25},
+                        ),
+                    ),
+                ),
+                (
+                    "resize",
+                    lambda: (clear_metrics(), driver.set_window_size(1100, 760)),
+                ),
+                (
+                    "fullscreen",
+                    lambda: driver.find_element(By.ID, "fullscreen").click(),
+                ),
+                (
+                    "fullscreen-exit",
+                    lambda: (
+                        driver.find_element(By.ID, "fullscreen").click(),
+                        time.sleep(0.5),
+                        driver.find_element(By.ID, "fullscreen").click(),
+                    ),
+                ),
+                (
+                    "letterbox",
+                    lambda: (clear_metrics(), driver.set_window_size(1000, 1000)),
+                ),
+            ]
+            for index, (name, apply_case) in enumerate(cases):
+                if index:
+                    journey.open()
+                else:
+                    journey.open(clear_storage=True)
+                journey.start()
+                apply_case()
+                time.sleep(0.5)
+                evidence["cases"][name] = journey.pointer_case(
+                    name, POINTER_EDGE_OFFSETS[index]
+                )
+        finally:
+            try:
+                evidence["console"] = driver.get_log("browser")
+            except Exception:
+                evidence["console"] = []
+            evidence["requests"] = list(requests)
+            driver.quit()
+    output = ARTIFACTS / "pointer-display-evidence.json"
+    output.write_text(
+        json.dumps(evidence, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     return evidence
 
 
@@ -570,11 +771,16 @@ def main() -> int:
         "--browser", choices=("chrome", "firefox", "safari"), default="chrome"
     )
     parser.add_argument("--headed", action="store_true")
+    parser.add_argument("--display-matrix", action="store_true")
     parser.add_argument(
         "--evidence", type=Path, default=ARTIFACTS / "evidence.json"
     )
     arguments = parser.parse_args()
-    evidence = run(arguments.browser, arguments.headed)
+    evidence = (
+        run_display_matrix(arguments.browser, arguments.headed)
+        if arguments.display_matrix
+        else run(arguments.browser, arguments.headed)
+    )
     arguments.evidence.parent.mkdir(parents=True, exist_ok=True)
     arguments.evidence.write_text(
         json.dumps(evidence, indent=2, sort_keys=True) + "\n",

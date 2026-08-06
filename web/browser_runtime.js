@@ -1,4 +1,18 @@
 Module['canvas'] = document.getElementById('canvas');
+Module['browserDisplayMetrics'] = function () {
+  const rect = Module['canvas'].getBoundingClientRect();
+  return {
+    cssWidth: rect.width,
+    cssHeight: rect.height,
+    backingWidth: Module['canvas'].width,
+    backingHeight: Module['canvas'].height,
+    devicePixelRatio: window.devicePixelRatio,
+    fullscreen: document.fullscreenElement !== null
+  };
+};
+Module['canvas'].addEventListener('contextmenu', function (event) {
+  event.preventDefault();
+});
 Module['preRun'] ??= [];
 Module['preRun'].push(function () {
   Module['addRunDependency']('browser-storage');
@@ -40,6 +54,23 @@ document.getElementById('start').addEventListener('pointerup', function () {
   if (!Module['storageReady']) return;
   this.hidden = true;
   Module['canvas'].hidden = false;
+  document.getElementById('fullscreen').hidden = false;
   Module['canvas'].focus({preventScroll: true});
   Module['callMain']([]);
 }, {once: true});
+
+document.getElementById('fullscreen').addEventListener(
+  'pointerup',
+  async function () {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await document.getElementById('browser-app').requestFullscreen();
+      }
+      Module['canvas'].focus({preventScroll: true});
+    } catch (error) {
+      Module['reportFailure']('Fullscreen transition failed: ' + error);
+    }
+  }
+);

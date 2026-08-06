@@ -32,6 +32,7 @@ struct BuildingPlacement {
     std::optional<TilePosition> rally_point;
     std::optional<int> hit_points;
     std::optional<int> resource_amount;
+    bool gate_locked{};
 };
 
 // Deterministic metadata for the reconstruction's custom scenario format.

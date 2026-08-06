@@ -15,6 +15,7 @@ enum class PanelCommand {
     stance_aggressive, stance_defensive, stance_stand_ground,
     stance_no_attack, formation_line, formation_box,
     formation_staggered, formation_flank, rally, ungarrison, town_bell,
+    lock_gate, unlock_gate,
     cancel_production,
     train_unit, research, convert, trade_route, pack_trebuchet,
     unpack_trebuchet, open_economic_buildings, open_military_buildings,

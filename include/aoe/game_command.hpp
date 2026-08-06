@@ -172,6 +172,11 @@ struct TownBellCommand {
     EntityId building;
 };
 
+struct SetGateLockedCommand {
+    EntityId building;
+    bool locked;
+};
+
 struct AdvanceAgeCommand {
     EntityId building;
 };
@@ -233,6 +238,7 @@ using GameCommand = std::variant<
     ReseedFarmCommand,
     UngarrisonCommand,
     TownBellCommand,
+    SetGateLockedCommand,
     AdvanceAgeCommand,
     ResearchTechnologyCommand,
     ResearchCommercialTechnologyCommand,

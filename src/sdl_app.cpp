@@ -19538,6 +19538,26 @@ int SdlApp::run() {
                                 );
                             }
                         } else if (
+                            (button.command == PanelCommand::lock_gate ||
+                             button.command == PanelCommand::unlock_gate) &&
+                            simulation.selected_building()) {
+                            const bool locked =
+                                button.command == PanelCommand::lock_gate;
+                            GameCommand command = SetGateLockedCommand{
+                                *simulation.selected_building(), locked
+                            };
+                            if (execute(simulation, command)) {
+                                if (audio) {
+                                    audio->play_named_interface_effect(
+                                        locked ? "gatel.wav" : "gateu.wav"
+                                    );
+                                }
+                                replay.record(
+                                    simulation.tick_number(),
+                                    std::move(command)
+                                );
+                            }
+                        } else if (
                             button.command == PanelCommand::rally) {
                             pending_rally_building =
                                 simulation.selected_building();

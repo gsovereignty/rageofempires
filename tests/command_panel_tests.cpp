@@ -1,6 +1,7 @@
 #include "aoe/command_panel.hpp"
 #include "aoe/game_rules.hpp"
 
+#include <cstdlib>
 #include <iostream>
 #include <span>
 
@@ -590,6 +591,52 @@ int main() {
                 has_valid_grid_slots(model),
             "unit-kind matrix panel contract"
         );
+    }
+
+    for (aoe::BuildingKind kind : {
+             aoe::BuildingKind::palisade_gate_x,
+             aoe::BuildingKind::palisade_gate_y,
+             aoe::BuildingKind::stone_gate_x,
+             aoe::BuildingKind::stone_gate_y,
+             aoe::BuildingKind::fortified_gate_x,
+             aoe::BuildingKind::fortified_gate_y,
+         }) {
+        aoe::Simulation gate_panel(aoe::GameMap(16, 12));
+        const aoe::EntityId gate = gate_panel.add_building(
+            kind, aoe::Player::blue, {3, 3}
+        );
+        expect(
+            gate_panel.select_building_at({3, 3}, aoe::Player::blue),
+            "gate selection"
+        );
+        auto model = aoe::build_selection_panel(
+            gate_panel, aoe::Player::blue
+        );
+        expect(
+            std::ranges::any_of(model.commands, [](const auto& button) {
+                return button.command == aoe::PanelCommand::lock_gate &&
+                    button.label == "LOCK GATE" && button.hotkey == "L" &&
+                    !button.selected;
+            }),
+            "unlocked gate needs Lock Gate button and hotkey"
+        );
+        expect(gate_panel.set_gate_locked(gate, true), "gate lock action");
+        model = aoe::build_selection_panel(
+            gate_panel, aoe::Player::blue
+        );
+        expect(
+            model.status == "GATE LOCKED" &&
+            std::ranges::any_of(model.commands, [](const auto& button) {
+                return button.command == aoe::PanelCommand::unlock_gate &&
+                    button.label == "UNLOCK GATE" &&
+                    button.hotkey == "L" && button.selected;
+            }),
+            "locked gate needs Unlock Gate button and hotkey"
+        );
+    }
+
+    if (std::getenv("AOE_GATE_PANEL_TEST") != nullptr) {
+        return failures == 0 ? 0 : 1;
     }
 
     for (std::size_t value = 0; value < aoe::building_kind_count; ++value) {

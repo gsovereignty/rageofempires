@@ -414,6 +414,7 @@ void save_game(const Simulation& simulation, const std::filesystem::path& path) 
                    << building.construction_ticks_remaining << ' '
                    << building.resource_amount << ' '
                    << building.gate_open << ' '
+                   << building.gate_locked << ' '
                    << static_cast<int>(memory.owner_age) << ' '
                    << static_cast<int>(memory.owner_civilization) << ' '
                    << memory.maximum_hit_points << ' '
@@ -826,6 +827,7 @@ void save_game(const Simulation& simulation, const std::filesystem::path& path) 
                << building.rally_point.y << ' '
                << building.has_rally_point << ' '
                << building.gate_open << ' '
+               << building.gate_locked << ' '
                << building.construction_work_remainder << ' '
                << building.builder_ids.size();
         for (EntityId builder_id : building.builder_ids) {
@@ -1335,8 +1337,9 @@ Simulation load_game(const std::filesystem::path& path) {
                 memory.building.position.x >> memory.building.position.y >>
                 memory.building.hit_points >>
                 memory.building.construction_ticks_remaining >>
-                memory.building.resource_amount >> memory.building.gate_open >>
-                age >> civilization >> memory.maximum_hit_points >>
+                memory.building.resource_amount >> memory.building.gate_open;
+            if (version >= 128) input >> memory.building.gate_locked;
+            input >> age >> civilization >> memory.maximum_hit_points >>
                 memory.topology_frame;
             const auto slot = decode_player_slot_id(stable_id);
             const auto decoded_owner = EntityOwner::from_stable_id(owner);
@@ -2149,6 +2152,9 @@ Simulation load_game(const std::filesystem::path& path) {
             }
             if (version >= 49) {
                 input >> building.gate_open;
+            }
+            if (version >= 128) {
+                input >> building.gate_locked;
             }
             if (version >= 42) {
                 std::size_t builder_count{};

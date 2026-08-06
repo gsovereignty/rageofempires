@@ -23,6 +23,15 @@ bool represented_player(Player player) {
 
 bool is_wall(BuildingKind kind);
 
+bool is_gate(BuildingKind kind) {
+    return kind == BuildingKind::palisade_gate_x ||
+        kind == BuildingKind::palisade_gate_y ||
+        kind == BuildingKind::stone_gate_x ||
+        kind == BuildingKind::stone_gate_y ||
+        kind == BuildingKind::fortified_gate_x ||
+        kind == BuildingKind::fortified_gate_y;
+}
+
 bool commercial_has_ability(
     const Unit& unit, CommercialTaskAbility ability
 ) {
@@ -4706,6 +4715,12 @@ void Simulation::validate_loaded_state() const {
             throw std::runtime_error("invalid building kind in save");
         }
         const BuildingRules& rules = rules_for(building.kind);
+        if ((!is_gate(building.kind) &&
+             (building.gate_open || building.gate_locked)) ||
+            (building.gate_open && building.gate_locked) ||
+            (building.gate_locked && !building.completed())) {
+            throw std::runtime_error("invalid gate state in save");
+        }
         if (building.kind == BuildingKind::farm &&
             (building.resource_amount < 0 ||
              building.resource_amount > 550)) {
@@ -5940,6 +5955,17 @@ bool Simulation::set_rally_point(
     }
     building->rally_point = position;
     building->has_rally_point = true;
+    return true;
+}
+
+bool Simulation::set_gate_locked(EntityId building_id, bool locked) {
+    if (outcome_ != MatchOutcome::ongoing) return false;
+    Building* gate = find_building(building_id);
+    if (gate == nullptr || !gate->completed() || !is_gate(gate->kind)) {
+        return false;
+    }
+    gate->gate_locked = locked;
+    if (locked) gate->gate_open = false;
     return true;
 }
 
@@ -9687,21 +9713,17 @@ bool Simulation::occupied(
     const bool has_building =
         std::ranges::any_of(
             buildings_,
-            [position, except, mover, plan_owned_gate](
+            [this, position, except, mover, plan_owned_gate](
                 const Building& building
             ) {
                 const BuildingRules& rules = rules_for(building.kind);
-                const bool gate =
-                    building.kind == BuildingKind::palisade_gate_x ||
-                    building.kind == BuildingKind::palisade_gate_y ||
-                    building.kind == BuildingKind::stone_gate_x ||
-                    building.kind == BuildingKind::stone_gate_y ||
-                    building.kind == BuildingKind::fortified_gate_x ||
-                    building.kind == BuildingKind::fortified_gate_y;
+                const bool allied_mover = mover &&
+                    is_ally(building.owner, *mover) &&
+                    is_ally(*mover, building.owner);
                 const bool gate_passable =
-                    gate && mover &&
-                    (building.gate_open ||
-                     (plan_owned_gate && building.owner == *mover));
+                    is_gate(building.kind) && allied_mover &&
+                    !building.gate_locked &&
+                    (building.gate_open || plan_owned_gate);
                 return building.id != except && !gate_passable &&
                     position.x >= building.position.x &&
                     position.x <
@@ -9784,15 +9806,11 @@ bool Simulation::route_unit(Unit& unit, TilePosition destination) {
         if (building.id == unit.id) {
             continue;
         }
-        const bool gate =
-            building.kind == BuildingKind::palisade_gate_x ||
-            building.kind == BuildingKind::palisade_gate_y ||
-            building.kind == BuildingKind::stone_gate_x ||
-            building.kind == BuildingKind::stone_gate_y ||
-            building.kind == BuildingKind::fortified_gate_x ||
-            building.kind == BuildingKind::fortified_gate_y;
-        if (gate &&
-            (building.gate_open || building.owner == unit.owner)) {
+        const bool allied_gate = is_gate(building.kind) &&
+            !building.gate_locked &&
+            is_ally(building.owner, unit.owner) &&
+            is_ally(unit.owner, building.owner);
+        if (allied_gate) {
             continue;
         }
         const BuildingRules& rules = rules_for(building.kind);
@@ -9888,37 +9906,20 @@ bool Simulation::route_unit(Unit& unit, TilePosition destination) {
 
 void Simulation::update_gate_states() {
     for (Building& gate : buildings_) {
-        if ((gate.kind != BuildingKind::palisade_gate_x &&
-             gate.kind != BuildingKind::palisade_gate_y &&
-             gate.kind != BuildingKind::stone_gate_x &&
-             gate.kind != BuildingKind::stone_gate_y &&
-             gate.kind != BuildingKind::fortified_gate_x &&
-             gate.kind != BuildingKind::fortified_gate_y) ||
-            !gate.completed()) {
+        if (!is_gate(gate.kind) || !gate.completed() || gate.gate_locked) {
             gate.gate_open = false;
             continue;
         }
-        const BuildingRules& rules = rules_for(gate.kind);
-        const auto on_footprint = [&gate, &rules](const Unit& unit) {
-            return unit.garrisoned_in == 0 &&
-                unit.position.x >= gate.position.x &&
-                unit.position.x <
-                    gate.position.x + rules.footprint_width &&
-                unit.position.y >= gate.position.y &&
-                unit.position.y <
-                    gate.position.y + rules.footprint_height;
-        };
-        const bool occupied_span =
-            std::ranges::any_of(units_, on_footprint);
         const bool friendly_near = std::ranges::any_of(
             units_,
             [this, &gate](const Unit& unit) {
-                return unit.garrisoned_in == 0 &&
-                    unit.owner == gate.owner &&
+                return unit.hit_points > 0 && unit.garrisoned_in == 0 &&
+                    is_ally(gate.owner, unit.owner) &&
+                    is_ally(unit.owner, gate.owner) &&
                     distance_to_building(unit.position, gate) <= 2;
             }
         );
-        gate.gate_open = occupied_span || friendly_near;
+        gate.gate_open = friendly_near;
     }
 }
 

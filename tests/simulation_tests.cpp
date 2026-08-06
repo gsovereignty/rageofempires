@@ -6206,6 +6206,292 @@ void palisade_gates_open_for_friendlies_block_enemies_and_persist() {
     require(damaged_gate->hit_points < along_y.hit_points);
 }
 
+void gates_honor_allies_locks_and_enemy_exclusion() {
+    const auto blue = *aoe::PlayerSlotId::from_index(0);
+    const auto red = *aoe::PlayerSlotId::from_index(1);
+    const auto green = *aoe::PlayerSlotId::from_index(2);
+    const auto roster = aoe::MatchRoster::create({
+        {blue, true, aoe::TeamId::none(), false,
+         {{"blue", aoe::RosterControllerKind::human}}},
+        {red, true, aoe::TeamId::none(), false,
+         {{"red", aoe::RosterControllerKind::computer}}},
+        {green, true, aoe::TeamId::none(), false,
+         {{"green", aoe::RosterControllerKind::computer}}},
+    });
+    require(roster.has_value());
+    auto diplomacy = *aoe::RosterDiplomacy::create(*roster);
+    require(diplomacy.set_symmetric_stance(
+        blue, green, aoe::Diplomacy::ally
+    ));
+
+    struct GateFixture {
+        aoe::GameMap map;
+        aoe::TilePosition gate;
+        aoe::TilePosition start;
+        aoe::TilePosition destination;
+        aoe::TilePosition opener;
+        aoe::TilePosition enemy_anchor;
+    };
+    const auto fixture_for = [](aoe::BuildingKind kind) {
+        const bool along_x =
+            kind == aoe::BuildingKind::palisade_gate_x ||
+            kind == aoe::BuildingKind::stone_gate_x ||
+            kind == aoe::BuildingKind::fortified_gate_x;
+        if (along_x) {
+            aoe::GameMap map(12, 7);
+            for (int x = 0; x < map.width(); ++x) {
+                map.set_terrain({x, 2}, aoe::Terrain::water);
+                map.set_terrain({x, 4}, aoe::Terrain::water);
+            }
+            map.set_terrain({5, 2}, aoe::Terrain::grass);
+            return GateFixture{
+                std::move(map), {4, 3}, {1, 3}, {10, 3}, {5, 2}, {9, 0}
+            };
+        }
+        aoe::GameMap map(7, 12);
+        for (int y = 0; y < map.height(); ++y) {
+            map.set_terrain({2, y}, aoe::Terrain::water);
+            map.set_terrain({4, y}, aoe::Terrain::water);
+        }
+        map.set_terrain({2, 5}, aoe::Terrain::grass);
+        return GateFixture{
+            std::move(map), {3, 4}, {3, 1}, {3, 10}, {2, 5}, {0, 9}
+        };
+    };
+
+    const std::array gate_kinds{
+        aoe::BuildingKind::palisade_gate_x,
+        aoe::BuildingKind::palisade_gate_y,
+        aoe::BuildingKind::stone_gate_x,
+        aoe::BuildingKind::stone_gate_y,
+        aoe::BuildingKind::fortified_gate_x,
+        aoe::BuildingKind::fortified_gate_y,
+    };
+    const auto add_anchor = [red](
+        aoe::Simulation& simulation, aoe::TilePosition position
+    ) {
+        simulation.add_building(
+            aoe::BuildingKind::house, red, position
+        );
+    };
+    const auto gate_by_id = [](const aoe::Simulation& simulation,
+                               aoe::EntityId id) -> const aoe::Building& {
+        const auto found = std::ranges::find(
+            simulation.buildings(), id, &aoe::Building::id
+        );
+        require(found != simulation.buildings().end());
+        return *found;
+    };
+    const auto unit_by_id = [](const aoe::Simulation& simulation,
+                               aoe::EntityId id) -> const aoe::Unit& {
+        const auto found = std::ranges::find(
+            simulation.units(), id, &aoe::Unit::id
+        );
+        require(found != simulation.units().end());
+        return *found;
+    };
+
+    for (aoe::BuildingKind kind : gate_kinds) {
+        for (aoe::PlayerSlotId admitted : {blue, green}) {
+            GateFixture fixture = fixture_for(kind);
+            aoe::Simulation passage(std::move(fixture.map));
+            passage.replace_roster(*roster, diplomacy);
+            add_anchor(passage, fixture.enemy_anchor);
+            const aoe::EntityId gate = passage.add_building(
+                kind, blue, fixture.gate
+            );
+            const aoe::EntityId unit = passage.add_unit(
+                aoe::UnitKind::villager, admitted, fixture.start
+            );
+            require(passage.set_unit_stance(
+                unit, aoe::UnitStance::passive
+            ));
+            require(passage.command_unit(unit, fixture.destination));
+            bool opened = false;
+            for (int tick = 0; tick < 80 &&
+                 unit_by_id(passage, unit).position != fixture.destination;
+                 ++tick) {
+                passage.update();
+                opened = opened || gate_by_id(passage, gate).gate_open;
+            }
+            require(opened);
+            require(unit_by_id(passage, unit).position == fixture.destination);
+        }
+
+        for (aoe::EntityOwner excluded : {
+                 aoe::entity_owner_from_slot(red),
+                 aoe::EntityOwner{aoe::Player::neutral}
+             }) {
+            GateFixture fixture = fixture_for(kind);
+            aoe::Simulation passage(std::move(fixture.map));
+            passage.replace_roster(*roster, diplomacy);
+            add_anchor(passage, fixture.enemy_anchor);
+            passage.add_building(kind, blue, fixture.gate);
+            const aoe::EntityId unit = passage.add_unit(
+                aoe::UnitKind::militia, excluded, fixture.start
+            );
+            require(!passage.command_unit(unit, fixture.destination));
+        }
+
+        GateFixture open_fixture = fixture_for(kind);
+        aoe::Simulation opened(std::move(open_fixture.map));
+        opened.replace_roster(*roster, diplomacy);
+        add_anchor(opened, open_fixture.enemy_anchor);
+        const aoe::EntityId open_gate = opened.add_building(
+            kind, blue, open_fixture.gate
+        );
+        opened.add_unit(
+            aoe::UnitKind::villager, blue, open_fixture.opener
+        );
+        opened.update();
+        require(gate_by_id(opened, open_gate).gate_open);
+        const aoe::EntityId enemy = opened.add_unit(
+            aoe::UnitKind::militia, red, open_fixture.start
+        );
+        require(opened.set_unit_stance(enemy, aoe::UnitStance::passive));
+        require(!opened.command_unit(enemy, open_fixture.destination));
+
+        GateFixture occupied_fixture = fixture_for(kind);
+        aoe::Simulation occupied(std::move(occupied_fixture.map));
+        occupied.replace_roster(*roster, diplomacy);
+        add_anchor(occupied, occupied_fixture.enemy_anchor);
+        const aoe::EntityId occupied_gate = occupied.add_building(
+            kind, blue, occupied_fixture.gate
+        );
+        occupied.add_unit(
+            aoe::UnitKind::militia, red, occupied_fixture.start
+        );
+        std::vector<aoe::Unit> units = occupied.units();
+        units.front().position = occupied_fixture.gate;
+        occupied.replace_state(
+            std::move(units), occupied.buildings(),
+            occupied.economy(blue), occupied.economy(red), 0
+        );
+        occupied.update();
+        require(!gate_by_id(occupied, occupied_gate).gate_open);
+
+        GateFixture lock_fixture = fixture_for(kind);
+        aoe::Simulation locked(std::move(lock_fixture.map));
+        locked.replace_roster(*roster, diplomacy);
+        add_anchor(locked, lock_fixture.enemy_anchor);
+        const aoe::EntityId locked_gate = locked.add_building(
+            kind, blue, lock_fixture.gate
+        );
+        const aoe::EntityId owner = locked.add_unit(
+            aoe::UnitKind::villager, blue, lock_fixture.start
+        );
+        require(aoe::execute(
+            locked, aoe::SetGateLockedCommand{locked_gate, true}
+        ));
+        require(gate_by_id(locked, locked_gate).gate_locked);
+        require(!gate_by_id(locked, locked_gate).gate_open);
+        require(!locked.command_unit(owner, lock_fixture.destination));
+        require(aoe::execute(
+            locked, aoe::SetGateLockedCommand{locked_gate, false}
+        ));
+        require(locked.command_unit(owner, lock_fixture.destination));
+    }
+
+    GateFixture transition_fixture = fixture_for(
+        aoe::BuildingKind::stone_gate_y
+    );
+    aoe::Simulation transition(std::move(transition_fixture.map));
+    transition.replace_roster(*roster, diplomacy);
+    add_anchor(transition, transition_fixture.enemy_anchor);
+    const aoe::EntityId transition_gate = transition.add_building(
+        aoe::BuildingKind::stone_gate_y, blue, transition_fixture.gate
+    );
+    const aoe::EntityId transitioning_ally = transition.add_unit(
+        aoe::UnitKind::villager, green, transition_fixture.start
+    );
+    require(transition.command_unit(
+        transitioning_ally, transition_fixture.destination
+    ));
+    transition.update();
+    auto hostile = diplomacy;
+    require(hostile.set_symmetric_stance(
+        blue, green, aoe::Diplomacy::enemy
+    ));
+    transition.replace_roster(*roster, hostile);
+    for (int tick = 0; tick < 20; ++tick) transition.update();
+    require(!gate_by_id(transition, transition_gate).gate_open);
+    require(unit_by_id(transition, transitioning_ally).position !=
+            transition_fixture.destination);
+    transition.replace_roster(*roster, diplomacy);
+    require(transition.command_unit(
+        transitioning_ally, transition_fixture.destination
+    ));
+    for (int tick = 0; tick < 80 &&
+         unit_by_id(transition, transitioning_ally).position !=
+             transition_fixture.destination;
+         ++tick) {
+        transition.update();
+    }
+    require(unit_by_id(transition, transitioning_ally).position ==
+            transition_fixture.destination);
+
+    GateFixture durable_fixture = fixture_for(
+        aoe::BuildingKind::fortified_gate_x
+    );
+    aoe::Simulation durable(std::move(durable_fixture.map));
+    durable.replace_roster(*roster, diplomacy);
+    add_anchor(durable, durable_fixture.enemy_anchor);
+    const aoe::EntityId durable_gate = durable.add_building(
+        aoe::BuildingKind::fortified_gate_x, blue, durable_fixture.gate
+    );
+    aoe::Replay replay;
+    replay.record(0, aoe::SetGateLockedCommand{durable_gate, true});
+    const auto replay_path = std::filesystem::temp_directory_path() /
+        "aoe-gate-lock.replay";
+    aoe::save_replay(replay, replay_path);
+    aoe::Replay decoded = aoe::load_replay(replay_path);
+    std::filesystem::remove(replay_path);
+    decoded.apply_current_tick(durable);
+    require(gate_by_id(durable, durable_gate).gate_locked);
+
+    const auto save_path = std::filesystem::temp_directory_path() /
+        "aoe-gate-lock.save";
+    const std::string before_hash = aoe::deterministic_state_hash(durable);
+    aoe::save_game(durable, save_path);
+    aoe::Simulation restored = aoe::load_game(save_path);
+    std::filesystem::remove(save_path);
+    require(gate_by_id(restored, durable_gate).gate_locked);
+    require(aoe::deterministic_state_hash(restored) == before_hash);
+
+    aoe::LockstepFrame frame;
+    frame.kind = aoe::LockstepFrameKind::turn;
+    frame.player = aoe::Player::blue;
+    frame.scenario_digest = "gate-lock";
+    frame.commands = {aoe::SetGateLockedCommand{durable_gate, false}};
+    const aoe::LockstepFrame wire = aoe::decode_lockstep_frame(
+        aoe::encode_lockstep_frame(frame)
+    );
+    require(wire.commands.size() == 1);
+    require(!std::get<aoe::SetGateLockedCommand>(
+        wire.commands.front()
+    ).locked);
+
+    aoe::Scenario scenario(12, 7);
+    scenario.buildings.push_back({
+        aoe::BuildingKind::stone_gate_x,
+        aoe::EntityOwner{aoe::Player::blue},
+        {4, 3},
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        true,
+    });
+    const auto scenario_path = std::filesystem::temp_directory_path() /
+        "aoe-locked-gate.scenario";
+    aoe::save_scenario(scenario, scenario_path);
+    const aoe::Scenario loaded_scenario = aoe::load_scenario(scenario_path);
+    std::filesystem::remove(scenario_path);
+    require(loaded_scenario.buildings.front().gate_locked);
+    const aoe::Simulation scenario_simulation =
+        aoe::create_simulation(loaded_scenario);
+    require(scenario_simulation.buildings().front().gate_locked);
+}
+
 void stone_gates_use_feudal_cost_armor_replay_and_persistence() {
     const aoe::BuildingRules& along_x =
         aoe::rules_for(aoe::BuildingKind::stone_gate_x);
@@ -24448,6 +24734,10 @@ void town_bell_is_bounded_recallable_and_persistent() {
 }
 
 int main() {
+    if (std::getenv("AOE_GATE_TEST") != nullptr) {
+        gates_honor_allies_locks_and_enemy_exclusion();
+        return 0;
+    }
     if (std::getenv("AOE_ATTACK_REVEAL_TEST") != nullptr) {
         enemy_attackers_reveal_per_victim_through_attack_action();
         return 0;
@@ -24804,6 +25094,10 @@ int main() {
     run(
         "palisade gates",
         palisade_gates_open_for_friendlies_block_enemies_and_persist
+    );
+    run(
+        "gate diplomacy lock and enemy exclusion",
+        gates_honor_allies_locks_and_enemy_exclusion
     );
     run(
         "stone gates",

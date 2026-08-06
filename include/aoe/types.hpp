@@ -783,6 +783,7 @@ struct Building {
     EntityId town_bell_source_id{};
     std::optional<EntityOwner> last_damage_owner;
     std::optional<CommercialObjectIdentity> commercial_identity;
+    bool gate_locked{};
 
     [[nodiscard]] bool completed() const {
         return construction_ticks_remaining == 0;

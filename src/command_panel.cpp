@@ -10,6 +10,15 @@
 namespace aoe {
 namespace {
 
+bool is_gate(BuildingKind kind) {
+    return kind == BuildingKind::palisade_gate_x ||
+        kind == BuildingKind::palisade_gate_y ||
+        kind == BuildingKind::stone_gate_x ||
+        kind == BuildingKind::stone_gate_y ||
+        kind == BuildingKind::fortified_gate_x ||
+        kind == BuildingKind::fortified_gate_y;
+}
+
 void add(
     SelectionPanelModel& panel,
     PanelCommand command,
@@ -756,7 +765,8 @@ SelectionPanelModel build_selection_panel(
             );
         } else {
             panel.status = selected->town_bell_source_id != 0
-                ? "TOWN BELL ACTIVE" : "READY";
+                ? "TOWN BELL ACTIVE"
+                : selected->gate_locked ? "GATE LOCKED" : "READY";
         }
         if (!selected->completed()) return panel;
 
@@ -913,6 +923,22 @@ SelectionPanelModel build_selection_panel(
                 true, std::nullopt, selected->town_bell_source_id != 0,
                 selected->town_bell_source_id != 0 ? 61 : 49, 14);
             return panel;
+        }
+
+        if (is_gate(selected->kind)) {
+            add(
+                panel,
+                selected->gate_locked
+                    ? PanelCommand::unlock_gate : PanelCommand::lock_gate,
+                selected->gate_locked ? "UNLOCK GATE" : "LOCK GATE",
+                "L",
+                selected->gate_locked
+                    ? "Allow this gate to open for you and your allies."
+                    : "Keep this gate closed to every player.",
+                true,
+                std::nullopt,
+                selected->gate_locked
+            );
         }
 
         if (supports_rally(selected->kind)) {

@@ -512,6 +512,7 @@ public:
     bool queue_unit(UnitKind kind);
     bool cancel_production_at(EntityId building_id);
     bool set_rally_point(EntityId building_id, TilePosition position);
+    bool set_gate_locked(EntityId building_id, bool locked);
     bool reseed_farm(EntityId building_id);
     bool reseed_farm_immediately(EntityId building_id);
     bool consume_farm_reseed(EntityId building_id);

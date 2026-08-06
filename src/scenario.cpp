@@ -26,6 +26,15 @@ bool valid_scenario_text(const std::string& text) {
         text.find_first_of("\r\n") == std::string::npos;
 }
 
+bool is_gate(BuildingKind kind) {
+    return kind == BuildingKind::palisade_gate_x ||
+        kind == BuildingKind::palisade_gate_y ||
+        kind == BuildingKind::stone_gate_x ||
+        kind == BuildingKind::stone_gate_y ||
+        kind == BuildingKind::fortified_gate_x ||
+        kind == BuildingKind::fortified_gate_y;
+}
+
 Terrain parse_terrain(const std::string& value, int line) {
     if (const auto terrain = classic_terrain_from_token(value)) {
         return *terrain;
@@ -1713,6 +1722,16 @@ Scenario load_scenario(const std::filesystem::path& path) {
                             );
                         }
                         placement.resource_amount = resource_amount;
+                    } else if (
+                        marker == "locked" && scenario_version >= 71
+                    ) {
+                        if (!is_gate(placement.kind) ||
+                            placement.gate_locked) {
+                            throw line_error(
+                                line_number, "locked marker requires gate"
+                            );
+                        }
+                        placement.gate_locked = true;
                     } else {
                         throw line_error(
                             line_number,
@@ -2129,6 +2148,7 @@ void save_scenario(
         if (building.resource_amount) {
             output << " resource_amount " << *building.resource_amount;
         }
+        if (building.gate_locked) output << " locked";
         output << '\n';
     }
 }
@@ -2264,6 +2284,11 @@ Simulation create_simulation(const Scenario& scenario) {
     }
     std::vector<EntityId> building_ids;
     for (const BuildingPlacement& building : scenario.buildings) {
+        if (building.gate_locked && !is_gate(building.kind)) {
+            throw std::invalid_argument(
+                "scenario locked marker requires gate"
+            );
+        }
         building_ids.push_back(simulation.add_building(
             building.kind,
             building.owner,
@@ -2408,6 +2433,8 @@ Simulation create_simulation(const Scenario& scenario) {
             buildings[index].resource_amount =
                 *scenario.buildings[index].resource_amount;
         }
+        buildings[index].gate_locked =
+            scenario.buildings[index].gate_locked;
     }
     simulation.replace_state(
         std::move(units),

@@ -60,6 +60,7 @@ std::optional<EntityOwner> command_player(
                 std::is_same_v<Type, ReseedFarmCommand> ||
                 std::is_same_v<Type, UngarrisonCommand> ||
                 std::is_same_v<Type, TownBellCommand> ||
+                std::is_same_v<Type, SetGateLockedCommand> ||
                 std::is_same_v<Type, AdvanceAgeCommand> ||
                 std::is_same_v<Type, ResearchTechnologyCommand> ||
                 std::is_same_v<Type, QueueCommercialObjectCommand> ||
@@ -294,6 +295,12 @@ bool execute(
                 return simulation.ungarrison_at(value.building);
             } else if constexpr (std::is_same_v<Type, TownBellCommand>) {
                 return simulation.command_town_bell(value.building);
+            } else if constexpr (
+                std::is_same_v<Type, SetGateLockedCommand>
+            ) {
+                return simulation.set_gate_locked(
+                    value.building, value.locked
+                );
             } else if constexpr (std::is_same_v<Type, AdvanceAgeCommand>) {
                 return simulation.advance_age_at(value.building);
             } else if constexpr (
@@ -565,6 +572,11 @@ void save_replay(const Replay& replay, const std::filesystem::path& path) {
                 ) {
                     output << "town-bell " << tick << ' ' << value.building
                            << '\n';
+                } else if constexpr (
+                    std::is_same_v<Type, SetGateLockedCommand>
+                ) {
+                    output << "gate-lock " << tick << ' ' << value.building
+                           << ' ' << value.locked << '\n';
                 } else if constexpr (
                     std::is_same_v<Type, AdvanceAgeCommand>
                 ) {
@@ -892,6 +904,10 @@ Replay load_replay(const std::filesystem::path& path) {
         } else if (record == "town-bell" && version >= 67) {
             TownBellCommand command;
             input >> tick >> command.building;
+            replay.record(tick, command);
+        } else if (record == "gate-lock" && version >= 68) {
+            SetGateLockedCommand command;
+            input >> tick >> command.building >> command.locked;
             replay.record(tick, command);
         } else if (record == "advance" && version >= 3) {
             AdvanceAgeCommand command;

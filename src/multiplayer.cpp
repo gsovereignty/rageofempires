@@ -1124,6 +1124,7 @@ bool LockstepSession::validate_command_owner(
             std::is_same_v<Type, ReseedFarmCommand> ||
             std::is_same_v<Type, UngarrisonCommand> ||
             std::is_same_v<Type, TownBellCommand> ||
+            std::is_same_v<Type, SetGateLockedCommand> ||
             std::is_same_v<Type, AdvanceAgeCommand> ||
             std::is_same_v<Type, ResearchTechnologyCommand>) {
             return building_owned(value.building);

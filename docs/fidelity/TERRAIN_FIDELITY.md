@@ -80,10 +80,11 @@ numeric encoding. No classic floor terrain aliases a reconstruction resource
 overlay: for example, classic Forest `10` remains walkable floor rather than
 becoming harvestable `Terrain::forest`.
 
-Land movement, ship movement, generic building placement, and Fish Trap
-placement use exact positive sets above. Dock placement keeps its existing
-Grass coast anchor because mixed shoreline geometry remains a separate,
-unresolved contract below.
+Land movement, ship movement, generic building placement, Fish Trap placement,
+and Dock placement use the exact positive sets above. Dock `45` has a fixed
+3x3 restriction-`6` foundation. Its center cell must be Water `1` or Shallows
+`4`, and at least one non-diagonal cell on the one-tile perimeter must be Beach
+`2`, Ice2 `35`, or the original executable's Ice `26`/Ice Beach `37` aliases.
 
 These rules apply through unit creation, command validation, pathfinding,
 formation placement, movement updates, ship production/trade destinations,
@@ -106,20 +107,26 @@ Proved classic transitions are documented in
 one-cardinal variants with `(destination_x + destination_y) & 3`; calls
 lacking destination position retain unblended fallback.
 
-Dock restriction `6` has same represented values as ship restriction `3`, but
-live DAT does not establish how its multi-tile shoreline footprint maps to
-terrain cells. Reconstruction currently anchors Docks on Grass beside water.
-That placement contract remains unchanged pending original-runtime footprint
-evidence; restriction `6` is recorded above but not directly applied.
+Live Dock `45` exposes radius and construction radius `(1.5, 1.5)`, center tile
+requirements `(1, 4)`, perimeter tile requirements `(2, 35)`, terrain
+restriction `6`, obstruction type `2`, and selection shape `3`. Decompiled
+`FUN_00577ac0` applies those fields in that order: center requirement, four
+non-diagonal perimeter sides, then restriction-`6` footprint cells. When the
+perimeter requirement is Ice2 `35`, it also accepts Ice `26` and Ice Beach
+`37`.
 
-The original Age of Kings manual narrows placement to shallow water or
-shallows beside a coast. Live Dock `45` also exposes terrain restriction `6`
-and selection shape `3`, but the current metadata extractor does not expose a
-clearance rectangle, rotation/orientation, or which cells of that shape must
-touch land. Neither source resolves whether the simulation anchor denotes a
-land cell, a water cell, or a mixed rotated footprint. Coast-edge rotation,
-collision, and ship spawn/rally mapping therefore remain blocked rather than
-guessed.
+There is no completed-Dock orientation contract to implement. Standing graphic
+`215` and its child graphics `214`, `216`, and `4411` each have one angle.
+Placement validation returns no rotation, and the 3x3 collision rectangle is
+fixed. Coast side therefore constrains placement and exit availability; it
+does not rotate the sprite or footprint.
+
+Produced ships and Trade Cogs search only the producer rectangle's four
+non-diagonal perimeter sides. Decompiled `FUN_0057fc90` tests each candidate
+through the produced object's own placement validator `FUN_0057d5b0`, retains
+the closest valid cell, and uses west/north/south/east tie priority from the
+centered start. Rally orders are applied after creation, so they route from
+that valid ship cell rather than selecting a diagonal corner.
 
 ## Reproduction
 

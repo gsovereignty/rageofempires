@@ -9,6 +9,8 @@ diplomacy enemy
 civilization blue generic
 civilization red generic
 
+terrain_rect ice2 1 1 3 1
+terrain_rect water 1 2 3 4
 terrain water 0 5
 terrain water 1 5
 terrain water 2 5
@@ -27,5 +29,5 @@ terrain water 14 5
 terrain water 15 5
 unit fishing_ship blue 5 5 stance passive
 unit villager red 14 8 stance passive
-building dock blue 1 2
+building dock blue 1 2 rally 14 5
 building house blue 5 1

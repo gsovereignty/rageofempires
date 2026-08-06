@@ -19,6 +19,9 @@ public:
     [[nodiscard]] bool walkable(TilePosition position) const;
     [[nodiscard]] bool sailable(TilePosition position) const;
     [[nodiscard]] bool buildable(TilePosition position) const;
+    [[nodiscard]] bool supports_dock_foundation(
+        TilePosition origin
+    ) const;
     [[nodiscard]] bool traversable(
         TilePosition from, TilePosition to
     ) const;

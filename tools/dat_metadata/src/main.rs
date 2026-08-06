@@ -259,6 +259,15 @@ fn main() {
                     unit.static_.radius.1,
                     unit.static_.radius.2
                 ],
+                "tile_req": [unit.static_.tile_req.0, unit.static_.tile_req.1],
+                "center_tile_req": [
+                    unit.static_.center_tile_req.0,
+                    unit.static_.center_tile_req.1
+                ],
+                "construction_radius": [
+                    unit.static_.construction_radius.0,
+                    unit.static_.construction_radius.1
+                ],
                 "outline_radius": [
                     unit.static_.outline_radius.0,
                     unit.static_.outline_radius.1,

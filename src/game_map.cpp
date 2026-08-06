@@ -87,6 +87,52 @@ bool GameMap::buildable(TilePosition position) const {
     );
 }
 
+bool GameMap::supports_dock_foundation(TilePosition origin) const {
+    // Original Dock 45: radius/construction radius 1.5 gives a 3x3
+    // footprint, center_tile_req is Water (1) or Shallows (4), tile_req is
+    // Beach (2) or Ice2 (35), and every footprint cell uses restriction 6.
+    constexpr int footprint = 3;
+    const TilePosition center{origin.x + 1, origin.y + 1};
+    if (!contains(center)) return false;
+    const Terrain center_terrain = terrain_at(center);
+    if (center_terrain != Terrain::water &&
+        center_terrain != Terrain::shallows) {
+        return false;
+    }
+    for (int y = 0; y < footprint; ++y) {
+        for (int x = 0; x < footprint; ++x) {
+            const TilePosition tile{origin.x + x, origin.y + y};
+            if (!contains(tile) || !classic_terrain_passable(
+                    terrain_at(tile),
+                    ClassicTerrainRestriction::dock
+                )) {
+                return false;
+            }
+        }
+    }
+    const auto coast = [this](TilePosition tile) {
+        if (!contains(tile)) return false;
+        const Terrain terrain = terrain_at(tile);
+        // FUN_00577ac0 aliases Ice (26) and Ice Beach (37) to Dock 45's
+        // Ice2 (35) perimeter requirement.
+        return terrain == Terrain::beach || terrain == Terrain::ice2 ||
+            terrain == Terrain::ice || terrain == Terrain::ice_beach;
+    };
+    for (int x = 0; x < footprint; ++x) {
+        if (coast({origin.x + x, origin.y - 1}) ||
+            coast({origin.x + x, origin.y + footprint})) {
+            return true;
+        }
+    }
+    for (int y = 0; y < footprint; ++y) {
+        if (coast({origin.x - 1, origin.y + y}) ||
+            coast({origin.x + footprint, origin.y + y})) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool GameMap::traversable(
     TilePosition from, TilePosition to
 ) const {

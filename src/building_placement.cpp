@@ -29,6 +29,11 @@ PlacementPreview evaluate_building_placement(
         result.reason = "VILLAGER REQUIRED";
         return result;
     }
+    if (kind == BuildingKind::dock &&
+        !simulation.map().supports_dock_foundation(origin)) {
+        result.reason = "INVALID DOCK SHORELINE";
+        return result;
+    }
     for (int y = 0; y < rules.footprint_height; ++y) {
         for (int x = 0; x < rules.footprint_width; ++x) {
             const TilePosition tile{origin.x + x, origin.y + y};
@@ -37,8 +42,7 @@ PlacementPreview evaluate_building_placement(
                 kind == BuildingKind::fish_trap
                     ? simulation.map().sailable(tile)
                     : kind == BuildingKind::dock
-                        ? simulation.map().contains(tile) &&
-                            simulation.map().terrain_at(tile) == Terrain::grass
+                        ? true
                         : simulation.map().buildable(tile);
             if (!terrain) {
                 result.reason = "INVALID TERRAIN OR RESOURCE";

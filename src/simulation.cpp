@@ -4525,19 +4525,7 @@ bool Simulation::command_trade_route(
         [this, naval, cart](const Building& building)
             -> std::optional<TilePosition> {
             if (!naval) return spawn_position(building);
-            const BuildingRules& rules = rules_for(building.kind);
-            for (int y = building.position.y - 1;
-                 y <= building.position.y + rules.footprint_height; ++y) {
-                for (int x = building.position.x - 1;
-                     x <= building.position.x + rules.footprint_width; ++x) {
-                    const TilePosition tile{x, y};
-                    if (map_.sailable(tile) &&
-                        !occupied(tile, cart->id)) {
-                        return tile;
-                    }
-                }
-            }
-            return std::nullopt;
+            return spawn_position(building, cart->kind, cart->id);
         };
     const auto destination = trade_destination(*target);
     if (home == nullptr || !destination) {
@@ -4723,6 +4711,10 @@ void Simulation::validate_loaded_state() const {
              building.resource_amount > 550)) {
             throw std::runtime_error("invalid Farm food in save");
         }
+        if (building.kind == BuildingKind::dock &&
+            !map_.supports_dock_foundation(building.position)) {
+            throw std::runtime_error("invalid building footprint in save");
+        }
         for (int y = 0; y < rules.footprint_height; ++y) {
             for (int x = 0; x < rules.footprint_width; ++x) {
                 const TilePosition tile{
@@ -4733,8 +4725,7 @@ void Simulation::validate_loaded_state() const {
                     building.kind == BuildingKind::fish_trap
                         ? map_.sailable(tile)
                         : building.kind == BuildingKind::dock
-                            ? map_.contains(tile) &&
-                                map_.terrain_at(tile) == Terrain::grass
+                            ? true
                             : map_.buildable(tile);
                 if (!terrain_allowed) {
                     throw std::runtime_error(
@@ -5214,23 +5205,6 @@ bool Simulation::construct_building_at(
     if (outcome_ != MatchOutcome::ongoing ||
         !footprint_available(kind, position, 0)) {
         return false;
-    }
-    if (kind == BuildingKind::dock) {
-        const BuildingRules& dock_rules = rules_for(kind);
-        bool beside_water = false;
-        for (int y = position.y - 1;
-             y <= position.y + dock_rules.footprint_height; ++y) {
-            for (int x = position.x - 1;
-                 x <= position.x + dock_rules.footprint_width; ++x) {
-                const TilePosition candidate{x, y};
-                if (map_.sailable(candidate)) {
-                    beside_water = true;
-                }
-            }
-        }
-        if (!beside_water) {
-            return false;
-        }
     }
     Unit* builder = find_unit(builder_id);
     const bool fishing_ship_builder =
@@ -8516,21 +8490,7 @@ void Simulation::update() {
                 if (unit.kind != UnitKind::trade_cog) {
                     return spawn_position(building);
                 }
-                const BuildingRules& rules = rules_for(building.kind);
-                for (int y = building.position.y - 1;
-                     y <= building.position.y + rules.footprint_height;
-                     ++y) {
-                    for (int x = building.position.x - 1;
-                         x <= building.position.x + rules.footprint_width;
-                         ++x) {
-                        const TilePosition tile{x, y};
-                        if (map_.sailable(tile) &&
-                            !occupied(tile, unit.id)) {
-                            return tile;
-                        }
-                    }
-                }
-                return std::nullopt;
+                return spawn_position(building, unit.kind, unit.id);
             };
         if (distance_to_building(unit.position, destination) > 1) {
             const auto next = route_position(destination);
@@ -9760,6 +9720,10 @@ bool Simulation::footprint_available(
     EntityId except
 ) const {
     const BuildingRules& rules = rules_for(kind);
+    if (kind == BuildingKind::dock &&
+        !map_.supports_dock_foundation(position)) {
+        return false;
+    }
     for (int y = 0; y < rules.footprint_height; ++y) {
         for (int x = 0; x < rules.footprint_width; ++x) {
             const TilePosition tile{position.x + x, position.y + y};
@@ -9767,8 +9731,7 @@ bool Simulation::footprint_available(
                 kind == BuildingKind::fish_trap
                 ? map_.sailable(tile)
                 : kind == BuildingKind::dock
-                    ? map_.contains(tile) &&
-                        map_.terrain_at(tile) == Terrain::grass
+                    ? true
                     : map_.buildable(tile);
             if (!terrain_allowed ||
                 occupied(tile, except)) {
@@ -9960,13 +9923,16 @@ void Simulation::update_gate_states() {
 }
 
 std::optional<TilePosition> Simulation::spawn_position(
-    const Building& building
+    const Building& building,
+    std::optional<UnitKind> unit_kind,
+    EntityId except
 ) const {
-    const auto available = [this](TilePosition candidate) {
+    const bool ship = unit_kind && is_ship(*unit_kind);
+    const auto available = [this, ship, except](TilePosition candidate) {
         return map_.contains(candidate) &&
-            map_.walkable(candidate) &&
+            (ship ? map_.sailable(candidate) : map_.walkable(candidate)) &&
             resource_for(map_.terrain_at(candidate)) == ResourceKind::none &&
-            !occupied(candidate, 0);
+            !occupied(candidate, except);
     };
     const BuildingRules& rules = rules_for(building.kind);
     if (rules.footprint_width == 1 && rules.footprint_height == 1) {
@@ -9986,41 +9952,56 @@ std::optional<TilePosition> Simulation::spawn_position(
         return std::nullopt;
     }
 
+    std::vector<TilePosition> perimeter;
     for (int x = 0; x < rules.footprint_width; ++x) {
-        const TilePosition candidate{
-            building.position.x + x,
-            building.position.y - 1,
-        };
-        if (available(candidate)) {
-            return candidate;
-        }
+        perimeter.push_back({
+            building.position.x + x, building.position.y - 1
+        });
     }
     for (int y = 0; y < rules.footprint_height; ++y) {
-        const TilePosition candidate{
+        perimeter.push_back({
             building.position.x + rules.footprint_width,
-            building.position.y + y,
-        };
-        if (available(candidate)) {
-            return candidate;
-        }
+            building.position.y + y
+        });
     }
     for (int x = rules.footprint_width - 1; x >= 0; --x) {
-        const TilePosition candidate{
+        perimeter.push_back({
             building.position.x + x,
-            building.position.y + rules.footprint_height,
-        };
-        if (available(candidate)) {
-            return candidate;
-        }
+            building.position.y + rules.footprint_height
+        });
     }
     for (int y = rules.footprint_height - 1; y >= 0; --y) {
-        const TilePosition candidate{
-            building.position.x - 1,
-            building.position.y + y,
+        perimeter.push_back({
+            building.position.x - 1, building.position.y + y
+        });
+    }
+    if (ship) {
+        // FUN_0057fc90 checks the produced object's own placement validator
+        // around the producer rectangle, then retains the closest candidate.
+        // Its equal-distance start side is west, followed by north, south,
+        // then east. Keep that stable tie order while excluding diagonals.
+        const int center_x_twice =
+            building.position.x * 2 + rules.footprint_width - 1;
+        const int center_y_twice =
+            building.position.y * 2 + rules.footprint_height - 1;
+        const auto score = [&](TilePosition tile) {
+            const int dx = tile.x * 2 - center_x_twice;
+            const int dy = tile.y * 2 - center_y_twice;
+            const int side = tile.x == building.position.x - 1 ? 0 :
+                tile.y == building.position.y - 1 ? 1 :
+                tile.y == building.position.y + rules.footprint_height
+                    ? 2 : 3;
+            return std::pair{dx * dx + dy * dy, side};
         };
-        if (available(candidate)) {
-            return candidate;
-        }
+        std::ranges::stable_sort(
+            perimeter,
+            [&](TilePosition left, TilePosition right) {
+                return score(left) < score(right);
+            }
+        );
+    }
+    for (TilePosition candidate : perimeter) {
+        if (available(candidate)) return candidate;
     }
     return std::nullopt;
 }
@@ -12074,30 +12055,8 @@ void Simulation::update_production() {
         if (order.ticks_remaining > 0) {
             continue;
         }
-        std::optional<TilePosition> position;
-        if (is_ship(order.kind)) {
-            const BuildingRules& dock_rules = rules_for(building.kind);
-            for (int y = building.position.y - 1;
-                 y <= building.position.y + dock_rules.footprint_height &&
-                 !position;
-                 ++y) {
-                for (int x = building.position.x - 1;
-                     x <= building.position.x + dock_rules.footprint_width;
-                     ++x) {
-                    const TilePosition candidate{x, y};
-                    if (!map_.contains(candidate)) {
-                        continue;
-                    }
-                    if (map_.sailable(candidate) &&
-                        !occupied(candidate, 0)) {
-                        position = candidate;
-                        break;
-                    }
-                }
-            }
-        } else {
-            position = spawn_position(building);
-        }
+        const std::optional<TilePosition> position =
+            spawn_position(building, order.kind);
         if (!position) {
             continue;
         }

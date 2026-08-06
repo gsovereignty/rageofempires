@@ -87,6 +87,10 @@
       "base_class": "Combat",
       "building": null,
       "button_icon": 23,
+      "center_tile_req": [
+        -1,
+        -1
+      ],
       "combat": {
         "accuracy": 0,
         "area_effect_range": 0.0,
@@ -125,6 +129,10 @@
         "weapons": []
       },
       "construction_graphic": null,
+      "construction_radius": [
+        0.5,
+        0.5
+      ],
       "copy_id": 17,
       "creation": {
         "costs": [
@@ -169,6 +177,8 @@
       "garrison_capacity": 0,
       "hit_points": 80,
       "id": 17,
+      "language_dll_help": "Num(105089)",
+      "language_dll_name": "Num(5089)",
       "line_of_sight": 6.0,
       "missile": null,
       "moving": {
@@ -204,6 +214,10 @@
       "standing_graphic": 3975,
       "standing_graphic_2": null,
       "terrain_restriction_id": 3,
+      "tile_req": [
+        -1,
+        -1
+      ],
       "track_as_resource": false,
       "train_sound": 338,
       "unit_class": 2,
@@ -289,6 +303,10 @@
         "garrison_type": 0
       },
       "button_icon": 41,
+      "center_tile_req": [
+        -1,
+        -1
+      ],
       "combat": {
         "accuracy": 0,
         "area_effect_range": 0.0,
@@ -323,6 +341,10 @@
         "weapons": []
       },
       "construction_graphic": 5441,
+      "construction_radius": [
+        0.5,
+        0.5
+      ],
       "copy_id": 199,
       "creation": {
         "costs": [
@@ -373,6 +395,8 @@
       "garrison_capacity": 0,
       "hit_points": 50,
       "id": 199,
+      "language_dll_help": "Num(105495)",
+      "language_dll_name": "Num(5495)",
       "line_of_sight": 1.0,
       "missile": null,
       "moving": {
@@ -408,6 +432,10 @@
       "standing_graphic": 3281,
       "standing_graphic_2": null,
       "terrain_restriction_id": 13,
+      "tile_req": [
+        -1,
+        -1
+      ],
       "track_as_resource": false,
       "train_sound": null,
       "unit_class": 49,
@@ -464,6 +492,10 @@
         "garrison_type": 0
       },
       "button_icon": 16,
+      "center_tile_req": [
+        -1,
+        -1
+      ],
       "combat": {
         "accuracy": 100,
         "area_effect_range": 0.0,
@@ -506,6 +538,10 @@
         "weapons": []
       },
       "construction_graphic": 121,
+      "construction_radius": [
+        2.0,
+        2.0
+      ],
       "copy_id": 84,
       "creation": {
         "costs": [
@@ -556,6 +592,8 @@
       "garrison_capacity": 0,
       "hit_points": 2100,
       "id": 84,
+      "language_dll_help": "Num(105161)",
+      "language_dll_name": "Num(5161)",
       "line_of_sight": 6.0,
       "missile": null,
       "moving": {
@@ -591,6 +629,10 @@
       "standing_graphic": 2268,
       "standing_graphic_2": null,
       "terrain_restriction_id": 4,
+      "tile_req": [
+        -1,
+        -1
+      ],
       "track_as_resource": false,
       "train_sound": null,
       "unit_class": 3,
@@ -625,6 +667,10 @@
         "garrison_type": 0
       },
       "button_icon": 13,
+      "center_tile_req": [
+        1,
+        4
+      ],
       "combat": {
         "accuracy": 0,
         "area_effect_range": 0.0,
@@ -667,6 +713,10 @@
         "weapons": []
       },
       "construction_graphic": 4248,
+      "construction_radius": [
+        1.5,
+        1.5
+      ],
       "copy_id": 45,
       "creation": {
         "costs": [
@@ -717,6 +767,8 @@
       "garrison_capacity": 10,
       "hit_points": 1800,
       "id": 45,
+      "language_dll_help": "Num(105144)",
+      "language_dll_name": "Num(5144)",
       "line_of_sight": 6.0,
       "missile": null,
       "moving": {
@@ -752,6 +804,10 @@
       "standing_graphic": 215,
       "standing_graphic_2": null,
       "terrain_restriction_id": 6,
+      "tile_req": [
+        2,
+        35
+      ],
       "track_as_resource": false,
       "train_sound": null,
       "unit_class": 3,
@@ -968,6 +1024,10 @@
       "base_class": "Combat",
       "building": null,
       "button_icon": 24,
+      "center_tile_req": [
+        -1,
+        -1
+      ],
       "combat": {
         "accuracy": 0,
         "area_effect_range": 0.0,
@@ -1006,6 +1066,10 @@
         "weapons": []
       },
       "construction_graphic": null,
+      "construction_radius": [
+        0.5,
+        0.5
+      ],
       "copy_id": 13,
       "creation": {
         "costs": [
@@ -1045,6 +1109,8 @@
       "garrison_capacity": 0,
       "hit_points": 60,
       "id": 13,
+      "language_dll_help": "Num(105090)",
+      "language_dll_name": "Num(5090)",
       "line_of_sight": 5.0,
       "missile": null,
       "moving": {
@@ -1080,6 +1146,10 @@
       "standing_graphic": 803,
       "standing_graphic_2": null,
       "terrain_restriction_id": 13,
+      "tile_req": [
+        -1,
+        -1
+      ],
       "track_as_resource": false,
       "train_sound": 338,
       "unit_class": 21,
@@ -1221,6 +1291,10 @@
       "base_class": "Combat",
       "building": null,
       "button_icon": 34,
+      "center_tile_req": [
+        -1,
+        -1
+      ],
       "combat": {
         "accuracy": 0,
         "area_effect_range": 0.0,
@@ -1255,6 +1329,10 @@
         "weapons": []
       },
       "construction_graphic": null,
+      "construction_radius": [
+        0.30000001192092896,
+        0.30000001192092896
+      ],
       "copy_id": 128,
       "creation": {
         "costs": [
@@ -1299,6 +1377,8 @@
       "garrison_capacity": 0,
       "hit_points": 70,
       "id": 128,
+      "language_dll_help": "Num(105100)",
+      "language_dll_name": "Num(5100)",
       "line_of_sight": 7.0,
       "missile": null,
       "moving": {
@@ -1334,6 +1414,10 @@
       "standing_graphic": 1141,
       "standing_graphic_2": null,
       "terrain_restriction_id": 20,
+      "tile_req": [
+        -1,
+        -1
+      ],
       "track_as_resource": false,
       "train_sound": 305,
       "unit_class": 19,

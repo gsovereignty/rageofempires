@@ -163,6 +163,12 @@ SLP 4585. Selection sound 460 maps to WAV resource 6043.
 These are DAT graphic-to-SLP and conceptual sound-to-WAV links. Presence and
 decoding in supplied DRS archives require separate archive validation.
 
+Dock `45` additionally records radius and construction radius `(1.5, 1.5)`,
+center terrain requirements `(1, 4)`, perimeter tile requirements `(2, 35)`,
+terrain restriction `6`, and selection shape `3`. Completed graphic `215` and
+all three child graphics have one angle, so the DAT does not define a rotated
+completed Dock facing.
+
 ## Regeneration
 
 ```sh

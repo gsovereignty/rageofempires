@@ -18,8 +18,9 @@ graphic links. It also emits unit/base class, HP, LOS, speed, resource
 tracking/group, copy ID, availability flags, button/portrait indices, combat
 stats including area/blast fields, primary and volley missile links/settings, creation
 costs/location/button/time, three-slot static resource attributes, and tech names.
-It also emits exact three-axis static and outline radii, obstruction and
-selection shapes, unit group, moving size class, turn/trailing/move-algorithm
+It also emits exact three-axis static and outline radii, two-axis construction
+radii, center/perimeter tile requirements, obstruction and selection shapes,
+unit group, moving size class, turn/trailing/move-algorithm
 fields, unit sound links, graphic sound triggers, conceptual sound
 resource/probability entries, and direct graphic records with SLP, animation,
 palette, and child-layer metadata. Terrain output includes direct terrain
@@ -46,7 +47,7 @@ The extractor produced 514 effects, 19 civilizations, and 7,014 graphics.
 | `procedural_building_dat_metadata.json` | 8 mappings, 160 graphics | `1105bf3dc2a3846c22cc384f37b732ef0dd9c59df76f4b88080501ff7c40b089` |
 | `religious_dat_metadata.json` | 9 technologies | `dc140907423a5b6c156f9e487678e9b3c6b23a83ce6c200b66206010122e1282` |
 | `renderer_asset_coverage.json` | 96 units, 27 buildings | `b4952e23fc322e2e0c7fa94e14efebe9ce7a28ffd52b419db35b9530988e035b` |
-| `trade_dat_metadata.json` | 2 entities, 5 technologies | `21484be851441a1fb7247469fa7b51344da224c81cf7c3be14ff7d8e07421722` |
+| `trade_dat_metadata.json` | 2 entities, 5 technologies | `72605450cebcdf43ab164c439f539182a11bbc8d2a2aa8262db5e55e746199cb` |
 | `victory_dat_metadata.json` | 18 civilization boundaries | `865a07d901b44aca6b5d2ba25a8976301b8e48214a3f8c39d5c7b938fd0c2d7e` |
 
 Combat records additionally preserve raw break-off, weapon offset,

@@ -39,6 +39,22 @@ void require(
     }
 }
 
+void prepare_dock_foundation(
+    aoe::GameMap& map,
+    aoe::TilePosition origin
+) {
+    for (int y = 0; y < 3; ++y) {
+        for (int x = 0; x < 3; ++x) {
+            map.set_terrain(
+                {origin.x + x, origin.y + y}, aoe::Terrain::water
+            );
+        }
+    }
+    map.set_terrain(
+        {origin.x + 1, origin.y - 1}, aoe::Terrain::ice2
+    );
+}
+
 void executable_conversion_arithmetic_is_exact() {
     const auto zero = aoe::evaluate_conversion_check(
         0, 0.0F, 25, 5.0F, 4.0F, 8.0F
@@ -15732,6 +15748,52 @@ void newly_represented_team_bonuses_follow_reciprocal_alliance() {
     );
 }
 
+void dock_shoreline_and_ship_spawn_geometry_match_original() {
+    aoe::GameMap map(12, 9);
+    prepare_dock_foundation(map, {2, 2});
+    map.set_terrain({3, 1}, aoe::Terrain::ice2);
+    for (int y = 5; y < map.height(); ++y) {
+        for (int x = 2; x < map.width(); ++x) {
+            map.set_terrain({x, y}, aoe::Terrain::water);
+        }
+    }
+    require(map.supports_dock_foundation({2, 2}));
+    require(!map.supports_dock_foundation({6, 2}));
+
+    aoe::Simulation simulation(std::move(map));
+    const auto dock = simulation.add_building(
+        aoe::BuildingKind::dock, aoe::Player::blue, {2, 2}
+    );
+    simulation.add_building(
+        aoe::BuildingKind::house, aoe::Player::blue, {7, 0}
+    );
+    simulation.add_building(
+        aoe::BuildingKind::house, aoe::Player::red, {10, 0}
+    );
+    require(simulation.set_rally_point(dock, {10, 6}));
+    require(simulation.queue_unit_at(
+        dock, aoe::UnitKind::fishing_ship
+    ));
+    for (int tick = 0; tick < 12; ++tick) simulation.update();
+    require(simulation.units().size() == 1);
+    const aoe::Unit& ship = simulation.units().front();
+    require(ship.kind == aoe::UnitKind::fishing_ship);
+    require(ship.position == aoe::TilePosition{3, 5});
+    require(simulation.map().sailable(ship.position));
+    require(ship.destination == aoe::TilePosition{10, 6});
+    require(ship.moving);
+
+    aoe::GameMap grass_anchor(8, 8);
+    grass_anchor.set_terrain({5, 3}, aoe::Terrain::water);
+    aoe::Simulation rejected(std::move(grass_anchor));
+    const auto builder = rejected.add_unit(
+        aoe::UnitKind::villager, aoe::Player::blue, {1, 1}
+    );
+    require(!rejected.construct_building_at(
+        builder, aoe::BuildingKind::dock, {2, 2}
+    ));
+}
+
 void docks_and_fishing_ships_form_a_water_only_food_economy() {
     require(aoe::rules_for(aoe::BuildingKind::dock).wood_cost == 150);
     require(aoe::rules_for(aoe::BuildingKind::dock).minimum_age ==
@@ -15746,6 +15808,7 @@ void docks_and_fishing_ships_form_a_water_only_food_economy() {
             map.set_terrain({x, y}, aoe::Terrain::water);
         }
     }
+    prepare_dock_foundation(map, {1, 1});
     map.set_terrain({8, 4}, aoe::Terrain::fish);
     aoe::Simulation simulation(std::move(map));
     const auto dock = simulation.add_building(
@@ -15796,6 +15859,7 @@ void docks_and_fishing_ships_form_a_water_only_food_economy() {
     require(restored.map().terrain_at({8, 4}) == aoe::Terrain::fish);
 
     aoe::Scenario scenario(10, 6);
+    prepare_dock_foundation(scenario.map, {1, 1});
     scenario.map.set_terrain({4, 4}, aoe::Terrain::water);
     scenario.map.set_terrain({5, 4}, aoe::Terrain::fish);
     scenario.buildings.push_back({
@@ -15967,14 +16031,16 @@ void fire_and_demolition_ship_lines_are_dat_backed_and_persist() {
     require(unit_with_id(friendly)->hit_points < 120);
     require(unit_with_id(enemy)->hit_points < 120);
 
-    aoe::Simulation production(aoe::GameMap(10, 7));
+    aoe::GameMap production_map(10, 7);
+    prepare_dock_foundation(production_map, {0, 1});
+    aoe::Simulation production(std::move(production_map));
     production.replace_technologies(
         aoe::Player::blue,
         {aoe::Technology::fast_fire_ship,
          aoe::Technology::heavy_demolition_ship}
     );
     const auto dock = production.add_building(
-        aoe::BuildingKind::dock, aoe::Player::blue, {0, 0}
+        aoe::BuildingKind::dock, aoe::Player::blue, {0, 1}
     );
     production.add_building(
         aoe::BuildingKind::house, aoe::Player::blue, {4, 0}
@@ -16137,9 +16203,11 @@ void cannon_galleons_and_dock_technologies_follow_live_dat() {
     require(replayed.projectiles()[0].target ==
             combat.projectiles()[0].target);
 
-    aoe::Simulation dock_techs(aoe::GameMap(12, 8));
+    aoe::GameMap dock_technology_map(12, 8);
+    prepare_dock_foundation(dock_technology_map, {0, 1});
+    aoe::Simulation dock_techs(std::move(dock_technology_map));
     const auto dock = dock_techs.add_building(
-        aoe::BuildingKind::dock, aoe::Player::blue, {0, 0}
+        aoe::BuildingKind::dock, aoe::Player::blue, {0, 1}
     );
     dock_techs.add_building(
         aoe::BuildingKind::house, aoe::Player::blue, {4, 0}
@@ -16289,9 +16357,10 @@ void civilization_unique_ship_lines_are_locked_and_deterministic() {
         for (int y = 4; y < 8; ++y)
             for (int x = 0; x < 14; ++x)
                 map.set_terrain({x, y}, aoe::Terrain::water);
+        prepare_dock_foundation(map, {0, 1});
         aoe::Simulation result(std::move(map));
         result.add_building(
-            aoe::BuildingKind::dock, aoe::Player::blue, {0, 0}
+            aoe::BuildingKind::dock, aoe::Player::blue, {0, 1}
         );
         result.add_building(
             aoe::BuildingKind::house, aoe::Player::blue, {4, 0}
@@ -18973,18 +19042,14 @@ void naval_trade_and_fish_traps_are_bounded_and_persistent() {
             map.set_terrain({x, y}, aoe::Terrain::water);
         }
     }
-    for (int y = 0; y < 3; ++y) {
-        for (int x = 0; x < 3; ++x) {
-            map.set_terrain({x, y}, aoe::Terrain::grass);
-            map.set_terrain({14 + x, y}, aoe::Terrain::grass);
-        }
-    }
+    prepare_dock_foundation(map, {0, 1});
+    prepare_dock_foundation(map, {14, 1});
     aoe::Simulation simulation(std::move(map));
     simulation.add_building(
-        aoe::BuildingKind::dock, aoe::Player::blue, {0, 0}
+        aoe::BuildingKind::dock, aoe::Player::blue, {0, 1}
     );
     const auto red_dock = simulation.add_building(
-        aoe::BuildingKind::dock, aoe::Player::red, {14, 0}
+        aoe::BuildingKind::dock, aoe::Player::red, {14, 1}
     );
     const auto fisher = simulation.add_unit(
         aoe::UnitKind::fishing_ship, aoe::Player::blue, {4, 5}
@@ -25086,6 +25151,10 @@ int main() {
     run(
         "represented team LOS bonuses",
         represented_team_los_bonuses_follow_alliance_without_stacking
+    );
+    run(
+        "Dock shoreline and ship spawn geometry",
+        dock_shoreline_and_ship_spawn_geometry_match_original
     );
     run(
         "naval fishing economy",

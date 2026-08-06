@@ -15,6 +15,10 @@ technology blue dry_dock
 technology blue shipwright
 technology red cannon_galleon
 
+terrain_rect ice2 0 0 2 0
+terrain_rect water 0 1 2 4
+terrain_rect ice2 16 0 18 0
+terrain_rect water 16 1 18 4
 terrain water 0 5
 terrain water 1 5
 terrain water 2 5

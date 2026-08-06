@@ -647,7 +647,11 @@ private:
     ) const;
     void detach_builder(EntityId unit_id);
     bool route_unit(Unit& unit, TilePosition destination);
-    std::optional<TilePosition> spawn_position(const Building& building) const;
+    std::optional<TilePosition> spawn_position(
+        const Building& building,
+        std::optional<UnitKind> unit_kind = std::nullopt,
+        EntityId except = 0
+    ) const;
     void perform_attack(Unit& attacker, Unit& defender);
     void perform_attack(Unit& attacker, Building& defender);
     void detonate_demolition_ship(Unit& attacker);

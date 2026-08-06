@@ -24174,8 +24174,16 @@ ApplicationLoop SdlApp::loop() {
             !paused && !campaign_modal && !scenario_editor &&
             active_frontend_screen == FrontendScreen::hidden &&
             (!multiplayer_runtime || !multiplayer_runtime->paused());
-        const FrameDuration frame_elapsed = now - last_frame_time;
+        const FrameDuration raw_frame_elapsed = now - last_frame_time;
         last_frame_time = now;
+        const std::optional<std::chrono::milliseconds> frame_elapsed_limit =
+            maximum_frame_elapsed();
+        const FrameDuration frame_elapsed = frame_elapsed_limit
+            ? std::min<FrameDuration>(
+                  raw_frame_elapsed,
+                  *frame_elapsed_limit
+              )
+            : raw_frame_elapsed;
         const std::optional<int> multiplayer_cadence =
             multiplayer_runtime
             ? std::optional<int>{

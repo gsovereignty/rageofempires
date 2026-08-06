@@ -24,5 +24,8 @@ void request_persistence_sync();
 [[nodiscard]] PersistenceSyncStatus persistence_sync_status();
 [[nodiscard]] std::optional<std::chrono::milliseconds>
 maximum_frame_elapsed();
+[[nodiscard]] bool postgame_restart_reinitializes_application();
+void request_application_restart();
+[[nodiscard]] bool consume_application_restart_request();
 
 }  // namespace aoe

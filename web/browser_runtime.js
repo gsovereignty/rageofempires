@@ -1,3 +1,22 @@
+Module['browserUncaughtErrors'] = [];
+window.addEventListener('error', function (event) {
+  Module['browserUncaughtErrors'].push({
+    message: event.message || String(event.error || 'unknown error'),
+    source: event.filename || '',
+    line: event.lineno || 0,
+    column: event.colno || 0,
+    stack: event.error && event.error.stack || ''
+  });
+});
+window.addEventListener('unhandledrejection', function (event) {
+  Module['browserUncaughtErrors'].push({
+    message: String(event.reason || 'unhandled rejection'),
+    source: '',
+    line: 0,
+    column: 0,
+    stack: event.reason && event.reason.stack || ''
+  });
+});
 Module['canvas'] = document.getElementById('canvas');
 Module['browserDisplayMetrics'] = function () {
   const rect = Module['canvas'].getBoundingClientRect();
@@ -16,9 +35,17 @@ Module['canvas'].addEventListener('contextmenu', function (event) {
 Module['preRun'] ??= [];
 Module['preRun'].push(function () {
   Module['addRunDependency']('browser-storage');
-  try { FS.mkdir('/user'); } catch (error) {
-    if (!String(error).includes('File exists')) throw error;
-  }
+  const ensureDirectory = function (path) {
+    const existing = FS.analyzePath(path);
+    if (!existing.exists) {
+      FS.mkdir(path);
+      return;
+    }
+    if (!FS.isDir(existing.object.mode)) {
+      throw new Error('Browser storage path is not a directory: ' + path);
+    }
+  };
+  ensureDirectory('/user');
   FS.mount(IDBFS, {}, '/user');
   FS.syncfs(true, function (error) {
     if (error) {
@@ -26,9 +53,7 @@ Module['preRun'].push(function () {
       return;
     }
     for (const path of ['/user/settings', '/user/autosave']) {
-      try { FS.mkdir(path); } catch (mkdirError) {
-        if (!String(mkdirError).includes('File exists')) throw mkdirError;
-      }
+      ensureDirectory(path);
     }
     Module['storageReady'] = true;
     Module['removeRunDependency']('browser-storage');

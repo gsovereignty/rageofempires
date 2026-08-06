@@ -18,7 +18,7 @@
       "resource": {"kind": "gold", "terrain_id": 10, "position": [7, 8]},
       "trainable_unit": {"kind": "militia", "dat_id": 74, "cost": {"food": 60, "gold": 20}},
       "enemy_unit": {"kind": "militia", "dat_id": 74, "position": [18, 8]},
-      "enemy_building": {"kind": "house", "dat_id": 70, "position": [20, 7]}
+      "enemy_building": {"kind": "house", "dat_id": 70, "position": [20, 7], "hit_points": 90}
     },
     "technology": {
       "kind": "man_at_arms",

@@ -21355,6 +21355,34 @@ void executable_scenario_triggers_are_deterministic_and_persistent() {
 
     require(loaded.economy(aoe::Player::blue).wood ==
             simulation.economy(aoe::Player::blue).wood);
+
+    aoe::Scenario destroyed_reference(6, 6);
+    destroyed_reference.match_rules = scenario.match_rules;
+    destroyed_reference.buildings.push_back({
+        aoe::BuildingKind::house, aoe::Player::red, {3, 3}
+    });
+    destroyed_reference.triggers = {{
+        1, 1, true, false, "building_destroyed 1", "victory blue",
+    }};
+    aoe::Simulation destroyed = aoe::create_simulation(destroyed_reference);
+    const auto destroyed_path = std::filesystem::temp_directory_path() /
+        "aoe-destroyed-trigger-reference.save";
+    aoe::save_game(destroyed, destroyed_path);
+    {
+        std::ifstream input(destroyed_path);
+        std::vector<std::string> lines;
+        std::string line;
+        while (std::getline(input, line)) {
+            if (!line.starts_with("building ")) lines.push_back(line);
+        }
+        std::ofstream output(destroyed_path);
+        for (const std::string& value : lines) output << value << '\n';
+    }
+    aoe::Simulation destroyed_loaded = aoe::load_game(destroyed_path);
+    std::filesystem::remove(destroyed_path);
+    destroyed_loaded.update();
+    require(destroyed_loaded.outcome() == aoe::MatchOutcome::blue_victory);
+
     simulation.update();
     loaded.update();
     require(simulation.outcome() == aoe::MatchOutcome::blue_victory);

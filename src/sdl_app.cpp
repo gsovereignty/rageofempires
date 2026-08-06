@@ -16941,6 +16941,9 @@ std::array<bool, 19> required_legacy_civilizations(
 
 ApplicationLoop SdlApp::loop() {
     active_view_player = Player::blue;
+    active_statistics_visible = false;
+    active_statistics_postgame = false;
+    active_statistics_tab = StatisticsTab::economy;
     const bool gameplay_automation =
         SDL_getenv("AOE_GAMEPLAY_TEST_API_DIR") != nullptr &&
         SDL_getenv("AOE_GAMEPLAY_TEST_API_DIR")[0] != '\0';
@@ -18193,8 +18196,7 @@ ApplicationLoop SdlApp::loop() {
     bool pending_map_signal = false;
     std::uint64_t local_signal_sequence = 1;
     std::vector<Uint64> local_signal_times;
-    bool outcome_statistics_seen =
-        simulation.outcome() != MatchOutcome::ongoing;
+    bool outcome_statistics_seen = false;
     bool paused = false;
     WindowGeometry windowed_geometry{};
     SDL_GetWindowPosition(
@@ -21121,12 +21123,17 @@ ApplicationLoop SdlApp::loop() {
                         active_statistics_visible = false;
                     } else if (active_statistics_postgame &&
                                event.key.key == SDLK_R) {
-                        simulation = new_game();
-                        computer = ComputerPlayer(Player::red);
-                        center_camera_on_local_start();
-                        active_statistics_visible = false;
-                        active_statistics_postgame = false;
-                        outcome_statistics_seen = false;
+                        if (postgame_restart_reinitializes_application()) {
+                            request_application_restart();
+                            running = false;
+                        } else {
+                            simulation = new_game();
+                            computer = ComputerPlayer(Player::red);
+                            center_camera_on_local_start();
+                            active_statistics_visible = false;
+                            active_statistics_postgame = false;
+                            outcome_statistics_seen = false;
+                        }
                     } else if (active_statistics_postgame &&
                                event.key.key == SDLK_B) {
                         active_statistics_visible = false;
@@ -24970,6 +24977,59 @@ ApplicationLoop SdlApp::loop() {
             }
         }
         const Economy& browser_economy = simulation.economy(Player::blue);
+        const std::size_t browser_blue_military =
+            static_cast<std::size_t>(std::ranges::count_if(
+                simulation.units(),
+                [](const Unit& unit) {
+                    return unit.owner == Player::blue &&
+                        unit.kind != UnitKind::villager;
+                }
+            ));
+        const auto browser_tile_center = [&camera](float x, float y) {
+            return SDL_FPoint{
+                (static_cast<float>(map_origin_x()) +
+                 (x - y) * half_tile_width - camera.x) * camera.zoom,
+                (static_cast<float>(map_origin_y + half_tile_height) +
+                 (x + y) * half_tile_height - camera.y) * camera.zoom,
+            };
+        };
+        BrowserTargetTelemetry browser_targets;
+        int browser_enemy_building_hit_points = -1;
+        browser_targets.resource_x = browser_tile_center(7.0F, 8.0F).x;
+        browser_targets.resource_y = browser_tile_center(7.0F, 8.0F).y;
+        for (const Unit& unit : simulation.units()) {
+            const SDL_FPoint center = browser_tile_center(
+                static_cast<float>(unit.position.x),
+                static_cast<float>(unit.position.y)
+            );
+            if (unit.owner == Player::blue &&
+                unit.kind == UnitKind::villager) {
+                browser_targets.villager_x = center.x;
+                browser_targets.villager_y = center.y;
+            } else if (unit.owner == Player::blue) {
+                browser_targets.military_x = center.x;
+                browser_targets.military_y = center.y;
+            }
+        }
+        for (const Building& building : simulation.buildings()) {
+            const BuildingRules& rules = rules_for(building.kind);
+            const SDL_FPoint center = browser_tile_center(
+                static_cast<float>(building.position.x) +
+                    static_cast<float>(rules.footprint_width - 1) / 2.0F,
+                static_cast<float>(building.position.y) +
+                    static_cast<float>(rules.footprint_height - 1) / 2.0F
+            );
+            if (building.owner == Player::blue &&
+                building.kind == BuildingKind::barracks) {
+                browser_targets.barracks_x = center.x;
+                browser_targets.barracks_y = center.y;
+            } else if (building.owner == Player::red &&
+                       building.kind == BuildingKind::house) {
+                browser_targets.enemy_building_x = center.x;
+                browser_targets.enemy_building_y = center.y;
+                browser_enemy_building_hit_points = building.hit_points;
+            }
+        }
         publish_browser_telemetry({
             simulation.tick_number(),
             simulation.selected_unit().value_or(0),
@@ -24986,7 +25046,13 @@ ApplicationLoop SdlApp::loop() {
             camera.zoom,
             simulation.units().size(),
             simulation.buildings().size(),
+            browser_blue_military,
+            simulation.has_technology(
+                Player::blue, Technology::man_at_arms
+            ),
+            browser_enemy_building_hit_points,
             runtime_fallback_telemetry().events().size(),
+            browser_targets,
         });
         co_yield !gameplay_benchmark;
     }

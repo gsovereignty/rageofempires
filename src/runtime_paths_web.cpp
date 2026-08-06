@@ -4,6 +4,12 @@
 #include <emscripten/emscripten.h>
 
 namespace aoe {
+namespace {
+
+bool application_restart_requested{};
+bool skip_startup_autosave_once{};
+
+}  // namespace
 
 std::filesystem::path runtime_resources_directory() {
     return "/resources";
@@ -26,6 +32,10 @@ std::filesystem::path user_autosave_directory() {
 }
 
 std::optional<std::filesystem::path> startup_autosave_path() {
+    if (skip_startup_autosave_once) {
+        skip_startup_autosave_once = false;
+        return std::nullopt;
+    }
     return user_autosave_directory() / "browser-autosave.txt";
 }
 
@@ -57,6 +67,21 @@ PersistenceSyncStatus persistence_sync_status() {
 
 std::optional<std::chrono::milliseconds> maximum_frame_elapsed() {
     return std::chrono::milliseconds{250};
+}
+
+bool postgame_restart_reinitializes_application() {
+    return true;
+}
+
+void request_application_restart() {
+    application_restart_requested = true;
+    skip_startup_autosave_once = true;
+}
+
+bool consume_application_restart_request() {
+    const bool requested = application_restart_requested;
+    application_restart_requested = false;
+    return requested;
 }
 
 std::optional<std::filesystem::path> configured_asset_root() {

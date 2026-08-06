@@ -75,6 +75,16 @@ std::optional<std::chrono::milliseconds> maximum_frame_elapsed() {
     return std::nullopt;
 }
 
+bool postgame_restart_reinitializes_application() {
+    return false;
+}
+
+void request_application_restart() {}
+
+bool consume_application_restart_request() {
+    return false;
+}
+
 std::optional<std::filesystem::path> configured_asset_root() {
     if (const char* disabled = SDL_getenv("AOE_DISABLE_LEGACY_ASSETS");
         disabled != nullptr && disabled[0] != '\0' &&

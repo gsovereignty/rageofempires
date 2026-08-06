@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <chrono>
 #include <optional>
 
 namespace aoe {
@@ -21,5 +22,7 @@ enum class PersistenceSyncStatus {
 [[nodiscard]] std::optional<std::filesystem::path> configured_asset_root();
 void request_persistence_sync();
 [[nodiscard]] PersistenceSyncStatus persistence_sync_status();
+[[nodiscard]] std::optional<std::chrono::milliseconds>
+maximum_frame_elapsed();
 
 }  // namespace aoe

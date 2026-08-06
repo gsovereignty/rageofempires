@@ -55,6 +55,10 @@ PersistenceSyncStatus persistence_sync_status() {
     return static_cast<PersistenceSyncStatus>(browser_idb_sync_status());
 }
 
+std::optional<std::chrono::milliseconds> maximum_frame_elapsed() {
+    return std::chrono::milliseconds{250};
+}
+
 std::optional<std::filesystem::path> configured_asset_root() {
     if (const char* disabled = SDL_getenv("AOE_DISABLE_LEGACY_ASSETS");
         disabled != nullptr && disabled[0] != '\0' &&

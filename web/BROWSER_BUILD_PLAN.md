@@ -1,53 +1,263 @@
-# Single-Player Browser Build Plan
+# Browser Risk Spike Plan
 
 ## Goal
 
-Add a browser package as a separate Emscripten target while preserving native
-behavior.
+Build one minimal, production-path browser playthrough that validates every
+known browser-port risk before broader browser work begins.
+
+This plan delivers only a technical risk spike. It does not deliver a general
+browser edition.
+
+Native targets, behavior, resources, packaging, and default build remain
+unchanged. Browser support is a separate, disabled-by-default Emscripten target.
+
+## Fixed product slice
+
+The browser exposes exactly this flow:
 
 ```text
-Shared code
-├── aoe_core
-├── game rules
-├── simulation
-├── AI
-├── rendering logic
-└── scenario/content code
-
-Platform targets
-├── aoe_reconstruction          native executable
-├── aoe_reconstruction_app      macOS bundle
-└── aoe_web                     browser WASM package
+Loading
+  Start Risk Scenario
+    Play fixed scenario
+      Victory or Defeat
+        Restart Scenario
 ```
 
-Native build remains default. Browser behavior enters only through narrow
-platform adapters and guarded CMake branches.
+No other menu or game mode is reachable.
 
-## Initial scope
+### Fixed scenario
 
-- One packaged scenario.
-- Single player versus AI.
-- Fixed map, civilizations, teams, victory condition, and game settings.
-- Loading, start, victory/defeat, and restart screens.
-- Browser-native MP3 playback after user interaction.
+Add one tracked scenario fixture dedicated to this spike. It must contain only:
 
-Defer campaigns, random maps, scenario editor, multiplayer, replays, legacy
-imports, and full save browser.
+- One human player.
+- One AI opponent.
+- One explored, fixed-size map with no random generation.
+- Human starting units: one villager and one town center.
+- Human starting resources sufficient only for the required flow.
+- One nearby gatherable resource node.
+- One trainable military unit type.
+- One reachable technology affecting that military unit.
+- One enemy military unit and one enemy building.
+- One deterministic AI script that advances, then attacks.
+- One victory condition: destroy the enemy building.
+- One defeat condition: lose the human town center.
+- One short MP3 effect and one long MP3 music track already licensed and
+  tracked within reconstruction inputs.
 
-## Non-regression rules
+Scenario settings, civilization IDs, entity IDs, technology ID, starting
+resources, positions, AI timing, and victory condition must be recorded beside
+the fixture. No runtime choice is permitted.
 
-- Keep existing native target names and defaults unchanged.
-- Keep Emscripten optional and absent from native build requirements.
-- Select platform implementations through target source lists.
-- Avoid scattered `#ifdef __EMSCRIPTEN__` branches in shared game logic.
-- Keep browser output under `build-web/`, never native runtime directories.
-- Preserve native resources and macOS bundle packaging.
-- Leave native TCP multiplayer unchanged initially.
-- Add regression coverage for every changed shared behavior.
-- Run native `make` before every completion commit containing game-code
-  changes.
+### Required player journey
 
-## Proposed structure
+The production browser build must support this exact journey:
+
+1. Load the page from static HTTP hosting.
+2. Show loading state while the virtual filesystem and IndexedDB initialize.
+3. Show `Start Risk Scenario` only after initialization succeeds.
+4. Start from an intentional pointer gesture and unlock browser audio.
+5. Play the long MP3 music track by streaming, not whole-track decode.
+6. Select the villager with a real canvas pointer event.
+7. Command the villager to gather from the resource node.
+8. Accumulate enough resources to train the single military unit.
+9. Train that unit through the normal production UI.
+10. Research the single technology through the normal research UI.
+11. Observe the deterministic AI advance and attack.
+12. Select and move the military unit with real canvas input.
+13. Destroy the enemy building and reach the normal victory state.
+14. Save one autosave and wait for confirmed IndexedDB synchronization.
+15. Reload the page and restore that autosave through normal startup.
+16. Restart the scenario through the victory screen.
+17. Confirm music and effects have only one active playback instance.
+18. Confirm memory returns to the defined restart tolerance.
+
+Automation may drive real browser input, but acceptance must use normal product
+inputs and the production build. Test-only runtime branches, forced audit modes,
+mocks, alternate renderers, or injected simulation commands do not satisfy this
+journey.
+
+## Risks validated
+
+The slice must prove all seven risks below. Passing only compilation, unit tests,
+or first-frame rendering is insufficient.
+
+### 1. SDL3 and Emscripten compatibility
+
+Pin one Emscripten SDK version and one SDL3 revision. Record both in the browser
+build documentation and CI/bootstrap configuration.
+
+The production browser target must prove:
+
+- SDL initialization and canvas creation.
+- WebGL 2 renderer creation.
+- Texture creation and destruction.
+- `SDL_RenderGeometry`.
+- Clipping and render targets.
+- Text rendering.
+- Keyboard, pointer, wheel, and right-click events used by the journey.
+- Fullscreen entry from a user gesture and fullscreen exit.
+- Clean browser-target compilation with no native TCP transport.
+
+No unpinned dependency download or silent renderer substitution is allowed.
+
+### 2. Non-blocking application lifecycle
+
+Extract reusable lifecycle operations from the native blocking loop:
+
+```cpp
+class SdlApp {
+public:
+    void initialize();
+    bool frame();
+    void shutdown();
+    int run();
+};
+```
+
+Native `run()` retains native delay and ordering. Browser entry registers
+`frame()` with the Emscripten main loop.
+
+Prove production browser behavior for:
+
+- Initialization once per scenario run.
+- Repeated event, simulation, and render frames without blocking the page.
+- Victory transition.
+- Shutdown during restart.
+- Second initialization after restart.
+- No duplicated callbacks after restart.
+- Exception and failure reporting without a hung loading screen.
+
+### 3. Minimal asset closure
+
+Create a deterministic asset-pack generator for only the fixed scenario.
+
+It must traverse and include:
+
+- Scenario and AI data.
+- Two civilizations and referenced entities.
+- Villager, town center, military unit, enemy unit, and enemy building data.
+- Gather, train, research, attack, death, and victory dependencies.
+- Selected technology and its upgrade dependencies.
+- Used terrain, projectiles, effects, and animations.
+- Required UI textures, icons, cursor, fonts, and localization strings.
+- Required short effect and long music MP3.
+
+Output only under `build-web/web-assets/`:
+
+```text
+build-web/web-assets/
+├── resources/
+├── game_data/
+└── web_asset_manifest.json
+```
+
+Every manifest record must contain source-relative path, SHA-256 hash, byte
+size, inclusion reason, and dependency parent. Missing dependencies fail the
+build. Two clean generator runs must produce byte-identical manifests and asset
+sets.
+
+During the required journey, any missing-file request, placeholder asset,
+fallback asset, decode failure, or HTTP 404 fails the spike.
+
+### 4. Browser memory use
+
+Instrument production build memory at these checkpoints:
+
+1. Loading complete.
+2. Scenario start.
+3. Music playing.
+4. First combat.
+5. Victory.
+6. Restart complete.
+7. Second victory.
+
+Record WASM heap size and browser process metrics available to the test runner.
+Define numeric budgets before acceptance:
+
+- Maximum packaged asset bytes.
+- Maximum WASM heap at any checkpoint.
+- Maximum heap growth between first and second victory.
+- Maximum live audio instances after restart.
+
+Long music must stream. Short effect may decode and cache once. Second victory
+must not show unbounded heap growth or duplicate audio playback.
+
+### 5. Pointer and display conversion
+
+SDL logical game coordinates remain authoritative. Browser shell must account
+for CSS canvas size, backing size, device pixel ratio, SDL output size,
+letterboxing, resize, zoom, and fullscreen.
+
+Repeat villager selection, resource targeting, military-unit selection, and
+enemy-building targeting under every required display case:
+
+- Device pixel ratio 1 at 100% browser zoom.
+- Device pixel ratio 2 at 100% browser zoom.
+- Device pixel ratio 1 at 125% browser zoom.
+- Window resize while scenario is active.
+- Fullscreen entered from user gesture.
+- Return from fullscreen.
+- One letterboxed aspect ratio.
+
+Each pointer action must hit the visible target at its rendered center and near
+each target edge. Any systematic offset, resolution-dependent target change, or
+wrong minimap/world mapping fails the spike.
+
+### 6. IndexedDB synchronization
+
+Mount browser persistence at:
+
+```text
+/user/settings
+/user/autosave
+```
+
+Startup order is mandatory:
+
+1. Mount storage.
+2. Await initial synchronization.
+3. Read settings and autosave metadata.
+4. Enable start action.
+
+Save order is mandatory:
+
+1. Write through existing C++ file API.
+2. Request IndexedDB synchronization.
+3. Await completion.
+4. Report save success.
+
+Prove:
+
+- One setting survives full page reload.
+- One autosave survives full page reload.
+- Restored scenario state matches saved state.
+- Delayed initial sync cannot be mistaken for missing data.
+- Forced storage failure reports failure and never reports success.
+
+Failure injection belongs in browser test infrastructure, not game runtime.
+
+### 7. Tab suspension and timing
+
+During active gathering, hide the page long enough for browser throttling, then
+restore it. Repeat during combat.
+
+On restore, prove:
+
+- No giant simulation catch-up step.
+- No permanent simulation stall.
+- No burst of duplicated commands or audio.
+- Input resumes.
+- Rendering resumes.
+- AI continues from valid state.
+- Victory remains reachable.
+
+Define maximum accepted simulation delta and resume latency in test constants.
+Production timing code must clamp or otherwise handle browser suspension through
+shared timing policy or a narrow platform adapter, not scattered browser guards.
+
+## Implementation boundary
+
+Expected new or changed areas:
 
 ```text
 include/aoe/
@@ -62,7 +272,6 @@ src/
 ├── runtime_paths_web.cpp
 ├── audio_system.cpp
 ├── audio_system_web.cpp
-├── main.cpp
 └── web_main.cpp
 
 web/
@@ -70,7 +279,6 @@ web/
 ├── shell.html
 ├── browser_runtime.js
 ├── styles.css
-├── manifest.webmanifest
 └── README.md
 
 cmake/
@@ -79,215 +287,38 @@ cmake/
 tools/
 └── build_web_asset_pack.py
 
-tests/
-├── application_loop_tests.cpp
-├── runtime_paths_tests.cpp
-└── web/
-    └── browser_smoke_test.*
+tests/web/
+└── browser_risk_spike_test.*
 ```
 
-Exact files may change after implementation inspection. Platform differences
-must remain behind interfaces selected by each target.
+Exact names may change after code inspection. Platform implementations must be
+selected through target source lists. Shared simulation and game rules must not
+gain browser-specific branches.
 
-## Phase 1: Establish native baseline
+## Build contract
 
-1. Record working-tree state and preserve unrelated changes.
-2. Run current required `make` gate.
-3. Record native executable and tests produced.
-4. Select browser scenario.
-5. Record native startup, scenario loading, audio, input, save/settings,
-   victory, and restart behavior for that scenario.
-
-### Gate
-
-- Native `make` passes.
-- Selected scenario works through native production path.
-- Exact browser scenario and settings are recorded.
-
-## Phase 2: Add inert browser build option
-
-Add disabled-by-default option:
+Add disabled option:
 
 ```cmake
-option(AOE_BUILD_WEB "Build browser WebAssembly target" OFF)
+option(AOE_BUILD_WEB "Build browser WebAssembly risk spike" OFF)
 
 if(EMSCRIPTEN AND AOE_BUILD_WEB)
     include(cmake/BrowserBuild.cmake)
 endif()
 ```
 
-Do not modify existing native target source lists during this phase.
-
-Expected browser configuration:
+Configure and build only in `build-web/`:
 
 ```sh
 emcmake cmake -S . -B build-web \
   -DCMAKE_BUILD_TYPE=Release \
   -DAOE_BUILD_WEB=ON \
   -DAOE_ENABLE_MPG123=OFF
+cmake --build build-web --target aoe_web
+cmake --build build-web --target web_risk_spike
 ```
 
-Native commands remain unchanged.
-
-### Gate
-
-- Native configuration requires no Emscripten installation.
-- Native target graph remains unchanged apart from disabled option.
-- Native `make` passes.
-- Emscripten configuration recognizes separate browser target.
-
-## Phase 3: Prove `aoe_core` under Emscripten
-
-Compile shared non-SDL core first. Exclude native TCP, socket executables, and
-native-only audit paths from browser target where required. Do not remove them
-from native build.
-
-If transport sources prevent portable build, split narrowly:
-
-```text
-aoe_core
-  portable simulation and domain code
-
-aoe_multiplayer_tcp
-  native multiplayer transport
-```
-
-Add small Emscripten proof that constructs a simulation, loads minimal
-scenario data, executes deterministic commands, advances ticks, and verifies
-result.
-
-### Gate
-
-- Existing native multiplayer tests link same TCP implementation.
-- Native `make` passes.
-- Emscripten core probe passes.
-- Simulation logic contains no browser-only branches.
-
-## Phase 4: Extract frame lifecycle
-
-Refactor blocking `SdlApp::run()` into reusable lifecycle:
-
-```cpp
-class SdlApp {
-public:
-    void initialize();
-    bool frame();
-    void shutdown();
-    int run();
-};
-```
-
-Native wrapper retains current loop and delay:
-
-```cpp
-int SdlApp::run() {
-    initialize();
-    while (frame()) {
-        SDL_Delay(8);
-    }
-    shutdown();
-    return 0;
-}
-```
-
-Browser wrapper registers `frame()` with Emscripten browser main loop.
-Preserve event-processing, simulation timing, rendering, shutdown, and
-exception order. Keep `SDL_Delay(8)` in native wrapper only.
-
-### Gate
-
-- Existing native UI and gameplay smoke checks pass.
-- Native `make` passes.
-- Browser renders repeated frames without blocking page.
-
-## Phase 5: Add runtime-path interface
-
-Create shared contract:
-
-```cpp
-struct RuntimePaths {
-    std::filesystem::path resources;
-    std::filesystem::path game_data;
-    std::filesystem::path user_data;
-};
-
-RuntimePaths runtime_paths();
-```
-
-Native implementation preserves existing `SDL_GetBasePath()`,
-`SDL_GetPrefPath()`, bundle resource, and `game_data` behavior. Browser
-implementation returns:
-
-```text
-/resources
-/game_data
-/user
-```
-
-Select implementation through target source lists, not pervasive preprocessor
-branches.
-
-### Gate
-
-- Native path tests prove existing lookup precedence.
-- Native application loads same packaged resources.
-- Browser loads from virtual filesystem.
-- Native `make` passes.
-
-## Phase 6: Generate minimal scenario asset closure
-
-Complete `game_data/` is roughly 1.1 GB. Generate deterministic browser pack
-containing only content reachable from selected scenario.
-
-```sh
-python3 tools/build_web_asset_pack.py \
-  --scenario resources/<selected>.scenario \
-  --output build-web/web-assets
-```
-
-Traverse:
-
-- Scenario map and roster.
-- Civilizations and starting entities.
-- Producible units and constructible buildings.
-- Reachable technologies and upgrades.
-- Terrain, projectiles, effects, and animations.
-- UI icons, fonts, localization, sounds, and MP3 files.
-
-Output:
-
-```text
-build-web/web-assets/
-├── resources/
-├── game_data/
-└── web_asset_manifest.json
-```
-
-Manifest records source-relative path, hash, size, inclusion reason, and
-dependency parent. Missing required assets fail build. Everything comes from
-tracked reconstruction inputs. Keep full engine code initially; reduce assets
-first.
-
-### Gate
-
-- Repeated generator runs produce identical hashes.
-- Complete browser playthrough reports no missing assets.
-- Native package remains unchanged.
-- Native `make` passes after shared-code changes.
-
-## Phase 7: Add `aoe_web` target
-
-```cmake
-add_executable(aoe_web
-    src/web_main.cpp
-    src/sdl_app.cpp
-    src/audio_system_web.cpp
-    src/runtime_paths_web.cpp
-)
-```
-
-Link portable `aoe_core`, pinned Emscripten-compatible SDL3, and WASM Zlib.
-Start with:
+Initial Emscripten settings:
 
 ```text
 ALLOW_MEMORY_GROWTH=1
@@ -297,251 +328,107 @@ MAX_WEBGL_VERSION=2
 EXIT_RUNTIME=0
 ```
 
-Package assets at `/resources` and `/game_data`. Generate only into
-`build-web/dist/`.
+Package assets at `/resources` and `/game_data`. Generate distribution only
+under `build-web/dist/`. Browser build must not read any parent or sibling
+workspace directory.
 
-Validate canvas creation, `SDL_RenderGeometry`, textures, clipping, render
-targets, text, events, fullscreen, and high-DPI output. Do not silently
-substitute an unpinned SDL dependency.
+Native build must require no Emscripten installation and retain existing target
+names, target graph, default options, TCP multiplayer, resource lookup, audio
+backends, save paths, and macOS packaging.
 
-### Gate
+## Browser matrix
 
-- Browser reaches first menu.
-- Bundle builds from clean `build-web/`.
+Chrome is development browser. Full journey must pass there first.
+
+Before declaring all risks validated, run same production bundle in current
+stable releases of:
+
+- Chrome on macOS.
+- Firefox on macOS.
+- Safari on macOS.
+
+Firefox and Safari must complete loading, audio unlock, required play journey,
+autosave reload, display cases supported by their automation, tab suspension,
+victory, and restart. Browser-specific failures remain open risks; Chrome
+success alone does not complete spike.
+
+## Acceptance evidence
+
+One spike run must retain:
+
+- Emscripten and SDL version identifiers.
+- Clean configure and build logs.
+- Asset manifest and determinism comparison.
+- Static-server request log with no missing assets.
+- Browser console log with no uncaught errors.
+- Step-by-step journey result.
+- Screenshots for loading, gathering, research, combat, victory, restored save,
+  and restarted scenario.
+- Pointer/display case results.
+- IndexedDB persistence and failure results.
+- Tab suspension results.
+- Memory checkpoint measurements.
+- Audio instance measurements.
+- Native `make` result for every completion commit containing game-code changes.
+
+Evidence belongs under disposable `artifacts/` unless a specific compact report
+or fixture must be tracked.
+
+## Completion gate
+
+Spike is complete only when all conditions hold:
+
+- Clean browser build produces separate `aoe_web` package.
+- Required journey passes through production path in Chrome, Firefox, and
+  Safari.
+- Every named risk has retained evidence described above.
+- Asset pack is deterministic and complete for journey.
+- Pointer targeting passes all display cases.
+- Audio unlocks, streams, and does not duplicate after restart.
+- Settings and autosave survive reload after confirmed synchronization.
+- Storage failure is reported accurately.
+- Tab suspension recovers within defined timing limits.
+- Memory stays within predefined numeric budgets across two playthroughs.
 - Native targets and packaging remain unchanged.
-- Native `make` passes.
+- Native `make` passes before each completion commit containing game-code
+  changes.
 
-## Phase 8: Add browser-native MP3 audio
+Any missing item means spike remains incomplete and corresponding risk remains
+open.
 
-Keep packaged MP3 files. Browser provides decoding and playback; native Apple
-AudioToolbox and mpg123 remain native-only.
+## Explicit exclusions
 
-Preserve shared `AudioSystem` interface:
+Do not implement during this spike:
 
-```text
-Native:  audio_system.cpp
-Browser: audio_system_web.cpp
-```
-
-Browser behavior:
-
-1. Start with suspended audio context.
-2. Unlock after first intentional user interaction.
-3. Decode and reuse short effects.
-4. Stream long MP3 music where practical.
-5. Preserve volume and settings behavior.
-6. Stop and release audio during restart.
-7. Report muted or unavailable state when playback is blocked.
-
-### Gate
-
-- Native audio checks pass.
-- Browser MP3 plays after user interaction.
-- Long music does not require decoding whole soundtrack into memory.
-- Restart does not duplicate playback.
-- Native `make` passes.
-
-## Phase 9: Define browser input and display behavior
-
-- Focus canvas only after intentional interaction.
-- Prevent gameplay keys scrolling page only while canvas is focused.
-- Leave browser-reserved shortcuts untouched.
-- Handle right-click deliberately.
-- Use `ResizeObserver` for presentation changes.
-- Keep SDL logical coordinates authoritative.
-- Request fullscreen only from user gesture.
-- Pause or throttle safely when page becomes hidden.
-
-Test coordinate spaces:
-
-```text
-CSS canvas dimensions
-canvas backing dimensions
-device pixel ratio
-SDL output dimensions
-SDL logical game coordinates
-```
-
-Cover standard density, Retina/high-DPI, browser zoom, resize, fullscreen,
-letterboxing, HUD controls, unit selection, drag selection, minimap targeting,
-and edge scrolling.
-
-### Gate
-
-- Equivalent native and browser input produces same game command.
-- Pointer behavior remains correct through resize and fullscreen.
-- Native pointer behavior remains unchanged.
-- Native `make` passes.
-
-## Phase 10: Add persistence
-
-Mount browser storage at:
-
-```text
-/user/settings
-/user/autosave
-```
-
-At startup, mount IndexedDB, finish initial asynchronous sync, then start game
-and use existing C++ file APIs. After save, report success only after IndexedDB
-sync finishes.
-
-Initial scope:
-
-- Settings persistence.
-- One autosave.
-- Restart scenario.
-- Optional clear-local-data control.
-
-Keep native save and settings paths unchanged.
-
-### Gate
-
-- Browser autosave survives full page reload.
-- Failed storage synchronization reports failure.
-- Native save files remain compatible and unchanged.
-- Native save/load tests and `make` pass.
-
-## Phase 11: Restrict browser frontend
-
-Expose only:
-
-```text
-Loading
-  Start Game
-    Fixed Scenario
-      Victory / Defeat
-        Play Again
-```
-
-Represent availability through shared capabilities:
-
-```cpp
-struct ProductCapabilities {
-    bool campaigns;
-    bool random_maps;
-    bool scenario_editor;
-    bool multiplayer;
-    bool imports;
-    bool replay_browser;
-};
-```
-
-Native capabilities retain current behavior. Browser capabilities disable
-features absent from package.
-
-### Gate
-
-- Native menus remain unchanged.
-- Browser cannot enter unshipped screens.
-- Capability tests and native `make` pass.
-
-## Phase 12: Verify both products
-
-Add browser checks without replacing native tests:
-
-- Clean Emscripten configure and build.
-- Static bundle completeness and correct WASM MIME behavior.
-- Browser launch and loading completion.
-- Scenario start, selection, movement, AI progress, victory, and restart.
-- Autosave and reload.
-- Console error collection.
-- Missing-resource detection.
-- Memory sampling across restart.
-
-Suggested explicit targets:
-
-```sh
-cmake --build build-web --target aoe_web
-cmake --build build-web --target web_smoke
-```
-
-Browser checks remain outside default native `make` unless browser build is
-explicitly enabled. Complete a production-path playthrough through gathering,
-construction, training, research, combat, victory/defeat, restart, and reload.
-Test Chrome, Firefox, and Safari.
-
-### Gate
-
-- Browser production-path checks pass.
-- Clean isolated native `make` passes.
-- Native packaging uses no browser files or tools.
-
-## Phase 13: Package and deploy
-
-Produce static directory:
-
-```text
-dist/
-├── index.html
-├── aoe.js
-├── aoe.wasm
-├── aoe.data
-├── styles.css
-├── manifest.webmanifest
-└── assets/
-```
-
-Hosting needs:
-
-- HTTPS.
-- `application/wasm` for WASM.
-- Brotli or gzip compression.
-- Immutable caching for hashed assets.
-- Short-lived caching for HTML.
-- No WASM thread requirement initially.
-
-Add service worker only after ordinary loading works. Cache a complete,
-version-matched engine and asset set atomically.
-
-### Gate
-
-- Generic static HTTPS hosting works in fresh browser profile.
-- Cache updates preserve matching WASM and assets.
-- Offline start works only after complete successful cache.
-- Native packaging remains unchanged.
+- Campaigns.
+- Random maps.
+- Scenario selection.
+- Civilization or settings selection.
+- Scenario editor.
+- Multiplayer or browser networking.
+- Replays.
+- Legacy imports.
+- General save browser or multiple save slots.
+- More than one autosave.
+- General browser menus.
+- Service worker, offline mode, install prompt, or PWA caching.
+- Mobile or touch controls.
+- Broad asset compatibility.
+- Performance optimization beyond meeting declared spike budgets.
+- Deployment automation beyond local static HTTP hosting.
 
 ## Commit sequence
 
-1. `build: add disabled browser target scaffold`
-2. `refactor: separate SDL application frame lifecycle`
-3. `refactor: isolate platform runtime paths`
-4. `build: compile portable core with Emscripten`
-5. `tools: generate fixed-scenario browser asset pack`
-6. `feat: add SDL WebAssembly target`
-7. `feat: add browser MP3 audio backend`
-8. `feat: add browser canvas input and display shell`
-9. `feat: persist browser settings and autosave`
-10. `test: add browser production-path smoke coverage`
-11. `build: add static browser distribution packaging`
+1. `build: add disabled browser risk-spike target`
+2. `refactor: expose non-blocking SDL frame lifecycle`
+3. `refactor: isolate native and browser runtime paths`
+4. `tools: generate fixed-scenario browser asset closure`
+5. `feat: run fixed scenario in SDL WebAssembly target`
+6. `feat: add browser MP3 unlock and streaming`
+7. `feat: normalize browser canvas input and display`
+8. `feat: persist one browser autosave and settings`
+9. `test: automate cross-browser risk-spike journey`
 
-Each code commit gets native `make`. Browser-specific commits also get browser
-build or smoke gate appropriate to introduced capability.
-
-## Main risks
-
-1. Pinned SDL3 compatibility with selected Emscripten SDK.
-2. Extracting large `SdlApp::run()` loop without native behavior drift.
-3. Computing complete reachable asset closure.
-4. Browser memory use from decoded graphics and audio.
-5. High-DPI pointer conversion.
-6. Asynchronous IndexedDB startup and save synchronization.
-7. Browser timing after tab suspension.
-
-Address in this order: SDL toolchain spike, frame-loop extraction, minimal
-assets, playable scenario, persistence and audio, then cross-browser hardening.
-
-## First milestone
-
-- Separate `aoe_web` target.
-- Native targets unchanged.
-- One fixed scenario and minimal asset pack.
-- Browser canvas rendering.
-- Mouse and keyboard commands.
-- AI and victory condition.
-- Browser-native MP3 after user gesture.
-- No saves yet.
-- Chrome proof first.
-- Native `make` green.
-
-Then add IndexedDB, Firefox/Safari hardening, and offline packaging.
+Every game-code commit requires successful native `make` before commit.
+Browser commits also require the browser build or risk check appropriate to the
+capability introduced.

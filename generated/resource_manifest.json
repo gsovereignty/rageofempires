@@ -49,13 +49,13 @@
     },
     {
       "path": "resources/browser-risk-spike.json",
-      "size": 4021,
-      "sha256": "3d794220b0c06c7341261b8cf77c231064a588fc0c5164231f16a87362f52854"
+      "size": 5614,
+      "sha256": "b618c91d30b9701bc0fef38b09d4fe783465076944f2de06e7175dbb7b2500be"
     },
     {
       "path": "resources/browser-risk-spike.scenario",
-      "size": 782,
-      "sha256": "b3396e78a2124f019b4842834f172db84043c903fd892e060be0108fb3c8b378"
+      "size": 796,
+      "sha256": "280904f1c37306bd73729a994dd036aeab2c13b20e461c3eff1d1ca4daeb1881"
     },
     {
       "path": "resources/building-age-castle.scenario",

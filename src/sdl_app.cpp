@@ -59,6 +59,7 @@
 #include "aoe/random_map.hpp"
 #include "aoe/render_asset_coverage.hpp"
 #include "aoe/rms_import.hpp"
+#include "aoe/runtime_paths.hpp"
 #include "aoe/save_game.hpp"
 #include "aoe/save_browser.hpp"
 #include "aoe/scenario.hpp"
@@ -16614,8 +16615,6 @@ Simulation load_presentable_game(
     return load_game(path);
 }
 
-std::filesystem::path user_data_directory();
-
 ScenarioStartup load_startup_scenario() {
     if (const char* requested = SDL_getenv("AOE_CAMPAIGN")) {
         if (requested[0] != '\0') {
@@ -16725,23 +16724,6 @@ std::array<bool, 19> required_legacy_civilizations(
         include(scenario.red_civilization);
     }
     return result;
-}
-
-std::filesystem::path user_data_directory() {
-    char* raw_path = SDL_GetPrefPath(
-        "Software Archaeology",
-        "AoE Archaeology"
-    );
-    if (raw_path == nullptr) {
-        throw std::runtime_error(
-            std::string{"cannot locate user data directory: "} + SDL_GetError()
-        );
-    }
-
-    const std::filesystem::path path{raw_path};
-    SDL_free(raw_path);
-    std::filesystem::create_directories(path);
-    return path;
 }
 
 }  // namespace

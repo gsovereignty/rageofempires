@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <numbers>
 
 namespace aoe::animation {
 namespace {
@@ -32,6 +33,80 @@ std::optional<std::uint16_t> dat_id_for(
 }
 
 }  // namespace
+
+std::optional<std::uint8_t> logical_direction(
+    TilePosition from,
+    TilePosition to,
+    std::int32_t angle_count
+) noexcept {
+    if (angle_count <= 0 || angle_count > 256 || from == to) {
+        return std::nullopt;
+    }
+    const double dx = static_cast<double>(to.x - from.x);
+    const double dy = static_cast<double>(to.y - from.y);
+    double radians = std::atan2(dy - dx, dx + dy);
+    if (radians < 0.0) radians += 2.0 * std::numbers::pi;
+    const double step = 2.0 * std::numbers::pi /
+        static_cast<double>(angle_count);
+    const auto angle = static_cast<std::int32_t>(
+        std::floor(radians / step + 0.5)
+    ) % angle_count;
+    return static_cast<std::uint8_t>(angle);
+}
+
+std::optional<FrameSelection> select_frame(
+    std::int32_t logical_angle,
+    std::int32_t action_frame,
+    std::int32_t frames_per_angle,
+    std::int32_t angle_count,
+    std::int32_t mirroring_mode,
+    std::size_t physical_frame_count
+) noexcept {
+    if (frames_per_angle <= 0 || angle_count <= 0 || logical_angle < 0 ||
+        logical_angle > 255 || action_frame < 0 ||
+        action_frame >= frames_per_angle) {
+        return std::nullopt;
+    }
+    const std::size_t expected_frames = mirroring_mode == 0
+        ? static_cast<std::size_t>(frames_per_angle) *
+              static_cast<std::size_t>(angle_count)
+        : angle_count == 2
+            ? static_cast<std::size_t>(frames_per_angle)
+            : mirroring_mode >= angle_count / 4 &&
+                  mirroring_mode < angle_count
+                ? static_cast<std::size_t>(frames_per_angle) *
+                      static_cast<std::size_t>(
+                          mirroring_mode - angle_count / 4 + 1
+                      )
+                : 0U;
+    if (physical_frame_count != expected_frames) return std::nullopt;
+    if (mirroring_mode != 0 && angle_count == 2) {
+        return FrameSelection{
+            static_cast<std::size_t>(action_frame), logical_angle != 0
+        };
+    }
+    if (logical_angle >= angle_count) return std::nullopt;
+    std::int32_t stored_angle = logical_angle;
+    bool flip = false;
+    if (mirroring_mode != 0) {
+        const std::int32_t quarter = angle_count / 4;
+        if (logical_angle > mirroring_mode || logical_angle < quarter) {
+            const std::int32_t half = angle_count / 2;
+            stored_angle = (logical_angle > half
+                ? half - logical_angle + angle_count
+                : half - logical_angle) - quarter;
+            flip = true;
+        } else {
+            stored_angle = logical_angle - quarter;
+        }
+    }
+    if (stored_angle < 0) return std::nullopt;
+    const std::size_t frame = static_cast<std::size_t>(stored_angle) *
+        static_cast<std::size_t>(frames_per_angle) +
+        static_cast<std::size_t>(action_frame);
+    if (frame >= physical_frame_count) return std::nullopt;
+    return FrameSelection{frame, flip};
+}
 
 std::span<const ExactRoleBinding> exact_role_bindings() {
     return generated_exact_role_bindings;

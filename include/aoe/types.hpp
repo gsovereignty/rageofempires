@@ -751,6 +751,7 @@ struct Unit {
     bool trebuchet_transform_to_packed{};
     std::optional<EntityOwner> last_damage_owner;
     std::optional<CommercialObjectIdentity> commercial_identity;
+    std::uint8_t facing{};
 };
 
 struct ProductionOrder {
@@ -790,6 +791,7 @@ struct Building {
     std::optional<EntityOwner> last_damage_owner;
     std::optional<CommercialObjectIdentity> commercial_identity;
     bool gate_locked{};
+    std::uint8_t facing{};
 
     [[nodiscard]] bool completed() const {
         return construction_ticks_remaining == 0;
@@ -838,6 +840,7 @@ struct UnitDeathEffect {
     int total_ticks{};
     EntityId entity_id{};
     TilePosition previous_position{};
+    std::uint8_t facing{};
 };
 
 struct BuildingRubbleEffect {

@@ -18,8 +18,10 @@ struct ExactShadowBinding {
     std::int16_t display_angle{-1};
     std::int16_t root_frame_count{};
     std::int16_t root_angle_count{};
+    std::uint8_t root_mirroring_mode{};
     std::int16_t shadow_frame_count{};
     std::int16_t shadow_angle_count{};
+    std::uint8_t shadow_mirroring_mode{};
 };
 
 // Returns a binding only when every DAT graphic using root_slp agrees on one

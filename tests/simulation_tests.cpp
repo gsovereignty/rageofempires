@@ -12,6 +12,7 @@
 #include <tuple>
 
 #include "aoe/computer_player.hpp"
+#include "aoe/animation_contract.hpp"
 #include "aoe/campaign.hpp"
 #include "aoe/game_command.hpp"
 #include "aoe/game_rules.hpp"
@@ -219,6 +220,53 @@ void unit_moves_deterministically() {
     require(simulation.units().front().position == aoe::TilePosition(5, 7));
 }
 
+void logical_facing_persists_and_actions_turn_toward_targets() {
+    aoe::Simulation simulation(aoe::GameMap(10, 10));
+    const aoe::EntityId attacker = simulation.add_unit(
+        aoe::UnitKind::militia, aoe::Player::blue, {4, 4}
+    );
+    const aoe::EntityId target = simulation.add_unit(
+        aoe::UnitKind::villager, aoe::Player::red, {5, 3}
+    );
+    require(simulation.set_unit_stance(target, aoe::UnitStance::passive));
+    require(simulation.command_unit(attacker, {5, 4}));
+    for (int tick = 0;
+         tick < 8 && simulation.units().front().position !=
+             aoe::TilePosition{5, 4}; ++tick) {
+        simulation.update();
+    }
+    require(simulation.units().front().position == aoe::TilePosition{5, 4});
+    require(simulation.units().front().facing == 7);
+    require(simulation.stop_unit(attacker));
+    require(simulation.units().front().previous_position ==
+            simulation.units().front().position);
+    require(simulation.units().front().facing == 7);
+
+    require(simulation.command_unit(attacker, {5, 3}));
+    simulation.update();
+    const auto expected = aoe::animation::logical_direction(
+        simulation.units().front().position, {5, 3}, 8
+    );
+    require(expected.has_value());
+    require(simulation.units().front().facing == *expected);
+
+    aoe::GameMap water(8, 8);
+    water.set_terrain({4, 4}, aoe::Terrain::water);
+    water.set_terrain({5, 4}, aoe::Terrain::water);
+    aoe::Simulation naval(std::move(water));
+    const aoe::EntityId cog = naval.add_unit(
+        aoe::UnitKind::trade_cog, aoe::Player::blue, {4, 4}
+    );
+    require(naval.command_unit(cog, {5, 4}));
+    for (int tick = 0;
+         tick < 8 && naval.units().front().position !=
+             aoe::TilePosition{5, 4}; ++tick) {
+        naval.update();
+    }
+    require(naval.units().front().position == aoe::TilePosition{5, 4});
+    require(naval.units().front().facing == 14);
+}
+
 void land_route_detours_around_cliff_and_makes_progress() {
     aoe::GameMap map(5, 3);
     map.set_elevation({1, 1}, 2);
@@ -358,7 +406,9 @@ void save_loader_rejects_truncated_production_queue() {
     require(building != std::string::npos);
     const std::size_t line_end = contents.find('\n', building + 1);
     require(line_end != std::string::npos);
-    const std::size_t queue_count = contents.rfind(" 0", line_end);
+    const std::size_t facing_field = contents.rfind(' ', line_end);
+    require(facing_field != std::string::npos);
+    const std::size_t queue_count = contents.rfind(" 0", facing_field - 1);
     require(queue_count != std::string::npos && queue_count > building);
     contents.replace(queue_count, 2, " 3");
     contents.erase(line_end + 1);
@@ -24833,6 +24883,10 @@ int main() {
         commercial_conversion_stream_and_schedule_are_exact
     );
     run("unit movement", unit_moves_deterministically);
+    run(
+        "persistent logical facing",
+        logical_facing_persists_and_actions_turn_toward_targets
+    );
     run(
         "land cliff routing progress",
         land_route_detours_around_cliff_and_makes_progress

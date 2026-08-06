@@ -96,6 +96,15 @@ int main() {
     const aoe::EntityId green_building = simulation.add_building(
         aoe::BuildingKind::house, slot(2), {7, 4}
     );
+    auto units = simulation.units();
+    units.front().facing = 7;
+    auto buildings = simulation.buildings();
+    buildings.front().facing = 3;
+    simulation.replace_state(
+        std::move(units), std::move(buildings),
+        simulation.economy(slot(0)), simulation.economy(slot(1)),
+        simulation.tick_number()
+    );
     aoe::Projectile projectile;
     projectile.owner = *aoe::EntityOwner::from_stable_id(2);
     projectile.origin = {5, 4};
@@ -116,7 +125,7 @@ int main() {
         {
             {5, 4}, aoe::UnitKind::militia,
             *aoe::EntityOwner::from_stable_id(2), 4, 4,
-            green_unit, {4, 4},
+            green_unit, {4, 4}, 6,
         },
     });
     simulation.replace_rubble_effects({
@@ -163,7 +172,9 @@ int main() {
     require(restored.diplomacy(slot(2), slot(1)) ==
         aoe::Diplomacy::neutral);
     require(restored.units().front().owner.stable_id() == 2);
+    require(restored.units().front().facing == 7);
     require(restored.buildings().front().owner.stable_id() == 2);
+    require(restored.buildings().front().facing == 3);
     require(
         restored.projectiles().front().source_entity_id == green_unit
     );
@@ -171,6 +182,7 @@ int main() {
         restored.impact_effects().front().source_entity_id == green_unit
     );
     require(restored.death_effects().front().entity_id == green_unit);
+    require(restored.death_effects().front().facing == 6);
     require(
         restored.death_effects().front().previous_position ==
         aoe::TilePosition{4, 4}

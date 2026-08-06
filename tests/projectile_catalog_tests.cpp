@@ -72,13 +72,13 @@ int main() {
     );
     expect(
         aoe::select_projectile_frame(
-            {0, 0}, {1, 0}, 1, 72, 37, 0
+            {0, 0}, {1, 0}, 1, 72, 54, 37, 0
         ).has_value(),
         "static Arrow SLP half-plus-center layout accepted"
     );
     expect(
         !aoe::select_projectile_frame(
-            {0, 0}, {1, 0}, 11, 32, 176, 0
+            {0, 0}, {1, 0}, 11, 32, 24, 176, 0
         ),
         "short Arrow SLP layout rejected"
     );
@@ -116,22 +116,22 @@ int main() {
     );
 
     const auto front = aoe::select_projectile_frame(
-        {0, 0}, {-1, 1}, 1, 18, 10, 0
+        {0, 0}, {-1, 1}, 1, 18, 13, 10, 0
     );
     const auto back = aoe::select_projectile_frame(
-        {0, 0}, {1, -1}, 1, 18, 10, 0
+        {0, 0}, {1, -1}, 1, 18, 13, 10, 0
     );
     const auto mirrored = aoe::select_projectile_frame(
-        {0, 0}, {1, 1}, 1, 18, 10, 0
+        {0, 0}, {1, 1}, 1, 18, 13, 10, 0
     );
     expect(
-        front && front->frame_index == 0 &&
+        front && front->frame_index == 1 &&
             !front->flip_horizontal &&
-            back && back->frame_index == 9 &&
-            !back->flip_horizontal &&
-            mirrored && mirrored->frame_index == 4 &&
+        back && back->frame_index == 9 &&
+            back->flip_horizontal &&
+            mirrored && mirrored->frame_index == 5 &&
             mirrored->flip_horizontal,
-        "18-direction nearest-angle and mirror transform"
+        "decompiled 18-direction quantizer and DAT mirror transform"
     );
 
     if (failures == 0) {

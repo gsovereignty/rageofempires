@@ -53,6 +53,32 @@ int main() {
         UnitKind::sheep, aoe::animation::Role::attack
     ));
     assert(aoe::animation::cadence_selector_proved);
+    assert(aoe::animation::direction_selector_proved);
+    const aoe::TilePosition origin{4, 4};
+    const aoe::TilePosition directions[] = {
+        {5, 5}, {4, 5}, {3, 5}, {3, 4},
+        {3, 3}, {4, 3}, {5, 3}, {5, 4},
+    };
+    const std::size_t frames[] = {2, 1, 0, 1, 2, 3, 4, 3};
+    const bool flips[] = {true, true, false, false,
+                          false, false, false, true};
+    for (int logical = 0; logical < 8; ++logical) {
+        assert(aoe::animation::logical_direction(
+                   origin, directions[logical], 8
+               ) == logical);
+        const auto selected = aoe::animation::select_frame(
+            logical, 0, 1, 8, 6, 5
+        );
+        assert(selected && selected->frame_index == frames[logical]);
+        assert(selected->flip_horizontal == flips[logical]);
+    }
+    assert(!aoe::animation::logical_direction(origin, origin, 8));
+    assert(aoe::animation::logical_direction(origin, {5, 4}, 16) == 14);
+    assert((aoe::animation::select_frame(0, 2, 3, 2, 1, 3) ==
+            aoe::animation::FrameSelection{2, false}));
+    assert((aoe::animation::select_frame(7, 2, 3, 2, 1, 3) ==
+            aoe::animation::FrameSelection{2, true}));
+    assert(aoe::animation::scale_logical_angle(3, 8, 16) == 6);
     assert(aoe::animation::attack_release_delay_ticks(UnitKind::knight) == 0);
     assert(aoe::animation::attack_release_delay_ticks(UnitKind::archer) == 2);
     assert(aoe::animation::attack_release_delay_ticks(UnitKind::skirmisher) == 3);
@@ -68,5 +94,4 @@ int main() {
     );
     assert(aoe::animation::attack_release_delay_ticks_for_dat_id(4) == 2);
     assert(aoe::animation::attack_release_delay_ticks_for_dat_id(74) == 0);
-    assert(!aoe::animation::direction_selector_proved);
 }

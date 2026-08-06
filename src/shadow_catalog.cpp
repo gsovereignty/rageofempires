@@ -15,8 +15,10 @@ bool same_binding(
         left.display_angle == right.display_angle &&
         left.root_frame_count == right.root_frame_count &&
         left.root_angle_count == right.root_angle_count &&
+        left.root_mirroring_mode == right.root_mirroring_mode &&
         left.shadow_frame_count == right.shadow_frame_count &&
-        left.shadow_angle_count == right.shadow_angle_count;
+        left.shadow_angle_count == right.shadow_angle_count &&
+        left.shadow_mirroring_mode == right.shadow_mirroring_mode;
 }
 
 }  // namespace
@@ -59,8 +61,10 @@ find_exact_shadow_binding(
                 delta.display_angle,
                 root.frame_count,
                 root.angle_count,
+                root.mirroring_mode,
                 child.frame_count,
                 child.angle_count,
+                child.mirroring_mode,
             };
         }
         if (!candidate) return std::nullopt;

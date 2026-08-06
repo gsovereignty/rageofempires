@@ -99,6 +99,8 @@ king_idle = unit(0, "king", 0)
 king_move = unit(0, "king", 1)
 woad_idle = unit(0, "woad_raider", 0)
 woad_move = unit(0, "woad_raider", 1)
+king_move_tick_1 = unit(1, "king", 1)
+woad_move_tick_1 = unit(1, "woad_raider", 1)
 
 assert [frame["resource_id"] for frame in
         king_idle["metadata"]["sprite_frames"]] == [1767]
@@ -110,6 +112,20 @@ assert [frame["resource_id"] for frame in
         woad_move["metadata"]["sprite_frames"]] == [1602]
 assert "blocked_reason" not in king_idle
 assert "blocked_reason" not in king_move
+assert [king_idle["metadata"]["facing"],
+        king_move["metadata"]["facing"],
+        woad_idle["metadata"]["facing"],
+        woad_move["metadata"]["facing"]] == [0, 0, 0, 0]
+assert king_move_tick_1["metadata"]["facing"] == 7
+assert woad_move_tick_1["metadata"]["facing"] == 7
+for case in (king_idle, king_move, woad_idle, woad_move,
+             king_move_tick_1, woad_move_tick_1):
+    assert all(frame["flip_horizontal"] == 1
+               for frame in case["metadata"]["sprite_frames"])
+assert [frame["frame"] for frame in
+        king_move_tick_1["metadata"]["sprite_frames"]] == [30]
+assert [frame["frame"] for frame in
+        woad_move_tick_1["metadata"]["sprite_frames"]] == [36]
 
 def work(mode):
     manifest = json.loads((root / f"{mode}/manifest.json").read_text())

@@ -489,11 +489,14 @@ struct LegacyStaticShadow {
 struct LegacyAnimation {
     std::vector<LegacySprite> frames;
     std::size_t frames_per_angle{1};
+    int angle_count{1};
+    int mirroring_mode{};
     std::vector<std::size_t> angle_offsets;
     std::vector<std::size_t> angle_frame_counts;
     std::vector<LegacySprite> shadow_frames;
     std::size_t shadow_frames_per_angle{1};
     int shadow_angle_count{};
+    int shadow_mirroring_mode{};
     int shadow_display_angle{-1};
     int shadow_offset_x{};
     int shadow_offset_y{};
@@ -606,6 +609,7 @@ struct LegacyAnimatedCompositePart {
 
 struct LegacyAnimatedComposite {
     std::vector<LegacyAnimatedCompositePart> parts;
+    int root_angle_count{1};
 
     void destroy() {
         for (LegacyAnimatedCompositePart& part : parts) {
@@ -1102,17 +1106,7 @@ int render_direction(
     TilePosition previous,
     TilePosition current
 ) {
-    const int x = std::clamp(current.x - previous.x, -1, 1);
-    const int y = std::clamp(current.y - previous.y, -1, 1);
-    if (x == 0 && y < 0) return 0;
-    if (x > 0 && y < 0) return 1;
-    if (x > 0 && y == 0) return 2;
-    if (x > 0 && y > 0) return 3;
-    if (x == 0 && y > 0) return 4;
-    if (x < 0 && y > 0) return 5;
-    if (x < 0 && y == 0) return 6;
-    if (x < 0 && y < 0) return 7;
-    return 0;
+    return animation::logical_direction(previous, current, 8).value_or(0);
 }
 
 void record_unit_procedural_fallback(
@@ -1133,9 +1127,7 @@ void record_unit_procedural_fallback(
     event.state.architecture_family = render_architecture_family(
         event.state.civilization
     );
-    event.state.direction = render_direction(
-        unit.previous_position, unit.position
-    );
+    event.state.direction = unit.facing;
     event.state.moving = unit.moving ||
         render_unit_is_interpolating(simulation, unit);
     const AssetResolution resolution = resolve_unit_asset(
@@ -1343,12 +1335,17 @@ void record_projectile_procedural_fallback(
     );
     if (binding != bindings.end()) {
         const std::size_t stored_angles =
-            static_cast<std::size_t>(binding->angle_count / 2 + 1);
+            binding->mirroring_mode == 0
+            ? static_cast<std::size_t>(binding->angle_count)
+            : static_cast<std::size_t>(
+                  binding->mirroring_mode - binding->angle_count / 4 + 1
+              );
         const auto selection = select_projectile_frame(
             projectile.origin,
             projectile.destination,
             binding->frame_count,
             binding->angle_count,
+            binding->mirroring_mode,
             stored_angles *
                 static_cast<std::size_t>(binding->frame_count),
             static_cast<std::uint64_t>(
@@ -1356,13 +1353,6 @@ void record_projectile_procedural_fallback(
             )
         );
         if (selection) {
-            const int stored_direction = static_cast<int>(
-                selection->frame_index /
-                static_cast<std::size_t>(binding->frame_count)
-            );
-            event.state.direction = selection->flip_horizontal
-                ? binding->angle_count - stored_direction
-                : stored_direction;
             event.state.animation_frame = static_cast<int>(
                 selection->frame_index %
                 static_cast<std::size_t>(binding->frame_count)
@@ -1499,9 +1489,7 @@ void record_unit_death_procedural_fallback(
     event.state.architecture_family = render_architecture_family(
         event.state.civilization
     );
-    event.state.direction = render_direction(
-        effect.previous_position, effect.position
-    );
+    event.state.direction = effect.facing;
     event.state.animation_frame = std::max(
         effect.total_ticks - effect.ticks_remaining, 0
     ) * 2;
@@ -3526,6 +3514,13 @@ LegacyAnimation create_legacy_animation(
     const std::size_t count = slp_frame_count(bytes);
     LegacyAnimation animation;
     animation.frames_per_angle = frames_per_angle;
+    animation.angle_count = timing_graphic != nullptr
+        ? std::max<int>(timing_graphic->angle_count, 1)
+        : static_cast<int>(std::max<std::size_t>(
+              count / std::max<std::size_t>(frames_per_angle, 1), 1
+          ));
+    animation.mirroring_mode = timing_graphic != nullptr
+        ? timing_graphic->mirroring_mode : 0;
     if (timing_graphic != nullptr &&
         timing_graphic->frame_count > 0 &&
         static_cast<std::size_t>(timing_graphic->frame_count) ==
@@ -3624,6 +3619,8 @@ LegacyAnimation create_legacy_animation(
                 );
             animation.shadow_angle_count =
                 std::max<int>(shadow->shadow_angle_count, 1);
+            animation.shadow_mirroring_mode =
+                shadow->shadow_mirroring_mode;
             animation.shadow_display_angle =
                 shadow->display_angle;
             animation.shadow_offset_x = shadow->offset_x;
@@ -3830,7 +3827,9 @@ LegacyAnimatedComposite create_legacy_animated_composite(
                         static_cast<std::size_t>(
                             std::max<std::int16_t>(graphic->frame_count, 1)
                         ),
-                        player
+                        player,
+                        std::nullopt,
+                        graphic
                     );
                     part.layer = graphic->layer;
                     part.offset_x = offset_x;
@@ -3862,6 +3861,11 @@ LegacyAnimatedComposite create_legacy_animated_composite(
             active_path.erase(graphic_id);
         };
     try {
+        if (const LegacyGraphic* root = dat.graphic(
+                static_cast<std::size_t>(root_graphic)); root != nullptr) {
+            composite.root_angle_count =
+                std::max<int>(root->angle_count, 1);
+        }
         visit(root_graphic, 0, 0, -1);
         std::stable_sort(
             composite.parts.begin(),
@@ -5031,7 +5035,10 @@ LegacySprites load_local_legacy_sprites(
                     1,
                     find_exact_shadow_binding(
                         dat, binding->slp_id
-                    )
+                    ),
+                    dat.graphic(static_cast<std::size_t>(
+                        binding->root_graphic
+                    ))
                 );
             } catch (const std::exception& error) {
                 target.destroy();
@@ -6567,6 +6574,8 @@ void write_overlap_manifest(const Simulation& simulation) {
             output << "{\"resource_id\":" << sprite.resource_id
                    << ",\"frame\":" << sprite.frame_index
                    << ",\"palette_player\":" << sprite.palette_player
+                   << ",\"flip_horizontal\":"
+                   << capture.draws[draw_index].flip
                    << '}';
             if (draw_index + 1 != capture.draws.size()) output << ',';
         }
@@ -6593,7 +6602,7 @@ bool render_legacy_sprite(
         visible ? 255 : 82
     );
     const int draw_hotspot_x = flip_horizontal
-        ? sprite.width - sprite.hotspot_x
+        ? sprite.width - 1 - sprite.hotspot_x
         : sprite.hotspot_x;
     const SDL_FRect destination{
         ground.x - static_cast<float>(draw_hotspot_x),
@@ -6709,8 +6718,7 @@ bool render_legacy_animated_composite(
     SDL_Renderer* renderer,
     const LegacyAnimatedComposite& composite,
     SDL_FPoint ground,
-    TilePosition previous,
-    TilePosition current,
+    int logical_angle,
     std::uint64_t animation_tick,
     bool active,
     bool use_graphic_timing = false,
@@ -6720,16 +6728,8 @@ bool render_legacy_animated_composite(
     if (composite.parts.empty()) {
         return false;
     }
-    const int dx = std::clamp(current.x - previous.x, -1, 1);
-    const int dy = std::clamp(current.y - previous.y, -1, 1);
-    int direction = 0;
-    if (dx == -1 && dy == 1) direction = 1;
-    else if (dx == -1 && dy == 0) direction = 2;
-    else if (dx == -1 && dy == -1) direction = 3;
-    else if (dx == 0 && dy == -1) direction = 4;
-    else if (dx == 1 && dy == -1) direction = 5;
-    else if (dx == 1 && dy == 0) direction = 6;
-    else if (dx == 1 && dy == 1) direction = 7;
+    logical_angle %= std::max(composite.root_angle_count, 1);
+    if (logical_angle < 0) logical_angle += composite.root_angle_count;
 
     bool rendered_any = false;
     for (const LegacyAnimatedCompositePart& part : composite.parts) {
@@ -6738,28 +6738,18 @@ bool render_legacy_animated_composite(
             animation.frames_per_angle == 0) {
             return false;
         }
-        const std::size_t stored_angles =
-            animation.frames.size() / animation.frames_per_angle;
-        if (stored_angles == 0) {
-            return false;
+        if (part.display_angle >= 0 &&
+            part.display_angle != logical_angle) {
+            continue;
         }
-        int angle =
-            part.display_angle >= 0
-            ? part.display_angle
-            : (part.angle_count >= 16 ? direction * 2 : direction);
+        int angle = animation::scale_logical_angle(
+            logical_angle,
+            composite.root_angle_count,
+            part.angle_count
+        );
         angle += graphics_angle_offset;
         angle %= std::max(part.angle_count, 1);
-        bool flip_horizontal = false;
-        if (static_cast<std::size_t>(angle) >= stored_angles) {
-            const int mirrored = part.angle_count - angle;
-            if (mirrored >= 0 &&
-                static_cast<std::size_t>(mirrored) < stored_angles) {
-                angle = mirrored;
-                flip_horizontal = true;
-            } else {
-                angle %= static_cast<int>(stored_angles);
-            }
-        }
+        if (angle < 0) angle += std::max(part.angle_count, 1);
         const auto action_frame = use_graphic_timing
             ? render_component_animation_frame_at_time(
                   animation.frames_per_angle,
@@ -6778,13 +6768,16 @@ bool render_legacy_animated_composite(
                   active
               );
         if (!action_frame) return false;
-        const std::size_t frame_index =
-            static_cast<std::size_t>(angle) *
-                animation.frames_per_angle +
-            *action_frame;
-        if (frame_index >= animation.frames.size()) {
-            return false;
-        }
+        const auto selection = animation::select_frame(
+            angle,
+            static_cast<int>(*action_frame),
+            static_cast<int>(animation.frames_per_angle),
+            part.angle_count,
+            animation.mirroring_mode,
+            animation.frames.size()
+        );
+        if (!selection) return false;
+        const std::size_t frame_index = selection->frame_index;
         // Independent damage deltas may intentionally contain an empty
         // frame. Keep rendering sibling flames/debris in that case.
         if (animation.frames[frame_index].texture == nullptr) {
@@ -6798,7 +6791,7 @@ bool render_legacy_animated_composite(
                     ground.y + static_cast<float>(part.offset_y),
                 },
                 true,
-                flip_horizontal
+                selection->flip_horizontal
             )) {
             return false;
         }
@@ -6840,8 +6833,7 @@ bool render_legacy_animated_composite(
         renderer,
         composite,
         ground,
-        {},
-        {},
+        0,
         static_cast<std::uint64_t>(frame * 2),
         true
     );
@@ -6880,8 +6872,7 @@ bool render_legacy_animation(
     SDL_Renderer* renderer,
     const LegacyAnimation& animation,
     SDL_FPoint ground,
-    TilePosition previous,
-    TilePosition current,
+    int logical_angle,
     std::uint64_t elapsed_milliseconds,
     bool active,
     std::uint64_t phase_seed = 0
@@ -6889,41 +6880,9 @@ bool render_legacy_animation(
     if (animation.frames.empty() || animation.frames_per_angle == 0) {
         return false;
     }
-    const int dx = std::clamp(current.x - previous.x, -1, 1);
-    const int dy = std::clamp(current.y - previous.y, -1, 1);
-    int direction = 0;
-    if (dx == -1 && dy == 1) {
-        direction = 1;
-    } else if (dx == -1 && dy == 0) {
-        direction = 2;
-    } else if (dx == -1 && dy == -1) {
-        direction = 3;
-    } else if (dx == 0 && dy == -1) {
-        direction = 4;
-    } else if (dx == 1 && dy == -1) {
-        direction = 5;
-    } else if (dx == 1 && dy == 0) {
-        direction = 6;
-    } else if (dx == 1 && dy == 1) {
-        direction = 7;
-    }
-    const bool flip = direction > 4;
-    const std::size_t stored_angle = flip
-        ? static_cast<std::size_t>(8 - direction)
-        : static_cast<std::size_t>(direction);
-    const std::size_t available_angles =
-        animation.angle_offsets.empty()
-        ? animation.frames.size() / animation.frames_per_angle
-        : animation.angle_offsets.size();
-    if (available_angles == 0) {
-        return false;
-    }
-    const std::size_t angle =
-        std::min(stored_angle, available_angles - 1);
-    const std::size_t angle_frames =
-        animation.angle_frame_counts.empty()
-        ? animation.frames_per_angle
-        : animation.angle_frame_counts[angle];
+    logical_angle %= std::max(animation.angle_count, 1);
+    if (logical_angle < 0) logical_angle += animation.angle_count;
+    const std::size_t angle_frames = animation.frames_per_angle;
     if (angle_frames == 0) {
         return false;
     }
@@ -6945,55 +6904,51 @@ bool render_legacy_animation(
             ? static_cast<std::size_t>(elapsed_milliseconds / 100U) %
                 angle_frames
             : 0U;
-    const std::size_t index =
-        (animation.angle_offsets.empty()
-            ? angle * animation.frames_per_angle
-            : animation.angle_offsets[angle]) +
-        action_frame;
-    if (index >= animation.frames.size()) {
-        return false;
-    }
+    const auto selection = animation::select_frame(
+        logical_angle,
+        static_cast<int>(action_frame),
+        static_cast<int>(animation.frames_per_angle),
+        animation.angle_count,
+        animation.mirroring_mode,
+        animation.frames.size()
+    );
+    if (!selection) return false;
+    const std::size_t index = selection->frame_index;
     if (!animation.shadow_frames.empty() &&
         animation.shadow_frames_per_angle > 0) {
         const std::size_t stored_shadow_angles =
             animation.shadow_frames.size() /
             animation.shadow_frames_per_angle;
         if (stored_shadow_angles > 0) {
-            int shadow_angle =
-                animation.shadow_display_angle >= 0
-                ? animation.shadow_display_angle
-                : animation.shadow_angle_count >= 16
-                    ? direction * 2 : direction;
-            shadow_angle %= std::max(
-                animation.shadow_angle_count, 1
-            );
-            bool shadow_flip = false;
-            if (static_cast<std::size_t>(shadow_angle) >=
-                stored_shadow_angles) {
-                const int mirrored =
-                    animation.shadow_angle_count - shadow_angle;
-                if (mirrored >= 0 &&
-                    static_cast<std::size_t>(mirrored) <
-                        stored_shadow_angles) {
-                    shadow_angle = mirrored;
-                    shadow_flip = true;
-                } else {
-                    shadow_angle %= static_cast<int>(
-                        stored_shadow_angles
-                    );
-                }
+            if (animation.shadow_display_angle >= 0 &&
+                animation.shadow_display_angle != logical_angle) {
+                return render_legacy_sprite(
+                    renderer, animation.frames[index], ground, true,
+                    selection->flip_horizontal
+                );
             }
+            const int shadow_angle = animation::scale_logical_angle(
+                logical_angle,
+                animation.angle_count,
+                animation.shadow_angle_count
+            );
             const std::size_t shadow_action =
                 active &&
                     animation.shadow_frames_per_angle > 1
                 ? action_frame %
                     animation.shadow_frames_per_angle
                 : 0U;
-            const std::size_t shadow_index =
-                static_cast<std::size_t>(shadow_angle) *
-                    animation.shadow_frames_per_angle +
-                shadow_action;
-            if (shadow_index < animation.shadow_frames.size()) {
+            const auto shadow_selection = animation::select_frame(
+                shadow_angle,
+                static_cast<int>(shadow_action),
+                static_cast<int>(animation.shadow_frames_per_angle),
+                animation.shadow_angle_count,
+                animation.shadow_mirroring_mode,
+                animation.shadow_frames.size()
+            );
+            if (shadow_selection) {
+                const std::size_t shadow_index =
+                    shadow_selection->frame_index;
                 SDL_Texture* shadow_texture =
                     animation.shadow_frames[shadow_index].texture;
                 if (shadow_texture != nullptr) {
@@ -7011,7 +6966,7 @@ bool render_legacy_animation(
                                 animation.shadow_offset_y),
                     },
                     true,
-                    shadow_flip
+                    shadow_selection->flip_horizontal
                 );
                 if (shadow_texture != nullptr) {
                     SDL_SetTextureAlphaMod(shadow_texture, 255);
@@ -7024,7 +6979,7 @@ bool render_legacy_animation(
         animation.frames[index],
         ground,
         true,
-        flip
+        selection->flip_horizontal
     );
 }
 
@@ -7044,6 +6999,7 @@ bool render_exact_projectile_animation(
             animation.frames_per_angle
         ),
         angle_count,
+        static_cast<std::uint8_t>(animation.mirroring_mode),
         animation.frames.size(),
         animation_tick
     );
@@ -7059,6 +7015,9 @@ bool render_exact_projectile_animation(
             ),
             static_cast<std::int16_t>(
                 animation.shadow_angle_count
+            ),
+            static_cast<std::uint8_t>(
+                animation.shadow_mirroring_mode
             ),
             animation.shadow_frames.size(),
             animation_tick
@@ -8047,8 +8006,7 @@ void render_building(
                 renderer,
                 *graphic,
                 {top.x, top.y + half_tile_height},
-                building.position,
-                building.position,
+                building.facing,
                 building_animation_time,
                 true,
                 true,
@@ -8097,8 +8055,7 @@ void render_building(
                     renderer,
                     *composite,
                     {top.x, top.y + half_tile_height},
-                    building.position,
-                    building.position,
+                    building.facing,
                     damage_elapsed,
                     true,
                     true,
@@ -8274,8 +8231,7 @@ void render_building(
             renderer,
             *animation,
             {top.x, top.y + half_tile_height},
-            building.position,
-            building.position,
+            building.facing,
             building_animation_time,
             !building.completed(),
             building.id
@@ -8373,8 +8329,7 @@ void render_building(
                 renderer,
                 *flags,
                 ground,
-                {building.position.x + 1, building.position.y},
-                building.position,
+                building.facing,
                 building_animation_time,
                 true,
                 building.id
@@ -9455,8 +9410,7 @@ void render_building_damage_overlay(
         renderer,
         *composite,
         {top.x, top.y + half_tile_height},
-        building.position,
-        building.position,
+        building.facing,
         elapsed,
         true,
         true
@@ -9541,8 +9495,7 @@ void render_unit(
                 renderer,
                 *graphic,
                 {ground_top.x, ground_top.y + half_tile_height},
-                unit.previous_position,
-                unit.position,
+                unit.facing,
                 unit_animation_elapsed,
                 unit.animation_state != 1,
                 true,
@@ -9649,46 +9602,6 @@ void render_unit(
                 const LegacyAnimatedComposite* composite =
                     players.owner(unit.owner);
                 if (composite != nullptr) {
-                    TilePosition facing_previous = unit.previous_position;
-                    TilePosition facing_current = unit.position;
-                    if (render_action_for(simulation, unit) ==
-                            RenderAction::attacking) {
-                    TilePosition target = unit.destination;
-                    if (unit.attack_target_is_building) {
-                        const auto target_building =
-                            std::ranges::find_if(
-                                simulation.buildings(),
-                                [&unit](const Building& building) {
-                                    return building.id ==
-                                        unit.attack_target_id;
-                                }
-                            );
-                        if (target_building !=
-                            simulation.buildings().end()) {
-                            target = target_building->position;
-                        }
-                    } else {
-                        const auto target_unit = std::ranges::find_if(
-                            simulation.units(),
-                            [&unit](const Unit& candidate) {
-                                return candidate.id ==
-                                    unit.attack_target_id;
-                            }
-                        );
-                        if (target_unit != simulation.units().end()) {
-                            target = target_unit->position;
-                        }
-                    }
-                        facing_previous = unit.position;
-                        facing_current = {
-                            unit.position.x + std::clamp(
-                                target.x - unit.position.x, -1, 1
-                            ),
-                            unit.position.y + std::clamp(
-                                target.y - unit.position.y, -1, 1
-                            ),
-                        };
-                    }
                     if (render_legacy_animated_composite(
                         renderer,
                         *composite,
@@ -9696,8 +9609,7 @@ void render_unit(
                             ground_top.x,
                             ground_top.y + half_tile_height,
                         },
-                        facing_previous,
-                        facing_current,
+                        unit.facing,
                         unit_animation_elapsed,
                         true,
                         true,
@@ -9737,8 +9649,7 @@ void render_unit(
                     renderer,
                     *ship_animation,
                     {ground_top.x, ground_top.y + half_tile_height},
-                    unit.previous_position,
-                    unit.position,
+                    unit.facing,
                     unit_animation_elapsed,
                     interpolating,
                     unit.id
@@ -9899,8 +9810,7 @@ void render_unit(
                     renderer,
                     *animation,
                     ground,
-                    unit.previous_position,
-                    unit.position,
+                    unit.facing,
                     unit_animation_elapsed,
                     true,
                     unit.id
@@ -9983,8 +9893,7 @@ void render_unit(
                 renderer,
                 *carried,
                 {ground_top.x, ground_top.y + half_tile_height},
-                unit.previous_position,
-                unit.position,
+                unit.facing,
                 unit_animation_elapsed,
                 true,
                 unit.id
@@ -10024,8 +9933,7 @@ void render_unit(
                 renderer,
                 *composite,
                 {ground_top.x, ground_top.y + half_tile_height},
-                unit.previous_position,
-                unit.position,
+                unit.facing,
                 unit_animation_elapsed,
                 true,
                 true,
@@ -10058,8 +9966,7 @@ void render_unit(
                 renderer,
                 *early_animation,
                 {ground_top.x, ground_top.y + half_tile_height},
-                unit.previous_position,
-                unit.position,
+                unit.facing,
                 unit_animation_elapsed,
                 true,
                 unit.id
@@ -15796,8 +15703,7 @@ std::size_t render(
                         renderer,
                         *composite,
                         {top.x, top.y + half_tile_height},
-                        effect.position,
-                        effect.position,
+                        0,
                         elapsed,
                         true,
                         true,
@@ -15835,8 +15741,7 @@ std::size_t render(
                         renderer,
                         *animation,
                         {top.x, top.y + half_tile_height},
-                        effect.position,
-                        effect.position,
+                        0,
                         elapsed,
                         true,
                         effect.entity_id
@@ -15858,8 +15763,7 @@ std::size_t render(
                         renderer,
                         *animation,
                         {top.x, top.y + half_tile_height},
-                        effect.position,
-                        effect.position,
+                        0,
                         elapsed,
                         true,
                         effect.entity_id
@@ -15928,7 +15832,7 @@ std::size_t render(
                 "unit-death-" + render_unit_kind_name(effect.kind),
                 effect.entity_id,
                 "dying",
-                render_direction(effect.previous_position, effect.position),
+                effect.facing,
                 effect.owner
             );
             const SDL_FPoint top = tile_top(effect.position);
@@ -15947,8 +15851,7 @@ std::size_t render(
                         renderer,
                         *animation,
                         {top.x, top.y + half_tile_height},
-                        effect.previous_position,
-                        effect.position,
+                        effect.facing,
                         static_cast<std::uint64_t>(elapsed) * 200U,
                         true,
                         effect.entity_id
@@ -16048,7 +15951,7 @@ std::size_t render(
                 "building-" + render_building_kind_name(building.kind),
                 building.id,
                 building.completed() ? "standing" : "construction",
-                render_building_topology_frame(simulation, building),
+                building.facing,
                 building.owner
             );
             render_building(
@@ -16085,7 +15988,7 @@ std::size_t render(
                         render_building_kind_name(building.kind),
                     id,
                     building.completed() ? "standing" : "construction",
-                    memory.topology_frame,
+                    building.facing,
                     building.owner
                 );
                 render_building(
@@ -16115,7 +16018,7 @@ std::size_t render(
                 std::to_string(static_cast<int>(
                     render_action_detail_for(simulation, unit)
                 )),
-                render_direction(unit.previous_position, unit.position),
+                unit.facing,
                 unit.owner
             );
             render_unit(
@@ -16175,7 +16078,9 @@ std::size_t render(
             if (const auto* graphic = commercial_graphic_for(renderer, visual);
                 graphic && render_legacy_animated_composite(
                     renderer, *graphic, position,
-                    projectile.origin, projectile.destination,
+                    render_direction(
+                        projectile.origin, projectile.destination
+                    ),
                     static_cast<std::uint64_t>(
                         projectile.total_ticks -
                         projectile.ticks_remaining
@@ -16235,8 +16140,9 @@ std::size_t render(
                     : active_legacy_sprites
                         .onager_volley_projectile,
                 position,
-                projectile.origin,
-                projectile.destination,
+                render_direction(
+                    projectile.origin, projectile.destination
+                ),
                 projectile_animation_time,
                 true
             )) {
@@ -16246,8 +16152,9 @@ std::size_t render(
                 renderer,
                 active_legacy_sprites.trebuchet_projectile,
                 position,
-                projectile.origin,
-                projectile.destination,
+                render_direction(
+                    projectile.origin, projectile.destination
+                ),
                 projectile_animation_time,
                 true
             )) {
@@ -16257,8 +16164,9 @@ std::size_t render(
                 renderer,
                 active_legacy_sprites.gunshot_projectile,
                 position,
-                projectile.origin,
-                projectile.destination,
+                render_direction(
+                    projectile.origin, projectile.destination
+                ),
                 projectile_animation_time,
                 true
             )) {
@@ -16268,8 +16176,9 @@ std::size_t render(
                 renderer,
                 active_legacy_sprites.axe_projectile,
                 position,
-                projectile.origin,
-                projectile.destination,
+                render_direction(
+                    projectile.origin, projectile.destination
+                ),
                 projectile_animation_time,
                 true
             )) {
@@ -16293,8 +16202,9 @@ std::size_t render(
                     renderer,
                     active_legacy_sprites.cannonball_projectile,
                     position,
-                    projectile.origin,
-                    projectile.destination,
+                    render_direction(
+                        projectile.origin, projectile.destination
+                    ),
                     projectile_animation_time,
                     true
                 )) {
@@ -16318,8 +16228,9 @@ std::size_t render(
                         position.x + lane * 3.0F,
                         position.y + lane * 1.5F,
                     },
-                    projectile.origin,
-                    projectile.destination,
+                    render_direction(
+                        projectile.origin, projectile.destination
+                    ),
                     projectile_animation_time,
                     true
                 )) {
@@ -16404,8 +16315,7 @@ std::size_t render(
                   renderer,
                   active_legacy_sprites.trebuchet_impact,
                   center,
-                  effect.position,
-                  {effect.position.x + 1, effect.position.y},
+                  7,
                   static_cast<std::uint64_t>(
                       effect.total_ticks - effect.ticks_remaining
                   ) * 100U,
@@ -16416,8 +16326,7 @@ std::size_t render(
                     renderer,
                     active_legacy_sprites.siege_impact,
                     center,
-                    effect.position,
-                    {effect.position.x + 1, effect.position.y},
+                    7,
                     static_cast<std::uint64_t>(
                         effect.total_ticks - effect.ticks_remaining
                     ) * 100U,

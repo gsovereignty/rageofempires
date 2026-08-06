@@ -1,4 +1,5 @@
 #include "aoe/save_game.hpp"
+#include "aoe/animation_contract.hpp"
 #include "aoe/format_versions.hpp"
 
 #include <algorithm>
@@ -812,7 +813,8 @@ void save_game(const Simulation& simulation, const std::filesystem::path& path) 
                << ' ' << unit.attack_release_action_key
                << ' ' << unit.attack_animation_started
                << ' ' << unit.animation_state_start_tick
-               << ' ' << static_cast<unsigned>(unit.animation_state);
+               << ' ' << static_cast<unsigned>(unit.animation_state)
+               << ' ' << static_cast<unsigned>(unit.facing);
         output << '\n';
     }
     for (const Building& building : simulation.buildings()) {
@@ -849,7 +851,7 @@ void save_game(const Simulation& simulation, const std::filesystem::path& path) 
                    << order.paid_gold << ' '
                    << order.work_remainder;
         }
-        output << '\n';
+        output << ' ' << static_cast<unsigned>(building.facing) << '\n';
     }
     for (const Building& building : simulation.buildings()) {
         if (building.town_bell_source_id != 0) {
@@ -946,7 +948,8 @@ void save_game(const Simulation& simulation, const std::filesystem::path& path) 
                << ' ' << effect.total_ticks << ' '
                << effect.entity_id << ' '
                << effect.previous_position.x << ' '
-               << effect.previous_position.y << '\n';
+               << effect.previous_position.y << ' '
+               << static_cast<unsigned>(effect.facing) << '\n';
     }
     for (const BuildingRubbleEffect& effect : simulation.rubble_effects()) {
         output << "rubble " << effect.position.x << ' '
@@ -2007,6 +2010,16 @@ Simulation load_game(const std::filesystem::path& path) {
                     );
                 }
             }
+            if (version >= 130) {
+                unsigned facing{};
+                input >> facing;
+                if (facing > 255) {
+                    throw std::runtime_error(
+                        "invalid unit facing in save"
+                    );
+                }
+                unit.facing = static_cast<std::uint8_t>(facing);
+            }
             }
             unit.kind =
                 kind == 0 ? UnitKind::villager :
@@ -2129,6 +2142,14 @@ Simulation load_game(const std::filesystem::path& path) {
                 kind == 3 && version >= 13
                     ? UnitKind::scout_cavalry
                     : UnitKind::knight;
+            if (version < 130) {
+                if (const auto facing = animation::logical_direction(
+                        unit.previous_position,
+                        unit.position,
+                        unit.kind == UnitKind::trade_cog ? 16 : 8)) {
+                    unit.facing = *facing;
+                }
+            }
             if (version >= 109) {
                 const auto decoded = EntityOwner::from_stable_id(owner);
                 if (!decoded) {
@@ -2524,6 +2545,16 @@ Simulation load_game(const std::filesystem::path& path) {
                 }
                 building.production_queue.push_back(order);
             }
+            if (version >= 130) {
+                unsigned facing{};
+                input >> facing;
+                if (facing > 255) {
+                    throw std::runtime_error(
+                        "invalid building facing in save"
+                    );
+                }
+                building.facing = static_cast<std::uint8_t>(facing);
+            }
             buildings.push_back(std::move(building));
         } else if (record == "town-bell-building" && version >= 126) {
             EntityId id{};
@@ -2847,6 +2878,21 @@ Simulation load_game(const std::filesystem::path& path) {
                     effect.previous_position.y;
             } else {
                 effect.previous_position = effect.position;
+            }
+            if (version >= 130) {
+                unsigned facing{};
+                input >> facing;
+                if (facing > 255) {
+                    throw std::runtime_error(
+                        "invalid death effect facing in save"
+                    );
+                }
+                effect.facing = static_cast<std::uint8_t>(facing);
+            } else if (const auto facing = animation::logical_direction(
+                           effect.previous_position,
+                           effect.position,
+                           effect.kind == UnitKind::trade_cog ? 16 : 8)) {
+                effect.facing = *facing;
             }
             death_effects.push_back(effect);
         } else if (record == "rubble" && version >= 46) {

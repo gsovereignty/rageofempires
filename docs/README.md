@@ -57,6 +57,8 @@ Sprite, technology, civilization, renderer, and asset-coverage mappings:
   proves exact VMBAS_DN frames, hotspots, corpse hold, and unit/rubble split.
 - [Market standing runtime evidence](evidence/MARKET_STANDING_RUNTIME_EVIDENCE.md)
   isolates fixed completed-Market frames from moving Trade Cart overlap.
+- [Logical facing and mirroring evidence](fidelity/ANIMATION_FIDELITY.md#logical-angle-and-physical-frame-selection)
+  proves persistent object direction, exact DAT frame selection, and flips.
 - [Trade Cart selection portrait evidence](evidence/TRADE_CART_SELECTION_PORTRAIT_EVIDENCE.md)
   proves exact DAT/interface icon dispatch and background visual regression.
 - [Naval selection portrait evidence](evidence/NAVAL_SELECTION_PORTRAIT_EVIDENCE.md)

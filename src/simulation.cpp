@@ -24,6 +24,33 @@ bool represented_player(Player player) {
 
 bool is_wall(BuildingKind kind);
 
+int direction_angle_count(const Unit& unit, animation::Role role) {
+    const auto binding = unit.commercial_identity
+        ? animation::binding_for_dat_id(
+              animation::ObjectCategory::unit,
+              unit.commercial_identity->object_id,
+              role
+          )
+        : animation::binding(unit.kind, role);
+    if (binding && binding->angle_count >= 9) {
+        return binding->angle_count;
+    }
+    // Trade Cog roots 3971/3975/3979 are 16-angle composites and therefore
+    // intentionally have no direct root-SLP entry in the binding catalog.
+    return unit.kind == UnitKind::trade_cog ? 16 : 8;
+}
+
+void face_toward(
+    Unit& unit,
+    TilePosition target,
+    animation::Role role = animation::Role::standing
+) {
+    if (const auto facing = animation::logical_direction(
+            unit.position, target, direction_angle_count(unit, role))) {
+        unit.facing = *facing;
+    }
+}
+
 bool is_gate(BuildingKind kind) {
     return kind == BuildingKind::palisade_gate_x ||
         kind == BuildingKind::palisade_gate_y ||
@@ -7205,6 +7232,13 @@ void Simulation::update() {
                 !occupied(next, unit.id, unit.owner)) {
                 unit.previous_position = unit.position;
                 unit.position = next;
+                if (const auto facing = animation::logical_direction(
+                        unit.previous_position, unit.position,
+                        direction_angle_count(
+                            unit, animation::Role::walking
+                        ))) {
+                    unit.facing = *facing;
+                }
                 unit.last_move_tick = tick_number_;
                 ++unit.next_path_step;
                 unit.movement_cooldown = std::max(
@@ -7965,6 +7999,7 @@ void Simulation::update() {
                         unit.position,
                         *ordered_building
                     );
+                if (!unit.moving) face_toward(unit, target_position);
                 const int distance_squared = valid_unit
                     ? combat_distance_squared(
                         unit.position, target_position
@@ -8461,6 +8496,11 @@ void Simulation::update() {
             !occupied(next, unit.id, unit.owner)) {
             unit.previous_position = unit.position;
             unit.position = next;
+            if (const auto facing = animation::logical_direction(
+                    unit.previous_position, unit.position,
+                    direction_angle_count(unit, animation::Role::walking))) {
+                unit.facing = *facing;
+            }
             unit.last_move_tick = tick_number_;
             ++unit.next_path_step;
             int movement_interval =
@@ -8491,6 +8531,13 @@ void Simulation::update() {
                         cavalry_movement_denominator;
                     unit.previous_position = unit.position;
                     unit.position = bonus;
+                    if (const auto facing = animation::logical_direction(
+                            unit.previous_position, unit.position,
+                            direction_angle_count(
+                                unit, animation::Role::walking
+                            ))) {
+                        unit.facing = *facing;
+                    }
                     unit.last_move_tick = tick_number_;
                     ++unit.next_path_step;
                 }
@@ -8506,6 +8553,13 @@ void Simulation::update() {
                         unit.movement_speed_remainder -= 100;
                         unit.previous_position = unit.position;
                         unit.position = bonus;
+                        if (const auto facing = animation::logical_direction(
+                                unit.previous_position, unit.position,
+                                direction_angle_count(
+                                    unit, animation::Role::walking
+                                ))) {
+                            unit.facing = *facing;
+                        }
                         unit.last_move_tick = tick_number_;
                         ++unit.next_path_step;
                     }
@@ -8521,6 +8575,13 @@ void Simulation::update() {
                     unit.movement_speed_remainder -= 100;
                     unit.previous_position = unit.position;
                     unit.position = bonus;
+                    if (const auto facing = animation::logical_direction(
+                            unit.previous_position, unit.position,
+                            direction_angle_count(
+                                unit, animation::Role::walking
+                            ))) {
+                        unit.facing = *facing;
+                    }
                     unit.last_move_tick = tick_number_;
                     ++unit.next_path_step;
                 }
@@ -8753,6 +8814,7 @@ void Simulation::update() {
                 death_effect_ticks,
                 unit.id,
                 unit.previous_position,
+                unit.facing,
             });
         }
     }
@@ -8822,6 +8884,42 @@ void Simulation::update() {
         selected_building_.reset();
     }
     update_production();
+
+    // The original animated-object action path writes one logical direction
+    // byte and preserves it when the graphic/action changes. Work actions
+    // turn toward their object only while stationary; movement already wrote
+    // the direction of the completed step above.
+    for (Unit& unit : units_) {
+        if (unit.moving) continue;
+        if (unit.attack_target_id != 0) {
+            if (const Unit* target = find_unit(unit.attack_target_id)) {
+                face_toward(
+                    unit, target->position, animation::Role::attack
+                );
+            } else if (const Building* target =
+                           find_building(unit.attack_target_id)) {
+                face_toward(
+                    unit, nearest_point_on_building(unit.position, *target),
+                    animation::Role::attack
+                );
+            }
+        } else if (const Building* target =
+                       find_building(unit.repair_target_id)) {
+            face_toward(
+                unit, nearest_point_on_building(unit.position, *target),
+                animation::Role::repair
+            );
+        } else if (const Unit* target = find_unit(unit.resource_unit_id)) {
+            face_toward(unit, target->position);
+        } else if (unit.has_resource_target) {
+            face_toward(unit, unit.resource_target);
+        } else if (const Unit* target =
+                       find_unit(unit.conversion_target_id)) {
+            face_toward(unit, target->position);
+        } else if (const Unit* target = find_unit(unit.healing_target_id)) {
+            face_toward(unit, target->position);
+        }
+    }
 
     const auto animation_state_for = [this](const Unit& unit) {
         if (unit.trebuchet_transform_ticks_remaining > 0) {
@@ -11073,6 +11171,10 @@ void Simulation::update_building_defenses() {
         const TilePosition target_position = unit_target != nullptr
             ? unit_target->position
             : nearest_point_on_building(origin, *building_target);
+        if (const auto facing = animation::logical_direction(
+                origin, target_position, 8)) {
+            building.facing = *facing;
+        }
         if (building_target != nullptr) {
             origin = nearest_point_on_building(
                 target_position,

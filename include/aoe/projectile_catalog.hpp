@@ -58,15 +58,14 @@ impact_asset_kind_for(const ImpactEffect& impact);
     const ImpactEffect& impact
 );
 
-// Uses Genie/openage's front direction (-1,+1), clockwise degrees, nearest
-// logical angle, and horizontal mirroring above 180 degrees. Rejects archives
-// whose physical frame count does not match the half-plus-center layout.
+// Uses the decompiled FUN_0058da80 quantizer and FUN_00510160 DAT selector.
 [[nodiscard]] std::optional<ProjectileFrameSelection>
 select_projectile_frame(
     TilePosition origin,
     TilePosition destination,
     std::int16_t frames_per_angle,
     std::int16_t angle_count,
+    std::uint8_t mirroring_mode,
     std::size_t physical_frame_count,
     std::uint64_t animation_tick
 );

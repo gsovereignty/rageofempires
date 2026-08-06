@@ -64,6 +64,44 @@ struct Binding {
     auto operator<=>(const Binding&) const = default;
 };
 
+// FUN_0058da80 stores this logical angle on the object. Angle zero points
+// along (+x,+y); increasing values turn toward (+y,-x). A zero-length vector
+// has no new facing and therefore must not replace the stored value.
+[[nodiscard]] std::optional<std::uint8_t> logical_direction(
+    TilePosition from,
+    TilePosition to,
+    std::int32_t angle_count = 8
+) noexcept;
+
+struct FrameSelection {
+    std::size_t frame_index{};
+    bool flip_horizontal{};
+
+    auto operator<=>(const FrameSelection&) const = default;
+};
+
+// Exact FUN_00510160 physical-frame selector. mirroring_mode is the DAT byte
+// at graphic+0x74 (the inclusive end of the directly stored logical range),
+// not a boolean.
+[[nodiscard]] std::optional<FrameSelection> select_frame(
+    std::int32_t logical_angle,
+    std::int32_t action_frame,
+    std::int32_t frames_per_angle,
+    std::int32_t angle_count,
+    std::int32_t mirroring_mode,
+    std::size_t physical_frame_count
+) noexcept;
+
+[[nodiscard]] constexpr std::int32_t scale_logical_angle(
+    std::int32_t logical_angle,
+    std::int32_t root_angle_count,
+    std::int32_t child_angle_count
+) noexcept {
+    return root_angle_count > 0 && child_angle_count > 0
+        ? child_angle_count * logical_angle / root_angle_count
+        : 0;
+}
+
 [[nodiscard]] constexpr Layout classify_layout(
     std::int32_t frames_per_angle,
     std::int32_t angle_count,
@@ -76,11 +114,11 @@ struct Binding {
     if (physical_frames == frames_per_angle * angle_count) {
         return Layout::full;
     }
-    if (
-        mirror_mode != 0 &&
-        physical_frames ==
-            frames_per_angle * (angle_count / 2 + 1)
-    ) {
+    if (mirror_mode != 0 &&
+        mirror_mode >= angle_count / 4 &&
+        mirror_mode < angle_count &&
+        physical_frames == frames_per_angle *
+            (mirror_mode - angle_count / 4 + 1)) {
         return Layout::mirrored;
     }
     return Layout::ambiguous;
@@ -111,9 +149,9 @@ struct ExactRoleBinding {
     std::uint16_t object_id
 ) noexcept;
 
-// The decompiled animated-object update proves the cadence scheduler. The
-// logical-direction selector remains a separate unresolved contract.
+// FUN_0058da80 and FUN_00510160 prove logical-angle quantization, persistent
+// storage, DAT mirroring, and physical-frame selection.
 inline constexpr bool cadence_selector_proved = true;
-inline constexpr bool direction_selector_proved = false;
+inline constexpr bool direction_selector_proved = true;
 
 }  // namespace aoe::animation

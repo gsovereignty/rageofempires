@@ -1,9 +1,9 @@
 #include "aoe/projectile_catalog.hpp"
 
+#include "aoe/animation_contract.hpp"
+
 #include <algorithm>
 #include <array>
-#include <cmath>
-#include <numbers>
 
 namespace aoe {
 namespace {
@@ -176,45 +176,28 @@ select_projectile_frame(
     TilePosition destination,
     std::int16_t frames_per_angle,
     std::int16_t angle_count,
+    std::uint8_t mirroring_mode,
     std::size_t physical_frame_count,
     std::uint64_t animation_tick
 ) {
-    if (frames_per_angle <= 0 || angle_count <= 0 ||
-        origin == destination) {
-        return std::nullopt;
-    }
-    const std::size_t stored_angles =
-        static_cast<std::size_t>(angle_count / 2 + 1);
-    if (physical_frame_count !=
-        stored_angles *
-            static_cast<std::size_t>(frames_per_angle)) {
-        return std::nullopt;
-    }
-    const double dx =
-        static_cast<double>(destination.x - origin.x);
-    const double dy =
-        static_cast<double>(destination.y - origin.y);
-    double degrees = std::atan2(
-        -(dx + dy), dy - dx
-    ) * 180.0 / std::numbers::pi;
-    if (degrees < 0.0) degrees += 360.0;
-    const double step = 360.0 / angle_count;
-    int logical = static_cast<int>(
-        std::floor((degrees + step / 2.0) / step)
-    ) % angle_count;
-    const bool flip = logical > angle_count / 2;
-    if (flip) logical = angle_count - logical;
+    const auto logical = animation::logical_direction(
+        origin, destination, angle_count
+    );
+    if (!logical) return std::nullopt;
     const std::size_t action =
         static_cast<std::size_t>(
             animation_tick %
             static_cast<std::uint64_t>(frames_per_angle)
         );
-    return ProjectileFrameSelection{
-        static_cast<std::size_t>(logical) *
-            static_cast<std::size_t>(frames_per_angle) +
-            action,
-        flip,
-    };
+    const auto selection = animation::select_frame(
+        *logical, static_cast<std::int32_t>(action), frames_per_angle,
+        angle_count, mirroring_mode, physical_frame_count
+    );
+    return selection ? std::optional<ProjectileFrameSelection>{
+        ProjectileFrameSelection{
+            selection->frame_index, selection->flip_horizontal
+        }
+    } : std::nullopt;
 }
 
 std::optional<ProjectileAssetBinding>

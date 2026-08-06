@@ -63,6 +63,28 @@ world updates. Nonzero attack delays are rounded up to the first five-Hz update
 that reaches the DAT frame. The 25 represented nonzero-delay records are bound
 to their exact DAT IDs; zero-delay records retain immediate release.
 
+## Logical angle and physical frame selection
+
+The supplied executable closes the direction path too. Animated objects store
+their logical angle as a byte at object offset `0x35`; `FUN_0058b1d0` is the
+setter. Graphic/action changes preserve and reapply that byte instead of
+deriving direction from the most recent position delta.
+
+`FUN_0058da80` normalizes the requested world vector and reference vector
+`(+1,0,+1)`, uses dot/`acos` plus the cross-product sign, divides by one logical
+angle step, and rounds to the nearest angle. Graphics with fewer than nine
+angles use eight logical directions. Thus logical zero is southeast `(+x,+y)`,
+followed by south, southwest, west, northwest, north, northeast, and east.
+
+`FUN_00510160` consumes the stored angle and graphic fields at offsets `0x5e`
+(frames per angle), `0x60` (angle count), and `0x74` (mirroring mode). The
+mirroring byte is the inclusive end of the directly stored logical range, not
+a boolean. For eight angles/mode 6, logical angles 2 through 6 select physical
+slots 0 through 4 directly; angles 0, 1, and 7 select slots 2, 1, and 3 with
+horizontal flip. Decompiled composite wrappers also prove that `display_angle`
+filters a delta and a visible child uses integer-scaled angle
+`child_count * root_angle / root_count`.
+
 ## Runtime integration boundary
 
 The pure `aoe::animation` contract now compiles every exact catalog role into
@@ -98,7 +120,7 @@ because the original animator does not auto-advance those graphics. Animated
 construction and damage composites use the recovered scheduler when their DAT
 root is exact.
 
-The API keeps unresolved logical-direction conversion external:
+The API carries the proved direction contract with the catalog:
 
 ```text
 AnimationEvidence {
@@ -125,9 +147,13 @@ or cancel that bound release. This keeps save/load, replay, and lockstep hashes
 on the same attack frame and prevents a delayed projectile from hitting a newly
 selected target.
 
-Likewise, physical five-angle mirrored storage is exact, but the original
-logical-direction and `display_angle` selector path remains unproved. Current
-SDL mirroring stays procedural and is not labeled original-exact.
+Units now persist logical facing through movement stops, action/graphic
+transitions, work, attacks, death effects, saves, replays, and lockstep hashes.
+Buildings retain facing and turn defensive launch state toward their target.
+Direct, composite, shadow, and projectile renderers use the same recovered
+selector; projectile 8/18/72-angle quantization no longer uses a separate
+openage-derived transform. Horizontal mirroring uses the reflected anchor
+`width - 1 - hotspot_x`.
 
 ## Reproduction and tests
 
@@ -140,7 +166,9 @@ python3 tools/dat_metadata/generate_animation_evidence.py \
 Focused tests pin all 124 records and 868 direct-role outcomes, all 414 compiled
 exact direct/task bindings, parsed sequence flags, frame duration, replay hold,
 non-advancing and final-frame sequences, world-time interpolation, and all 25
-nonzero attack-delay records.
+nonzero attack-delay records. Direction tests pin every eight-angle physical
+slot/flip result, 18- and 72-angle projectile layouts, child-angle scaling,
+stationary action turning, stop-state preservation, and save/load facing.
 The production simulation regression proves delayed Archer release, save/load
 phase preservation, cancellation, retarget binding, and release against a
 moving target. Deterministic SDL capture smoke exercises the shipped renderer
@@ -151,3 +179,12 @@ Villager construction/repair SLP 1496. The same smoke against a clean
 `ca2964d` package failed: both Kings had no auditable legacy sprite and both
 Villager work actions rendered standing SLP 1479. The corrected package passes
 the identical scenarios, commands, ticks, and overlap-capture assertions.
+
+For BUG-ANIMATION-003, the same packaged scenario, camera, tick 1, and overlap
+capture changed from screenshot SHA-256
+`133aadbd894cdc605411eae73b1276b6ad346af6c119059e2017b9c0bd85af92`
+to `0c84325761c717044d881a0f477e2a944b5b6bab1509bb00b0bcf85dcac0ca2a`.
+Before correction, moving King/Woad objects were reported as reconstruction
+direction 2 with unflipped frames 20/24. The packaged corrected path stores
+logical east 7 and selects mirrored frames 30/36; stationary logical zero
+selects mirrored frames 13/19 instead of being recomputed by the renderer.

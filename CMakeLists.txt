@@ -212,6 +212,16 @@ target_link_libraries(frame_timing_tests PRIVATE aoe_core)
 target_compile_options(frame_timing_tests PRIVATE -Wall -Wextra -Wpedantic)
 add_test(NAME frame_timing_tests COMMAND frame_timing_tests)
 
+add_executable(application_loop_tests
+    tests/application_loop_tests.cpp
+    src/application_loop.cpp
+)
+target_include_directories(application_loop_tests PRIVATE include)
+target_compile_options(
+    application_loop_tests PRIVATE -Wall -Wextra -Wpedantic
+)
+add_test(NAME application_loop_tests COMMAND application_loop_tests)
+
 add_executable(audio_mix_tests tests/audio_mix_tests.cpp)
 target_link_libraries(audio_mix_tests PRIVATE aoe_core)
 target_compile_options(audio_mix_tests PRIVATE -Wall -Wextra -Wpedantic)
@@ -677,6 +687,7 @@ set_tests_properties(observer_ui_sdl_smoke PROPERTIES TIMEOUT 20)
 add_executable(aoe_reconstruction
     src/main.cpp
     src/sdl_app.cpp
+    src/application_loop.cpp
     src/audio_system.cpp
 )
 add_executable(
@@ -773,6 +784,7 @@ if(APPLE)
     add_executable(aoe_reconstruction_app MACOSX_BUNDLE
         src/main.cpp
         src/sdl_app.cpp
+        src/application_loop.cpp
         src/audio_system.cpp
     )
     add_custom_command(

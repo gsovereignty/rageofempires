@@ -29,9 +29,29 @@ int main() {
            987);
     assert(aoe::animation::binding(UnitKind::knight, State::move)->slp_id ==
            673);
-    assert(aoe::animation::binding(UnitKind::archer, State::idle)->layout ==
-           Layout::ambiguous);
-    assert(!aoe::animation::binding(UnitKind::villager, State::build));
+    assert(!aoe::animation::binding(UnitKind::archer, State::idle));
+    const auto villager_build =
+        aoe::animation::binding(UnitKind::villager, State::build);
+    assert(villager_build && villager_build->graphic_id == 1598 &&
+           villager_build->slp_id == 1496);
+    const auto villager_repair =
+        aoe::animation::binding(UnitKind::villager, State::repair);
+    assert(villager_repair == villager_build);
+    assert(aoe::animation::exact_role_bindings().size() == 414);
+    const auto king = aoe::animation::binding(
+        UnitKind::king, aoe::animation::Role::standing
+    );
+    assert(king && king->graphic_id == 1851 && king->slp_id == 1767);
+    assert(king->replay_delay_seconds == 1.0);
+    const auto town_center = aoe::animation::binding(
+        aoe::BuildingKind::town_center,
+        aoe::animation::Role::construction
+    );
+    assert(town_center && town_center->graphic_id == 121 &&
+           town_center->slp_id == 239);
+    assert(!aoe::animation::binding(
+        UnitKind::sheep, aoe::animation::Role::attack
+    ));
     assert(aoe::animation::cadence_selector_proved);
     assert(aoe::animation::attack_release_delay_ticks(UnitKind::knight) == 0);
     assert(aoe::animation::attack_release_delay_ticks(UnitKind::archer) == 2);

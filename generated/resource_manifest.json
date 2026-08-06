@@ -13,6 +13,11 @@
       "sha256": "c8d6c78beecb2d7e56ac18602be62c4f402bbc99d794f927e78f5d49bb21bd68"
     },
     {
+      "path": "resources/animation-binding-audit.scenario",
+      "size": 354,
+      "sha256": "491e655f14da903eeec98173c1222b5e108806c521a7834270c0b7001350fec1"
+    },
+    {
       "path": "resources/arbalester-render-audit.scenario",
       "size": 633,
       "sha256": "e375c52fc8e27492c7edaf691c150e787c8f084a68606fae73b8c3435ea210aa"
@@ -69,8 +74,8 @@
     },
     {
       "path": "resources/cannon-dock-technologies-audit.scenario",
-      "size": 1093,
-      "sha256": "6190377b6631566dcb73d7c27c40f2460e8be1a56439849aa17f0e0734d28898"
+      "size": 1203,
+      "sha256": "189a63fa66c3871980d3175125ef2e49bf235fd991e1541c5864dfd18f4bb3de"
     },
     {
       "path": "resources/castle-unique-units-audit.scenario",
@@ -164,8 +169,8 @@
     },
     {
       "path": "resources/fire-demolition-ship-audit.scenario",
-      "size": 865,
-      "sha256": "7baaff590df97db7ba492cad186e63342fd5c6b233b5f58cf35da316d19440b7"
+      "size": 975,
+      "sha256": "f114fad9dc2e8e0776c77eff45f5dbe0fb69e9bc554f1765e598393f8e622231"
     },
     {
       "path": "resources/footprint-visibility-audit.scenario",
@@ -259,13 +264,13 @@
     },
     {
       "path": "resources/naval-combat-transport-audit.scenario",
-      "size": 802,
-      "sha256": "7e09f5d4e1f00b39e3d928a858bd14bf2d6eae4d0c2bf04474ef77e55e1bb3af"
+      "size": 912,
+      "sha256": "ada1d4450457524170a9b171ad741ea21dfc8da89156abb7cbe17f5a45abb2d1"
     },
     {
       "path": "resources/naval-fishing-audit.scenario",
-      "size": 691,
-      "sha256": "9fd38591e0ddb6f27a6ca5bb030405d4b8b481efcaeac2d68da643a9c6bafa3c"
+      "size": 755,
+      "sha256": "cc401c17fa0e57b6f43ce3039a0e0da3b01c32ab0f97da9eb7bcf9aedbc6882f"
     },
     {
       "path": "resources/naval-selection-portrait-regression.scenario",
@@ -349,8 +354,13 @@
     },
     {
       "path": "resources/unique-naval-units-audit.scenario",
-      "size": 944,
-      "sha256": "6957a0bb13ca9f4775335f4f372bba293d20a92b18cf9ceca511e2a0a818ed18"
+      "size": 1054,
+      "sha256": "c8b066359396d526e985ec621284bce7a1b953245f27813895c10b2060c57eea"
+    },
+    {
+      "path": "resources/villager-build-animation-audit.scenario",
+      "size": 251,
+      "sha256": "fa4b026107b8a7159c62e0511236778d6dd0ccf1928475116e74485c6ca7d52c"
     },
     {
       "path": "resources/villager-repair-audit.scenario",

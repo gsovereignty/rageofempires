@@ -1,70 +1,93 @@
 #include "aoe/animation_contract.hpp"
 
+#include <algorithm>
 #include <cmath>
 
 namespace aoe::animation {
 namespace {
 
-Binding make(
-    std::int32_t graphic,
-    std::int32_t slp,
-    std::int16_t frames,
-    double duration,
-    std::int32_t physical
+struct UnitDatId {
+    UnitKind kind;
+    std::uint16_t dat_id;
+};
+
+struct BuildingDatId {
+    BuildingKind kind;
+    std::uint16_t dat_id;
+};
+
+#include "../generated/animation_binding_catalog.inc"
+
+static_assert(std::size(generated_unit_dat_ids) == unit_kind_count);
+
+template<typename Kind, typename Record, std::size_t Size>
+std::optional<std::uint16_t> dat_id_for(
+    Kind kind,
+    const Record (&records)[Size]
 ) {
-    return {
-        graphic, slp, frames, 8, physical, duration, 6,
-        classify_layout(frames, 8, 6, physical),
-    };
+    const auto found = std::ranges::find(records, kind, &Record::kind);
+    return found == std::end(records)
+        ? std::nullopt
+        : std::optional<std::uint16_t>{found->dat_id};
 }
 
 }  // namespace
 
+std::span<const ExactRoleBinding> exact_role_bindings() {
+    return generated_exact_role_bindings;
+}
+
+std::optional<Binding> binding_for_dat_id(
+    ObjectCategory category,
+    std::uint16_t dat_id,
+    Role role
+) {
+    const auto found = std::ranges::find_if(
+        generated_exact_role_bindings,
+        [category, dat_id, role](const ExactRoleBinding& candidate) {
+            return candidate.category == category &&
+                candidate.dat_id == dat_id && candidate.role == role;
+        }
+    );
+    return found == std::end(generated_exact_role_bindings)
+        ? std::nullopt
+        : std::optional<Binding>{found->art};
+}
+
+std::optional<Binding> binding(UnitKind kind, Role role) {
+    const auto dat_id = dat_id_for(kind, generated_unit_dat_ids);
+    return dat_id
+        ? binding_for_dat_id(ObjectCategory::unit, *dat_id, role)
+        : std::nullopt;
+}
+
+std::optional<Binding> binding(BuildingKind kind, Role role) {
+    const auto dat_id = dat_id_for(kind, generated_building_dat_ids);
+    return dat_id
+        ? binding_for_dat_id(ObjectCategory::building, *dat_id, role)
+        : std::nullopt;
+}
+
 std::optional<Binding> binding(UnitKind kind, State state) {
-    switch (kind) {
-    case UnitKind::villager:
-        switch (state) {
-        case State::idle: return make(1284, 1479, 15, 1.0, 75);
-        case State::move: return make(1288, 1484, 15, 0.0697500035, 75);
-        case State::attack: return make(1278, 1473, 15, 0.0700000003, 75);
-        case State::gather_hunt:
-            return make(1602, 1528, 15, 0.1000000015, 75);
-        default: return std::nullopt;
-        }
-    case UnitKind::militia:
-        switch (state) {
-        case State::idle: return make(1102, 993, 6, 1.0, 30);
-        case State::move: return make(1106, 997, 12, 0.0697500035, 60);
-        case State::attack: return make(1096, 987, 10, 0.1000000015, 50);
-        default: return std::nullopt;
-        }
-    case UnitKind::archer:
-        switch (state) {
-        case State::idle:
-            return Binding{
-                633, 8, 10, 8, 52, 0.200000003, 6,
-                Layout::ambiguous,
-            };
-        case State::move: return make(637, 12, 10, 0.0697500035, 50);
-        case State::attack: return make(627, 2, 10, 0.0700000003, 50);
-        default: return std::nullopt;
-        }
-    case UnitKind::knight:
-        switch (state) {
-        case State::idle: return make(933, 669, 10, 0.200000003, 50);
-        case State::move: return make(937, 673, 10, 0.1099999994, 50);
-        case State::attack: return make(927, 663, 10, 0.1350000054, 50);
-        default: return std::nullopt;
-        }
-    case UnitKind::king:
-        switch (state) {
-        case State::idle: return make(1851, 1767, 6, 1.0, 30);
-        case State::move: return make(1855, 1771, 10, 0.1, 50);
-        default: return std::nullopt;
-        }
-    default:
-        return std::nullopt;
+    if (kind == UnitKind::villager && state == State::gather_hunt) {
+        return Binding{
+            1602, 1528, 15, 8, 75,
+            0.10000000149011612, 0.0, 6, 7, 20,
+            Layout::mirrored,
+        };
     }
+    switch (state) {
+        case State::idle: return binding(kind, Role::standing);
+        case State::move: return binding(kind, Role::walking);
+        case State::attack: return binding(kind, Role::attack);
+        case State::build: return binding(kind, Role::construction);
+        case State::repair: return binding(kind, Role::repair);
+        case State::gather_hunt:
+        case State::building_work:
+        case State::building_attack:
+            return std::nullopt;
+    }
+    return std::nullopt;
 }
 
 int attack_release_delay_ticks(UnitKind kind) noexcept {

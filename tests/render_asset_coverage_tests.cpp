@@ -1,4 +1,5 @@
 #include "aoe/render_asset_coverage.hpp"
+#include "aoe/animation_contract.hpp"
 #include "aoe/building_damage.hpp"
 #include "aoe/simulation.hpp"
 
@@ -186,6 +187,45 @@ void construction_contract_covers_every_original_building_kind() {
     );
 }
 
+void exact_building_roles_match_production_state_roots() {
+    for (std::size_t raw = 0; raw < 27; ++raw) {
+        const auto kind = static_cast<aoe::BuildingKind>(raw);
+        if (const auto construction = aoe::animation::binding(
+                kind, aoe::animation::Role::construction
+            )) {
+            aoe::RenderStateKey state;
+            state.category = aoe::RenderObjectCategory::building;
+            state.object_kind = aoe::render_building_kind_name(kind);
+            state.building_state = aoe::RenderBuildingState::construction;
+            state.civilization = aoe::Civilization::generic;
+            state.architecture_family =
+                aoe::render_building_architecture_family(
+                    kind, state.civilization
+                );
+            const auto resolution = aoe::resolve_building_asset(state, kind);
+            require(
+                resolution.status == aoe::AssetCoverageStatus::renderable &&
+                    resolution.request.graphic_id ==
+                        construction->graphic_id,
+                "production scaffold must match exact DAT construction role"
+            );
+        }
+        if (const auto dying = aoe::animation::binding(
+                kind, aoe::animation::Role::dying
+            )) {
+            const auto* root = aoe::building_state_root(
+                kind, aoe::RenderBuildingState::destroyed
+            );
+            require(root != nullptr,
+                    "exact dying binding needs production rubble root");
+            require(
+                root->graphic_root == dying->graphic_id,
+                "production rubble must match exact DAT dying role"
+            );
+        }
+    }
+}
+
 void battering_ram_actions_preserve_dat_composition() {
     const auto* idle = aoe::unit_action_composite_set(
         aoe::UnitKind::battering_ram, aoe::RenderAction::idle
@@ -270,8 +310,9 @@ void simulation_command_reaches_sheep_attack_mapping() {
         state, found->kind
     );
     require(
-        resolution.request.slp_id == 3623,
-        "reachable sheep attack must request missing SLP 3623"
+        resolution.status == aoe::AssetCoverageStatus::missing_mapping &&
+        !resolution.request.slp_id,
+        "reachable ambiguous sheep attack art must fail closed"
     );
 }
 
@@ -480,16 +521,9 @@ void canonical_resolver_selects_exact_actions() {
         state, aoe::UnitKind::sheep
     );
     require(
-        attack.status == aoe::AssetCoverageStatus::renderable,
-        "mapped sheep attack must resolve before archive validation"
-    );
-    require(
-        attack.request.slp_id == 3623,
-        "sheep attack must request exact mapped SLP 3623"
-    );
-    require(
-        attack.request.required_frame_count == 15,
-        "sheep attack frame layout must remain exact"
+        attack.status == aoe::AssetCoverageStatus::missing_mapping &&
+        !attack.request.slp_id,
+        "ambiguous absent sheep attack SLP must fail closed"
     );
 
     state.object_kind = "archer";
@@ -498,10 +532,9 @@ void canonical_resolver_selects_exact_actions() {
         state, aoe::UnitKind::archer
     );
     require(
-        idle.status == aoe::AssetCoverageStatus::renderable &&
-        idle.request.slp_id == 8 &&
-        idle.request.required_frame_count == 10,
-        "archer idle must select nonuniform-layout SLP 8"
+        idle.status == aoe::AssetCoverageStatus::missing_mapping &&
+        !idle.request.slp_id,
+        "nonuniform Archer idle layout must fail closed"
     );
 
     state.category = aoe::RenderObjectCategory::unit_death;
@@ -511,13 +544,9 @@ void canonical_resolver_selects_exact_actions() {
         state, aoe::UnitKind::heavy_demolition_ship
     );
     require(
-        naval_death.status == aoe::AssetCoverageStatus::renderable,
-        "dedicated naval death must resolve through canonical catalog"
-    );
-    require(
-        naval_death.request.slp_id == 4338 &&
-        naval_death.request.required_frame_count == 7,
-        "heavy demolition ship death mapping must remain exact"
+        naval_death.status == aoe::AssetCoverageStatus::missing_mapping &&
+        !naval_death.request.slp_id,
+        "ambiguous Heavy Demolition Ship death must fail closed"
     );
 
     state.object_kind = "villager";
@@ -536,6 +565,18 @@ void canonical_resolver_selects_exact_actions() {
         aoe::unit_death_animation_frame(aoe::UnitKind::villager, 7) == 14 &&
         aoe::unit_death_animation_frame(aoe::UnitKind::villager, 17) == 14,
         "villager death must play once then hold corpse frame 14"
+    );
+
+    state.category = aoe::RenderObjectCategory::unit;
+    state.object_kind = "king";
+    state.action = aoe::RenderAction::idle;
+    const auto king = aoe::resolve_unit_asset(state, aoe::UnitKind::king);
+    require(
+        king.status == aoe::AssetCoverageStatus::renderable &&
+        king.request.graphic_id == 1851 &&
+        king.request.slp_id == 1767 &&
+        king.request.required_frame_count == 6,
+        "King idle must bind exact DAT graphic 1851 to SLP 1767"
     );
 }
 
@@ -1325,6 +1366,7 @@ int main() {
     try {
         state_derivation_is_deterministic();
         construction_contract_covers_every_original_building_kind();
+        exact_building_roles_match_production_state_roots();
         battering_ram_actions_preserve_dat_composition();
         building_contact_depth_keeps_striker_readable();
         simulation_command_reaches_sheep_attack_mapping();

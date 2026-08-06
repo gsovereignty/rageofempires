@@ -22,17 +22,17 @@ class AnimationEvidenceTests(unittest.TestCase):
         }
 
     def test_exhaustive_represented_scope_and_classifications(self):
-        self.assertEqual(self.data["scope"], {"units": 94, "buildings": 27})
+        self.assertEqual(self.data["scope"], {"units": 97, "buildings": 27})
         self.assertEqual(
             self.data["summary"],
             {
-                "represented_record_count": 121,
-                "role_record_count": 847,
+                "represented_record_count": 124,
+                "role_record_count": 868,
                 "animation_classifications": {
-                    "absent": 397, "ambiguous": 50, "exact": 400,
+                    "absent": 406, "ambiguous": 50, "exact": 412,
                 },
                 "action_timing_classifications": {
-                    "absent": 30, "exact": 91,
+                    "absent": 30, "exact": 94,
                 },
             },
         )
@@ -77,15 +77,39 @@ class AnimationEvidenceTests(unittest.TestCase):
             for animation in record["animations"].values():
                 self.assertIn(animation["classification"], allowed)
 
-    def test_runtime_subset_fails_closed_on_unproved_selectors(self):
-        subset = self.data["runtime_exact_subset"]
-        self.assertEqual(subset["archer"], ["move", "attack"])
-        self.assertIn("cadence", subset["fail_closed"])
-        self.assertIn(
-            "logical_direction_selector", subset["fail_closed"]
+    def test_runtime_catalog_lists_every_exact_role_and_fails_closed(self):
+        roles = self.data["runtime_exact_roles"]
+        self.assertEqual(len(roles), 124)
+        self.assertEqual(
+            roles["unit:king"],
+            [
+                "standing_graphic", "walking_graphic",
+                "attack_graphic", "dying_graphic",
+            ],
         )
-        self.assertIn(
-            "villager_build_repair", subset["fail_closed"]
+        self.assertNotIn("standing_graphic", roles["unit:archer"])
+        self.assertNotIn("attack_graphic", roles["unit:sheep"])
+
+    def test_villager_work_roles_come_from_exact_task_graphics(self):
+        roles = {
+            role["role"]: role
+            for role in self.data["runtime_exact_task_roles"]
+        }
+        self.assertEqual(set(roles), {
+            "construction", "repair",
+        })
+        self.assertEqual(roles["construction"]["source_dat_id"], 118)
+        self.assertEqual(roles["construction"]["action_type"], 101)
+        self.assertEqual(
+            roles["construction"]["animation"]["graphic_id"], 1598
+        )
+        self.assertEqual(
+            roles["construction"]["animation"]["slp_id"], 1496
+        )
+        self.assertEqual(roles["repair"]["source_dat_id"], 156)
+        self.assertEqual(roles["repair"]["action_type"], 106)
+        self.assertEqual(
+            roles["repair"]["animation"], roles["construction"]["animation"]
         )
 
 

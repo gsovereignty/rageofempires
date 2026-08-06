@@ -1,4 +1,5 @@
 #include "aoe/render_asset_coverage.hpp"
+#include "aoe/animation_contract.hpp"
 #include "aoe/building_damage.hpp"
 #include "aoe/game_rules.hpp"
 #include "aoe/simulation.hpp"
@@ -22,91 +23,6 @@ constexpr std::array resource_asset_sets{
     ResourceAssetSet{ResourceRenderKind::fish, 420, 1, 225},
 };
 
-constexpr UnitAnimationSet unit_animation_sets[] = {
-    {UnitKind::villager, 1479, 15, 1484, 15, 1473, 15, -1, 0},
-    {UnitKind::sheep, 3629, 9, 3634, 16, 3623, 15, -1, 0},
-    {UnitKind::deer, 342, 5, 348, 15, 336, 15, -1, 0},
-    {UnitKind::boar, 2557, 10, 2559, 10, 2555, 17, -1, 0},
-    {UnitKind::archer, 8, 10, 12, 10, 2, 10, 5, 10},
-    {UnitKind::elite_skirmisher, 613, 9, 617, 10, 607, 12, 610, 10},
-    {UnitKind::skirmisher, 1650, 8, 1654, 10, 1644, 12, 1647, 10},
-    {UnitKind::crossbowman, 192, 10, 196, 15, 186, 10, 189, 10},
-    {UnitKind::battering_ram, 179, 1, 183, 15, 173, 15, 176, 12},
-    {UnitKind::capped_ram, 1689, 1, 1693, 15, 1683, 15, 1686, 10},
-    {UnitKind::siege_ram, 3035, 1, 3039, 15, 3029, 15, 3032, 10},
-    {UnitKind::knight, 669, 10, 673, 10, 663, 10, 666, 10},
-    {UnitKind::militia, 993, 6, 997, 12, 987, 10, 990, 10},
-    {UnitKind::man_at_arms, 1044, 11, 1048, 11, 1038, 11, 1041, 11},
-    {UnitKind::long_swordsman, 1181, 6, 1185, 10, 1175, 10, 1178, 10},
-    {UnitKind::spearman, 873, 9, 877, 10, 867, 10, 870, 10},
-    {UnitKind::mangonel, 722, 1, 726, 10, 716, 10, 719, 10},
-    {UnitKind::cavalier, 855, 10, 859, 10, 849, 10, 852, 10},
-    {UnitKind::pikeman, 2832, 8, 2836, 10, 2826, 10, 2829, 10},
-    {UnitKind::halberdier, 2793, 10, 2797, 15, 2787, 10, 2790, 10},
-    {UnitKind::hand_cannoneer, 587, 10, 591, 10, 581, 10, 584, 10},
-    {UnitKind::bombard_cannon, 67, 10, 71, 10, 61, 10, 64, 15},
-    {UnitKind::petard, 4497, 10, 4498, 15, 4605, 10, 4605, 10},
-    {UnitKind::hussar, 4855, 14, 4857, 11, 4853, 14, 4854, 14},
-    {UnitKind::scout_cavalry, 2085, 10, 2089, 10, 2079, 10, 2082, 10},
-    {UnitKind::two_handed_swordsman, 2806, 6, 2810, 10, 2800, 10, 2803, 10},
-    {UnitKind::arbalester, 2704, 11, 2708, 11, 2698, 11, 2701, 10},
-    {UnitKind::light_cavalry, 3004, 10, 3008, 10, 2998, 10, 3001, 10},
-    {UnitKind::champion, 3091, 10, 3095, 10, 3085, 10, 3088, 10},
-    {UnitKind::paladin, 3078, 10, 3082, 10, 3072, 10, 3075, 10},
-    {UnitKind::monk, 774, 6, 779, 10, 768, 10, 771, 10},
-    {UnitKind::longbowman, 708, 15, 713, 15, 702, 15, 705, 15},
-    {UnitKind::elite_longbowman, 708, 15, 713, 15, 702, 15, 705, 15},
-    {UnitKind::throwing_axeman, 1057, 10, 1061, 15, 1051, 16, 1054, 13},
-    {UnitKind::elite_throwing_axeman, 1057, 10, 1061, 15, 1051, 16, 1054, 13},
-    {UnitKind::huskarl, 4539, 6, 4541, 10, 4537, 10, 4538, 10},
-    {UnitKind::elite_huskarl, 4539, 6, 4541, 10, 4537, 10, 4538, 10},
-    {UnitKind::teutonic_knight, 1194, 10, 1198, 10, 1188, 15, 1191, 15},
-    {UnitKind::elite_teutonic_knight, 1194, 10, 1198, 10, 1188, 15, 1191, 15},
-    {UnitKind::samurai, 980, 10, 984, 10, 974, 10, 977, 10},
-    {UnitKind::elite_samurai, 980, 10, 984, 10, 974, 10, 977, 10},
-    {UnitKind::chu_ko_nu, 221, 10, 225, 15, 215, 10, 218, 10},
-    {UnitKind::elite_chu_ko_nu, 221, 10, 225, 15, 215, 10, 218, 10},
-    {UnitKind::cataphract, 205, 10, 209, 10, 199, 10, 202, 10},
-    {UnitKind::elite_cataphract, 205, 10, 209, 10, 199, 10, 202, 10},
-    {UnitKind::war_elephant, 801, 7, 805, 10, 795, 7, 798, 15},
-    {UnitKind::elite_war_elephant, 801, 7, 805, 10, 795, 7, 798, 15},
-    {UnitKind::woad_raider, 1598, 8, 1602, 12, 1592, 12, 1595, 10},
-    {UnitKind::elite_woad_raider, 1598, 8, 1602, 12, 1592, 12, 1595, 10},
-    {UnitKind::king, 1851, 6, 1855, 10, 1851, 6, 1848, 10},
-    {UnitKind::cavalry_archer, 326, 10, 330, 10, 320, 13, 323, 10},
-    {UnitKind::heavy_cavalry_archer, 3763, 10, 3767, 10, 3757, 13, 3760, 10},
-    {UnitKind::mameluke, 357, 6, 361, 10, 351, 10, 354, 10},
-    {UnitKind::elite_mameluke, 357, 6, 361, 10, 351, 10, 354, 10},
-    {UnitKind::janissary, 640, 10, 644, 10, 634, 10, 637, 10},
-    {UnitKind::elite_janissary, 640, 10, 644, 10, 634, 10, 637, 10},
-    {UnitKind::berserk, 4392, 6, 4396, 12, 4386, 10, 4389, 10},
-    {UnitKind::elite_berserk, 4379, 6, 4383, 12, 4373, 10, 4376, 10},
-    {UnitKind::mangudai, 788, 10, 792, 10, 782, 13, 785, 10},
-    {UnitKind::elite_mangudai, 788, 10, 792, 10, 782, 13, 785, 10},
-    {UnitKind::jaguar_warrior, 4860, 10, 4862, 15, 4858, 10, 4859, 10},
-    {UnitKind::elite_jaguar_warrior, 4860, 10, 4862, 15, 4858, 10, 4859, 10},
-    {UnitKind::plumed_archer, 4873, 10, 4875, 15, 4871, 15, 4872, 10},
-    {UnitKind::elite_plumed_archer, 4873, 10, 4875, 15, 4871, 15, 4872, 10},
-    {UnitKind::conquistador, 4722, 14, 4726, 14, 4716, 14, 4719, 14},
-    {UnitKind::elite_conquistador, 4722, 14, 4726, 14, 4716, 14, 4719, 14},
-    {UnitKind::tarkan, 4918, 14, 4920, 10, 4916, 14, 4917, 14},
-    {UnitKind::elite_tarkan, 4918, 14, 4920, 10, 4916, 14, 4917, 14},
-    {UnitKind::eagle_warrior, 4828, 10, 4830, 15, 4826, 10, 4827, 10},
-    {UnitKind::elite_eagle_warrior, 4828, 10, 4830, 15, 4826, 10, 4827, 10},
-    {UnitKind::scorpion, 942, 1, 946, 10, 936, 10, 939, 10},
-    {UnitKind::heavy_scorpion, 2819, 1, 2823, 10, 2813, 8, 2816, 8},
-    {UnitKind::onager, 3023, 1, 3026, 10, 3017, 10, 3020, 10},
-    {UnitKind::siege_onager, 3559, 1, 3563, 10, 3553, 10, 3556, 10},
-    {UnitKind::packed_trebuchet, 2279, 10, 2279, 10, 4573, 5, 4572, 10},
-    {UnitKind::trebuchet, 1244, 1, 1244, 1, 1237, 22, 1241, 12},
-    {UnitKind::camel_rider, 682, 5, 686, 10, 676, 10, 679, 10},
-    {UnitKind::heavy_camel, 2768, 6, 2772, 12, 2762, 10, 2765, 11},
-    {UnitKind::missionary, 4867, 12, 4870, 12, 4865, 13, 4866, 12},
-    {UnitKind::fishing_ship, 444, 1, 449, 1, -1, 0, -1, 0},
-    {UnitKind::trade_cart, 1122, 10, 4486, 10, -1, 0, -1, 0},
-    {UnitKind::relic, 53, 1, 53, 1, -1, 0, -1, 0},
-};
-
 // VER 5.7 Battering Ram graphics are DAT compositions. Root and present child
 // SLPs supply action-synchronized layers at one hotspot-derived ground anchor;
 // some declared child SLPs are intentionally absent from shipped archives.
@@ -115,31 +31,6 @@ constexpr UnitActionCompositeSet unit_action_composite_sets[] = {
     {UnitKind::battering_ram, RenderAction::moving, 690},
     {UnitKind::battering_ram, RenderAction::attacking, 680},
     {UnitKind::battering_ram, RenderAction::dying, 683},
-};
-
-constexpr UnitDeathAnimationSet unit_death_animation_sets[] = {
-    {UnitKind::villager, 1476, 15},
-    {UnitKind::archer, 5, 10},
-    {UnitKind::sheep, 3626, 13},
-    {UnitKind::deer, 339, 14},
-    {UnitKind::boar, 2556, 11},
-    {UnitKind::trade_cart, 1119, 15},
-    {UnitKind::fishing_ship, 441, 5},
-    {UnitKind::galley, 2116, 6},
-    {UnitKind::war_galley, 495, 6},
-    {UnitKind::galleon, 1834, 6},
-    {UnitKind::transport_ship, 2116, 6},
-    {UnitKind::fire_ship, 2753, 6},
-    {UnitKind::fast_fire_ship, 2778, 6},
-    {UnitKind::trade_cog, 2116, 6},
-    {UnitKind::demolition_ship, 4347, 7},
-    {UnitKind::heavy_demolition_ship, 4338, 7},
-    {UnitKind::cannon_galleon, 2116, 6},
-    {UnitKind::elite_cannon_galleon, 2116, 6},
-    {UnitKind::longboat, 692, 5},
-    {UnitKind::elite_longboat, 692, 5},
-    {UnitKind::turtle_ship, 5175, 6},
-    {UnitKind::elite_turtle_ship, 5175, 6},
 };
 
 constexpr NavalCompositeSet naval_composite_sets[] = {
@@ -677,14 +568,55 @@ std::string RenderStateKey::stable_key() const {
 }
 
 std::span<const UnitAnimationSet> canonical_unit_animation_sets() {
-    return unit_animation_sets;
+    static const auto records = [] {
+        std::array<UnitAnimationSet, unit_kind_count> result{};
+        for (std::size_t index = 0; index < result.size(); ++index) {
+            UnitAnimationSet& record = result[index];
+            record.kind = static_cast<UnitKind>(index);
+            const auto set = [&record](
+                animation::Role role,
+                std::int32_t& graphic,
+                std::int32_t& slp,
+                int& frames
+            ) {
+                const auto art = animation::binding(record.kind, role);
+                if (!art) return;
+                graphic = art->graphic_id;
+                slp = art->slp_id;
+                frames = art->frames_per_angle;
+            };
+            set(
+                animation::Role::standing,
+                record.idle_graphic, record.idle_slp, record.idle_frames
+            );
+            set(
+                animation::Role::walking,
+                record.move_graphic, record.move_slp, record.move_frames
+            );
+            set(
+                animation::Role::attack,
+                record.attack_graphic,
+                record.attack_slp,
+                record.attack_frames
+            );
+            set(
+                animation::Role::dying,
+                record.death_graphic,
+                record.death_slp,
+                record.death_frames
+            );
+        }
+        return result;
+    }();
+    return records;
 }
 
 std::optional<UnitAnimationSet> unit_animation_set(UnitKind kind) {
+    const auto records = canonical_unit_animation_sets();
     const auto found = std::ranges::find(
-        unit_animation_sets, kind, &UnitAnimationSet::kind
+        records, kind, &UnitAnimationSet::kind
     );
-    return found == std::end(unit_animation_sets)
+    return found == std::end(records)
         ? std::nullopt
         : std::optional<UnitAnimationSet>{*found};
 }
@@ -710,14 +642,29 @@ const UnitActionCompositeSet* unit_action_composite_set(
 
 std::span<const UnitDeathAnimationSet>
 canonical_unit_death_animation_sets() {
-    return unit_death_animation_sets;
+    static const auto records = [] {
+        std::vector<UnitDeathAnimationSet> result;
+        for (const UnitAnimationSet& animation :
+             canonical_unit_animation_sets()) {
+            if (animation.death_slp >= 0 && animation.death_frames > 0) {
+                result.push_back({
+                    animation.kind,
+                    animation.death_slp,
+                    animation.death_frames,
+                });
+            }
+        }
+        return result;
+    }();
+    return records;
 }
 
 const UnitDeathAnimationSet* unit_death_animation_set(UnitKind kind) {
+    const auto records = canonical_unit_death_animation_sets();
     const auto found = std::ranges::find(
-        unit_death_animation_sets, kind, &UnitDeathAnimationSet::kind
+        records, kind, &UnitDeathAnimationSet::kind
     );
-    return found == std::end(unit_death_animation_sets)
+    return found == std::end(records)
         ? nullptr
         : &*found;
 }
@@ -1436,6 +1383,12 @@ AssetResolution resolve_unit_asset(
         if (const UnitDeathAnimationSet* death =
                 unit_death_animation_set(kind);
             death != nullptr) {
+            const auto art = animation::binding(
+                kind, animation::Role::dying
+            );
+            result.request.graphic_id = art
+                ? std::optional<std::int32_t>{art->graphic_id}
+                : std::nullopt;
             result.request.slp_id = death->slp;
             result.request.required_frame_count = death->frames;
             result.request.required_direction_count = 8;
@@ -1520,24 +1473,29 @@ AssetResolution resolve_unit_asset(
     }
 
     std::int32_t selected = -1;
+    std::int32_t selected_graphic = -1;
     int frames = 0;
     switch (state.action) {
         case RenderAction::idle:
         case RenderAction::carrying_relic:
             selected = mapping->idle_slp;
+            selected_graphic = mapping->idle_graphic;
             frames = mapping->idle_frames;
             break;
         case RenderAction::moving:
             selected = mapping->move_slp;
+            selected_graphic = mapping->move_graphic;
             frames = mapping->move_frames;
             break;
         case RenderAction::attacking:
             selected = mapping->attack_slp;
+            selected_graphic = mapping->attack_graphic;
             frames = mapping->attack_frames;
             break;
         case RenderAction::dying:
         case RenderAction::destroyed:
             selected = mapping->death_slp;
+            selected_graphic = mapping->death_graphic;
             frames = mapping->death_frames;
             break;
         case RenderAction::gathering:
@@ -1546,6 +1504,9 @@ AssetResolution resolve_unit_asset(
                 selected = state.moving
                     ? mapping->move_slp
                     : mapping->idle_slp;
+                selected_graphic = state.moving
+                    ? mapping->move_graphic
+                    : mapping->idle_graphic;
                 frames = state.moving
                     ? mapping->move_frames
                     : mapping->idle_frames;
@@ -1562,6 +1523,9 @@ AssetResolution resolve_unit_asset(
                 selected = state.moving
                     ? mapping->move_slp
                     : mapping->idle_slp;
+                selected_graphic = state.moving
+                    ? mapping->move_graphic
+                    : mapping->idle_graphic;
                 frames = state.moving
                     ? mapping->move_frames
                     : mapping->idle_frames;
@@ -1575,6 +1539,7 @@ AssetResolution resolve_unit_asset(
         case RenderAction::healing:
             if (kind == UnitKind::monk) {
                 selected = mapping->idle_slp;
+                selected_graphic = mapping->idle_graphic;
                 frames = mapping->idle_frames;
                 result.request.source_mapping =
                     "canonical monk healing fallback";
@@ -1586,6 +1551,7 @@ AssetResolution resolve_unit_asset(
         case RenderAction::converting:
             if (kind == UnitKind::missionary) {
                 selected = mapping->attack_slp;
+                selected_graphic = mapping->attack_graphic;
                 frames = mapping->attack_frames;
                 result.request.source_mapping =
                     "canonical missionary conversion fallback";
@@ -1605,6 +1571,9 @@ AssetResolution resolve_unit_asset(
         result.reason =
             "canonical unit record has no asset for selected action";
         return result;
+    }
+    if (selected_graphic >= 0) {
+        result.request.graphic_id = selected_graphic;
     }
     result.request.slp_id = selected;
     result.request.required_frame_count = frames;

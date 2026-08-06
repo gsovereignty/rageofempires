@@ -29,6 +29,7 @@
 #include <vector>
 
 #include "aoe/audio_system.hpp"
+#include "aoe/animation_contract.hpp"
 #include "aoe/asset_root.hpp"
 #include "aoe/campaign.hpp"
 #include "aoe/building_placement.hpp"
@@ -4622,8 +4623,10 @@ LegacySprites load_local_legacy_sprites(
         const auto attempt_animation = [&](
             PlayerLegacySprites& target,
             std::int32_t resource_id,
-            std::size_t frames_per_angle
+            std::size_t frames_per_angle,
+            std::int32_t exact_graphic_id = -1
         ) {
+            if (resource_id < 0 || frames_per_angle == 0) return;
             if (!graphics.contains("slp", resource_id)) {
                 const std::string reason =
                     "SLP " + std::to_string(resource_id) +
@@ -4647,6 +4650,22 @@ LegacySprites load_local_legacy_sprites(
                 return;
             }
             try {
+                const LegacyGraphic* timing_graphic =
+                    exact_graphic_id >= 0
+                    ? dat.graphic(static_cast<std::size_t>(exact_graphic_id))
+                    : find_animation_timing_graphic(
+                          dat, resource_id, frames_per_angle
+                      );
+                if (exact_graphic_id >= 0 &&
+                    (timing_graphic == nullptr ||
+                     timing_graphic->slp_id != resource_id ||
+                     timing_graphic->frame_count <= 0 ||
+                     static_cast<std::size_t>(timing_graphic->frame_count) !=
+                         frames_per_angle)) {
+                    throw LegacyAssetError{
+                        "generated exact animation binding differs from DAT"
+                    };
+                }
                 for (std::size_t index = 0; index < 8; ++index) {
                     if (!required_owner_slots[index]) continue;
                     target.slot(index) = create_legacy_animation(
@@ -4657,9 +4676,7 @@ LegacySprites load_local_legacy_sprites(
                         frames_per_angle,
                         static_cast<unsigned>(index + 1),
                         find_exact_shadow_binding(dat, resource_id),
-                        find_animation_timing_graphic(
-                            dat, resource_id, frames_per_angle
-                        )
+                        timing_graphic
                     );
                 }
             } catch (const std::exception& error) {
@@ -5941,14 +5958,6 @@ LegacySprites load_local_legacy_sprites(
                 static_cast<std::size_t>(canonical.idle_frames)
             );
         }
-        attempt_animation(sprites.military[UnitKind::archer], 8, 10);
-        for (std::size_t index = 0; index < 8; ++index) {
-            if (!required_owner_slots[index]) continue;
-            LegacyAnimation& archer_idle =
-                sprites.military[UnitKind::archer].slot(index);
-            archer_idle.angle_offsets = {0, 10, 20, 30, 41};
-            archer_idle.angle_frame_counts = {10, 10, 10, 11, 11};
-        }
         struct ActionMapping {
             UnitKind kind;
             std::int32_t move_slp;
@@ -6235,6 +6244,68 @@ LegacySprites load_local_legacy_sprites(
                 static_cast<std::size_t>(canonical.death_frames)
             );
         }
+        for (const UnitAnimationSet& mapping :
+             canonical_unit_animation_sets()) {
+            const bool naval =
+                naval_composite_set(mapping.kind, RenderAction::idle) !=
+                nullptr;
+            const bool relic = mapping.kind == UnitKind::relic;
+            PlayerLegacySprites* idle = nullptr;
+            PlayerLegacySprites* movement = nullptr;
+            if (mapping.kind == UnitKind::villager) {
+                idle = &sprites.villager_animation;
+            } else if (mapping.kind == UnitKind::sheep) {
+                idle = &sprites.sheep_animation;
+            } else if (mapping.kind == UnitKind::deer) {
+                idle = &sprites.deer_animation;
+            } else if (mapping.kind == UnitKind::boar) {
+                idle = &sprites.boar_animation;
+            } else if (mapping.kind == UnitKind::fishing_ship) {
+                idle = &sprites.fishing_ship_standing;
+                movement = &sprites.fishing_ship_moving;
+            } else if (!naval && !relic) {
+                idle = &sprites.military[mapping.kind];
+            }
+            if (idle != nullptr && mapping.idle_slp >= 0) {
+                idle->destroy();
+                attempt_animation(
+                    *idle,
+                    mapping.idle_slp,
+                    static_cast<std::size_t>(mapping.idle_frames),
+                    mapping.idle_graphic
+                );
+            }
+            if (movement == nullptr && !naval && !relic) {
+                movement = &sprites.movement[mapping.kind];
+            }
+            if (movement != nullptr && mapping.move_slp >= 0) {
+                movement->destroy();
+                attempt_animation(
+                    *movement,
+                    mapping.move_slp,
+                    static_cast<std::size_t>(mapping.move_frames),
+                    mapping.move_graphic
+                );
+            }
+            if (!naval && !relic && mapping.attack_slp >= 0) {
+                sprites.attack[mapping.kind].destroy();
+                attempt_animation(
+                    sprites.attack[mapping.kind],
+                    mapping.attack_slp,
+                    static_cast<std::size_t>(mapping.attack_frames),
+                    mapping.attack_graphic
+                );
+            }
+            if (mapping.death_slp >= 0) {
+                sprites.death[mapping.kind].destroy();
+                attempt_animation(
+                    sprites.death[mapping.kind],
+                    mapping.death_slp,
+                    static_cast<std::size_t>(mapping.death_frames),
+                    mapping.death_graphic
+                );
+            }
+        }
         attempt_animation(
             sprites.packed_trebuchet_transform, 4573, 5
         );
@@ -6242,6 +6313,16 @@ LegacySprites load_local_legacy_sprites(
             sprites.unpacked_trebuchet_transform, 1246, 5
         );
         attempt_animation(sprites.villager_gather, 1528, 15);
+        if (const auto work = animation::binding(
+                UnitKind::villager, animation::State::build
+            )) {
+            attempt_animation(
+                sprites.villager_build,
+                work->slp_id,
+                static_cast<std::size_t>(work->frames_per_angle),
+                work->graphic_id
+            );
+        }
         attempt_animation(sprites.monk_convert, 768, 10);
         attempt_animation(sprites.missionary_heal, 4869, 14);
         if (sprites.sheep_blue.texture != nullptr ||
@@ -7072,6 +7153,29 @@ const LegacyAnimation* legacy_action_for(
         }
     }
     if (unit.kind == UnitKind::villager) {
+        if (!moving && !unit.moving &&
+            render_action_for(simulation, unit) == RenderAction::working) {
+            if (unit.repair_target_id != 0) {
+                return for_player(active_legacy_sprites.villager_build);
+            }
+            const auto construction = std::ranges::find_if(
+                simulation.buildings(),
+                [&unit](const Building& building) {
+                    return !building.completed() &&
+                        std::ranges::find(
+                            building.builder_ids, unit.id
+                        ) != building.builder_ids.end();
+                }
+            );
+            // Builder task 101 selects a distinct farm work graphic whose
+            // live SLP layout is ambiguous. Never substitute general build
+            // art for that explicitly different original task role.
+            if (construction != simulation.buildings().end() &&
+                construction->kind == BuildingKind::farm) {
+                return nullptr;
+            }
+            return for_player(active_legacy_sprites.villager_build);
+        }
         if (render_action_for(simulation, unit) ==
                 RenderAction::gathering &&
             !moving && !unit.moving) {

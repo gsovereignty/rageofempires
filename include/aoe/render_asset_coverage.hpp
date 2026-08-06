@@ -154,6 +154,10 @@ struct UnitAnimationSet {
     int attack_frames{};
     std::int32_t death_slp{-1};
     int death_frames{};
+    std::int32_t idle_graphic{-1};
+    std::int32_t move_graphic{-1};
+    std::int32_t attack_graphic{-1};
+    std::int32_t death_graphic{-1};
 };
 
 struct UnitDeathAnimationSet {

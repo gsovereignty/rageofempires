@@ -1,0 +1,10 @@
+# Exact Villager construction task-graphic audit.
+AOE-ARCHAEOLOGY-SCENARIO 27
+map 10 6
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue castle
+age red castle
+
+unit villager blue 3 2 stance passive
+unit villager red 8 4 stance passive

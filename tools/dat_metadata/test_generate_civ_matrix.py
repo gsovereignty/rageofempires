@@ -19,7 +19,7 @@ class CivMatrixTests(unittest.TestCase):
     def test_complete_enum_dimensions(self):
         self.assertEqual(18, len(self.data["civilizations"]))
         for civ in self.data["civilizations"]:
-            self.assertEqual(96, len(civ["units"]))
+            self.assertEqual(97, len(civ["units"]))
             self.assertEqual(27, len(civ["buildings"]))
             self.assertEqual(158, len(civ["technologies"]))
 
@@ -30,6 +30,10 @@ class CivMatrixTests(unittest.TestCase):
         self.assertEqual("unavailable", self.civs["Goths"]["buildings"]["stone_wall"]["status"])
         self.assertEqual("available", self.civs["Turks"]["buildings"]["castle"]["status"])
         self.assertEqual("available", self.civs["Koreans"]["units"]["turtle_ship"]["status"])
+        self.assertTrue(all(
+            civ["units"]["king"]["status"] == "definition_only"
+            for civ in self.data["civilizations"]
+        ))
         self.assertTrue(all(
             civ["buildings"]["outpost"]["status"] == "available"
             for civ in self.data["civilizations"]

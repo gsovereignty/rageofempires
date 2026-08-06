@@ -3,7 +3,7 @@
 ## Exhaustive evidence catalog
 
 `generated/animation_evidence.json` joins the validated VER 5.7 DAT, live
-`graphics.drs`, and every represented gameplay kind: 96 units and 27
+`graphics.drs`, and every represented gameplay kind: 97 units and 27
 buildings. Seven graphic roles are recorded for each kind:
 
 - standing and alternate standing;
@@ -18,9 +18,9 @@ the physical frame count independently.
 
 | Evidence classification | Units | Buildings | Total |
 |---|---:|---:|---:|
-| exact DAT plus matching live SLP layout | 330 | 70 | 400 |
+| exact DAT plus matching live SLP layout | 342 | 70 | 412 |
 | ambiguous missing/mismatched live layout | 45 | 5 | 50 |
-| absent DAT role or SLP identity | 283 | 114 | 397 |
+| absent DAT role or SLP identity | 292 | 114 | 406 |
 
 `exact` requires the live physical frame count to match either the complete
 DAT frame/angle product or the mirrored stored-angle product. For example,
@@ -39,9 +39,9 @@ The DAT `frame_rate` field is cataloged as seconds per frame under the pinned
 openage DAT schema. `replay_delay`, `sequence_type`, and `mirror_flag` remain
 separate exact fields; they are not collapsed into a reconstruction timer.
 
-Ninety-one represented records expose an attack graphic and therefore exact
+Ninety-four represented records expose an attack graphic and therefore exact
 raw `frame_delay` and `reload_time` fields. Thirty have no attack graphic.
-Twenty-five of the 91 attack records carry a nonzero frame delay.
+Twenty-five of the 94 attack records carry a nonzero frame delay.
 
 The supplied HD decompilation now closes the scheduler path. `FUN_0056c500`
 passes the authoritative world delta into the animated-object update.
@@ -65,20 +65,31 @@ to their exact DAT IDs; zero-delay records retain immediate release.
 
 ## Runtime integration boundary
 
-The pure `aoe::animation` contract now consumes the exact catalog subset. It
-validates full versus mirrored physical layouts and exposes exact graphic,
-SLP, frames-per-angle, angle-count, duration, and mirror fields for:
+The pure `aoe::animation` contract now compiles every exact catalog role into
+the production binary. It validates full versus mirrored physical layouts and
+exposes exact graphic, SLP, frames-per-angle, angle-count, duration, replay
+delay, sequence type, mirror mode, and layer for all 412 exact direct roles.
+The renderer's canonical unit table is derived from that generated catalog;
+its former separate hand-written SLP table and the SDL loader's partial exact
+subset are gone. Standard idle, walking, attack, and death selection therefore
+uses the same proved binding identity that the loader validates against the
+packaged DAT. Existing composite naval, siege, building, construction, damage,
+and topology paths retain their separately evidenced exact roots.
 
-- Villager idle, move, attack, and hunting gather;
-- Militia idle, move, and attack;
-- Archer move and attack;
-- Knight idle, move, and attack.
+The runtime catalog also contains two exact Villager action bindings recovered
+from task-bearing original objects rather than guessed SLP numbers. Builder
+object 118 task 101 and Repairer object 156 task 106 both select work graphic
+1598, which maps to SLP 1496 with a valid 15-frame/eight-angle mirrored layout.
+Production construction and repair now render that animation. Builder's
+distinct farm task graphic 3364 remains fail-closed because live SLP 3842 has
+80 frames, matching neither its declared full nor mirrored layout.
 
-Archer idle remains procedural because SLP 8 has 52 physical frames rather
-than either valid 50-frame mirrored or 80-frame full layout. Villager
-build/repair remains procedural because SLP 1493 has no catalog provenance.
-Hunting SLP 1528 is now selected only for sheep, deer, and boar targets rather
-than incorrectly representing wood, farm, or mining work.
+Archer idle likewise remains fail-closed because SLP 8 has 52 physical frames
+rather than either valid 50-frame mirrored or 80-frame full layout. Hunting
+SLP 1528 is selected only for sheep, deer, and boar targets rather than
+incorrectly representing wood, farm, or mining work. The 50 ambiguous and 406
+absent direct roles are explicitly unavailable evidence, not silently promoted
+to exact art or substituted with a generic unit's role.
 
 Represented buildings have no DAT attack graphic. Their exact standing body
 continues while projectiles render separately. Construction roots whose
@@ -103,8 +114,8 @@ Production rendering parses `sequence_type` from the DAT instead of skipping
 its byte. Exact unit, commercial-object, naval, work, death, projectile,
 building-damage, and animated-construction bindings consume DAT frame duration,
 replay delay, sequence advancement, sequence-gated initial phase, and
-final-frame hold. Ambiguous SLP-to-graphic timing identity fails closed to the existing
-fallback and remains an art-binding issue tracked by `BUG-ANIMATION-002`.
+final-frame hold. Ambiguous SLP-to-graphic timing identity fails closed to the
+existing fallback.
 
 Each unit persists its current animation state and authoritative state-start
 tick. Attack actions also persist their start tick, bound target/action key,
@@ -126,11 +137,17 @@ python3 tools/dat_metadata/generate_animation_evidence.py \
   /path/to/Data/graphics.drs
 ```
 
-Focused tests pin all 121 records and 847 role outcomes, parsed sequence flags,
-frame duration, replay hold, non-advancing and final-frame sequences, world-time
-interpolation, exact high-use bindings, and all 25 nonzero attack-delay records.
+Focused tests pin all 124 records and 868 direct-role outcomes, all 414 compiled
+exact direct/task bindings, parsed sequence flags, frame duration, replay hold,
+non-advancing and final-frame sequences, world-time interpolation, and all 25
+nonzero attack-delay records.
 The production simulation regression proves delayed Archer release, save/load
 phase preservation, cancellation, retarget binding, and release against a
 moving target. Deterministic SDL capture smoke exercises the shipped renderer
 path; the full repository gate covers save, replay, lockstep, gameplay, and SDL
-smoke tests.
+smoke tests. The exact-binding SDL smoke runs the packaged app and proves King
+idle/movement SLPs 1767/1771, Woad Raider idle/movement SLPs 1598/1602, and
+Villager construction/repair SLP 1496. The same smoke against a clean
+`ca2964d` package failed: both Kings had no auditable legacy sprite and both
+Villager work actions rendered standing SLP 1479. The corrected package passes
+the identical scenarios, commands, ticks, and overlap-capture assertions.

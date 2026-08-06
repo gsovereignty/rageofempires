@@ -1,0 +1,12 @@
+# Exact master-object standing/walking binding audit.
+AOE-ARCHAEOLOGY-SCENARIO 27
+map 12 8
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue castle
+age red castle
+
+unit king blue 2 2 stance passive
+unit king red 2 3 waypoint 7 3 stance passive
+unit woad_raider blue 2 5 stance passive
+unit woad_raider red 2 6 waypoint 7 6 stance passive

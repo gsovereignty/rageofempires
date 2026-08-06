@@ -1,21 +1,21 @@
 {
   "schema": "aoe-animation-evidence-v1",
-  "source": "/tmp/aoe-assets.TNMZJ0/app/Data/empires2_x1_p1.dat",
+  "source": "VER 5.7 empires2_x1_p1.dat",
   "scope": {
-    "units": 94,
+    "units": 97,
     "buildings": 27
   },
   "summary": {
-    "represented_record_count": 121,
-    "role_record_count": 847,
+    "represented_record_count": 124,
+    "role_record_count": 868,
     "animation_classifications": {
-      "absent": 397,
+      "absent": 406,
       "ambiguous": 50,
-      "exact": 400
+      "exact": 412
     },
     "action_timing_classifications": {
       "absent": 30,
-      "exact": 91
+      "exact": 94
     }
   },
   "evidence_contract": {
@@ -26,36 +26,727 @@
     "executable_action_synchronization": "absent",
     "note": "No cadence is derived when DAT/SLP identity disagrees or runtime scheduling is not proved"
   },
-  "runtime_exact_subset": {
-    "villager": [
-      "idle",
-      "move",
-      "attack",
-      "gather_hunt"
+  "runtime_exact_roles": {
+    "unit:villager": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
     ],
-    "militia": [
-      "idle",
-      "move",
-      "attack"
+    "unit:knight": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
     ],
-    "archer": [
-      "move",
-      "attack"
+    "unit:archer": [
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
     ],
-    "knight": [
-      "idle",
-      "move",
-      "attack"
+    "unit:scout_cavalry": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
     ],
-    "fail_closed": [
-      "archer_idle_layout",
-      "villager_generic_gather",
-      "villager_build_repair",
-      "building_work_attack",
-      "cadence",
-      "logical_direction_selector"
+    "unit:militia": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:spearman": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:battering_ram": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:skirmisher": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:mangonel": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:man_at_arms": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:crossbowman": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:pikeman": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:long_swordsman": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:cavalier": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:paladin": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:light_cavalry": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:hussar": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:two_handed_swordsman": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:champion": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:arbalester": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:elite_skirmisher": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic"
+    ],
+    "unit:sheep": [
+      "standing_graphic",
+      "walking_graphic",
+      "dying_graphic"
+    ],
+    "unit:deer": [
+      "standing_graphic",
+      "walking_graphic",
+      "running_graphic",
+      "dying_graphic"
+    ],
+    "unit:boar": [
+      "standing_graphic",
+      "walking_graphic",
+      "running_graphic",
+      "dying_graphic"
+    ],
+    "unit:monk": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:relic": [
+      "standing_graphic",
+      "walking_graphic"
+    ],
+    "unit:trade_cart": [
+      "standing_graphic",
+      "walking_graphic",
+      "dying_graphic"
+    ],
+    "unit:fishing_ship": [
+      "standing_graphic",
+      "walking_graphic",
+      "dying_graphic"
+    ],
+    "unit:galley": [
+      "dying_graphic"
+    ],
+    "unit:war_galley": [
+      "dying_graphic"
+    ],
+    "unit:galleon": [
+      "dying_graphic"
+    ],
+    "unit:transport_ship": [
+      "dying_graphic"
+    ],
+    "unit:fire_ship": [
+      "dying_graphic"
+    ],
+    "unit:fast_fire_ship": [
+      "dying_graphic"
+    ],
+    "unit:demolition_ship": [],
+    "unit:heavy_demolition_ship": [],
+    "unit:cannon_galleon": [
+      "dying_graphic"
+    ],
+    "unit:elite_cannon_galleon": [
+      "dying_graphic"
+    ],
+    "unit:longboat": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic"
+    ],
+    "unit:elite_longboat": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic"
+    ],
+    "unit:turtle_ship": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:elite_turtle_ship": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:longbowman": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:elite_longbowman": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:throwing_axeman": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:elite_throwing_axeman": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:huskarl": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:elite_huskarl": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:teutonic_knight": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:elite_teutonic_knight": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:samurai": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:elite_samurai": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:chu_ko_nu": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:elite_chu_ko_nu": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:cataphract": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:elite_cataphract": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:war_elephant": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:elite_war_elephant": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:mameluke": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:elite_mameluke": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:janissary": [
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:elite_janissary": [
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:berserk": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:elite_berserk": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:mangudai": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:elite_mangudai": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:jaguar_warrior": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:elite_jaguar_warrior": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:plumed_archer": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:elite_plumed_archer": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:conquistador": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:elite_conquistador": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:tarkan": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:elite_tarkan": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:eagle_warrior": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:elite_eagle_warrior": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:scorpion": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:heavy_scorpion": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:onager": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:siege_onager": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:packed_trebuchet": [
+      "standing_graphic",
+      "walking_graphic",
+      "dying_graphic",
+      "construction_graphic"
+    ],
+    "unit:trebuchet": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic",
+      "construction_graphic"
+    ],
+    "unit:cavalry_archer": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:heavy_cavalry_archer": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:camel_rider": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:heavy_camel": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:capped_ram": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:siege_ram": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:halberdier": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:hand_cannoneer": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:bombard_cannon": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:petard": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:missionary": [
+      "standing_graphic",
+      "walking_graphic",
+      "dying_graphic"
+    ],
+    "unit:trade_cog": [
+      "dying_graphic"
+    ],
+    "unit:woad_raider": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:elite_woad_raider": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "unit:king": [
+      "standing_graphic",
+      "walking_graphic",
+      "attack_graphic",
+      "dying_graphic"
+    ],
+    "building:town_center": [
+      "standing_graphic",
+      "dying_graphic",
+      "construction_graphic"
+    ],
+    "building:barracks": [
+      "standing_graphic",
+      "dying_graphic",
+      "construction_graphic"
+    ],
+    "building:archery_range": [
+      "standing_graphic",
+      "dying_graphic",
+      "construction_graphic"
+    ],
+    "building:house": [
+      "standing_graphic",
+      "dying_graphic",
+      "construction_graphic"
+    ],
+    "building:mill": [
+      "standing_graphic",
+      "dying_graphic",
+      "construction_graphic"
+    ],
+    "building:lumber_camp": [
+      "dying_graphic",
+      "construction_graphic"
+    ],
+    "building:mining_camp": [
+      "dying_graphic",
+      "construction_graphic"
+    ],
+    "building:farm": [],
+    "building:stable": [
+      "standing_graphic",
+      "dying_graphic",
+      "construction_graphic"
+    ],
+    "building:blacksmith": [
+      "dying_graphic",
+      "construction_graphic"
+    ],
+    "building:castle": [
+      "standing_graphic",
+      "dying_graphic",
+      "construction_graphic"
+    ],
+    "building:university": [
+      "standing_graphic",
+      "dying_graphic",
+      "construction_graphic"
+    ],
+    "building:siege_workshop": [
+      "standing_graphic",
+      "dying_graphic",
+      "construction_graphic"
+    ],
+    "building:palisade_wall": [
+      "standing_graphic",
+      "dying_graphic",
+      "construction_graphic"
+    ],
+    "building:watch_tower": [
+      "standing_graphic",
+      "dying_graphic",
+      "construction_graphic"
+    ],
+    "building:stone_wall": [
+      "standing_graphic",
+      "dying_graphic",
+      "construction_graphic"
+    ],
+    "building:palisade_gate_x": [
+      "dying_graphic",
+      "construction_graphic"
+    ],
+    "building:palisade_gate_y": [
+      "dying_graphic",
+      "construction_graphic"
+    ],
+    "building:stone_gate_x": [
+      "standing_graphic",
+      "dying_graphic",
+      "construction_graphic"
+    ],
+    "building:stone_gate_y": [
+      "standing_graphic",
+      "dying_graphic",
+      "construction_graphic"
+    ],
+    "building:monastery": [
+      "standing_graphic",
+      "dying_graphic",
+      "construction_graphic"
+    ],
+    "building:market": [
+      "standing_graphic",
+      "dying_graphic",
+      "construction_graphic"
+    ],
+    "building:dock": [
+      "dying_graphic",
+      "construction_graphic"
+    ],
+    "building:bombard_tower": [
+      "standing_graphic",
+      "dying_graphic",
+      "construction_graphic"
+    ],
+    "building:fish_trap": [
+      "standing_graphic"
+    ],
+    "building:outpost": [
+      "standing_graphic",
+      "dying_graphic",
+      "construction_graphic"
+    ],
+    "building:wonder": [
+      "standing_graphic",
+      "dying_graphic",
+      "construction_graphic"
     ]
   },
+  "runtime_exact_task_roles": [
+    {
+      "target_category": "unit",
+      "target_name": "villager",
+      "role": "construction",
+      "source_dat_id": 118,
+      "action_type": 101,
+      "graphic_field": "work_graphic",
+      "target_dat_id": 83,
+      "animation": {
+        "graphic_id": 1598,
+        "classification": "exact",
+        "reason": null,
+        "name": "VMBLD_TN",
+        "filename": "VMBLD_TN",
+        "slp_id": 1496,
+        "dat_frames_per_angle": 15,
+        "dat_angle_count": 8,
+        "physical_slp_frame_count": 75,
+        "physical_stored_angle_count": 5,
+        "dat_frame_duration": 0.05000000074505806,
+        "dat_replay_delay": 0.0,
+        "dat_sequence_type": 7,
+        "dat_mirroring_mode": 6,
+        "dat_layer": 20,
+        "deltas": [],
+        "field_classification": "exact_dat",
+        "duration_unit": "seconds_per_frame",
+        "duration_unit_classification": "exact_openage_dat_schema"
+      }
+    },
+    {
+      "target_category": "unit",
+      "target_name": "villager",
+      "role": "repair",
+      "source_dat_id": 156,
+      "action_type": 106,
+      "graphic_field": "work_graphic",
+      "target_dat_id": 83,
+      "animation": {
+        "graphic_id": 1598,
+        "classification": "exact",
+        "reason": null,
+        "name": "VMBLD_TN",
+        "filename": "VMBLD_TN",
+        "slp_id": 1496,
+        "dat_frames_per_angle": 15,
+        "dat_angle_count": 8,
+        "physical_slp_frame_count": 75,
+        "physical_stored_angle_count": 5,
+        "dat_frame_duration": 0.05000000074505806,
+        "dat_replay_delay": 0.0,
+        "dat_sequence_type": 7,
+        "dat_mirroring_mode": 6,
+        "dat_layer": 20,
+        "deltas": [],
+        "field_classification": "exact_dat",
+        "duration_unit": "seconds_per_frame",
+        "duration_unit_classification": "exact_openage_dat_schema"
+      }
+    }
+  ],
   "records": [
     {
       "category": "unit",
@@ -16795,6 +17486,567 @@
       },
       "action_timing": {
         "attack_graphic_id": 3971,
+        "attack_frame_delay": 0,
+        "reload_time": 0.0,
+        "classification": "exact",
+        "synchronization_contract": "DAT attack frame delay and reload time are exact fields; executable-to-render-tick scheduling is unproved",
+        "runtime_tick_mapping_classification": "ambiguous"
+      }
+    },
+    {
+      "category": "unit",
+      "name": "woad_raider",
+      "dat_id": 232,
+      "animations": {
+        "standing_graphic": {
+          "graphic_id": 1375,
+          "classification": "exact",
+          "reason": null,
+          "name": "WBRSK_FN",
+          "filename": "WBRSK_FN",
+          "slp_id": 1598,
+          "dat_frames_per_angle": 8,
+          "dat_angle_count": 8,
+          "physical_slp_frame_count": 40,
+          "physical_stored_angle_count": 5,
+          "dat_frame_duration": 0.20000000298023224,
+          "dat_replay_delay": 1.0,
+          "dat_sequence_type": 7,
+          "dat_mirroring_mode": 6,
+          "dat_layer": 20,
+          "deltas": [
+            {
+              "display_angle": -1,
+              "graphic_id": 1373,
+              "offset_x": 0,
+              "offset_y": 0
+            },
+            {
+              "display_angle": -1,
+              "graphic_id": null,
+              "offset_x": 0,
+              "offset_y": 0
+            },
+            {
+              "display_angle": -1,
+              "graphic_id": 1374,
+              "offset_x": 0,
+              "offset_y": 0
+            }
+          ],
+          "field_classification": "exact_dat",
+          "duration_unit": "seconds_per_frame",
+          "duration_unit_classification": "exact_openage_dat_schema"
+        },
+        "standing_graphic_2": {
+          "graphic_id": null,
+          "classification": "absent"
+        },
+        "walking_graphic": {
+          "graphic_id": 1379,
+          "classification": "exact",
+          "reason": null,
+          "name": "WBRSK_WN",
+          "filename": "WBRSK_WN",
+          "slp_id": 1602,
+          "dat_frames_per_angle": 12,
+          "dat_angle_count": 8,
+          "physical_slp_frame_count": 60,
+          "physical_stored_angle_count": 5,
+          "dat_frame_duration": 0.08500000089406967,
+          "dat_replay_delay": 0.0,
+          "dat_sequence_type": 3,
+          "dat_mirroring_mode": 6,
+          "dat_layer": 20,
+          "deltas": [
+            {
+              "display_angle": -1,
+              "graphic_id": 1377,
+              "offset_x": 0,
+              "offset_y": 0
+            },
+            {
+              "display_angle": -1,
+              "graphic_id": null,
+              "offset_x": 0,
+              "offset_y": 0
+            },
+            {
+              "display_angle": -1,
+              "graphic_id": 1378,
+              "offset_x": 0,
+              "offset_y": 0
+            }
+          ],
+          "field_classification": "exact_dat",
+          "duration_unit": "seconds_per_frame",
+          "duration_unit_classification": "exact_openage_dat_schema"
+        },
+        "running_graphic": {
+          "graphic_id": null,
+          "classification": "absent"
+        },
+        "attack_graphic": {
+          "graphic_id": 1369,
+          "classification": "exact",
+          "reason": null,
+          "name": "WBRSK_AN",
+          "filename": "WBRSK_AN",
+          "slp_id": 1592,
+          "dat_frames_per_angle": 12,
+          "dat_angle_count": 8,
+          "physical_slp_frame_count": 60,
+          "physical_stored_angle_count": 5,
+          "dat_frame_duration": 0.11999999731779099,
+          "dat_replay_delay": 0.0,
+          "dat_sequence_type": 3,
+          "dat_mirroring_mode": 6,
+          "dat_layer": 20,
+          "deltas": [
+            {
+              "display_angle": -1,
+              "graphic_id": 1367,
+              "offset_x": 0,
+              "offset_y": 0
+            },
+            {
+              "display_angle": -1,
+              "graphic_id": null,
+              "offset_x": 0,
+              "offset_y": 0
+            },
+            {
+              "display_angle": -1,
+              "graphic_id": 1368,
+              "offset_x": 0,
+              "offset_y": 0
+            }
+          ],
+          "field_classification": "exact_dat",
+          "duration_unit": "seconds_per_frame",
+          "duration_unit_classification": "exact_openage_dat_schema"
+        },
+        "dying_graphic": {
+          "graphic_id": 1372,
+          "classification": "exact",
+          "reason": null,
+          "name": "WBRSK_DN",
+          "filename": "WBRSK_DN",
+          "slp_id": 1595,
+          "dat_frames_per_angle": 10,
+          "dat_angle_count": 8,
+          "physical_slp_frame_count": 50,
+          "physical_stored_angle_count": 5,
+          "dat_frame_duration": 0.11999999731779099,
+          "dat_replay_delay": 0.0,
+          "dat_sequence_type": 11,
+          "dat_mirroring_mode": 6,
+          "dat_layer": 20,
+          "deltas": [
+            {
+              "display_angle": -1,
+              "graphic_id": 1370,
+              "offset_x": 0,
+              "offset_y": 0
+            },
+            {
+              "display_angle": -1,
+              "graphic_id": null,
+              "offset_x": 0,
+              "offset_y": 0
+            },
+            {
+              "display_angle": -1,
+              "graphic_id": 1371,
+              "offset_x": 0,
+              "offset_y": 0
+            }
+          ],
+          "field_classification": "exact_dat",
+          "duration_unit": "seconds_per_frame",
+          "duration_unit_classification": "exact_openage_dat_schema"
+        },
+        "construction_graphic": {
+          "graphic_id": null,
+          "classification": "absent"
+        }
+      },
+      "action_timing": {
+        "attack_graphic_id": 1369,
+        "attack_frame_delay": 0,
+        "reload_time": 2.0,
+        "classification": "exact",
+        "synchronization_contract": "DAT attack frame delay and reload time are exact fields; executable-to-render-tick scheduling is unproved",
+        "runtime_tick_mapping_classification": "ambiguous"
+      }
+    },
+    {
+      "category": "unit",
+      "name": "elite_woad_raider",
+      "dat_id": 534,
+      "animations": {
+        "standing_graphic": {
+          "graphic_id": 1375,
+          "classification": "exact",
+          "reason": null,
+          "name": "WBRSK_FN",
+          "filename": "WBRSK_FN",
+          "slp_id": 1598,
+          "dat_frames_per_angle": 8,
+          "dat_angle_count": 8,
+          "physical_slp_frame_count": 40,
+          "physical_stored_angle_count": 5,
+          "dat_frame_duration": 0.20000000298023224,
+          "dat_replay_delay": 1.0,
+          "dat_sequence_type": 7,
+          "dat_mirroring_mode": 6,
+          "dat_layer": 20,
+          "deltas": [
+            {
+              "display_angle": -1,
+              "graphic_id": 1373,
+              "offset_x": 0,
+              "offset_y": 0
+            },
+            {
+              "display_angle": -1,
+              "graphic_id": null,
+              "offset_x": 0,
+              "offset_y": 0
+            },
+            {
+              "display_angle": -1,
+              "graphic_id": 1374,
+              "offset_x": 0,
+              "offset_y": 0
+            }
+          ],
+          "field_classification": "exact_dat",
+          "duration_unit": "seconds_per_frame",
+          "duration_unit_classification": "exact_openage_dat_schema"
+        },
+        "standing_graphic_2": {
+          "graphic_id": null,
+          "classification": "absent"
+        },
+        "walking_graphic": {
+          "graphic_id": 1379,
+          "classification": "exact",
+          "reason": null,
+          "name": "WBRSK_WN",
+          "filename": "WBRSK_WN",
+          "slp_id": 1602,
+          "dat_frames_per_angle": 12,
+          "dat_angle_count": 8,
+          "physical_slp_frame_count": 60,
+          "physical_stored_angle_count": 5,
+          "dat_frame_duration": 0.08500000089406967,
+          "dat_replay_delay": 0.0,
+          "dat_sequence_type": 3,
+          "dat_mirroring_mode": 6,
+          "dat_layer": 20,
+          "deltas": [
+            {
+              "display_angle": -1,
+              "graphic_id": 1377,
+              "offset_x": 0,
+              "offset_y": 0
+            },
+            {
+              "display_angle": -1,
+              "graphic_id": null,
+              "offset_x": 0,
+              "offset_y": 0
+            },
+            {
+              "display_angle": -1,
+              "graphic_id": 1378,
+              "offset_x": 0,
+              "offset_y": 0
+            }
+          ],
+          "field_classification": "exact_dat",
+          "duration_unit": "seconds_per_frame",
+          "duration_unit_classification": "exact_openage_dat_schema"
+        },
+        "running_graphic": {
+          "graphic_id": null,
+          "classification": "absent"
+        },
+        "attack_graphic": {
+          "graphic_id": 1369,
+          "classification": "exact",
+          "reason": null,
+          "name": "WBRSK_AN",
+          "filename": "WBRSK_AN",
+          "slp_id": 1592,
+          "dat_frames_per_angle": 12,
+          "dat_angle_count": 8,
+          "physical_slp_frame_count": 60,
+          "physical_stored_angle_count": 5,
+          "dat_frame_duration": 0.11999999731779099,
+          "dat_replay_delay": 0.0,
+          "dat_sequence_type": 3,
+          "dat_mirroring_mode": 6,
+          "dat_layer": 20,
+          "deltas": [
+            {
+              "display_angle": -1,
+              "graphic_id": 1367,
+              "offset_x": 0,
+              "offset_y": 0
+            },
+            {
+              "display_angle": -1,
+              "graphic_id": null,
+              "offset_x": 0,
+              "offset_y": 0
+            },
+            {
+              "display_angle": -1,
+              "graphic_id": 1368,
+              "offset_x": 0,
+              "offset_y": 0
+            }
+          ],
+          "field_classification": "exact_dat",
+          "duration_unit": "seconds_per_frame",
+          "duration_unit_classification": "exact_openage_dat_schema"
+        },
+        "dying_graphic": {
+          "graphic_id": 1372,
+          "classification": "exact",
+          "reason": null,
+          "name": "WBRSK_DN",
+          "filename": "WBRSK_DN",
+          "slp_id": 1595,
+          "dat_frames_per_angle": 10,
+          "dat_angle_count": 8,
+          "physical_slp_frame_count": 50,
+          "physical_stored_angle_count": 5,
+          "dat_frame_duration": 0.11999999731779099,
+          "dat_replay_delay": 0.0,
+          "dat_sequence_type": 11,
+          "dat_mirroring_mode": 6,
+          "dat_layer": 20,
+          "deltas": [
+            {
+              "display_angle": -1,
+              "graphic_id": 1370,
+              "offset_x": 0,
+              "offset_y": 0
+            },
+            {
+              "display_angle": -1,
+              "graphic_id": null,
+              "offset_x": 0,
+              "offset_y": 0
+            },
+            {
+              "display_angle": -1,
+              "graphic_id": 1371,
+              "offset_x": 0,
+              "offset_y": 0
+            }
+          ],
+          "field_classification": "exact_dat",
+          "duration_unit": "seconds_per_frame",
+          "duration_unit_classification": "exact_openage_dat_schema"
+        },
+        "construction_graphic": {
+          "graphic_id": null,
+          "classification": "absent"
+        }
+      },
+      "action_timing": {
+        "attack_graphic_id": 1369,
+        "attack_frame_delay": 0,
+        "reload_time": 2.0,
+        "classification": "exact",
+        "synchronization_contract": "DAT attack frame delay and reload time are exact fields; executable-to-render-tick scheduling is unproved",
+        "runtime_tick_mapping_classification": "ambiguous"
+      }
+    },
+    {
+      "category": "unit",
+      "name": "king",
+      "dat_id": 434,
+      "animations": {
+        "standing_graphic": {
+          "graphic_id": 1851,
+          "classification": "exact",
+          "reason": null,
+          "name": "KINGX_FN",
+          "filename": "KINGX_FN",
+          "slp_id": 1767,
+          "dat_frames_per_angle": 6,
+          "dat_angle_count": 8,
+          "physical_slp_frame_count": 30,
+          "physical_stored_angle_count": 5,
+          "dat_frame_duration": 0.20000000298023224,
+          "dat_replay_delay": 1.0,
+          "dat_sequence_type": 7,
+          "dat_mirroring_mode": 6,
+          "dat_layer": 20,
+          "deltas": [
+            {
+              "display_angle": -1,
+              "graphic_id": 1849,
+              "offset_x": 0,
+              "offset_y": 0
+            },
+            {
+              "display_angle": -1,
+              "graphic_id": null,
+              "offset_x": 0,
+              "offset_y": 0
+            },
+            {
+              "display_angle": -1,
+              "graphic_id": 1850,
+              "offset_x": 0,
+              "offset_y": 0
+            }
+          ],
+          "field_classification": "exact_dat",
+          "duration_unit": "seconds_per_frame",
+          "duration_unit_classification": "exact_openage_dat_schema"
+        },
+        "standing_graphic_2": {
+          "graphic_id": null,
+          "classification": "absent"
+        },
+        "walking_graphic": {
+          "graphic_id": 1855,
+          "classification": "exact",
+          "reason": null,
+          "name": "KINGX_WN",
+          "filename": "KINGX_WN",
+          "slp_id": 1771,
+          "dat_frames_per_angle": 10,
+          "dat_angle_count": 8,
+          "physical_slp_frame_count": 50,
+          "physical_stored_angle_count": 5,
+          "dat_frame_duration": 0.06975000351667404,
+          "dat_replay_delay": 0.0,
+          "dat_sequence_type": 3,
+          "dat_mirroring_mode": 6,
+          "dat_layer": 20,
+          "deltas": [
+            {
+              "display_angle": -1,
+              "graphic_id": 1853,
+              "offset_x": 0,
+              "offset_y": 0
+            },
+            {
+              "display_angle": -1,
+              "graphic_id": null,
+              "offset_x": 0,
+              "offset_y": 0
+            },
+            {
+              "display_angle": -1,
+              "graphic_id": 1854,
+              "offset_x": 0,
+              "offset_y": 0
+            }
+          ],
+          "field_classification": "exact_dat",
+          "duration_unit": "seconds_per_frame",
+          "duration_unit_classification": "exact_openage_dat_schema"
+        },
+        "running_graphic": {
+          "graphic_id": null,
+          "classification": "absent"
+        },
+        "attack_graphic": {
+          "graphic_id": 1851,
+          "classification": "exact",
+          "reason": null,
+          "name": "KINGX_FN",
+          "filename": "KINGX_FN",
+          "slp_id": 1767,
+          "dat_frames_per_angle": 6,
+          "dat_angle_count": 8,
+          "physical_slp_frame_count": 30,
+          "physical_stored_angle_count": 5,
+          "dat_frame_duration": 0.20000000298023224,
+          "dat_replay_delay": 1.0,
+          "dat_sequence_type": 7,
+          "dat_mirroring_mode": 6,
+          "dat_layer": 20,
+          "deltas": [
+            {
+              "display_angle": -1,
+              "graphic_id": 1849,
+              "offset_x": 0,
+              "offset_y": 0
+            },
+            {
+              "display_angle": -1,
+              "graphic_id": null,
+              "offset_x": 0,
+              "offset_y": 0
+            },
+            {
+              "display_angle": -1,
+              "graphic_id": 1850,
+              "offset_x": 0,
+              "offset_y": 0
+            }
+          ],
+          "field_classification": "exact_dat",
+          "duration_unit": "seconds_per_frame",
+          "duration_unit_classification": "exact_openage_dat_schema"
+        },
+        "dying_graphic": {
+          "graphic_id": 1848,
+          "classification": "exact",
+          "reason": null,
+          "name": "KINGX_DN",
+          "filename": "KINGX_DN",
+          "slp_id": 1764,
+          "dat_frames_per_angle": 10,
+          "dat_angle_count": 8,
+          "physical_slp_frame_count": 50,
+          "physical_stored_angle_count": 5,
+          "dat_frame_duration": 0.10000000149011612,
+          "dat_replay_delay": 0.0,
+          "dat_sequence_type": 11,
+          "dat_mirroring_mode": 6,
+          "dat_layer": 20,
+          "deltas": [
+            {
+              "display_angle": -1,
+              "graphic_id": 1846,
+              "offset_x": 0,
+              "offset_y": 0
+            },
+            {
+              "display_angle": -1,
+              "graphic_id": null,
+              "offset_x": 0,
+              "offset_y": 0
+            },
+            {
+              "display_angle": -1,
+              "graphic_id": 1847,
+              "offset_x": 0,
+              "offset_y": 0
+            }
+          ],
+          "field_classification": "exact_dat",
+          "duration_unit": "seconds_per_frame",
+          "duration_unit_classification": "exact_openage_dat_schema"
+        },
+        "construction_graphic": {
+          "graphic_id": null,
+          "classification": "absent"
+        }
+      },
+      "action_timing": {
+        "attack_graphic_id": 1851,
         "attack_frame_delay": 0,
         "reload_time": 0.0,
         "classification": "exact",

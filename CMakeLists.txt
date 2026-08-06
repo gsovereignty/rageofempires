@@ -609,6 +609,13 @@ add_test(
 )
 set_tests_properties(battering_ram_composite_sdl_smoke PROPERTIES TIMEOUT 30)
 add_test(
+    NAME exact_animation_bindings_sdl_smoke
+    COMMAND bash
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/exact_animation_bindings_sdl_smoke.sh
+        $<TARGET_FILE:aoe_reconstruction>
+)
+set_tests_properties(exact_animation_bindings_sdl_smoke PROPERTIES TIMEOUT 30)
+add_test(
     NAME building_contact_layering_sdl_smoke
     COMMAND bash
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/building_contact_layering_sdl_smoke.sh
@@ -1420,6 +1427,7 @@ set_tests_properties(
     aoe_packaged_sprites_sdl_smoke
     aoe_packaged_audio_sdl_smoke
     battering_ram_composite_sdl_smoke
+    exact_animation_bindings_sdl_smoke
     building_contact_layering_sdl_smoke
     classic_campaign_sdl_smoke
     elevation_render_sdl_smoke

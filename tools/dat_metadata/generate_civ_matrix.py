@@ -132,6 +132,7 @@ UNIT = {
     "missionary": (775, 84),
     "trade_cog": (17, 180),
     "woad_raider": (232, 277), "elite_woad_raider": (534, 370),
+    "king": (434, "definition_only"),
 }
 
 BUILDING = {
@@ -193,7 +194,12 @@ def main():
     data = json.loads(Path(args.metadata).read_text())
     types = Path(args.types)
     assert enum_names(types, "UnitKind") == list(UNIT)
-    assert enum_names(types, "BuildingKind") == list(BUILDING)
+    building_names = enum_names(types, "BuildingKind")
+    assert [name for name in building_names if name in BUILDING] == list(BUILDING)
+    assert set(building_names) - set(BUILDING) == {
+        "guard_tower", "keep", "fortified_wall",
+        "fortified_gate_x", "fortified_gate_y",
+    }
     assert enum_names(types, "Technology") == list(TECH)
     effects = {x["id"]: x for x in data["effects"]}
     tech_records = {x["id"]: x for x in data["techs"]}

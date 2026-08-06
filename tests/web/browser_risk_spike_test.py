@@ -765,6 +765,152 @@ def run_display_matrix(browser: str, headed: bool) -> dict[str, object]:
     return evidence
 
 
+def run_persistence_checks(browser: str, headed: bool) -> dict[str, object]:
+    if browser != "chrome":
+        raise Failure("persistence fault injection currently requires Chrome CDP")
+    evidence: dict[str, object] = {"browser": browser}
+    with static_server() as (base_url, requests):
+        driver = make_driver(browser, headed)
+        journey = Journey(driver, base_url, evidence)
+        def toggle_minimap_setting() -> None:
+            journey.canvas().click()
+            journey.canvas().send_keys(Keys.ESCAPE)
+            time.sleep(0.1)
+            journey.canvas().send_keys("n")
+            time.sleep(0.1)
+            journey.canvas().send_keys("s")
+
+        delay_script = driver.execute_cdp_cmd(
+            "Page.addScriptToEvaluateOnNewDocument",
+            {
+                "source": """
+                window.Module = {preRun: [function () {
+                  const realSync = FS.syncfs.bind(FS);
+                  FS.syncfs = function (populate, callback) {
+                    if (populate) {
+                      setTimeout(() => realSync(populate, callback), 1000);
+                    } else {
+                      realSync(populate, callback);
+                    }
+                  };
+                }]};
+                """
+            },
+        )["identifier"]
+        try:
+            started = time.monotonic()
+            driver.get(f"{base_url}/{PAGE}")
+            wait_until(
+                "delayed sync begins",
+                lambda: journey.script(
+                    "return typeof Module !== 'undefined' && "
+                    "Module.calledRun !== true && "
+                    "document.getElementById('start').hidden"
+                ),
+            )
+            evidence["start_hidden_during_initial_sync"] = True
+            wait_until(
+                "delayed initial sync completes",
+                lambda: journey.script(
+                    "return Module.storageReady === true && "
+                    "!document.getElementById('start').hidden"
+                ),
+            )
+            delay_seconds = time.monotonic() - started
+            if delay_seconds < 0.75:
+                raise Failure(f"initial sync delay not observed: {delay_seconds}")
+            evidence["initial_sync_seconds"] = delay_seconds
+            journey.start()
+
+            toggle_minimap_setting()
+            wait_until(
+                "settings synchronization",
+                lambda: journey.script(
+                    "return Module.persistenceSyncStatus === 'succeeded'"
+                ),
+            )
+            settings_before = journey.script(
+                "return FS.readFile('/user/settings/"
+                "reconstruction-settings.txt', {encoding: 'utf8'})"
+            )
+            if "minimap" not in str(settings_before).lower():
+                raise Failure("production minimap setting was not serialized")
+
+            driver.get(f"{base_url}/{PAGE}?settings-restore=1")
+            wait_until(
+                "settings reload sync",
+                lambda: journey.script(
+                    "return Module.storageReady === true && "
+                    "!document.getElementById('start').hidden"
+                ),
+            )
+            settings_after = journey.script(
+                "return FS.readFile('/user/settings/"
+                "reconstruction-settings.txt', {encoding: 'utf8'})"
+            )
+            if settings_after != settings_before:
+                raise Failure("settings file changed across IndexedDB reload")
+            evidence["setting_survived_reload"] = True
+            evidence["settings_bytes"] = len(str(settings_after).encode())
+
+            driver.execute_cdp_cmd(
+                "Page.removeScriptToEvaluateOnNewDocument",
+                {"identifier": delay_script},
+            )
+            driver.execute_cdp_cmd(
+                "Page.addScriptToEvaluateOnNewDocument",
+                {
+                    "source": """
+                    window.Module = {preRun: [function () {
+                      const realSync = FS.syncfs.bind(FS);
+                      FS.syncfs = function (populate, callback) {
+                        if (populate) realSync(populate, callback);
+                        else setTimeout(() => callback(
+                          new Error('forced browser test storage failure')
+                        ), 0);
+                      };
+                    }]};
+                    """
+                },
+            )
+            driver.get(f"{base_url}/{PAGE}?forced-sync-failure=1")
+            wait_until(
+                "failure-injection startup",
+                lambda: journey.script(
+                    "return Module.storageReady === true && "
+                    "!document.getElementById('start').hidden"
+                ),
+            )
+            journey.start()
+            toggle_minimap_setting()
+            wait_until(
+                "forced settings sync failure",
+                lambda: journey.script(
+                    "return Module.persistenceSyncStatus === 'failed'"
+                ),
+            )
+            failure = journey.script(
+                "return {status: Module.persistenceSyncStatus, "
+                "error: Module.persistenceSyncError}"
+            )
+            if failure["status"] == "succeeded":
+                raise Failure("forced storage failure reported success")
+            evidence["forced_failure"] = failure
+        finally:
+            evidence["requests"] = list(requests)
+            try:
+                evidence["console"] = driver.get_log("browser")
+            except Exception:
+                evidence["console"] = []
+            driver.quit()
+    output = ARTIFACTS / "persistence-evidence.json"
+    output.write_text(
+        json.dumps(evidence, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return evidence
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -772,15 +918,17 @@ def main() -> int:
     )
     parser.add_argument("--headed", action="store_true")
     parser.add_argument("--display-matrix", action="store_true")
+    parser.add_argument("--persistence-checks", action="store_true")
     parser.add_argument(
         "--evidence", type=Path, default=ARTIFACTS / "evidence.json"
     )
     arguments = parser.parse_args()
-    evidence = (
-        run_display_matrix(arguments.browser, arguments.headed)
-        if arguments.display_matrix
-        else run(arguments.browser, arguments.headed)
-    )
+    if arguments.display_matrix:
+        evidence = run_display_matrix(arguments.browser, arguments.headed)
+    elif arguments.persistence_checks:
+        evidence = run_persistence_checks(arguments.browser, arguments.headed)
+    else:
+        evidence = run(arguments.browser, arguments.headed)
     arguments.evidence.parent.mkdir(parents=True, exist_ok=True)
     arguments.evidence.write_text(
         json.dumps(evidence, indent=2, sort_keys=True) + "\n",

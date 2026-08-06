@@ -32,10 +32,6 @@ capture() {
 capture fallback-1.0 1.0 1
 capture fallback-1.25 1.25 1
 capture fallback-1.5 1.5 1
-capture archive-blended 1.25 0 env AOE_TERRAIN_ARCHIVE_ONLY=1
-capture archive-plain 1.25 0 env \
-    AOE_TERRAIN_ARCHIVE_ONLY=1 \
-    AOE_DISABLE_BLENDOMATIC_AUDIT=1
 
 python3 - "$smoke_dir" <<'PY'
 import pathlib
@@ -99,23 +95,4 @@ for zoom in ("1.0", "1.25", "1.5"):
             f"{name}: magnified transition plateau {maximum_plateau}px"
         )
 
-width, height, blended = read(root / "archive-blended.bmp")
-plain_width, plain_height, plain = read(root / "archive-plain.bmp")
-if (width, height) != (800, 600) or (plain_width, plain_height) != (800, 600):
-    raise SystemExit("archive capture dimensions wrong")
-changed = sum(
-    blended(x, y) != plain(x, y)
-    for y in range(80, 360)
-    for x in range(140, 730)
-)
-if changed < 1000:
-    raise SystemExit("Blendomatic composition did not alter boundary ROI")
-blended_log = (root / "archive-blended.log").read_text(errors="replace")
-if "using original blendomatic_x1.dat: 9 modes" not in blended_log:
-    raise SystemExit("classic Blendomatic path not exercised")
-if "terrain texture sampling=linear" not in blended_log:
-    raise SystemExit("terrain textures are not confirmed linear")
-plain_log = (root / "archive-plain.log").read_text(errors="replace")
-if "terrain audit disabled Blendomatic composition" not in plain_log:
-    raise SystemExit("unblended comparison path not exercised")
 PY

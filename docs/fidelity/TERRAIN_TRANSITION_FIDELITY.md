@@ -113,13 +113,10 @@ intermediate-color plateau longer than three pixels. Removing the filled
 mesh or restoring seven discrete lines fails these checks. The pond notch
 covers a corner junction.
 
-The same smoke forces packaged archive terrain and
-`blendomatic_x1.dat`, compares it with an audit-only unblended capture, and
-requires at least 1,000 changed ROI pixels. Its log assertion confirms
-classic 9-mode loading and queried linear texture sampling. These controls
-affect test selection only: `AOE_CAMERA_ZOOM` accepts finite values in the
-normal 1.0–2.0 range, `AOE_TERRAIN_ARCHIVE_ONLY=1` skips loose HD PNGs, and
-`AOE_DISABLE_BLENDOMATIC_AUDIT=1` supplies the negative comparison.
+The smoke exercises production HD terrain selection at three normal zoom
+levels. Classic Blendomatic decoding and composition remain covered by direct
+unit tests of production functions; no test-only runtime branch overrides HD
+asset selection.
 
 ## Remaining fidelity uncertainty
 

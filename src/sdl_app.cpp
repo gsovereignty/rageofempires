@@ -16746,7 +16746,7 @@ std::filesystem::path user_data_directory() {
 
 }  // namespace
 
-int SdlApp::run() {
+ApplicationLoop SdlApp::loop() {
     active_view_player = Player::blue;
     const bool gameplay_automation =
         SDL_getenv("AOE_GAMEPLAY_TEST_API_DIR") != nullptr &&
@@ -18788,7 +18788,8 @@ int SdlApp::run() {
         );
     }
 
-    while (running) {
+    co_yield false;
+    while (running && !stop_requested_) {
         const auto frame_started = std::chrono::steady_clock::now();
         if (gameplay_test_api) {
             gameplay_test_api->poll(
@@ -24725,9 +24726,8 @@ int SdlApp::run() {
                 }
                 running = false;
             }
-        } else {
-            SDL_Delay(8);
         }
+        co_yield !gameplay_benchmark;
     }
 
     if (multiplayer_runtime) {
@@ -24742,6 +24742,71 @@ int SdlApp::run() {
     SDL_DestroyWindow(window);
     SDL_Quit();
     active_string_table = nullptr;
+    co_return;
+}
+
+SdlApp::~SdlApp() {
+    try {
+        shutdown();
+    } catch (...) {
+    }
+}
+
+void SdlApp::initialize() {
+    if (loop_) {
+        throw std::logic_error("SdlApp is already initialized");
+    }
+    stop_requested_ = false;
+    delay_requested_ = false;
+    loop_.emplace(loop());
+    try {
+        if (loop_->resume()) return;
+    } catch (...) {
+        loop_.reset();
+        throw;
+    }
+    loop_.reset();
+    throw std::runtime_error("SdlApp stopped during initialization");
+}
+
+bool SdlApp::frame() {
+    if (!loop_) {
+        throw std::logic_error("SdlApp is not initialized");
+    }
+    const bool running = loop_->resume();
+    delay_requested_ = running && loop_->delay_requested();
+    if (!running) loop_.reset();
+    return running;
+}
+
+void SdlApp::shutdown() {
+    if (!loop_) return;
+    stop_requested_ = true;
+    try {
+        while (loop_->resume()) {
+        }
+    } catch (...) {
+        loop_.reset();
+        stop_requested_ = false;
+        delay_requested_ = false;
+        throw;
+    }
+    loop_.reset();
+    stop_requested_ = false;
+    delay_requested_ = false;
+}
+
+int SdlApp::run() {
+    initialize();
+    try {
+        while (frame()) {
+            if (delay_requested_) SDL_Delay(8);
+        }
+    } catch (...) {
+        shutdown();
+        throw;
+    }
+    shutdown();
     return 0;
 }
 

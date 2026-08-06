@@ -40,6 +40,18 @@ require it to finish without build errors. Fix in-scope failures before
 committing. If `make` fails because of unrelated existing work that must not be
 changed, do not commit; report the exact blocker and preserve that work.
 
+## Bug root-cause evidence
+
+Do not speculate about bug causes. Examine only direct evidence from the
+codebase and data, and always follow the evidence through until the precise
+root cause of every reported bug is determined. If available evidence does not
+yet prove a precise root cause, continue investigating and report the cause as
+undetermined rather than offering a hypothesis.
+
+When logging bugs in `../todo/`, record only known facts and never speculation.
+Include relevant function names, file names, and line numbers. Do not log a bug
+in `../todo/` until direct evidence establishes its precise root cause.
+
 ## Production-fix completion gate
 
 Never classify, describe, count, or report a bug as fixed until all of these

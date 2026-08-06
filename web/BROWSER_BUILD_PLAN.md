@@ -336,6 +336,148 @@ Native build must require no Emscripten installation and retain existing target
 names, target graph, default options, TCP multiplayer, resource lookup, audio
 backends, save paths, and macOS packaging.
 
+## Native macOS non-regression contract
+
+Browser work must not break, weaken, replace, or conditionally bypass the native
+macOS product. A browser result is unacceptable if any native macOS gate fails.
+
+### Protected macOS invariants
+
+Every implementation and review must preserve all of these facts:
+
+- Running plain `make` on macOS still configures and builds the native product.
+- `AOE_BUILD_WEB` defaults to `OFF` and plain `make` never invokes Emscripten,
+  Node, a browser, or browser asset generation.
+- Existing native targets keep their names, output names, and meanings,
+  including `aoe_core`, `aoe_reconstruction`, and `aoe_reconstruction_app`.
+- `build/AoE Archaeology.app` remains the Finder-launchable development bundle.
+- Native macOS continues using the pinned vendored SDL3 build.
+- Native macOS remains Universal 2: `arm64` plus `x86_64`.
+- Native deployment target remains macOS 11.0.
+- Native executable entry point remains `src/main.cpp`; `src/web_main.cpp` is
+  compiled only into `aoe_web`.
+- Native `SdlApp::run()` remains blocking and retains its existing event,
+  simulation, render, delay, exception, shutdown, and return-value behavior.
+- `SDL_Delay(8)` remains native-only behavior inside the native loop wrapper;
+  extracting `frame()` must not change native frame ordering or timing policy.
+- Native runtime paths retain current `SDL_GetBasePath()`, bundle resource,
+  `game_data`, and `SDL_GetPrefPath()` behavior and lookup precedence.
+- Browser paths `/resources`, `/game_data`, and `/user` are never compiled into
+  or selected by native targets.
+- Native audio continues using current Apple AudioToolbox or mpg123 sources and
+  behavior. Browser Web Audio code is never linked into native targets.
+- Native TCP multiplayer sources, executables, and tests remain present and
+  unchanged unless a portable-core split requires link-only restructuring.
+  Such restructuring must keep the same native TCP implementation and tests.
+- Native save and settings formats and locations remain unchanged.
+- Native resources remain sourced, copied, and bundled exactly through native
+  CMake rules. Browser asset pruning must never alter or replace native resource
+  manifests or `game_data`.
+- macOS bundle still embeds SDL3 under `Contents/Frameworks`, has no Homebrew
+  runtime dependency, and passes existing signing, resource, architecture,
+  deployment-target, launch, render, and exit checks.
+- Browser outputs exist only below `build-web/`; no browser-generated file may
+  enter `build/`, `build-release/`, native app bundles, or native install rules.
+
+### Required CMake isolation
+
+Browser target creation must use this outer guard:
+
+```cmake
+option(AOE_BUILD_WEB "Build browser WebAssembly risk spike" OFF)
+
+if(EMSCRIPTEN AND AOE_BUILD_WEB)
+    include(cmake/BrowserBuild.cmake)
+endif()
+```
+
+Native target definitions must remain outside that guard. Browser and native
+platform implementations must be selected with explicit target source lists:
+
+```text
+aoe_reconstruction / aoe_reconstruction_app
+  src/main.cpp
+  src/runtime_paths_native.cpp
+  src/audio_system.cpp
+
+aoe_web
+  src/web_main.cpp
+  src/runtime_paths_web.cpp
+  src/audio_system_web.cpp
+```
+
+Do not use global compiler flags, global linker flags, global include paths, or
+global compile definitions for browser requirements. Attach them only to
+`aoe_web` or browser-only libraries. Do not add `__EMSCRIPTEN__` branches to
+shared game rules or simulation. Do not change native source lists merely to
+make the disabled browser option configure.
+
+### Baseline before first game-code change
+
+Before changing game code, record:
+
+```sh
+git status --short
+make
+```
+
+Also record native target names and confirm `build/AoE Archaeology.app` exists.
+This creates comparison evidence; it does not permit accepting later failures
+as pre-existing without matching evidence.
+
+### Gate after every game-code commit candidate
+
+Before committing any browser-spike change that alters C++, headers, CMake,
+native resource wiring, or shared tooling, run from repository root:
+
+```sh
+make
+```
+
+Then run focused native tests for every shared behavior changed by that commit.
+For frame-lifecycle changes, exercise native startup, repeated frames, normal
+quit, and shutdown. For runtime-path changes, exercise development executable
+and app-bundle resource and preference paths. For portable-core changes, run
+native simulation and multiplayer tests. For audio-interface changes, run
+native audio checks. Existing tests may be extended, but browser-only tests
+cannot substitute for these native checks.
+
+If `make` or any relevant native check fails, do not commit, do not describe the
+browser step as complete, and do not continue stacking browser work on top of
+the failure. Fix the in-scope regression first. If unrelated existing work is
+the proven cause and must be preserved, stop that commit and report the exact
+blocker.
+
+### Final clean macOS gate
+
+Before declaring the spike complete, validate a fresh native Release bundle,
+separate from `build-web/`:
+
+```sh
+cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release
+cmake --build build-release
+ctest --test-dir build-release --output-on-failure
+./scripts/verify_macos_bundle.sh "build-release/AoE Archaeology.app"
+./scripts/test_isolated_build.sh .
+```
+
+Retain evidence that:
+
+- Emscripten is neither discovered nor required by native configuration.
+- Native tests pass without browser files in runtime or package paths.
+- Bundle executable and embedded SDL3 each contain `arm64` and `x86_64`.
+- Executable, SDL3, and `Info.plist` retain macOS 11.0 minimum version.
+- Bundle resource manifest and required game data validate.
+- Bundle has no direct Homebrew linkage.
+- Code signature verification passes.
+- Bundled executable starts, renders an 800x600 frame, and exits cleanly.
+- Isolated build and runtime do not read browser output or parent workspace
+  inputs.
+
+Deleting or renaming an existing native test, disabling a native check,
+loosening the bundle verifier, or excluding failing native behavior is not an
+acceptable way to satisfy this gate.
+
 ## Browser matrix
 
 Chrome is development browser. Full journey must pass there first.
@@ -390,8 +532,12 @@ Spike is complete only when all conditions hold:
 - Tab suspension recovers within defined timing limits.
 - Memory stays within predefined numeric budgets across two playthroughs.
 - Native targets and packaging remain unchanged.
-- Native `make` passes before each completion commit containing game-code
-  changes.
+- Native `make` and relevant native regression checks pass before each
+  completion commit containing game-code or build-system changes.
+- Fresh Release `ctest`, macOS bundle verification, and isolated-build gate pass.
+- Native macOS bundle remains Universal 2, targets macOS 11.0, contains its
+  pinned SDL3 framework and full native resources, and has no browser runtime or
+  build dependency.
 
 Any missing item means spike remains incomplete and corresponding risk remains
 open.
@@ -429,6 +575,8 @@ Do not implement during this spike:
 8. `feat: persist one browser autosave and settings`
 9. `test: automate cross-browser risk-spike journey`
 
-Every game-code commit requires successful native `make` before commit.
-Browser commits also require the browser build or risk check appropriate to the
-capability introduced.
+Every game-code or build-system commit requires successful native `make` plus
+relevant native regression checks before commit. Browser commits also require
+the browser build or risk check appropriate to the capability introduced. Final
+completion additionally requires the clean Release, bundle-verifier, and
+isolated-build commands in the native macOS non-regression contract.

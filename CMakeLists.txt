@@ -688,6 +688,7 @@ add_executable(aoe_reconstruction
     src/main.cpp
     src/sdl_app.cpp
     src/application_loop.cpp
+    src/runtime_paths_native.cpp
     src/audio_system.cpp
 )
 add_executable(
@@ -785,6 +786,7 @@ if(APPLE)
         src/main.cpp
         src/sdl_app.cpp
         src/application_loop.cpp
+        src/runtime_paths_native.cpp
         src/audio_system.cpp
     )
     add_custom_command(

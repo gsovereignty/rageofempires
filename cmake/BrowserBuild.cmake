@@ -2,6 +2,10 @@ set(AOE_WEB_DIST_DIR "${CMAKE_BINARY_DIR}/dist")
 
 add_executable(aoe_web
     "${CMAKE_CURRENT_SOURCE_DIR}/src/web_main.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/runtime_paths_web.cpp"
+)
+target_include_directories(
+    aoe_web PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include"
 )
 target_link_libraries(aoe_web PRIVATE SDL3::SDL3)
 target_compile_options(aoe_web PRIVATE -Wall -Wextra -Wpedantic)

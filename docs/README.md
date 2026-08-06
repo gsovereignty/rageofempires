@@ -35,6 +35,7 @@ Bounded findings about commercial formats and behavior:
 - [Main-menu fidelity](fidelity/MAIN_MENU_FIDELITY.md)
 - [Civilization technology-tree fidelity](fidelity/TECHNOLOGY_TREE_FIDELITY.md)
 - [Building body-state fidelity](fidelity/BUILDING_BODY_STATE_FIDELITY.md)
+- [Fog-of-war rendering fidelity](fidelity/FOG_RENDERING_FIDELITY.md)
 
 ## Assets
 

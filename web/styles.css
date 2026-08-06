@@ -23,6 +23,16 @@ body,
   text-align: center;
 }
 
+#start {
+  padding: 0.9rem 1.4rem;
+  border: 1px solid #d7b44b;
+  border-radius: 0.25rem;
+  background: #27384d;
+  color: #fff4ce;
+  font: 700 1rem system-ui, sans-serif;
+  cursor: pointer;
+}
+
 #canvas {
   display: block;
   width: 100%;

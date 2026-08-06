@@ -94,7 +94,7 @@ std::vector<std::byte> inflate_raw(std::span<const std::byte> compressed) {
     } end{&stream};
 
     std::vector<std::byte> output;
-    std::array<std::byte, 65536> chunk{};
+    std::vector<std::byte> chunk(65536);
     std::size_t consumed{};
     int status = Z_OK;
     while (status == Z_OK) {

@@ -125,7 +125,7 @@ if(AOE_ENABLE_MPG123)
     endif()
 endif()
 
-add_library(aoe_core
+set(AOE_CORE_SOURCES
     src/building_damage.cpp
     src/elevation_render.cpp
     src/content_catalog.cpp
@@ -182,6 +182,7 @@ add_library(aoe_core
     src/simulation.cpp
     src/save_game.cpp
 )
+add_library(aoe_core ${AOE_CORE_SOURCES})
 target_include_directories(aoe_core PUBLIC include PRIVATE generated)
 target_link_libraries(aoe_core PUBLIC ZLIB::ZLIB)
 target_compile_options(aoe_core PRIVATE -Wall -Wextra -Wpedantic)

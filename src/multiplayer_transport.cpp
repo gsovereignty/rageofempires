@@ -6,7 +6,8 @@
 #include <stdexcept>
 #include <string>
 
-#if defined(_WIN32)
+#if defined(AOE_NO_NATIVE_TCP)
+#elif defined(_WIN32)
 #error "TcpFrameStream requires a Windows socket implementation"
 #else
 #include <arpa/inet.h>
@@ -20,6 +21,7 @@
 namespace aoe {
 namespace {
 
+#if !defined(AOE_NO_NATIVE_TCP)
 void close_descriptor(int& descriptor) {
     if (descriptor >= 0) {
         ::shutdown(descriptor, SHUT_RDWR);
@@ -47,6 +49,7 @@ void configure_stream_descriptor(int descriptor) {
     (void)descriptor;
 #endif
 }
+#endif
 
 bool valid_utf8(const std::string& text) {
     std::size_t index{};
@@ -94,6 +97,66 @@ LatencyBand latency_band_for_rtt(std::uint64_t milliseconds) {
     if (milliseconds <= 1000) return LatencyBand::yellow;
     return LatencyBand::red;
 }
+
+#if defined(AOE_NO_NATIVE_TCP)
+
+namespace {
+[[noreturn]] void browser_transport_unavailable() {
+    throw std::runtime_error(
+        "native TCP multiplayer is unavailable in frontend-only browser build"
+    );
+}
+}  // namespace
+
+TcpFrameStream::~TcpFrameStream() = default;
+TcpFrameStream::TcpFrameStream(TcpFrameStream&&) noexcept = default;
+TcpFrameStream& TcpFrameStream::operator=(TcpFrameStream&&) noexcept = default;
+void TcpFrameStream::send_frame(const LockstepFrame&) {
+    browser_transport_unavailable();
+}
+void TcpFrameStream::send_frame_fragmented(const LockstepFrame&, std::size_t) {
+    browser_transport_unavailable();
+}
+std::optional<LockstepFrame> TcpFrameStream::receive_frame() {
+    browser_transport_unavailable();
+}
+void TcpFrameStream::set_nonblocking() { browser_transport_unavailable(); }
+void TcpFrameStream::queue_frame(const LockstepFrame&) {
+    browser_transport_unavailable();
+}
+bool TcpFrameStream::flush_queued() { browser_transport_unavailable(); }
+TcpFramePoll TcpFrameStream::poll_frame() { browser_transport_unavailable(); }
+TcpConnectStatus TcpFrameStream::connect_status() const {
+    return TcpConnectStatus::failed;
+}
+void TcpFrameStream::close() { descriptor_ = -1; }
+void TcpFrameStream::send_bytes(const std::string&, std::size_t) {
+    browser_transport_unavailable();
+}
+
+TcpFrameListener::TcpFrameListener(std::uint16_t) {
+    browser_transport_unavailable();
+}
+TcpFrameListener::~TcpFrameListener() = default;
+TcpFrameListener::TcpFrameListener(TcpFrameListener&&) noexcept = default;
+TcpFrameListener& TcpFrameListener::operator=(TcpFrameListener&&) noexcept =
+    default;
+TcpFrameStream TcpFrameListener::accept() { browser_transport_unavailable(); }
+void TcpFrameListener::set_nonblocking() { browser_transport_unavailable(); }
+std::optional<TcpFrameStream> TcpFrameListener::try_accept() {
+    browser_transport_unavailable();
+}
+TcpFrameStream connect_localhost(std::uint16_t) {
+    browser_transport_unavailable();
+}
+std::optional<TcpFrameStream> try_connect_localhost(std::uint16_t) {
+    browser_transport_unavailable();
+}
+TcpFrameStream begin_connect_localhost(std::uint16_t) {
+    browser_transport_unavailable();
+}
+
+#else
 
 TcpFrameStream::~TcpFrameStream() {
     close();
@@ -503,6 +566,8 @@ TcpFrameStream begin_connect_localhost(std::uint16_t port) {
     stream.set_nonblocking();
     return stream;
 }
+
+#endif
 
 LocalhostMultiPeerHost::LocalhostMultiPeerHost(
     std::uint16_t port,

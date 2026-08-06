@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import struct
 import tempfile
 import unittest
 from pathlib import Path
@@ -36,6 +37,43 @@ class WebAssetPackTests(unittest.TestCase):
                 if path.is_file()
             }
             self.assertEqual(first_files, second_files)
+
+    def test_subset_archives_contain_only_declared_ids(self) -> None:
+        source_root = Path(__file__).resolve().parents[1]
+        metadata = json.loads(
+            (source_root / "resources/browser-risk-spike.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "output"
+            MODULE.build_pack(source_root, output)
+            for node in metadata["asset_graph"].values():
+                selections = node.get("drs_entries")
+                if selections is None:
+                    continue
+                _, resources = MODULE.read_drs(output / node["source"])
+                expected = {
+                    (extension, resource_id)
+                    for extension, resource_ids in selections.items()
+                    for resource_id in resource_ids
+                }
+                self.assertEqual(set(resources), expected)
+
+    def test_missing_drs_resource_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "source.drs"
+            archive = bytearray(88 + 3)
+            archive[40:44] = b"1.00"
+            struct.pack_into("<ii", archive, 56, 1, 88)
+            archive[64:68] = b" pls"
+            struct.pack_into("<ii", archive, 68, 76, 1)
+            struct.pack_into("<iii", archive, 76, 1, 88, 3)
+            archive[88:] = b"slp"
+            source.write_bytes(archive)
+            with self.assertRaisesRegex(ValueError, "missing DRS dependencies"):
+                MODULE.write_drs_subset(source, root / "subset.drs", {"slp": [2]})
 
     def test_missing_dependency_fails(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

@@ -84,6 +84,11 @@ constexpr int tile_width = 64;
 constexpr int tile_height = 32;
 constexpr int half_tile_width = tile_width / 2;
 constexpr int half_tile_height = tile_height / 2;
+#if defined(AOE_BROWSER_FIXED_ASSET_SCOPE)
+constexpr bool browser_fixed_asset_scope = true;
+#else
+constexpr bool browser_fixed_asset_scope = false;
+#endif
 // World viewport size in pixels. This is the drawing surface, not the map:
 // it used to be spelled (24 + 16) * half_tile, which silently tied the
 // window and the camera clamp to a 24x16 map.
@@ -2907,6 +2912,18 @@ TerrainTextures load_local_terrain_textures(SDL_Renderer* renderer) {
         renderer,
         texture_root / "g_grs_00_COLOR.png"
     );
+    if (browser_fixed_asset_scope) {
+        if (textures.grass == nullptr) {
+            throw LegacyAssetError{
+                "fixed browser grass texture failed to load"
+            };
+        }
+        SDL_Log(
+            "using fixed browser terrain texture from %s",
+            requested_root->string().c_str()
+        );
+        return textures;
+    }
     textures.water = load_local_terrain_texture(
         renderer,
         texture_root / "g_wtr_00_COLOR.png"
@@ -4203,26 +4220,28 @@ LegacySprites load_local_legacy_sprites(
             }
             return sprite;
         };
-    sprites.frontend_background = load_packaged_texture(
-        *requested_root / "launcher_res" / "background.png", true
-    );
-    sprites.scenario_background = load_packaged_texture(
-        *requested_root / "scenariobkg.bmp", false
-    );
-    sprites.town_center_dark_annexes_blue = load_packaged_sprite(
-        data_root / "Slp" / "town-center-dark-annexes-blue.png",
-        394,
-        102,
-        204,
-        68
-    );
-    sprites.town_center_dark_annexes_red = load_packaged_sprite(
-        data_root / "Slp" / "town-center-dark-annexes-red.png",
-        394,
-        102,
-        204,
-        68
-    );
+    if (!browser_fixed_asset_scope) {
+        sprites.frontend_background = load_packaged_texture(
+            *requested_root / "launcher_res" / "background.png", true
+        );
+        sprites.scenario_background = load_packaged_texture(
+            *requested_root / "scenariobkg.bmp", false
+        );
+        sprites.town_center_dark_annexes_blue = load_packaged_sprite(
+            data_root / "Slp" / "town-center-dark-annexes-blue.png",
+            394,
+            102,
+            204,
+            68
+        );
+        sprites.town_center_dark_annexes_red = load_packaged_sprite(
+            data_root / "Slp" / "town-center-dark-annexes-red.png",
+            394,
+            102,
+            204,
+            68
+        );
+    }
     if (sprites.frontend_background != nullptr) {
         SDL_Log(
             "using packaged frontend background from %s",
@@ -4235,7 +4254,7 @@ LegacySprites load_local_legacy_sprites(
             requested_root->string().c_str()
         );
     }
-    try {
+    if (!browser_fixed_asset_scope) try {
         const std::filesystem::path media =
             *requested_root / "Campaign" / "Media";
         const LegacyPalette campaign_palette = LegacyPalette::from_jasc(
@@ -4261,7 +4280,7 @@ LegacySprites load_local_legacy_sprites(
         const LegacyPalette palette = LegacyPalette::from_jasc(
             interface.read("bina", 50500)
         );
-        try {
+        if (!browser_fixed_asset_scope) try {
             const LegacyPalette menu_palette =
                 LegacyPalette::from_jasc(
                     interface.read("bina", 50589)
@@ -4377,20 +4396,22 @@ LegacySprites load_local_legacy_sprites(
         };
         // Decompiled original loads AchDecal, PNBnr1/2, sat_tabs, sat_btn,
         // AchTeam, and tml_bck using these interface resource IDs.
-        load_statistics_frame(sprites.statistics_decal, 50766);
-        load_statistics_frame(sprites.statistics_banner_blue, 50762);
-        load_statistics_frame(sprites.statistics_banner_red, 50767);
-        for (std::size_t frame = 0;
-             frame < sprites.statistics_tabs.size(); ++frame) {
-            load_statistics_frame(
-                sprites.statistics_tabs[frame], 50765, frame
-            );
-        }
-        load_statistics_frame(sprites.statistics_button, 50768);
-        load_statistics_frame(sprites.statistics_team, 50769);
-        load_statistics_frame(sprites.statistics_background, 50763);
-        if (sprites.statistics_background.texture != nullptr) {
-            SDL_Log("using original statistics interface SLPs");
+        if (!browser_fixed_asset_scope) {
+            load_statistics_frame(sprites.statistics_decal, 50766);
+            load_statistics_frame(sprites.statistics_banner_blue, 50762);
+            load_statistics_frame(sprites.statistics_banner_red, 50767);
+            for (std::size_t frame = 0;
+                 frame < sprites.statistics_tabs.size(); ++frame) {
+                load_statistics_frame(
+                    sprites.statistics_tabs[frame], 50765, frame
+                );
+            }
+            load_statistics_frame(sprites.statistics_button, 50768);
+            load_statistics_frame(sprites.statistics_team, 50769);
+            load_statistics_frame(sprites.statistics_background, 50763);
+            if (sprites.statistics_background.texture != nullptr) {
+                SDL_Log("using original statistics interface SLPs");
+            }
         }
         try {
             const LegacyPalette game_palette =
@@ -4400,6 +4421,12 @@ LegacySprites load_local_legacy_sprites(
             for (int civilization = 1;
                  civilization <= 18;
                  ++civilization) {
+                if (browser_fixed_asset_scope &&
+                    civilization != static_cast<int>(
+                        Civilization::britons
+                    )) {
+                    continue;
+                }
                 const Civilization value =
                     static_cast<Civilization>(civilization);
                 const std::filesystem::path path =
@@ -4427,8 +4454,14 @@ LegacySprites load_local_legacy_sprites(
                 error.what()
             );
         }
+        if (browser_fixed_asset_scope) {
+            SDL_Log("fixed browser assets: loading DAT");
+        }
         const LegacyDatFile dat =
             LegacyDatFile::load(data_root / "empires2_x1_p1.dat");
+        if (browser_fixed_asset_scope) {
+            SDL_Log("fixed browser assets: DAT loaded");
+        }
         std::array<bool, 5> required_architecture_families{};
         for (std::size_t civilization = 0;
              civilization < required_civilizations.size();
@@ -4705,6 +4738,183 @@ LegacySprites load_local_legacy_sprites(
                 );
             }
         };
+        if (browser_fixed_asset_scope) {
+            SDL_Log("fixed browser assets: unit animations");
+            attempt_animation(sprites.villager_animation, 1479, 15);
+            attempt_animation(
+                sprites.movement[UnitKind::villager], 1484, 15
+            );
+            attempt_animation(
+                sprites.attack[UnitKind::villager], 1473, 15
+            );
+            attempt_animation(
+                sprites.death[UnitKind::villager], 1476, 15
+            );
+            attempt_animation(sprites.villager_gather, 1528, 15);
+
+            for (const auto& [kind, idle, idle_frames, move, move_frames,
+                              attack_slp, attack_frames, death_slp,
+                              death_frames] : {
+                     std::tuple{
+                         UnitKind::militia, 993, std::size_t{6},
+                         997, std::size_t{12}, 987, std::size_t{10},
+                         990, std::size_t{10}
+                     },
+                     std::tuple{
+                         UnitKind::man_at_arms, 1044, std::size_t{11},
+                         1048, std::size_t{11}, 1038, std::size_t{11},
+                         1041, std::size_t{11}
+                     },
+                 }) {
+                attempt_animation(
+                    sprites.military[kind], idle, idle_frames
+                );
+                attempt_animation(
+                    sprites.movement[kind], move, move_frames
+                );
+                attempt_animation(
+                    sprites.attack[kind], attack_slp, attack_frames
+                );
+                attempt_animation(
+                    sprites.death[kind], death_slp, death_frames
+                );
+            }
+
+            SDL_Log("fixed browser assets: resource sprites");
+            for (std::size_t frame = 0;
+                 frame < sprites.gold_states.size(); ++frame) {
+                attempt(sprites.gold_states[frame], 2561, 1, frame);
+            }
+
+            const std::size_t britons_family = static_cast<std::size_t>(
+                render_building_architecture_family(
+                    BuildingKind::town_center, Civilization::britons
+                )
+            );
+            const std::size_t franks_family = static_cast<std::size_t>(
+                render_building_architecture_family(
+                    BuildingKind::house, Civilization::franks
+                )
+            );
+            const std::size_t feudal = static_cast<std::size_t>(
+                render_building_visual_age(
+                    BuildingKind::town_center, Age::feudal
+                )
+            );
+            const std::size_t castle = static_cast<std::size_t>(
+                render_building_visual_age(
+                    BuildingKind::house, Age::castle
+                )
+            );
+            attempt(
+                sprites.town_center_age_blue[feudal][britons_family],
+                903,
+                1
+            );
+            attempt_building_shadowed(
+                sprites.house_red[castle][franks_family], 2247, 2
+            );
+
+            SDL_Log("fixed browser assets: building composites");
+            const BuildingCompositeSet* barracks =
+                building_composite_set(BuildingKind::barracks);
+            if (barracks == nullptr) {
+                throw LegacyAssetError{
+                    "fixed browser barracks mapping is absent"
+                };
+            }
+            const std::size_t barracks_age = static_cast<std::size_t>(
+                render_building_composite_variant(
+                    BuildingKind::barracks, Age::feudal, 0
+                )
+            );
+            attempt_composite(
+                sprites.building_composites[BuildingKind::barracks]
+                    [barracks_age][britons_family],
+                barracks->graphic_roots[barracks_age][britons_family],
+                barracks->composition_policy ==
+                    CompositePolicy::delta_graph
+            );
+
+            for (const BuildingKind kind : {
+                     BuildingKind::house,
+                     BuildingKind::barracks,
+                     BuildingKind::town_center,
+                 }) {
+                const BuildingStateRoot* death = building_state_root(
+                    kind, RenderBuildingState::destroyed
+                );
+                if (death == nullptr) {
+                    throw LegacyAssetError{
+                        "fixed browser building death mapping is absent"
+                    };
+                }
+                attempt_animated_composite(
+                    sprites.building_death_composites[kind],
+                    death->graphic_root
+                );
+                const Civilization civilization =
+                    kind == BuildingKind::house
+                    ? Civilization::franks : Civilization::britons;
+                for (const BuildingDamageRecord& damage :
+                     canonical_building_damage_records(
+                         kind, civilization
+                     )) {
+                    attempt_animated_composite(
+                        sprites.building_damage_graphics[
+                            damage.graphic_id
+                        ],
+                        damage.graphic_id,
+                        true
+                    );
+                }
+            }
+
+            SDL_Log("fixed browser assets: interface sprites");
+            attempt_interface(sprites.command_chrome[0], 50751, 36);
+            attempt_interface(sprites.command_chrome[1], 50751, 37);
+            for (std::int32_t frame = 0; frame < 69; ++frame) {
+                attempt_interface(
+                    sprites.action_command_icons[frame], 50721, frame
+                );
+            }
+            for (std::int32_t frame = 0; frame < 134; ++frame) {
+                attempt_interface(
+                    sprites.unit_command_icons[frame], 50730, frame
+                );
+            }
+            for (std::int32_t frame = 0; frame < 118; ++frame) {
+                attempt_interface(
+                    sprites.technology_command_icons[frame], 50729, frame
+                );
+            }
+            for (std::int32_t frame = 0; frame < 52; ++frame) {
+                attempt_interface(
+                    sprites.building_command_icons[frame], 50706, frame
+                );
+            }
+            attempt_interface(sprites.hud_actions, 50721);
+            constexpr std::array<std::size_t, 4> resource_frames{
+                18, 19, 20, 21
+            };
+            for (std::size_t index = 0;
+                 index < resource_frames.size(); ++index) {
+                attempt_interface(
+                    sprites.resource_icons[index],
+                    50721,
+                    resource_frames[index]
+                );
+            }
+
+            if (!active_animation_load_failures.empty() ||
+                !active_composite_load_failures.empty()) {
+                throw LegacyAssetError{
+                    "fixed browser asset closure failed eager decoding"
+                };
+            }
+            SDL_Log("fixed browser asset closure decoded eagerly");
+            return sprites;
+        }
         // Exact civilization records share these construction roots. Farm
         // has no root; Stone Wall and Palisade Gate roots vary by civilization
         // and remain fallback until that complete selection map is bound.

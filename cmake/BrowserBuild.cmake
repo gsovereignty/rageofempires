@@ -37,12 +37,19 @@ target_include_directories(
 )
 target_link_libraries(aoe_web PRIVATE aoe_web_core SDL3::SDL3)
 target_compile_definitions(aoe_web PRIVATE
+    AOE_BROWSER_FIXED_ASSET_SCOPE=1
     AOE_HAVE_NATIVE_MP3=0
     AOE_HAVE_MPG123=0
 )
 add_dependencies(aoe_web web_asset_pack)
-target_compile_options(aoe_web PRIVATE -Wall -Wextra -Wpedantic)
+target_compile_options(aoe_web PRIVATE
+    -Wall
+    -Wextra
+    -Wpedantic
+    -fexceptions
+)
 target_link_options(aoe_web PRIVATE
+    -fexceptions
     "SHELL:-lidbfs.js"
     "SHELL:-s ALLOW_MEMORY_GROWTH=1"
     "SHELL:-s FORCE_FILESYSTEM=1"

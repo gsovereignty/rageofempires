@@ -64,7 +64,7 @@
     "civilizations": {
       "reason": "Britons and Franks entity availability",
       "source": "game_data/Data/empires2_x1_p1.dat",
-      "dependencies": []
+      "dependencies": ["graphics"]
     },
     "entities": {
       "reason": "villager, militia, town center, barracks, and house rules",
@@ -85,16 +85,58 @@
     },
     "ui": {
       "reason": "production HUD text and localized command labels",
-      "dependencies": ["font", "localization"]
+      "dependencies": ["interface", "hud-slp", "palette", "font", "shell-font", "localization", "expansion-localization", "patch-localization"]
+    },
+    "graphics": {
+      "reason": "exact fixed-journey world sprites, damage overlays, and rubble",
+      "source": "game_data/Data/graphics.drs",
+      "drs_entries": {
+        "slp": [73, 75, 133, 424, 425, 427, 428, 429, 430, 431, 432, 903, 929, 930, 931, 987, 990, 993, 997, 1038, 1041, 1044, 1048, 1473, 1476, 1479, 1484, 1528, 2247, 2561]
+      },
+      "dependencies": []
+    },
+    "interface": {
+      "reason": "cursor, production HUD icons, technology icons, and command chrome",
+      "source": "game_data/Data/interfac.drs",
+      "drs_entries": {
+        "bina": [50500],
+        "slp": [50706, 50721, 50729, 50730, 50751, 51000]
+      },
+      "dependencies": []
+    },
+    "hud-slp": {
+      "reason": "Britons production HUD texture",
+      "source": "game_data/Data/Slp/game_b1.slp",
+      "dependencies": []
+    },
+    "palette": {
+      "reason": "production palette for classic SLP decoding",
+      "source": "game_data/Data/pal_2.pal",
+      "dependencies": []
     },
     "font": {
       "reason": "browser HUD font",
+      "source": "game_data/Data/fonts/GEORGIAB.TTF",
+      "dependencies": []
+    },
+    "shell-font": {
+      "reason": "browser shell font",
       "source": "game_data/Data/fonts/ARIALN.TTF",
       "dependencies": []
     },
     "localization": {
       "reason": "English production UI strings",
-      "source": "game_data/Bin/en/language.txt",
+      "source": "game_data/Bin/en/language.dll",
+      "dependencies": []
+    },
+    "expansion-localization": {
+      "reason": "English expansion UI strings",
+      "source": "game_data/Bin/en/language_x1.dll",
+      "dependencies": []
+    },
+    "patch-localization": {
+      "reason": "English patched expansion UI strings",
+      "source": "game_data/Bin/en/language_x1_p1.dll",
       "dependencies": []
     },
     "audio": {

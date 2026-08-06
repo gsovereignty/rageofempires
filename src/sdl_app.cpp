@@ -2560,14 +2560,20 @@ std::uint8_t fog_neighbor_mask(
     return fog::neighbor_mask(fogged);
 }
 
+elevation_render::Topology terrain_elevation_topology(
+    const GameMap& map,
+    TilePosition position
+);
+
 void render_fog_edge_spans(
     SDL_Renderer* renderer,
     SDL_FPoint top,
+    std::uint8_t tile_shape,
     std::uint8_t edge_class,
     fog::EdgeLayer layer,
     SDL_Color color
 ) {
-    const auto bytes = fog::encoded_spans(0, edge_class, layer);
+    const auto bytes = fog::encoded_spans(tile_shape, edge_class, layer);
     set_color(renderer, color);
     for (std::size_t index = 0; index < bytes.size(); index += 3) {
         const float y = top.y + static_cast<float>(bytes[index]) *
@@ -2580,6 +2586,97 @@ void render_fog_edge_spans(
                 static_cast<float>(tile_width) / 96.0F;
         SDL_RenderLine(renderer, left, y, right, y);
     }
+}
+
+void render_fog_coverage_overlay(
+    SDL_Renderer* renderer,
+    const Simulation& simulation,
+    EntityOwner viewer,
+    const SDL_Rect& world_viewport,
+    float zoom
+) {
+    SDL_Texture* coverage = SDL_CreateTexture(
+        renderer,
+        SDL_PIXELFORMAT_RGBA8888,
+        SDL_TEXTUREACCESS_TARGET,
+        world_viewport.w,
+        world_viewport.h
+    );
+    if (coverage == nullptr) return;
+    SDL_SetTextureBlendMode(coverage, SDL_BLENDMODE_BLEND);
+
+    SDL_Texture* previous_target = SDL_GetRenderTarget(renderer);
+    SDL_SetRenderTarget(renderer, coverage);
+    SDL_SetRenderViewport(renderer, nullptr);
+    SDL_SetRenderScale(renderer, zoom, zoom);
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+    set_color(renderer, {fog::hidden_rgb, fog::hidden_rgb,
+                         fog::hidden_rgb, 255});
+    SDL_RenderClear(renderer);
+
+    for (int depth = 0;
+         depth < simulation.map().width() + simulation.map().height() - 1;
+         ++depth) {
+        for (int y = 0; y < simulation.map().height(); ++y) {
+            const int x = depth - y;
+            const TilePosition position{x, y};
+            if (x < 0 || x >= simulation.map().width() ||
+                !tile_near_world_view(position, 96.0F) ||
+                !simulation.is_explored_to_controller(viewer, position)) {
+                continue;
+            }
+            const bool visible =
+                simulation.is_visible_to_controller(viewer, position);
+            const auto selection = fog::select_assets(
+                visible ? fog::WorldState::visible
+                        : fog::WorldState::explored,
+                fog_neighbor_mask(simulation, position, viewer, true),
+                fog_neighbor_mask(simulation, position, viewer, false)
+            );
+            const std::uint8_t tile_shape =
+                terrain_elevation_topology(simulation.map(), position).slope_id;
+            const SDL_FPoint top = tile_top(position);
+
+            // Original renderer builds one screen shroud region: TileEdge
+            // spans expose terrain, then BlkEdge spans subtract shroud at the
+            // explored boundary. Transparent pixels reveal already-composited
+            // textured terrain; opaque pixels retain unexplored shroud.
+            // Full explored diamond is coverage base. Slope-specific DAT
+            // records contain edge refinements, not replacement diamonds.
+            fill_diamond(renderer, top, {0, 0, 0, 0});
+            if (visible) {
+                render_fog_edge_spans(
+                    renderer, top, tile_shape, selection.tile_edge_class,
+                    fog::EdgeLayer::tile_left, {0, 0, 0, 0}
+                );
+                render_fog_edge_spans(
+                    renderer, top, tile_shape, selection.tile_edge_class,
+                    fog::EdgeLayer::tile_right, {0, 0, 0, 0}
+                );
+            }
+            if (selection.apply_black_edge) {
+                render_fog_edge_spans(
+                    renderer, top, tile_shape, selection.black_edge_class,
+                    fog::EdgeLayer::black, {0, 0, 0, 0}
+                );
+            }
+        }
+    }
+
+    SDL_SetRenderTarget(renderer, previous_target);
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderScale(renderer, 1.0F, 1.0F);
+    SDL_SetRenderViewport(renderer, nullptr);
+    const SDL_FRect destination{
+        static_cast<float>(world_viewport.x),
+        static_cast<float>(world_viewport.y),
+        static_cast<float>(world_viewport.w),
+        static_cast<float>(world_viewport.h),
+    };
+    SDL_RenderTexture(renderer, coverage, nullptr, &destination);
+    SDL_DestroyTexture(coverage);
+    SDL_SetRenderViewport(renderer, &world_viewport);
+    SDL_SetRenderScale(renderer, zoom, zoom);
 }
 
 void render_explored_fog_dither(SDL_Renderer* renderer, SDL_FPoint top) {
@@ -15199,16 +15296,14 @@ std::size_t render(
             const bool explored =
                 !active_settings.fog ||
                 simulation.is_explored_to_controller(active_view_player, position);
+            // Unexplored shroud is supplied by cleared world background and
+            // final coverage overlay. Drawing hidden diamonds in terrain
+            // depth order overwrites explored neighbors before completed
+            // edge coverage exists.
+            if (!explored) continue;
             SDL_Color color =
                 terrain_color(simulation.map().terrain_at(position));
-            if (!explored) {
-                color = {
-                    fog::hidden_rgb,
-                    fog::hidden_rgb,
-                    fog::hidden_rgb,
-                    255,
-                };
-            } else if (!visible) {
+            if (!visible) {
                 color = {
                     static_cast<Uint8>(color.r / 2),
                     static_cast<Uint8>(color.g / 2),
@@ -15327,37 +15422,8 @@ std::size_t render(
                     renderer, elevation_texture, nullptr, &destination
                 );
             }
-            if (active_settings.fog && explored) {
-                const auto selection = fog::select_assets(
-                    visible ? fog::WorldState::visible
-                            : fog::WorldState::explored,
-                    fog_neighbor_mask(
-                        simulation, position, active_view_player, true
-                    ),
-                    fog_neighbor_mask(
-                        simulation, position, active_view_player, false
-                    )
-                );
-                // TileEdge is an indexed terrain-preservation mask in the
-                // original renderer, not replacement terrain.  The terrain
-                // diamond above is already clipped and color-modulated for
-                // visible or explored state, so drawing TileEdge as opaque
-                // flat-color scanlines destroys the texture.  Keep that
-                // composited terrain and apply only the independent black
-                // shroud edge and explored stipple layers.
-                if (selection.apply_black_edge) {
-                    render_fog_edge_spans(
-                        renderer,
-                        top,
-                        selection.black_edge_class,
-                        fog::EdgeLayer::black,
-                        {fog::hidden_rgb, fog::hidden_rgb,
-                         fog::hidden_rgb, 255}
-                    );
-                }
-                if (!visible) {
-                    render_explored_fog_dither(renderer, top);
-                }
+            if (active_settings.fog && explored && !visible) {
+                render_explored_fog_dither(renderer, top);
             }
             if (visible && texture == nullptr) {
                 render_procedural_terrain_transitions(
@@ -15375,6 +15441,13 @@ std::size_t render(
                 );
             }
         }
+    }
+
+    if (active_settings.fog) {
+        render_fog_coverage_overlay(
+            renderer, simulation, active_view_player, world_viewport,
+            camera.zoom
+        );
     }
 
     if (active_overlap_capture.active) {

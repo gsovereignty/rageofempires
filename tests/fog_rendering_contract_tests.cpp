@@ -103,6 +103,36 @@ void embedded_archive_geometry_is_exact_and_total() {
     assert(aoe::fog::hidden_dither_pattern == 0x28);
 }
 
+void every_neighbor_pattern_selects_geometry_for_every_shape() {
+    using aoe::fog::EdgeLayer;
+    using aoe::fog::WorldState;
+    for (int visible_mask = 0; visible_mask < 256; ++visible_mask) {
+        for (int explored_mask = 0; explored_mask < 256; ++explored_mask) {
+            for (const WorldState state : {
+                     WorldState::visible, WorldState::explored}) {
+                const auto selection = aoe::fog::select_assets(
+                    state,
+                    static_cast<std::uint8_t>(visible_mask),
+                    static_cast<std::uint8_t>(explored_mask)
+                );
+                for (std::uint8_t shape = 0; shape < 17; ++shape) {
+                    assert(!aoe::fog::encoded_spans(
+                        shape, selection.tile_edge_class,
+                        EdgeLayer::tile_left).empty());
+                    (void)aoe::fog::encoded_spans(
+                        shape, selection.tile_edge_class,
+                        EdgeLayer::tile_right);
+                    if (selection.apply_black_edge) {
+                        assert(!aoe::fog::encoded_spans(
+                            shape, selection.black_edge_class,
+                            EdgeLayer::black).empty());
+                    }
+                }
+            }
+        }
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -111,4 +141,5 @@ int main() {
     state_selects_original_edge_tables();
     tile_shape_selection_is_fail_closed();
     embedded_archive_geometry_is_exact_and_total();
+    every_neighbor_pattern_selects_geometry_for_every_shape();
 }

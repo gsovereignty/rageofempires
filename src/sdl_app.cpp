@@ -18196,7 +18196,9 @@ ApplicationLoop SdlApp::loop() {
     bool pending_map_signal = false;
     std::uint64_t local_signal_sequence = 1;
     std::vector<Uint64> local_signal_times;
-    bool outcome_statistics_seen = false;
+    bool outcome_statistics_seen = browser_fixed_asset_scope
+        ? false
+        : simulation.outcome() != MatchOutcome::ongoing;
     bool paused = false;
     WindowGeometry windowed_geometry{};
     SDL_GetWindowPosition(

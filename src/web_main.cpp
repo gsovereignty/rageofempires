@@ -39,6 +39,7 @@ int main() {
     setenv("AOE_MAIN_MENU", "0", true);
     setenv("AOE_FOG", "0", true);
     setenv("AOE_DISABLE_LEGACY_ASSETS", "1", true);
+    setenv("AOE_RENDER_FALLBACK_REPORT", "/user/fallback-report.json", true);
     try {
         application.initialize();
         emscripten_set_main_loop(browser_frame, 0, false);

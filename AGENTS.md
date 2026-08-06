@@ -35,10 +35,15 @@ preserve and exclude unrelated user or agent changes. If no tracked files
 changed, or a commit is genuinely impossible, report that explicitly instead
 of creating an empty or mixed commit.
 
-Before every completion commit, run `make` from this repository root and
-require it to finish without build errors. Fix in-scope failures before
-committing. If `make` fails because of unrelated existing work that must not be
-changed, do not commit; report the exact blocker and preserve that work.
+Before every completion commit containing game-code changes, run `make` from
+this repository root and require it to finish without build errors. Fix
+in-scope failures before committing. If `make` fails because of unrelated
+existing work that must not be changed, do not commit; report the exact blocker
+and preserve that work.
+
+Never compile the game or run tests unless game code changed. If only
+documentation or other non-code files changed, do not run `make`, invoke a
+compiler, or run any test suite or test command.
 
 ## Bug root-cause evidence
 

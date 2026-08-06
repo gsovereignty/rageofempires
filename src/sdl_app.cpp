@@ -16742,7 +16742,8 @@ ApplicationLoop SdlApp::loop() {
     }
     auto audio = AudioSystem::start_from_environment();
     const std::filesystem::path user_data = user_data_directory();
-    active_settings_path = user_data / "reconstruction-settings.txt";
+    active_settings_path =
+        user_settings_directory() / "reconstruction-settings.txt";
     const SettingsLoadResult loaded_settings =
         load_settings(active_settings_path);
     if (loaded_settings.status == SettingsLoadStatus::current ||
@@ -16987,7 +16988,12 @@ ApplicationLoop SdlApp::loop() {
     };
     double gameplay_benchmark_command_ms{};
     std::size_t gameplay_benchmark_commanded_units{};
-    Simulation simulation = new_game();
+    const std::optional<std::filesystem::path> startup_autosave =
+        startup_autosave_path();
+    Simulation simulation =
+        startup_autosave && std::filesystem::is_regular_file(*startup_autosave)
+        ? load_presentable_game(*startup_autosave)
+        : new_game();
     // Deterministic screenshot-only construction checkpoint. Normal launches
     // never mutate scenario placements through this opt-in audit hook.
     if (const char* requested = SDL_getenv("AOE_CONSTRUCTION_AUDIT_PERCENT");
@@ -17844,8 +17850,9 @@ ApplicationLoop SdlApp::loop() {
         active_statistics_tab = StatisticsTab::economy;
         active_frontend_screen = FrontendScreen::hidden;
     }
-    const std::filesystem::path save_path =
-        user_data / "archaeology-save.txt";
+    const std::filesystem::path save_path = startup_autosave.value_or(
+        user_data / "archaeology-save.txt"
+    );
     const std::filesystem::path replay_path =
         user_data / "archaeology-replay.txt";
     const std::filesystem::path multiplayer_checkpoint_save =
@@ -18770,9 +18777,27 @@ ApplicationLoop SdlApp::loop() {
         );
     }
 
+    PersistenceSyncStatus observed_persistence_status =
+        persistence_sync_status();
     co_yield false;
     while (running && !stop_requested_) {
         const auto frame_started = std::chrono::steady_clock::now();
+        const PersistenceSyncStatus current_persistence_status =
+            persistence_sync_status();
+        if (current_persistence_status != observed_persistence_status) {
+            observed_persistence_status = current_persistence_status;
+            if (current_persistence_status ==
+                    PersistenceSyncStatus::succeeded) {
+                control_group_status = "AUTOSAVE SYNCHRONIZED";
+                if (active_options_visible) {
+                    active_options_status = "SETTINGS SYNCHRONIZED";
+                }
+            } else if (current_persistence_status ==
+                       PersistenceSyncStatus::failed) {
+                control_group_status = "AUTOSAVE SYNC FAILED";
+                active_options_status = "STORAGE SYNC FAILED";
+            }
+        }
         if (gameplay_test_api) {
             gameplay_test_api->poll(
                 simulation,
@@ -19749,6 +19774,8 @@ ApplicationLoop SdlApp::loop() {
                                     error
                                 )) {
                                 SDL_Log("cannot persist minimap mode: %s", error.c_str());
+                            } else {
+                                request_persistence_sync();
                             }
                         } else {
                             active_minimap_statistics =
@@ -20727,6 +20754,8 @@ ApplicationLoop SdlApp::loop() {
                             active_settings, active_settings_path, error
                         )) {
                         SDL_Log("cannot persist minimap mode: %s", error.c_str());
+                    } else {
+                        request_persistence_sync();
                     }
                     continue;
                 }
@@ -21008,13 +21037,18 @@ ApplicationLoop SdlApp::loop() {
                     } else if (event.key.key == SDLK_S) {
                         if (apply_options()) {
                             std::string error;
-                            active_options_status = save_settings_atomic(
-                                active_settings,
-                                active_settings_path,
-                                error
-                            ) ? "SAVED ATOMICALLY: " +
-                                    active_settings_path.string()
-                              : "SAVE FAILED: " + error;
+                            if (save_settings_atomic(
+                                    active_settings,
+                                    active_settings_path,
+                                    error
+                                )) {
+                                request_persistence_sync();
+                                active_options_status =
+                                    "SAVED; STORAGE SYNCHRONIZING";
+                            } else {
+                                active_options_status =
+                                    "SAVE FAILED: " + error;
+                            }
                         }
                     }
                     continue;
@@ -23078,6 +23112,8 @@ ApplicationLoop SdlApp::loop() {
                 if (!event.key.repeat && event.key.key ==
                         static_cast<SDL_Keycode>(active_settings.hotkeys[1])) {
                     save_game(simulation, save_path);
+                    request_persistence_sync();
+                    control_group_status = "AUTOSAVE SYNCHRONIZING";
                     continue;
                 }
                 switch (event.key.key) {
@@ -24606,6 +24642,11 @@ ApplicationLoop SdlApp::loop() {
         if (!outcome_statistics_seen &&
             simulation.outcome() != MatchOutcome::ongoing) {
             outcome_statistics_seen = true;
+            if (startup_autosave) {
+                save_game(simulation, save_path);
+                request_persistence_sync();
+                control_group_status = "AUTOSAVE SYNCHRONIZING";
+            }
             active_statistics_visible = true;
             active_statistics_postgame = true;
             active_statistics_tab = StatisticsTab::economy;

@@ -40,6 +40,27 @@ require it to finish without build errors. Fix in-scope failures before
 committing. If `make` fails because of unrelated existing work that must not be
 changed, do not commit; report the exact blocker and preserve that work.
 
+## Production-fix completion gate
+
+Never classify, describe, count, or report a bug as fixed until all of these
+conditions are proved:
+
+1. The defect is corrected in implementation.
+2. The correction is wired into the real production execution path used by
+   the affected user workflow.
+3. The correction is included in the production build, package, or deployment
+   artifact that users run.
+4. The original failure is reproduced through that production path before the
+   correction and is no longer reproducible through the same path afterward.
+5. Relevant regression checks and the repository's required `make` gate pass.
+
+Unit tests, mocks, debug paths, audit switches, environment-variable overrides,
+fallbacks, feature flags, isolated harnesses, source-only changes, successful
+compilation, and unshipped artifacts do not independently prove a production
+fix. If any condition above is missing, report the work as partial or unverified
+and keep the bug open. Never substitute "implemented," "ready to deploy," or
+"works in tests" for "fixed."
+
 ## Reconstruction repository structure
 
 ```text

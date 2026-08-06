@@ -301,33 +301,42 @@ class Journey:
         self.canvas().send_keys(value)
 
     def freeze(self, seconds: float, name: str) -> None:
-        if not hasattr(self.driver, "execute_cdp_cmd"):
-            self.evidence.setdefault("suspension", {})[name] = "unsupported"
-            return
         before = self.telemetry()
-        self.driver.execute_cdp_cmd(
-            "Page.setWebLifecycleState", {"state": "frozen"}
-        )
-        time.sleep(seconds)
-        resume_started = time.monotonic()
-        self.driver.execute_cdp_cmd(
-            "Page.setWebLifecycleState", {"state": "active"}
-        )
+        if hasattr(self.driver, "execute_cdp_cmd"):
+            self.driver.execute_cdp_cmd(
+                "Page.setWebLifecycleState", {"state": "frozen"}
+            )
+            time.sleep(seconds)
+            resume_started = time.monotonic()
+            self.driver.execute_cdp_cmd(
+                "Page.setWebLifecycleState", {"state": "active"}
+            )
+        else:
+            original = self.driver.current_window_handle
+            self.driver.switch_to.new_window("tab")
+            try:
+                time.sleep(seconds)
+            finally:
+                self.driver.close()
+                self.driver.switch_to.window(original)
+            resume_started = time.monotonic()
+        resumed = self.telemetry()
         deadline = time.monotonic() + MAXIMUM_RESUME_SECONDS
-        after = before
+        after = resumed
         while time.monotonic() < deadline:
-            time.sleep(0.25)
+            time.sleep(0.01)
             after = self.telemetry()
-            if int(after["tick"]) > int(before["tick"]):
+            if int(after["tick"]) > int(resumed["tick"]):
                 break
         else:
             raise Failure(f"timed out waiting for {name} resume")
         result = {
             "before_tick": before["tick"],
+            "resume_tick": resumed["tick"],
             "after_tick": after["tick"],
             "resume_seconds": time.monotonic() - resume_started,
         }
-        if int(after["tick"]) - int(before["tick"]) > 4:
+        if int(after["tick"]) - int(resumed["tick"]) > 4:
             raise Failure(f"giant simulation catch-up after {name}: {result}")
         self.evidence.setdefault("suspension", {})[name] = result
 
@@ -425,6 +434,13 @@ class Journey:
 
     def assert_audio(self, require_effect: bool = False) -> None:
         audio = self.script("return Module.browserAudioTelemetry")
+        streaming = self.script(
+            "return Module.audioState && "
+            "Module.audioState.music instanceof HTMLMediaElement && "
+            "Module.audioState.music.preload === 'metadata'"
+        )
+        if not streaming:
+            raise Failure("music is not using metadata-only media streaming")
         if audio["errors"]:
             raise Failure(f"browser audio errors: {audio['errors']}")
         if int(audio["liveMusicInstances"]) != 1:

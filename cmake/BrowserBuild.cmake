@@ -1,5 +1,7 @@
 set(AOE_WEB_DIST_DIR "${CMAKE_BINARY_DIR}/dist")
 set(AOE_WEB_ASSET_DIR "${CMAKE_BINARY_DIR}/web-assets")
+set(AOE_BROWSER_TEST_PYTHON "python3" CACHE STRING
+    "Host Python command with Selenium for browser acceptance")
 
 set(AOE_WEB_CORE_SOURCES ${AOE_CORE_SOURCES})
 list(REMOVE_ITEM AOE_WEB_CORE_SOURCES
@@ -93,6 +95,19 @@ add_custom_command(TARGET aoe_web POST_BUILD
 add_custom_target(web_risk_spike
     COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/test_build_web_asset_pack.py"
+    COMMAND "${AOE_BROWSER_TEST_PYTHON}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/web/browser_risk_spike_test.py"
+        --browser chrome
+        --evidence "${CMAKE_CURRENT_SOURCE_DIR}/artifacts/browser-risk-spike/evidence-chrome.json"
+    COMMAND "${AOE_BROWSER_TEST_PYTHON}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/web/browser_risk_spike_test.py"
+        --browser chrome
+        --display-matrix
+    COMMAND "${AOE_BROWSER_TEST_PYTHON}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/web/browser_risk_spike_test.py"
+        --browser chrome
+        --persistence-checks
     DEPENDS aoe_web
+    USES_TERMINAL
     VERBATIM
 )

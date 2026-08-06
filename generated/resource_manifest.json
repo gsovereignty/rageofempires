@@ -175,7 +175,7 @@
     {
       "path": "resources/fortified-wall-render-audit.scenario",
       "size": 479,
-      "sha256": "166369202e14369b84bb82afaf1960b069d32408d30ea8f6ff7dfb89e899daed"
+      "sha256": "ea752495de955daaaaa66857ad12d1fb3cb706dd1e7d493ba3f4e73a0c3deec9"
     },
     {
       "path": "resources/foundations.scenario",
@@ -185,7 +185,7 @@
     {
       "path": "resources/guard-tower-render-audit.scenario",
       "size": 413,
-      "sha256": "abe9796b2f673f02b2d28e434434d65e41bf4faec8e3986d690cfffca7361fae"
+      "sha256": "7527963c68fbd9735c7ad9dc7c943b60868aa82361cec3787f1bd1b79d72cfaf"
     },
     {
       "path": "resources/horse-collar-render-audit.scenario",
@@ -215,7 +215,7 @@
     {
       "path": "resources/keep-render-audit.scenario",
       "size": 461,
-      "sha256": "cc82c6a132571df45da677591a9e90d4730da7ccded529a8ed90c988081c560d"
+      "sha256": "200a25e2de854ab2bb8f007aec47fe1ab9a03cf36ae732ec7825392598f30925"
     },
     {
       "path": "resources/leather-archer-armor-render-audit.scenario",
@@ -236,6 +236,11 @@
       "path": "resources/market-exchange-audit.scenario",
       "size": 330,
       "sha256": "6c7418cdbf10118416144cb567819d18eb5af6119a3cbd06c493820ac8551df3"
+    },
+    {
+      "path": "resources/market-standing-regression.scenario",
+      "size": 270,
+      "sha256": "c1091d7eb1f4c7fc7262d5a5c33b5da0f5721001e5c1cd58861b3f565fefcc57"
     },
     {
       "path": "resources/monk-conversion-audit.scenario",
@@ -261,6 +266,11 @@
       "path": "resources/naval-fishing-audit.scenario",
       "size": 691,
       "sha256": "9fd38591e0ddb6f27a6ca5bb030405d4b8b481efcaeac2d68da643a9c6bafa3c"
+    },
+    {
+      "path": "resources/naval-selection-portrait-regression.scenario",
+      "size": 521,
+      "sha256": "ae8ea7aa585d9169eacbc3ed9312182df6f0449f163a3084c1f93fb143eb2fc7"
     },
     {
       "path": "resources/padded-archer-armor-render-audit.scenario",
@@ -323,6 +333,16 @@
       "sha256": "3e5f8f34e571fe1c9b3d0236131182a132ce9dfac679ad6c09dfb0de3378c773"
     },
     {
+      "path": "resources/tower-damage-state-audit.scenario",
+      "size": 306,
+      "sha256": "000a2293099ee712abf4652a3b3f5cc046da68abca21718715460d9e13467f17"
+    },
+    {
+      "path": "resources/trade-cart-selection-regression.scenario",
+      "size": 320,
+      "sha256": "1639a34a41c89e5714db71ffba3ee97e6a887a3867a2840f31582ff77221fdd8"
+    },
+    {
       "path": "resources/two-handed-swordsman-render-audit.scenario",
       "size": 663,
       "sha256": "a3de564f6897ef7626f73c7b93de3ec84f70b1b5e45a24e0f45337f87c0f09e9"
@@ -346,6 +366,11 @@
       "path": "resources/visual-audit.scenario",
       "size": 1972,
       "sha256": "7a04f35a97495c19b7e7acff3e610f5b6939bfc01081cf3a4d80c7d0a9061ea2"
+    },
+    {
+      "path": "resources/wall-damage-state-audit.scenario",
+      "size": 560,
+      "sha256": "d6ef3919e195d7d523c49cb393658b41063d2f7ce42cf04ca0069d5b457187d7"
     },
     {
       "path": "resources/water-render-audit.scenario",

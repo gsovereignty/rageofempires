@@ -44,7 +44,11 @@ std::optional<Binding> training_unit(UnitKind kind) {
     case UnitKind::trade_cart: return ordinary_unit(34);
     case UnitKind::king: return ordinary_unit(48);
     case UnitKind::fishing_ship: return ordinary_unit(24);
+    // Galley upgrades are distinct runtime kinds and retain distinct DAT
+    // +0x54 interface frames rather than inheriting base Galley artwork.
     case UnitKind::galley: return ordinary_unit(87);
+    case UnitKind::war_galley: return ordinary_unit(25);
+    case UnitKind::galleon: return ordinary_unit(60);
     case UnitKind::transport_ship: return ordinary_unit(95);
     case UnitKind::woad_raider:
     case UnitKind::elite_woad_raider:

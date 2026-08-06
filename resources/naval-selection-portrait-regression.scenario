@@ -1,0 +1,16 @@
+# Production-path selection portrait regression for complete Galley line and
+# Transport Ship.
+AOE-ARCHAEOLOGY-SCENARIO 33
+map 16 10
+economy blue 500 500 500 500
+economy red 500 500 500 500
+age blue imperial
+age red imperial
+civilization blue generic
+civilization red generic
+terrain_rect water 0 0 15 9
+unit galley blue 3 5 stance stand_ground
+unit war_galley blue 6 5 stance stand_ground
+unit galleon blue 9 5 stance stand_ground
+unit transport_ship blue 12 5 stance passive
+unit transport_ship red 15 9 stance passive

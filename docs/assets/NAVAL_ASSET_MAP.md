@@ -29,9 +29,10 @@ The live effect commands prove `539 -> 21` in effect 155 and both
 
 Button-picture indices are Dock 13, Galley 87, War Galley 25, Galleon 60, and
 Transport Ship 95. These values are interface-atlas indices, not DRS resource
-IDs. No table in the current parser proves their atlas SLP/frame mapping, so
-icon archive availability remains unresolved rather than treating these
-numbers as SLP IDs.
+IDs. Decompiled `FUN_005c7560` passes ordinary-unit record `+0x54` unchanged
+to the icon draw path, while executable setup binds `ico_unit.shp` to
+interface resource 50730. Their exact portrait dispatch is therefore
+`50730:87`, `50730:25`, `50730:60`, and `50730:95`, respectively.
 
 ## Root graphics
 

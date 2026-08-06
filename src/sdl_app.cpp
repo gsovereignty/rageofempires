@@ -17770,7 +17770,10 @@ int SdlApp::run() {
     if (const char* panel = SDL_getenv("AOE_COMMAND_PANEL")) {
         const std::string_view panel_name{panel};
         if (panel_name == "unit" || panel_name == "villager" ||
-            panel_name == "scout" || panel_name == "trade_cart") {
+            panel_name == "scout" || panel_name == "trade_cart" ||
+            panel_name == "galley" || panel_name == "war_galley" ||
+            panel_name == "galleon" ||
+            panel_name == "transport_ship") {
             const auto unit = std::ranges::find_if(
                 simulation.units(),
                 [panel_name](const Unit& candidate) {
@@ -17781,7 +17784,15 @@ int SdlApp::run() {
                         (panel_name == "scout" &&
                          candidate.kind == UnitKind::scout_cavalry) ||
                         (panel_name == "trade_cart" &&
-                         candidate.kind == UnitKind::trade_cart);
+                         candidate.kind == UnitKind::trade_cart) ||
+                        (panel_name == "galley" &&
+                         candidate.kind == UnitKind::galley) ||
+                        (panel_name == "war_galley" &&
+                         candidate.kind == UnitKind::war_galley) ||
+                        (panel_name == "galleon" &&
+                         candidate.kind == UnitKind::galleon) ||
+                        (panel_name == "transport_ship" &&
+                         candidate.kind == UnitKind::transport_ship);
                     return candidate.owner == active_view_player &&
                         requested_kind;
                 }

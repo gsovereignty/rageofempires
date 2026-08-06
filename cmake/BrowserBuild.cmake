@@ -29,6 +29,7 @@ add_executable(aoe_web
     "${CMAKE_CURRENT_SOURCE_DIR}/src/sdl_app.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/application_loop.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/runtime_paths_web.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/browser_telemetry_web.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/audio_system_web.cpp"
 )
 target_include_directories(

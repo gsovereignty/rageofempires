@@ -33,6 +33,7 @@
 #include "aoe/campaign.hpp"
 #include "aoe/building_placement.hpp"
 #include "aoe/building_damage.hpp"
+#include "aoe/browser_telemetry.hpp"
 #include "aoe/command_panel.hpp"
 #include "aoe/cursor_contract.hpp"
 #include "aoe/elevation_render.hpp"
@@ -24758,6 +24759,25 @@ ApplicationLoop SdlApp::loop() {
                 running = false;
             }
         }
+        const Economy& browser_economy = simulation.economy(Player::blue);
+        publish_browser_telemetry({
+            simulation.tick_number(),
+            simulation.selected_unit().value_or(0),
+            simulation.selected_building().value_or(0),
+            browser_economy.wood,
+            browser_economy.food,
+            browser_economy.gold,
+            browser_economy.stone,
+            static_cast<int>(simulation.outcome()),
+            view_pixel_width,
+            logical_screen_height,
+            camera.x,
+            camera.y,
+            camera.zoom,
+            simulation.units().size(),
+            simulation.buildings().size(),
+            runtime_fallback_telemetry().events().size(),
+        });
         co_yield !gameplay_benchmark;
     }
 

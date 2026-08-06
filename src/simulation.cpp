@@ -1,4 +1,5 @@
 #include "aoe/simulation.hpp"
+#include "aoe/animation_contract.hpp"
 #include "aoe/frontend_audio.hpp"
 
 #include <algorithm>
@@ -3542,6 +3543,14 @@ bool Simulation::command_unit(
     if (unit->garrisoned_in != 0) {
         return false;
     }
+    // A new explicit order replaces any unreleased attack action. An attack
+    // that never reached its release frame has not consumed its reload.
+    if (unit->attack_release_ticks_remaining > 0) {
+        unit->attack_cooldown = 0;
+    }
+    unit->attack_release_ticks_remaining = 0;
+    unit->attack_release_action_key = 0;
+    unit->attack_animation_started = false;
     if (gather_trace_enabled() && unit->kind == UnitKind::villager) {
         std::cerr << "GATHER_COMMAND tick=" << tick_number_
                   << " id=" << unit->id
@@ -3807,6 +3816,12 @@ bool Simulation::command_attack_move(
     }
     unit->attack_target_id = 0;
     unit->attack_target_is_building = false;
+    if (unit->attack_release_ticks_remaining > 0) {
+        unit->attack_cooldown = 0;
+    }
+    unit->attack_release_ticks_remaining = 0;
+    unit->attack_release_action_key = 0;
+    unit->attack_animation_started = false;
     unit->attack_target_auto = false;
     unit->repair_target_id = 0;
     unit->repair_wood_remainder = 0;
@@ -4671,6 +4686,12 @@ bool Simulation::restore_garrison(
     unit->next_path_step = 0;
     unit->attack_target_id = 0;
     unit->attack_target_is_building = false;
+    if (unit->attack_release_ticks_remaining > 0) {
+        unit->attack_cooldown = 0;
+    }
+    unit->attack_release_ticks_remaining = 0;
+    unit->attack_release_action_key = 0;
+    unit->attack_animation_started = false;
     unit->attack_target_auto = false;
     unit->repair_target_id = 0;
     unit->has_resource_target = false;
@@ -5160,6 +5181,12 @@ bool Simulation::stop_unit(EntityId unit_id) {
     unit->movement_cooldown = 0;
     unit->attack_target_id = 0;
     unit->attack_target_is_building = false;
+    if (unit->attack_release_ticks_remaining > 0) {
+        unit->attack_cooldown = 0;
+    }
+    unit->attack_release_ticks_remaining = 0;
+    unit->attack_release_action_key = 0;
+    unit->attack_animation_started = false;
     unit->repair_target_id = 0;
     unit->repair_wood_remainder = 0;
     unit->repair_stone_remainder = 0;
@@ -7436,6 +7463,72 @@ void Simulation::update() {
         if (unit.attack_cooldown > 0) {
             --unit.attack_cooldown;
         }
+        if (unit.attack_cooldown == 0 &&
+            unit.attack_release_ticks_remaining == 0) {
+            unit.attack_animation_started = false;
+        }
+        bool attack_release_due{};
+        if (unit.attack_release_ticks_remaining > 0) {
+            --unit.attack_release_ticks_remaining;
+            attack_release_due =
+                unit.attack_release_ticks_remaining == 0;
+        }
+        const auto cancel_attack_animation = [&] {
+            if (attack_release_due ||
+                unit.attack_release_ticks_remaining > 0) {
+                unit.attack_cooldown = 0;
+            }
+            unit.attack_release_ticks_remaining = 0;
+            unit.attack_release_action_key = 0;
+            unit.attack_animation_started = false;
+            attack_release_due = false;
+        };
+        const auto entity_attack_action_key = [](
+            EntityId id, bool building
+        ) {
+            return (static_cast<std::uint64_t>(id) << 2U) |
+                (building ? 2U : 1U);
+        };
+        const auto ground_attack_action_key = [](TilePosition position) {
+            return (std::uint64_t{1} << 63U) |
+                (static_cast<std::uint64_t>(
+                     static_cast<std::uint32_t>(position.x)
+                 ) << 32U) |
+                static_cast<std::uint32_t>(position.y);
+        };
+        const auto release_attack_when_due = [&, this](
+            std::uint64_t action_key,
+            auto&& release
+        ) {
+            if ((attack_release_due ||
+                 unit.attack_release_ticks_remaining > 0) &&
+                unit.attack_release_action_key != action_key) {
+                cancel_attack_animation();
+            }
+            if (attack_release_due) {
+                release();
+                unit.attack_release_action_key = 0;
+                return;
+            }
+            if (unit.attack_release_ticks_remaining > 0 ||
+                unit.attack_cooldown != 0) {
+                return;
+            }
+            const int delay = unit.commercial_identity
+                ? animation::attack_release_delay_ticks_for_dat_id(
+                      unit.commercial_identity->object_id
+                  )
+                : animation::attack_release_delay_ticks(unit.kind);
+            unit.attack_cooldown = effective_attack_interval(unit);
+            unit.attack_release_ticks_remaining = delay;
+            unit.attack_animation_start_tick = tick_number_;
+            unit.attack_release_action_key = action_key;
+            unit.attack_animation_started = true;
+            if (delay == 0) {
+                release();
+                unit.attack_release_action_key = 0;
+            }
+        };
         if (unit.conversion_cooldown > 0) {
             --unit.conversion_cooldown;
         }
@@ -7632,6 +7725,7 @@ void Simulation::update() {
                 effective_minimum_attack_range(unit);
             if (distance_squared <=
                 minimum_range * minimum_range) {
+                cancel_attack_animation();
                 unit.attacking_ground = false;
                 unit.attack_ground_target = {-1, -1};
                 unit.moving = false;
@@ -7643,21 +7737,23 @@ void Simulation::update() {
                 unit.moving = false;
                 unit.path.clear();
                 unit.next_path_step = 0;
-                if (unit.attack_cooldown == 0) {
-                    launch_ground_projectile(
-                        unit,
-                        unit.attack_ground_target
-                    );
-                    unit.attack_cooldown =
-                        effective_attack_interval(unit);
-                    unit.attacking_ground = false;
-                    unit.attack_ground_target = {-1, -1};
-                }
+                release_attack_when_due(
+                    ground_attack_action_key(unit.attack_ground_target),
+                    [&] {
+                        launch_ground_projectile(
+                            unit,
+                            unit.attack_ground_target
+                        );
+                        unit.attacking_ground = false;
+                        unit.attack_ground_target = {-1, -1};
+                    }
+                );
                 continue;
             } else if (
                 unit.destination != unit.attack_ground_target ||
                 !unit.moving
             ) {
+                cancel_attack_animation();
                 if (!route_unit(unit, unit.attack_ground_target)) {
                     unit.attacking_ground = false;
                     unit.attack_ground_target = {-1, -1};
@@ -7850,6 +7946,7 @@ void Simulation::update() {
                 (!unit.attack_target_auto ||
                  is_building_visible(unit.owner, *ordered_building));
             if (!valid_unit && !valid_building) {
+                cancel_attack_animation();
                 const bool return_to_anchor =
                     unit.attack_target_auto &&
                     unit.stance == UnitStance::defensive &&
@@ -7895,6 +7992,7 @@ void Simulation::update() {
                     !unit.attack_moving &&
                     unit.guard_target_id == 0 &&
                     anchor_distance > 6) {
+                    cancel_attack_animation();
                     unit.attack_target_id = 0;
                     unit.attack_target_is_building = false;
                     unit.attack_target_auto = false;
@@ -7906,39 +8004,64 @@ void Simulation::update() {
                 if (unit.attack_target_auto &&
                     unit.stance == UnitStance::stand_ground &&
                     distance_squared > attack_range_squared) {
+                    cancel_attack_animation();
                     unit.attack_target_id = 0;
                     unit.attack_target_is_building = false;
                     unit.attack_target_auto = false;
                     unit.moving = false;
                     continue;
                 }
+                const std::uint64_t ordered_action_key =
+                    entity_attack_action_key(
+                        unit.attack_target_id,
+                        unit.attack_target_is_building
+                    );
+                const auto release_ordered_attack = [&] {
+                    if (valid_unit) {
+                        if (effective_attack_range(unit) > 1) {
+                            launch_projectile(unit, *ordered_unit);
+                        } else {
+                            perform_attack(unit, *ordered_unit);
+                        }
+                    } else if (effective_attack_range(unit) > 1) {
+                        launch_projectile(unit, *ordered_building);
+                    } else {
+                        perform_attack(unit, *ordered_building);
+                    }
+                };
+                const bool advancing_matching_attack =
+                    (attack_release_due ||
+                     unit.attack_release_ticks_remaining > 0) &&
+                    unit.attack_release_action_key == ordered_action_key;
+                if (advancing_matching_attack) {
+                    // Once an attack action starts, target movement does not
+                    // cancel its bound release frame.
+                    release_attack_when_due(
+                        ordered_action_key, release_ordered_attack
+                    );
+                    unit.moving = false;
+                    unit.path.clear();
+                    unit.next_path_step = 0;
+                    continue;
+                }
                 if (distance_squared > minimum_range_squared &&
                     distance_squared <= attack_range_squared) {
-                    if (unit.attack_cooldown == 0) {
-                        if (valid_unit) {
-                            if (effective_attack_range(unit) > 1) {
-                                launch_projectile(unit, *ordered_unit);
-                            } else {
-                                perform_attack(unit, *ordered_unit);
-                            }
-                        } else if (effective_attack_range(unit) > 1) {
-                            launch_projectile(unit, *ordered_building);
-                        } else {
-                            perform_attack(unit, *ordered_building);
-                        }
-                        unit.attack_cooldown =
-                            effective_attack_interval(unit);
-                    }
-                    unit.moving =
-                        valid_unit
-                            ? ordered_unit->hit_points > 0
-                            : ordered_building->hit_points > 0;
+                    release_attack_when_due(
+                        ordered_action_key, release_ordered_attack
+                    );
+                    // The original attack action holds its current position
+                    // while the graphic advances to the release frame.
+                    unit.moving = false;
+                    unit.path.clear();
+                    unit.next_path_step = 0;
                     continue;
                 }
                 if (distance_squared <= minimum_range_squared) {
+                    cancel_attack_animation();
                     unit.moving = false;
                     continue;
                 }
+                cancel_attack_animation();
                 if (unit.destination != target_position || !unit.moving) {
                     if (!route_unit(unit, target_position)) {
                         unit.attack_target_id = 0;
@@ -8202,16 +8325,19 @@ void Simulation::update() {
                 std::abs(target->position.x - unit.position.x) +
                 std::abs(target->position.y - unit.position.y);
             if (distance <= effective_attack_range(unit)) {
-                if (unit.attack_cooldown == 0) {
-                    if (effective_attack_range(unit) > 1) {
-                        launch_projectile(unit, *target);
-                    } else {
-                        perform_attack(unit, *target);
+                release_attack_when_due(
+                    entity_attack_action_key(target->id, false),
+                    [&] {
+                        if (effective_attack_range(unit) > 1) {
+                            launch_projectile(unit, *target);
+                        } else {
+                            perform_attack(unit, *target);
+                        }
                     }
-                    unit.attack_cooldown =
-                        effective_attack_interval(unit);
-                }
-                unit.moving = target->hit_points > 0;
+                );
+                unit.moving = false;
+                unit.path.clear();
+                unit.next_path_step = 0;
                 continue;
             }
         }
@@ -8221,16 +8347,19 @@ void Simulation::update() {
             const int distance =
                 distance_to_building(unit.position, *building_target);
             if (distance <= effective_attack_range(unit)) {
-                if (unit.attack_cooldown == 0) {
-                    if (effective_attack_range(unit) > 1) {
-                        launch_projectile(unit, *building_target);
-                    } else {
-                        perform_attack(unit, *building_target);
+                release_attack_when_due(
+                    entity_attack_action_key(building_target->id, true),
+                    [&] {
+                        if (effective_attack_range(unit) > 1) {
+                            launch_projectile(unit, *building_target);
+                        } else {
+                            perform_attack(unit, *building_target);
+                        }
                     }
-                    unit.attack_cooldown =
-                        effective_attack_interval(unit);
-                }
-                unit.moving = building_target->hit_points > 0;
+                );
+                unit.moving = false;
+                unit.path.clear();
+                unit.next_path_step = 0;
                 continue;
             }
         }
@@ -8693,6 +8822,43 @@ void Simulation::update() {
         selected_building_.reset();
     }
     update_production();
+
+    const auto animation_state_for = [this](const Unit& unit) {
+        if (unit.trebuchet_transform_ticks_remaining > 0) {
+            return std::uint8_t{9};
+        }
+        if (unit.carrying_relic) return std::uint8_t{10};
+        if (unit.conversion_target_id != 0) return std::uint8_t{7};
+        if (unit.healing_target_id != 0) return std::uint8_t{8};
+        if (unit.attack_animation_started ||
+            unit.attack_release_ticks_remaining > 0) {
+            return std::uint8_t{3};
+        }
+        if (unit.resource_unit_id != 0 || unit.has_resource_target) {
+            return std::uint8_t{4};
+        }
+        const bool constructing = std::ranges::any_of(
+            buildings_, [&unit](const Building& building) {
+                return std::ranges::find(
+                    building.builder_ids, unit.id
+                ) != building.builder_ids.end();
+            }
+        );
+        if (constructing) return std::uint8_t{6};
+        if (unit.repair_target_id != 0 ||
+            unit.resource_building_id != 0) {
+            return std::uint8_t{5};
+        }
+        if (unit.moving) return std::uint8_t{2};
+        return std::uint8_t{1};
+    };
+    for (Unit& unit : units_) {
+        const std::uint8_t state = animation_state_for(unit);
+        if (unit.animation_state != state) {
+            unit.animation_state = state;
+            unit.animation_state_start_tick = tick_number_;
+        }
+    }
 
     const auto emit_direct = [this](EntityId id, EntityOwner owner,
                                     TilePosition position, int sound) {

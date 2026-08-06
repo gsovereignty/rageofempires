@@ -41,4 +41,11 @@ private:
     std::uint64_t unit_id
 );
 
+// The original animated-object path consumes world delta, so animation time
+// follows authoritative five-Hz world updates rather than wall-clock cadence.
+[[nodiscard]] std::uint64_t simulation_animation_time_milliseconds(
+    std::uint64_t completed_ticks,
+    float interpolation_alpha
+);
+
 }  // namespace aoe

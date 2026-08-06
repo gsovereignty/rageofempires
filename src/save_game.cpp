@@ -806,7 +806,13 @@ void save_game(const Simulation& simulation, const std::filesystem::path& path) 
         output << ' ' << unit.relic_target_id
                << ' ' << unit.relic_deposit_target_id
                << ' ' << unit.food_decay_remainder
-               << ' ' << unit.unconvertible;
+               << ' ' << unit.unconvertible
+               << ' ' << unit.attack_release_ticks_remaining
+               << ' ' << unit.attack_animation_start_tick
+               << ' ' << unit.attack_release_action_key
+               << ' ' << unit.attack_animation_started
+               << ' ' << unit.animation_state_start_tick
+               << ' ' << static_cast<unsigned>(unit.animation_state);
         output << '\n';
     }
     for (const Building& building : simulation.buildings()) {
@@ -1979,6 +1985,27 @@ Simulation load_game(const std::filesystem::path& path) {
             }
             if (version >= 117) {
                 input >> unit.unconvertible;
+            }
+            if (version >= 129) {
+                input >> unit.attack_release_ticks_remaining >>
+                    unit.attack_animation_start_tick >>
+                    unit.attack_release_action_key >>
+                    unit.attack_animation_started >>
+                    unit.animation_state_start_tick;
+                unsigned animation_state{};
+                input >> animation_state;
+                if (animation_state == 0 || animation_state > 10) {
+                    throw std::runtime_error(
+                        "invalid animation state in save"
+                    );
+                }
+                unit.animation_state =
+                    static_cast<std::uint8_t>(animation_state);
+                if (unit.attack_release_ticks_remaining < 0) {
+                    throw std::runtime_error(
+                        "invalid attack release delay in save"
+                    );
+                }
             }
             }
             unit.kind =

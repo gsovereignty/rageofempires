@@ -683,6 +683,12 @@ struct Unit {
     int hit_points{25};
     int attack{3};
     int attack_cooldown{};
+    int attack_release_ticks_remaining{};
+    std::uint64_t attack_animation_start_tick{};
+    std::uint64_t attack_release_action_key{};
+    bool attack_animation_started{};
+    std::uint64_t animation_state_start_tick{};
+    std::uint8_t animation_state{1};
     int movement_cooldown{};
     int movement_speed_remainder{};
     int formation_move_interval{};

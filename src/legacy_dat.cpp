@@ -222,7 +222,7 @@ LegacyDatFile LegacyDatFile::from_decompressed(
         graphic.speed_adjust = reader.f32();
         graphic.frame_rate = reader.f32();
         graphic.replay_delay = reader.f32();
-        reader.skip(1);
+        graphic.sequence_type = reader.u8();
         graphic.graphic_id = reader.i16();
         graphic.mirroring_mode = reader.u8();
         reader.skip(1);

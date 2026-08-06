@@ -496,6 +496,11 @@ struct LegacyAnimation {
     int shadow_display_angle{-1};
     int shadow_offset_x{};
     int shadow_offset_y{};
+    float speed_adjust{};
+    float frame_rate{};
+    float replay_delay{};
+    std::uint8_t sequence_type{};
+    bool graphic_timing_proved{};
 
     void destroy() {
         for (LegacySprite& frame : frames) {
@@ -592,8 +597,10 @@ struct LegacyAnimatedCompositePart {
     int offset_y{};
     int angle_count{1};
     int display_angle{-1};
+    float speed_adjust{};
     float frame_rate{};
     float replay_delay{};
+    std::uint8_t sequence_type{};
 };
 
 struct LegacyAnimatedComposite {
@@ -3511,12 +3518,23 @@ LegacyAnimation create_legacy_animation(
     std::int32_t resource_id,
     std::size_t frames_per_angle,
     unsigned player,
-    const std::optional<ExactShadowBinding>& shadow = std::nullopt
+    const std::optional<ExactShadowBinding>& shadow = std::nullopt,
+    const LegacyGraphic* timing_graphic = nullptr
 ) {
     const std::vector<std::byte> bytes = graphics.read("slp", resource_id);
     const std::size_t count = slp_frame_count(bytes);
     LegacyAnimation animation;
     animation.frames_per_angle = frames_per_angle;
+    if (timing_graphic != nullptr &&
+        timing_graphic->frame_count > 0 &&
+        static_cast<std::size_t>(timing_graphic->frame_count) ==
+            frames_per_angle) {
+        animation.speed_adjust = timing_graphic->speed_adjust;
+        animation.frame_rate = timing_graphic->frame_rate;
+        animation.replay_delay = timing_graphic->replay_delay;
+        animation.sequence_type = timing_graphic->sequence_type;
+        animation.graphic_timing_proved = true;
+    }
     animation.frames.reserve(count);
     try {
         for (std::size_t index = 0; index < count; ++index) {
@@ -3617,6 +3635,35 @@ LegacyAnimation create_legacy_animation(
         }
     }
     return animation;
+}
+
+const LegacyGraphic* find_animation_timing_graphic(
+    const LegacyDatFile& dat,
+    std::int32_t slp_id,
+    std::size_t frames_per_angle
+) {
+    const LegacyGraphic* result = nullptr;
+    for (const LegacyGraphic& graphic : dat.graphics()) {
+        if (graphic.graphic_id < 0 || graphic.slp_id != slp_id ||
+            graphic.frame_count <= 0 ||
+            static_cast<std::size_t>(graphic.frame_count) !=
+                frames_per_angle) {
+            continue;
+        }
+        if (result == nullptr) {
+            result = &graphic;
+            continue;
+        }
+        if (result->speed_adjust != graphic.speed_adjust ||
+            result->frame_rate != graphic.frame_rate ||
+            result->replay_delay != graphic.replay_delay ||
+            result->sequence_type != graphic.sequence_type) {
+            // An SLP shared by graphics with different DAT schedulers cannot
+            // be timed safely without the exact graphic root.
+            return nullptr;
+        }
+    }
+    return result;
 }
 
 LegacyComposite create_legacy_composite(
@@ -3790,8 +3837,10 @@ LegacyAnimatedComposite create_legacy_animated_composite(
                     part.angle_count =
                         std::max<int>(graphic->angle_count, 1);
                     part.display_angle = display_angle;
+                    part.speed_adjust = graphic->speed_adjust;
                     part.frame_rate = graphic->frame_rate;
                     part.replay_delay = graphic->replay_delay;
+                    part.sequence_type = graphic->sequence_type;
                     composite.parts.push_back(std::move(part));
                 }
             } else if (graphic->deltas.empty()) {
@@ -4607,7 +4656,10 @@ LegacySprites load_local_legacy_sprites(
                         resource_id,
                         frames_per_angle,
                         static_cast<unsigned>(index + 1),
-                        find_exact_shadow_binding(dat, resource_id)
+                        find_exact_shadow_binding(dat, resource_id),
+                        find_animation_timing_graphic(
+                            dat, resource_id, frames_per_angle
+                        )
                     );
                 }
             } catch (const std::exception& error) {
@@ -6581,7 +6633,8 @@ bool render_legacy_animated_composite(
     std::uint64_t animation_tick,
     bool active,
     bool use_graphic_timing = false,
-    int graphics_angle_offset = 0
+    int graphics_angle_offset = 0,
+    std::uint64_t phase_seed = 0
 ) {
     if (composite.parts.empty()) {
         return false;
@@ -6632,7 +6685,11 @@ bool render_legacy_animated_composite(
                   animation_tick,
                   part.frame_rate,
                   part.replay_delay,
-                  active
+                  active,
+                  part.sequence_type,
+                  (part.sequence_type & 4U) != 0U
+                      ? static_cast<std::size_t>(phase_seed)
+                      : 0U
               )
             : render_component_animation_frame(
                   animation.frames_per_angle,
@@ -6744,8 +6801,9 @@ bool render_legacy_animation(
     SDL_FPoint ground,
     TilePosition previous,
     TilePosition current,
-    std::uint64_t animation_tick,
-    bool active
+    std::uint64_t elapsed_milliseconds,
+    bool active,
+    std::uint64_t phase_seed = 0
 ) {
     if (animation.frames.empty() || animation.frames_per_angle == 0) {
         return false;
@@ -6788,9 +6846,24 @@ bool render_legacy_animation(
     if (angle_frames == 0) {
         return false;
     }
-    const std::size_t action_frame = active
-        ? static_cast<std::size_t>(animation_tick) % angle_frames
-        : 0;
+    const std::size_t initial_frame =
+        (animation.sequence_type & 4U) != 0U
+        ? static_cast<std::size_t>(phase_seed) % angle_frames
+        : 0U;
+    const std::size_t action_frame = animation.graphic_timing_proved
+        ? *render_component_animation_frame_at_time(
+              angle_frames,
+              elapsed_milliseconds,
+              animation.frame_rate,
+              animation.replay_delay,
+              active,
+              animation.sequence_type,
+              initial_frame
+          )
+        : active
+            ? static_cast<std::size_t>(elapsed_milliseconds / 100U) %
+                angle_frames
+            : 0U;
     const std::size_t index =
         (animation.angle_offsets.empty()
             ? angle * animation.frames_per_angle
@@ -6832,7 +6905,7 @@ bool render_legacy_animation(
             const std::size_t shadow_action =
                 active &&
                     animation.shadow_frames_per_angle > 1
-                ? static_cast<std::size_t>(animation_tick) %
+                ? action_frame %
                     animation.shadow_frames_per_angle
                 : 0U;
             const std::size_t shadow_index =
@@ -7012,8 +7085,8 @@ const LegacyAnimation* legacy_action_for(
             : active_legacy_sprites.unpacked_trebuchet_transform;
         return for_player(transform);
     }
-    if (unit.attack_target_id != 0 ||
-        unit.attacking_ground) {
+    if (unit.attack_animation_started ||
+        unit.attack_release_ticks_remaining > 0) {
         const auto found =
             active_legacy_sprites.attack.find(unit.kind);
         if (found != active_legacy_sprites.attack.end()) {
@@ -7073,7 +7146,8 @@ const LegacyAnimatedComposite* commercial_graphic_for(
         if (const auto work = task_graphic(CommercialTaskAbility::trade)) {
             graphic = work;
         }
-    } else if ((unit.attack_target_id != 0 || unit.attacking_ground) &&
+    } else if ((unit.attack_animation_started ||
+                unit.attack_release_ticks_remaining > 0) &&
         record->attack_graphic) {
         graphic = record->attack_graphic;
     } else if (unit.moving && record->walking_graphic) {
@@ -7858,6 +7932,10 @@ void render_building(
     const bool guard_tower =
         building.kind == BuildingKind::guard_tower;
     const SDL_FPoint top = building_top(building);
+    const std::uint64_t building_animation_time =
+        simulation_animation_time_milliseconds(
+            simulation.tick_number(), 0.0F
+        );
     if (building.commercial_identity) {
         const LegacyAnimatedComposite* graphic =
             commercial_graphic_for(renderer, building);
@@ -7867,9 +7945,11 @@ void render_building(
                 {top.x, top.y + half_tile_height},
                 building.position,
                 building.position,
-                presentation_time_ms / 100U,
+                building_animation_time,
                 true,
-                true
+                true,
+                0,
+                building.id
             )) {
             if (building.hit_points < maximum_hit_points ||
                 simulation.selected_building() == building.id) {
@@ -7897,7 +7977,7 @@ void render_building(
                   damage_records[*damage_index].graphic_id
               }
             : std::nullopt,
-        presentation_time_ms
+        building_animation_time
     );
     if (building.completed() && damage_index &&
         damage_records[*damage_index].flag == 2) {
@@ -8092,8 +8172,9 @@ void render_building(
             {top.x, top.y + half_tile_height},
             building.position,
             building.position,
-            simulation.tick_number() + building.id,
-            false
+            building_animation_time,
+            !building.completed(),
+            building.id
         );
         if (rendered) {
             if (simulation.selected_building() == building.id) {
@@ -8190,8 +8271,9 @@ void render_building(
                 ground,
                 {building.position.x + 1, building.position.y},
                 building.position,
-                simulation.tick_number() + building.id,
-                true
+                building_animation_time,
+                true,
+                building.id
             ) && rendered;
         }
         if (rendered) {
@@ -9217,6 +9299,7 @@ void render_building_damage_overlay(
     const Building& building,
     std::uint64_t presentation_time_ms
 ) {
+    static_cast<void>(presentation_time_ms);
     const auto records = canonical_building_damage_records(
         building.kind,
         simulation.civilization(building.owner)
@@ -9236,7 +9319,9 @@ void render_building_damage_overlay(
     const std::uint64_t elapsed = building_damage_elapsed(
         building.id,
         records[*selected].graphic_id,
-        presentation_time_ms
+        simulation_animation_time_milliseconds(
+            simulation.tick_number(), 0.0F
+        )
     );
     const auto found = active_legacy_sprites.building_damage_graphics.find(
         records[*selected].graphic_id
@@ -9300,16 +9385,26 @@ void render_unit(
     SDL_FPoint top = current;
     const bool interpolating =
         render_unit_is_interpolating(simulation, unit);
-    const std::uint64_t unit_animation_tick =
-        unit_animation_tick_from_milliseconds(
-            presentation_time_ms,
-            unit.id
+    static_cast<void>(presentation_time_ms);
+    const std::uint64_t world_animation_time =
+        simulation_animation_time_milliseconds(
+            simulation.tick_number(), movement_alpha
         );
-    const std::uint64_t unit_animation_frame =
-        unit_animation_frame_from_milliseconds(
-            presentation_time_ms,
-            unit.id
-        );
+    const std::uint64_t completed_world_time =
+        simulation.tick_number() * 200U;
+    const std::uint64_t partial_world_time =
+        world_animation_time - completed_world_time;
+    const std::uint64_t authoritative_phase_start =
+        unit.animation_state == 3 && unit.attack_animation_started
+        ? unit.attack_animation_start_tick
+        : unit.animation_state_start_tick;
+    const std::uint64_t phase_start = std::min(
+        authoritative_phase_start,
+        simulation.tick_number()
+    );
+    const std::uint64_t unit_animation_elapsed =
+        (simulation.tick_number() - phase_start) * 200U +
+        partial_world_time;
     if (interpolating) {
         const SDL_FPoint previous = subtile_top(
             unit.render_previous_subtile,
@@ -9344,11 +9439,11 @@ void render_unit(
                 {ground_top.x, ground_top.y + half_tile_height},
                 unit.previous_position,
                 unit.position,
-                unit_animation_frame,
-                unit.moving || unit.attack_target_id != 0 ||
-                    unit.attacking_ground,
+                unit_animation_elapsed,
+                unit.animation_state != 1,
                 true,
-                simulation.commercial_graphics_angle_offset(unit)
+                simulation.commercial_graphics_angle_offset(unit),
+                unit.id
             )) {
             const auto* record = commercial_content_catalog().object(
                 unit.commercial_identity->civilization_id,
@@ -9436,7 +9531,8 @@ void render_unit(
                     render_architecture_family(civilization)
                 );
             const auto& table =
-                unit.attack_target_id != 0
+                render_action_for(simulation, unit) ==
+                        RenderAction::attacking
                 ? active_legacy_sprites.naval_attack
                 : interpolating
                     ? active_legacy_sprites.naval_move
@@ -9451,7 +9547,8 @@ void render_unit(
                 if (composite != nullptr) {
                     TilePosition facing_previous = unit.previous_position;
                     TilePosition facing_current = unit.position;
-                    if (unit.attack_target_id != 0) {
+                    if (render_action_for(simulation, unit) ==
+                            RenderAction::attacking) {
                     TilePosition target = unit.destination;
                     if (unit.attack_target_is_building) {
                         const auto target_building =
@@ -9497,8 +9594,11 @@ void render_unit(
                         },
                         facing_previous,
                         facing_current,
-                        unit_animation_tick,
-                        true
+                        unit_animation_elapsed,
+                        true,
+                        true,
+                        0,
+                        unit.id
                     )) {
                     if (unit.hit_points < unit_rules.hit_points ||
                         simulation.is_unit_selected(unit.id)) {
@@ -9535,8 +9635,9 @@ void render_unit(
                     {ground_top.x, ground_top.y + half_tile_height},
                     unit.previous_position,
                     unit.position,
-                    unit_animation_frame,
-                    interpolating
+                    unit_animation_elapsed,
+                    interpolating,
+                    unit.id
                 )) {
                 if (unit.hit_points < unit_rules.hit_points ||
                     simulation.is_unit_selected(unit.id)) {
@@ -9696,8 +9797,9 @@ void render_unit(
                     ground,
                     unit.previous_position,
                     unit.position,
-                    unit_animation_frame,
-                    true
+                    unit_animation_elapsed,
+                    true,
+                    unit.id
                 )) {
                 const int maximum_hit_points =
                     simulation.maximum_hit_points(unit);
@@ -9779,8 +9881,9 @@ void render_unit(
                 {ground_top.x, ground_top.y + half_tile_height},
                 unit.previous_position,
                 unit.position,
-                unit_animation_frame,
-                true
+                unit_animation_elapsed,
+                true,
+                unit.id
             )) {
             const int maximum_hit_points =
                 simulation.maximum_hit_points(unit);
@@ -9819,8 +9922,11 @@ void render_unit(
                 {ground_top.x, ground_top.y + half_tile_height},
                 unit.previous_position,
                 unit.position,
-                unit_animation_frame,
-                true
+                unit_animation_elapsed,
+                true,
+                true,
+                0,
+                unit.id
             )) {
             const int maximum_hit_points =
                 simulation.maximum_hit_points(unit);
@@ -9844,20 +9950,15 @@ void render_unit(
         }
     }
     if (early_animation != nullptr) {
-        const std::uint64_t action_tick =
-            unit.trebuchet_transform_ticks_remaining > 0
-            ? static_cast<std::uint64_t>(
-                (2 - unit.trebuchet_transform_ticks_remaining) * 4
-            )
-            : unit_animation_frame;
         if (render_legacy_animation(
                 renderer,
                 *early_animation,
                 {ground_top.x, ground_top.y + half_tile_height},
                 unit.previous_position,
                 unit.position,
-                action_tick,
-                true
+                unit_animation_elapsed,
+                true,
+                unit.id
             )) {
             const int maximum_hit_points =
                 simulation.maximum_hit_points(unit);
@@ -15584,7 +15685,7 @@ std::size_t render(
                     static_cast<std::uint64_t>(std::max(
                         effect.total_ticks - effect.ticks_remaining,
                         0
-                    ));
+                    )) * 200U;
                 const SDL_FPoint top = tile_top(effect.position);
                 if (composite != nullptr &&
                     render_legacy_animated_composite(
@@ -15594,7 +15695,10 @@ std::size_t render(
                         effect.position,
                         effect.position,
                         elapsed,
-                        true
+                        true,
+                        true,
+                        0,
+                        effect.entity_id
                     )) {
                     continue;
                 }
@@ -15621,7 +15725,7 @@ std::size_t render(
                     static_cast<std::uint64_t>(std::max(
                         effect.total_ticks - effect.ticks_remaining,
                         0
-                    ));
+                    )) * 200U;
                 const SDL_FPoint top = tile_top(effect.position);
                 if (animation != nullptr && render_legacy_animation(
                         renderer,
@@ -15630,7 +15734,8 @@ std::size_t render(
                         effect.position,
                         effect.position,
                         elapsed,
-                        true
+                        true,
+                        effect.entity_id
                     )) {
                     continue;
                 }
@@ -15643,7 +15748,7 @@ std::size_t render(
                     static_cast<std::uint64_t>(std::max(
                         effect.total_ticks - effect.ticks_remaining,
                         0
-                    ));
+                    )) * 200U;
                 const SDL_FPoint top = tile_top(effect.position);
                 if (animation != nullptr && render_legacy_animation(
                         renderer,
@@ -15652,7 +15757,8 @@ std::size_t render(
                         effect.position,
                         effect.position,
                         elapsed,
-                        true
+                        true,
+                        effect.entity_id
                     )) {
                     continue;
                 }
@@ -15739,8 +15845,9 @@ std::size_t render(
                         {top.x, top.y + half_tile_height},
                         effect.previous_position,
                         effect.position,
-                        unit_death_animation_frame(effect.kind, elapsed),
-                        true
+                        static_cast<std::uint64_t>(elapsed) * 200U,
+                        true,
+                        effect.entity_id
                     )) {
                     if (effect.kind == UnitKind::demolition_ship ||
                         effect.kind ==
@@ -15965,7 +16072,14 @@ std::size_t render(
                 graphic && render_legacy_animated_composite(
                     renderer, *graphic, position,
                     projectile.origin, projectile.destination,
-                    simulation.tick_number(), true, true
+                    static_cast<std::uint64_t>(
+                        projectile.total_ticks -
+                        projectile.ticks_remaining
+                    ) * 200U,
+                    true,
+                    true,
+                    0,
+                    projectile.source_entity_id
                 )) {
                 continue;
             }
@@ -15995,6 +16109,8 @@ std::size_t render(
                 projectile.total_ticks -
                 projectile.ticks_remaining
             );
+        const std::uint64_t projectile_animation_time =
+            projectile_frame * 100U;
         if (scorpion_bolt &&
             render_exact_projectile_animation(
                 renderer,
@@ -16017,7 +16133,7 @@ std::size_t render(
                 position,
                 projectile.origin,
                 projectile.destination,
-                projectile_frame,
+                projectile_animation_time,
                 true
             )) {
             // Exact primary/volley Onager chain rendered.
@@ -16028,7 +16144,7 @@ std::size_t render(
                 position,
                 projectile.origin,
                 projectile.destination,
-                projectile_frame,
+                projectile_animation_time,
                 true
             )) {
             // Exact Trebuchet projectile rendered.
@@ -16039,7 +16155,7 @@ std::size_t render(
                 position,
                 projectile.origin,
                 projectile.destination,
-                projectile_frame,
+                projectile_animation_time,
                 true
             )) {
             // Exact Janissary gunshot rendered.
@@ -16050,7 +16166,7 @@ std::size_t render(
                 position,
                 projectile.origin,
                 projectile.destination,
-                projectile_frame,
+                projectile_animation_time,
                 true
             )) {
             // Exact spinning axe rendered.
@@ -16075,7 +16191,7 @@ std::size_t render(
                     position,
                     projectile.origin,
                     projectile.destination,
-                    projectile_frame,
+                    projectile_animation_time,
                     true
                 )) {
                 record_projectile_procedural_fallback(
@@ -16100,7 +16216,7 @@ std::size_t render(
                     },
                     projectile.origin,
                     projectile.destination,
-                    projectile_frame,
+                    projectile_animation_time,
                     true
                 )) {
                 record_projectile_procedural_fallback(
@@ -16188,7 +16304,7 @@ std::size_t render(
                   {effect.position.x + 1, effect.position.y},
                   static_cast<std::uint64_t>(
                       effect.total_ticks - effect.ticks_remaining
-                  ),
+                  ) * 100U,
                   true
               )
             : siege_source &&
@@ -16200,7 +16316,7 @@ std::size_t render(
                     {effect.position.x + 1, effect.position.y},
                     static_cast<std::uint64_t>(
                         effect.total_ticks - effect.ticks_remaining
-                    ),
+                    ) * 100U,
                     true
                 );
         if (rendered_exact_impact) {

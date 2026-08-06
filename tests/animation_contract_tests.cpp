@@ -32,6 +32,21 @@ int main() {
     assert(aoe::animation::binding(UnitKind::archer, State::idle)->layout ==
            Layout::ambiguous);
     assert(!aoe::animation::binding(UnitKind::villager, State::build));
-    assert(!aoe::animation::cadence_selector_proved);
+    assert(aoe::animation::cadence_selector_proved);
+    assert(aoe::animation::attack_release_delay_ticks(UnitKind::knight) == 0);
+    assert(aoe::animation::attack_release_delay_ticks(UnitKind::archer) == 2);
+    assert(aoe::animation::attack_release_delay_ticks(UnitKind::skirmisher) == 3);
+    assert(
+        aoe::animation::attack_release_delay_ticks(
+            UnitKind::throwing_axeman
+        ) == 7
+    );
+    assert(
+        aoe::animation::attack_release_delay_ticks(
+            UnitKind::bombard_cannon
+        ) == 2
+    );
+    assert(aoe::animation::attack_release_delay_ticks_for_dat_id(4) == 2);
+    assert(aoe::animation::attack_release_delay_ticks_for_dat_id(74) == 0);
     assert(!aoe::animation::direction_selector_proved);
 }

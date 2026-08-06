@@ -1807,6 +1807,12 @@ RenderAction render_action_for(
     const Unit& unit
 ) {
     RenderAction direct = render_action_for(unit);
+    if (direct == RenderAction::attacking &&
+        !unit.attack_animation_started &&
+        unit.attack_release_ticks_remaining == 0) {
+        direct = render_unit_is_interpolating(simulation, unit)
+            ? RenderAction::moving : RenderAction::idle;
+    }
     if (direct == RenderAction::idle &&
         render_unit_is_interpolating(simulation, unit)) {
         direct = RenderAction::moving;
@@ -2095,7 +2101,9 @@ std::optional<std::size_t> render_component_animation_frame_at_time(
     std::uint64_t elapsed_milliseconds,
     float frame_rate_seconds,
     float replay_delay_seconds,
-    bool active
+    bool active,
+    std::uint8_t sequence_type,
+    std::size_t initial_frame
 ) {
     if (frames_per_angle == 0) return std::nullopt;
     if (!active || frames_per_angle == 1) return 0;
@@ -2106,11 +2114,29 @@ std::optional<std::size_t> render_component_animation_frame_at_time(
         1000.0;
     const double replay_milliseconds =
         static_cast<double>(std::max(replay_delay_seconds, 0.0F)) * 1000.0;
+    const std::size_t first_frame = initial_frame % frames_per_angle;
+    // Graphic +0x70 bit 0 gates automatic advancement. FUN_004eb870 may
+    // still choose the initial frame when bit 2 is set.
+    if ((sequence_type & 1U) == 0U) {
+        return first_frame;
+    }
+    const double elapsed_from_initial =
+        static_cast<double>(elapsed_milliseconds) +
+        static_cast<double>(first_frame) * frame_milliseconds;
+    // Graphic +0x70 bit 3 stops the animator on its final frame.
+    if ((sequence_type & 8U) != 0U) {
+        return std::min(
+            static_cast<std::size_t>(
+                elapsed_from_initial / frame_milliseconds
+            ),
+            frames_per_angle - 1
+        );
+    }
     const double cycle_milliseconds =
         frame_milliseconds * static_cast<double>(frames_per_angle) +
         replay_milliseconds;
     const double cycle_position = std::fmod(
-        static_cast<double>(elapsed_milliseconds), cycle_milliseconds
+        elapsed_from_initial, cycle_milliseconds
     );
     return std::min(
         static_cast<std::size_t>(cycle_position / frame_milliseconds),

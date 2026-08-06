@@ -108,6 +108,7 @@ std::vector<std::byte> fixture() {
     put_f32(bytes, record + 61, 1.25F);
     put_f32(bytes, record + 65, 0.05F);
     put_f32(bytes, record + 69, 0.10F);
+    bytes[record + 73] = std::byte{11};
     put_u16(bytes, record + 74, 0);
     bytes[record + 56] = std::byte{1};
     put_i16(bytes, record + 78, 0);
@@ -187,6 +188,7 @@ int main() {
     check(graphic && graphic->speed_adjust == 1.25F, "graphic speed adjust");
     check(graphic && graphic->frame_rate == 0.05F, "graphic frame rate");
     check(graphic && graphic->replay_delay == 0.10F, "graphic replay delay");
+    check(graphic && graphic->sequence_type == 11, "graphic sequence type");
     check(
         graphic && graphic->angle_sounds.size() == 1 &&
             graphic->angle_sounds[0][0].frame == 0 &&

@@ -39,6 +39,7 @@ struct LegacyGraphic {
     float speed_adjust{};
     float frame_rate{};
     float replay_delay{};
+    std::uint8_t sequence_type{};
     std::int16_t graphic_id{};
     std::uint8_t mirroring_mode{};
     std::vector<LegacyGraphicDelta> deltas;

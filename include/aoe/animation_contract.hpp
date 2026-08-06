@@ -63,10 +63,16 @@ struct Binding {
 
 [[nodiscard]] std::optional<Binding> binding(UnitKind kind, State state);
 
-// Exact DAT duration/layout fields do not prove the HD/classic scheduler clock
-// or logical-direction selector. Runtime fixed-tick modulo remains explicitly
-// procedural until those paths are proved.
-inline constexpr bool cadence_selector_proved = false;
+// Number of five-Hz world updates needed for the active attack graphic to
+// reach the DAT attack-frame delay. A zero delay releases immediately.
+[[nodiscard]] int attack_release_delay_ticks(UnitKind kind) noexcept;
+[[nodiscard]] int attack_release_delay_ticks_for_dat_id(
+    std::uint16_t object_id
+) noexcept;
+
+// The decompiled animated-object update proves the cadence scheduler. The
+// logical-direction selector remains a separate unresolved contract.
+inline constexpr bool cadence_selector_proved = true;
 inline constexpr bool direction_selector_proved = false;
 
 }  // namespace aoe::animation

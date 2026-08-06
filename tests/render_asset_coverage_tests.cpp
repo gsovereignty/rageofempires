@@ -37,7 +37,7 @@ void state_derivation_is_deterministic() {
     unit.attack_target_id = 9;
     require(
         aoe::render_action_for(unit) == aoe::RenderAction::attacking,
-        "attack must override moving"
+        "attack intent must override moving in direct state selection"
     );
     unit.conversion_target_id = 10;
     require(
@@ -253,18 +253,19 @@ void simulation_command_reaches_sheep_attack_mapping() {
         simulation.command_unit(sheep, {3, 2}),
         "production command path must accept sheep attack target"
     );
+    simulation.update();
     const auto found = std::ranges::find(
         simulation.units(), sheep, &aoe::Unit::id
     );
     require(
         found != simulation.units().end() &&
-        aoe::render_action_for(simulation, *found) ==
+        aoe::render_action_for(simulation, *found) !=
             aoe::RenderAction::attacking,
-        "sheep attack mapping must be reachable from production command path"
+        "attack art must wait until the production attack action starts"
     );
     aoe::RenderStateKey state;
     state.object_kind = "sheep";
-    state.action = aoe::render_action_for(simulation, *found);
+    state.action = aoe::RenderAction::attacking;
     const auto resolution = aoe::resolve_unit_asset(
         state, found->kind
     );
@@ -1106,6 +1107,19 @@ void building_resolver_selects_age_family_and_reviewed_farm() {
             4, 301, 0.05F, 0.10F, true
         ) == 0,
         "graphic timing must use frame rate and hold final frame for replay delay"
+    );
+    require(
+        aoe::render_component_animation_frame_at_time(
+            5, 900, 0.10F, 0.0F, true, 11
+        ) == 4 &&
+        aoe::render_component_animation_frame_at_time(
+            5, 900, 0.10F, 0.0F, true, 2, 3
+        ) == 3 &&
+        aoe::render_component_animation_frame_at_time(
+            5, 0, 0.10F, 0.0F, true, 7, 3
+        ) == 3,
+        "DAT sequence bits must stop one-shots, gate advancement, and "
+        "select sequence-gated initial frames"
     );
 
     for (const aoe::BuildingCompositeSet& mapping :

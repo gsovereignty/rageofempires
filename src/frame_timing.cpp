@@ -1,6 +1,7 @@
 #include "aoe/frame_timing.hpp"
 
 #include <algorithm>
+#include <limits>
 #include <stdexcept>
 
 namespace aoe {
@@ -87,6 +88,23 @@ std::uint64_t unit_animation_frame_from_milliseconds(
     std::uint64_t unit_id
 ) {
     return elapsed_ms / 100U + unit_id;
+}
+
+std::uint64_t simulation_animation_time_milliseconds(
+    std::uint64_t completed_ticks,
+    float interpolation_alpha
+) {
+    constexpr std::uint64_t world_tick_milliseconds = 200U;
+    const auto partial = static_cast<std::uint64_t>(
+        std::clamp(interpolation_alpha, 0.0F, 1.0F) *
+        static_cast<float>(world_tick_milliseconds)
+    );
+    if (completed_ticks >
+        (std::numeric_limits<std::uint64_t>::max() - partial) /
+            world_tick_milliseconds) {
+        return std::numeric_limits<std::uint64_t>::max();
+    }
+    return completed_ticks * world_tick_milliseconds + partial;
 }
 
 }  // namespace aoe

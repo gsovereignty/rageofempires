@@ -43,20 +43,25 @@ Ninety-one represented records expose an attack graphic and therefore exact
 raw `frame_delay` and `reload_time` fields. Thirty have no attack graphic.
 Twenty-five of the 91 attack records carry a nonzero frame delay.
 
-These values do not by themselves prove renderer/simulation synchronization.
-The supplied HD decompilation proves asset construction and drawing paths, but
-review found no authoritative, typed call path joining the DAT frame-duration,
-attack-frame-delay, replay-delay, and simulation tick domains for all
-represented states. Decompiled numeric fields without a proved structure
-identity are not promoted by resemblance.
+The supplied HD decompilation now closes the scheduler path. `FUN_0056c500`
+passes the authoritative world delta into the animated-object update.
+`FUN_004eb870` initializes the graphic frame count, duration (with a 0.001
+second minimum), sequence flags, and optional randomized initial frame.
+`FUN_004ebb90` advances only when sequence bit 0 is set, applies replay delay,
+and clamps a sequence with bit 3 on its final frame. The moving-object override
+`FUN_0057b620` sets current movement speed before calling that same base path.
 
-Therefore:
+`RGE_Action_Attack::FUN_00407910` separately reads the master-object DAT attack
+frame delay and does not launch or apply the attack until the active graphic
+reaches that frame. A zero delay releases immediately; `-1` selects the active
+animation path rather than supplying a positive frame number.
 
-- DAT frame duration and attack delay are exact data;
-- live frame layout and mirroring compatibility are exact where classified;
-- the conversion to reconstruction ticks is `ambiguous`;
-- attack/projectile/action synchronization is `ambiguous`;
-- no executable timing claim is generalized from HD to classic AoC.
+The reconstruction's authoritative world update is 0.2 seconds. Exact DAT
+frame durations are now evaluated in that same elapsed-time domain, while SDL
+interpolation supplies only the bounded partial interval between completed
+world updates. Nonzero attack delays are rounded up to the first five-Hz update
+that reaches the DAT frame. The 25 represented nonzero-delay records are bound
+to their exact DAT IDs; zero-delay records retain immediate release.
 
 ## Runtime integration boundary
 
@@ -76,11 +81,13 @@ Hunting SLP 1528 is now selected only for sheep, deer, and boar targets rather
 than incorrectly representing wood, farm, or mining work.
 
 Represented buildings have no DAT attack graphic. Their exact standing body
-continues while projectiles render separately. Construction roots expose
-unresolved layered/shadow behavior, so incomplete building bodies remain
-procedural.
+continues while projectiles render separately. Construction roots whose
+sequence bit 0 is clear remain driven by authoritative construction progress,
+because the original animator does not auto-advance those graphics. Animated
+construction and damage composites use the recovered scheduler when their DAT
+root is exact.
 
-The API keeps unresolved clock and logical-direction conversion external:
+The API keeps unresolved logical-direction conversion external:
 
 ```text
 AnimationEvidence {
@@ -92,13 +99,20 @@ AnimationEvidence {
 }
 ```
 
-Runtime state selection and attack release need a separately proved scheduler
-contract before `frame_duration_seconds` or `attack_frame_delay` may control
-simulation/render timing. The reconstruction advances at five simulation
-ticks per second, while exact DAT durations range roughly 0.05–1.0 seconds per
-frame. Current one-frame-per-tick modulo therefore remains explicitly
-procedural. No fixed modulo was promoted merely because one duration happens
-to equal 0.2 seconds.
+Production rendering parses `sequence_type` from the DAT instead of skipping
+its byte. Exact unit, commercial-object, naval, work, death, projectile,
+building-damage, and animated-construction bindings consume DAT frame duration,
+replay delay, sequence advancement, sequence-gated initial phase, and
+final-frame hold. Ambiguous SLP-to-graphic timing identity fails closed to the existing
+fallback and remains an art-binding issue tracked by `BUG-ANIMATION-002`.
+
+Each unit persists its current animation state and authoritative state-start
+tick. Attack actions also persist their start tick, bound target/action key,
+and remaining release delay. New orders cancel an unreleased action without
+consuming reload; target movement after a valid windup starts does not retarget
+or cancel that bound release. This keeps save/load, replay, and lockstep hashes
+on the same attack frame and prevents a delayed projectile from hitting a newly
+selected target.
 
 Likewise, physical five-angle mirrored storage is exact, but the original
 logical-direction and `display_angle` selector path remains unproved. Current
@@ -112,8 +126,11 @@ python3 tools/dat_metadata/generate_animation_evidence.py \
   /path/to/Data/graphics.drs
 ```
 
-Focused tests pin all 121 records and 847 role outcomes, mirrored Villager
-storage, exact high-use state bindings, Archer idle rejection, hunting-only
-gather dispatch, explicit missing/mismatched assets, and the
-exact/ambiguous/absent vocabulary. Deterministic SDL capture smoke verifies
-the state/render path while retaining procedural fallback for unproved roles.
+Focused tests pin all 121 records and 847 role outcomes, parsed sequence flags,
+frame duration, replay hold, non-advancing and final-frame sequences, world-time
+interpolation, exact high-use bindings, and all 25 nonzero attack-delay records.
+The production simulation regression proves delayed Archer release, save/load
+phase preservation, cancellation, retarget binding, and release against a
+moving target. Deterministic SDL capture smoke exercises the shipped renderer
+path; the full repository gate covers save, replay, lockstep, gameplay, and SDL
+smoke tests.

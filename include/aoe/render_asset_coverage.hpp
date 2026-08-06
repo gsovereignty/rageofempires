@@ -442,7 +442,9 @@ render_component_animation_frame_at_time(
     std::uint64_t elapsed_milliseconds,
     float frame_rate_seconds,
     float replay_delay_seconds,
-    bool active
+    bool active,
+    std::uint8_t sequence_type = 3,
+    std::size_t initial_frame = 0
 );
 [[nodiscard]] std::string render_unit_kind_name(UnitKind kind);
 [[nodiscard]] std::string render_building_kind_name(BuildingKind kind);

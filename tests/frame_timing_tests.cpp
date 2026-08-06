@@ -93,6 +93,15 @@ int main() {
             aoe::unit_animation_frame_from_milliseconds(100, 9) == 10,
         "direct unit animation preserves stable per-unit phase"
     );
+    expect(
+        aoe::simulation_animation_time_milliseconds(4, 0.5F) == 900,
+        "animation time follows five-Hz world time plus interpolation"
+    );
+    expect(
+        aoe::simulation_animation_time_milliseconds(4, -1.0F) == 800 &&
+            aoe::simulation_animation_time_milliseconds(4, 2.0F) == 1000,
+        "animation interpolation is bounded to one world update"
+    );
 
     if (failures == 0) {
         std::cout << "frame timing tests passed\n";

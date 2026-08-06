@@ -4280,7 +4280,7 @@ void padded_archer_armor_upgrades_archers_and_reduces_projectile_damage() {
         combat.units().front().id, aoe::UnitStance::passive
     ));
     require(combat.command_unit(attacker, {4, 2}));
-    for (int tick = 0; tick < 3; ++tick) {
+    for (int tick = 0; tick < 5; ++tick) {
         combat.update();
     }
     require(combat.units().front().hit_points == 32);
@@ -4401,7 +4401,7 @@ void leather_archer_armor_requires_padded_and_stacks_against_arrows() {
         combat.units().front().id, aoe::UnitStance::passive
     ));
     require(combat.command_unit(attacker, {4, 2}));
-    for (int tick = 0; tick < 3; ++tick) {
+    for (int tick = 0; tick < 5; ++tick) {
         combat.update();
     }
     require(combat.units().front().hit_points == 33);
@@ -4527,7 +4527,7 @@ void ring_archer_armor_requires_leather_and_finishes_archer_armor() {
         combat.units().front().id, aoe::UnitStance::passive
     ));
     require(combat.command_unit(attacker, {4, 2}));
-    for (int tick = 0; tick < 3; ++tick) {
+    for (int tick = 0; tick < 5; ++tick) {
         combat.update();
     }
     require(combat.units().front().hit_points == 34);
@@ -5370,7 +5370,10 @@ void elite_skirmisher_completes_castle_counter_line() {
         aoe::Player::blue, {aoe::Technology::ballistics}
     );
     require(counter.command_unit(elite, {3, 2}));
-    for (int tick = 0; tick < 3; ++tick) {
+    for (int tick = 0; tick < 20 &&
+         counter.units()[1].hit_points ==
+             aoe::rules_for(aoe::UnitKind::pikeman).hit_points;
+         ++tick) {
         counter.update();
     }
     require(counter.units()[1].hit_points == 49);
@@ -6994,7 +6997,7 @@ void skirmishers_train_counter_archers_and_persist() {
         {4, 2}
     );
     require(counter.command_unit(skirmisher, {4, 2}));
-    for (int tick = 0; tick < 3; ++tick) {
+    for (int tick = 0; tick < 6; ++tick) {
         counter.update();
     }
     require(counter.units()[1].hit_points == 25);
@@ -7011,7 +7014,7 @@ void skirmishers_train_counter_archers_and_persist() {
         {3, 2}
     );
     require(resistance.command_unit(archer, {3, 2}));
-    for (int tick = 0; tick < 3; ++tick) {
+    for (int tick = 0; tick < 5; ++tick) {
         resistance.update();
     }
     require(resistance.units()[1].hit_points == 29);
@@ -9253,6 +9256,8 @@ void battering_ram_counters_buildings_and_resists_arrows() {
     arrows.update();
     arrows.update();
     arrows.update();
+    arrows.update();
+    arrows.update();
     require(arrows.units().front().id == armored_ram);
     require(arrows.units().front().hit_points == 174);
 }
@@ -9395,9 +9400,11 @@ void castle_footprint_drives_range_vision_and_projectile_edges() {
     const aoe::EntityId archer = assault.add_unit(
         aoe::UnitKind::archer,
         aoe::Player::blue,
-        {9, 5}
+        {10, 5}
     );
     require(assault.command_unit(archer, {7, 5}));
+    assault.update();
+    assault.update();
     assault.update();
     const auto arrow = std::ranges::find_if(
         assault.projectiles(),
@@ -9581,7 +9588,7 @@ void archer_projectile_has_delayed_persisted_impact() {
         simulation.set_unit_stance(knight, aoe::UnitStance::passive)
     );
     require(simulation.command_unit(archer, {4, 2}));
-    simulation.update();
+    for (int tick = 0; tick < 3; ++tick) simulation.update();
     require(simulation.units().front().position == aoe::TilePosition(1, 2));
     require(simulation.units().back().hit_points == 100);
     require(simulation.projectiles().size() == 1);
@@ -9665,7 +9672,7 @@ void direct_projectiles_respect_diplomacy_at_impact() {
     );
     require(simulation.set_unit_stance(knight, aoe::UnitStance::passive));
     require(simulation.command_unit(archer, {4, 2}));
-    simulation.update();
+    for (int tick = 0; tick < 3; ++tick) simulation.update();
     require(simulation.projectiles().size() == 1);
     require(simulation.set_diplomacy(
         aoe::Player::blue,
@@ -9689,7 +9696,7 @@ void radial_combat_ranges_use_collision_box_borders() {
         diagonal, aoe::UnitStance::passive
     ));
     require(unit_range.command_unit(archer, {4, 3}));
-    unit_range.update();
+    for (int tick = 0; tick < 3; ++tick) unit_range.update();
     require(unit_range.projectiles().size() == 1);
     require(unit_range.units().front().position == aoe::TilePosition{1, 1});
 
@@ -9704,7 +9711,7 @@ void radial_combat_ranges_use_collision_box_borders() {
         aoe::UnitKind::villager, aoe::Player::red, {14, 10}
     );
     require(building_range.command_unit(building_archer, {4, 3}));
-    building_range.update();
+    for (int tick = 0; tick < 3; ++tick) building_range.update();
     require(std::ranges::any_of(
         building_range.projectiles(),
         [castle](const aoe::Projectile& projectile) {
@@ -9870,7 +9877,7 @@ void projectile_travel_uses_radial_distance_and_bounded_speed_rounding() {
         aoe::UnitKind::villager, aoe::Player::red, {14, 10}
     );
     require(building_target.command_unit(archer, {4, 3}));
-    building_target.update();
+    for (int tick = 0; tick < 3; ++tick) building_target.update();
     const auto archer_shot = std::ranges::find_if(
         building_target.projectiles(),
         [castle](const aoe::Projectile& projectile) {
@@ -9934,7 +9941,7 @@ void projectile_travel_uses_radial_distance_and_bounded_speed_rounding() {
         close_target, aoe::UnitStance::passive
     ));
     require(minimum.command_unit(close_archer, {2, 1}));
-    minimum.update();
+    for (int tick = 0; tick < 3; ++tick) minimum.update();
     require(minimum.projectiles().front().total_ticks == 1);
 }
 
@@ -9959,12 +9966,12 @@ void archer_projectile_tracks_moving_target_deterministically() {
     require(simulation.command_unit(scout, {7, 2}));
     require(simulation.command_unit(archer, {4, 2}));
     const int scout_hit_points = simulation.units().back().hit_points;
-    simulation.update();
-    require(simulation.units().back().position == aoe::TilePosition(5, 2));
+    for (int tick = 0; tick < 3; ++tick) simulation.update();
+    require(simulation.units().back().position == aoe::TilePosition(6, 2));
     require(simulation.projectiles().size() == 1);
     require(
         simulation.projectiles().front().destination ==
-        aoe::TilePosition(5, 2)
+        aoe::TilePosition(6, 2)
     );
 
     const auto path = std::filesystem::temp_directory_path() /
@@ -9977,7 +9984,7 @@ void archer_projectile_tracks_moving_target_deterministically() {
     loaded.update();
     require(
         simulation.projectiles().front().destination ==
-        aoe::TilePosition(5, 2)
+        aoe::TilePosition(7, 2)
     );
     require(
         loaded.projectiles().front().destination ==
@@ -9987,7 +9994,7 @@ void archer_projectile_tracks_moving_target_deterministically() {
     loaded.update();
     require(simulation.projectiles().empty());
     require(loaded.projectiles().empty());
-    require(simulation.units().back().position == aoe::TilePosition(6, 2));
+    require(simulation.units().back().position == aoe::TilePosition(7, 2));
     require(simulation.units().back().hit_points < scout_hit_points);
     require(
         loaded.units().back().hit_points ==
@@ -9995,7 +10002,7 @@ void archer_projectile_tracks_moving_target_deterministically() {
     );
     require(
         simulation.impact_effects().front().position ==
-        aoe::TilePosition(6, 2)
+        aoe::TilePosition(7, 2)
     );
 }
 
@@ -11190,6 +11197,73 @@ void attack_rate_obeys_unit_cooldown() {
     loaded.update();
     require(simulation.units().back().hit_points == 5);
     require(loaded.units().back().hit_points == 5);
+}
+
+void ranged_release_waits_for_dat_frame_and_binds_target() {
+    aoe::Simulation simulation(aoe::GameMap(7, 7));
+    const aoe::EntityId archer = simulation.add_unit(
+        aoe::UnitKind::archer,
+        aoe::Player::blue,
+        {2, 2}
+    );
+    const aoe::EntityId first_target = simulation.add_unit(
+        aoe::UnitKind::villager,
+        aoe::Player::red,
+        {4, 2}
+    );
+    const aoe::EntityId second_target = simulation.add_unit(
+        aoe::UnitKind::villager,
+        aoe::Player::red,
+        {2, 4}
+    );
+    require(simulation.set_unit_stance(
+        first_target, aoe::UnitStance::passive
+    ));
+    require(simulation.set_unit_stance(
+        second_target, aoe::UnitStance::passive
+    ));
+    require(simulation.command_unit(archer, {4, 2}));
+
+    simulation.update();
+    require(simulation.projectiles().empty());
+    require(simulation.units().front().attack_release_ticks_remaining == 2);
+    require(simulation.units().front().attack_animation_started);
+    require(simulation.units().front().animation_state == 3);
+
+    const auto path = std::filesystem::temp_directory_path() /
+        "aoe-attack-release-frame-test.save";
+    const std::string hash = aoe::deterministic_state_hash(simulation);
+    aoe::save_game(simulation, path);
+    aoe::Simulation loaded = aoe::load_game(path);
+    std::filesystem::remove(path);
+    require(aoe::deterministic_state_hash(loaded) == hash);
+    require(
+        loaded.units().front().attack_release_action_key ==
+        simulation.units().front().attack_release_action_key
+    );
+    require(
+        loaded.units().front().attack_animation_start_tick ==
+        simulation.units().front().attack_animation_start_tick
+    );
+    require(
+        loaded.units().front().animation_state_start_tick ==
+        simulation.units().front().animation_state_start_tick
+    );
+
+    require(simulation.command_unit(archer, {2, 4}));
+    simulation.update();
+    require(simulation.projectiles().empty());
+    require(simulation.units().front().attack_release_ticks_remaining == 2);
+    simulation.update();
+    require(simulation.projectiles().empty());
+    simulation.update();
+    require(simulation.projectiles().size() == 1);
+    require(simulation.projectiles().front().target == second_target);
+
+    loaded.update();
+    require(loaded.projectiles().empty());
+    loaded.update();
+    require(loaded.projectiles().size() == 1);
 }
 
 std::string state_fingerprint(const aoe::Simulation& simulation);
@@ -17106,7 +17180,7 @@ void castle_unique_lines_are_civilization_locked_and_upgrade() {
         aoe::UnitKind::teutonic_knight, aoe::Player::red, {6, 3}
     );
     require(volley.command_unit(chu, {6, 3}));
-    volley.update();
+    for (int tick = 0; tick < 3; ++tick) volley.update();
     require(volley.projectiles().size() == 4);
     require(volley.projectiles()[0].damage == 8);
     for (std::size_t index = 1; index < 4; ++index) {
@@ -17457,7 +17531,7 @@ void first_unique_technologies_follow_live_dat_effects() {
         yeomen_scenario_simulation.units()[0]
     ) == 6);
     require(yeomen.command_unit(archer, {9, 4}));
-    yeomen.update();
+    for (int tick = 0; tick < 3; ++tick) yeomen.update();
     require(!yeomen.projectiles().empty());
 
     aoe::Simulation axes(aoe::GameMap(16, 8));
@@ -17481,7 +17555,7 @@ void first_unique_technologies_follow_live_dat_effects() {
         aoe::Player::blue, {aoe::Technology::bearded_axe}
     );
     require(axes.command_unit(axeman, {6, 4}));
-    axes.update();
+    for (int tick = 0; tick < 8; ++tick) axes.update();
     require(!axes.projectiles().empty());
 
     aoe::Simulation crenellations(aoe::GameMap(22, 9));
@@ -17940,7 +18014,7 @@ void conquerors_siege_eagles_and_trebuchets_are_vertical() {
     require(!restored.command_unit(trebuchet, {5, 4}));
 
     require(restored.command_unit(trebuchet, {18, 3}));
-    restored.update();
+    for (int tick = 0; tick < 5; ++tick) restored.update();
     require(!restored.projectiles().empty());
     require(restored.projectiles()[0].source_kind ==
             aoe::UnitKind::trebuchet);
@@ -18557,7 +18631,7 @@ void chemistry_unlocks_exact_land_gunpowder() {
         blast.tick_number()
     );
     const int adjacent_hp = blast.units()[2].hit_points;
-    blast.update();
+    for (int tick = 0; tick < 3; ++tick) blast.update();
     require(!blast.projectiles().empty());
     require(blast.projectiles()[0].splash_radius_half_tiles == 1);
     for (int tick = 1; tick < 6; ++tick) blast.update();
@@ -18640,7 +18714,7 @@ void broad_siege_and_production_technologies_are_bounded() {
     require(siege.effective_unit_vision_range(siege.units()[1]) ==
             aoe::rules_for(aoe::UnitKind::mangonel).vision_range + 1);
     require(siege.command_unit(bombard, {8, 6}));
-    siege.update();
+    for (int tick = 0; tick < 3; ++tick) siege.update();
     require(!siege.projectiles().empty());
     const auto bombard_projectile = std::ranges::find_if(
         siege.projectiles(), [](const aoe::Projectile& projectile) {
@@ -25243,6 +25317,10 @@ int main() {
     run("building destruction", units_can_destroy_enemy_buildings);
     run("group attack", group_attackers_repath_and_focus_target);
     run("attack cooldown", attack_rate_obeys_unit_cooldown);
+    run(
+        "DAT attack release frame",
+        ranged_release_waits_for_dat_frame_and_binds_target
+    );
     run(
         "military auto acquisition",
         military_auto_acquires_only_visible_targets

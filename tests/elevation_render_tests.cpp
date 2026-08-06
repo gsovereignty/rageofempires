@@ -74,6 +74,9 @@ int main() {
     const aoe::DrsArchive interface{
         std::filesystem::path{AOE_TEST_DATA_ROOT} / "interfac.drs"
     };
+    const aoe::DrsArchive terrain{
+        std::filesystem::path{AOE_TEST_DATA_ROOT} / "terrain.drs"
+    };
     const auto lighting = decode_lighting(
         read_bytes(std::filesystem::path{AOE_TEST_DATA_ROOT} / "PatternMasks.dat"),
         read_bytes(std::filesystem::path{AOE_TEST_DATA_ROOT} / "lightMaps.dat"),
@@ -84,27 +87,35 @@ int main() {
     require(lighting.light_maps.size() == 18, "light map count");
     require(lighting.inverse_color_maps.size() == 327680, "ICM size");
 
-    aoe::RgbaFrame flat{
-        97, 49, 48, 24, std::vector<std::uint8_t>(97U * 49U * 4U),
-    };
-    for (int y = 0; y < 49; ++y) {
-        const int span = y <= 24 ? 1 + y * 4 : 1 + (48 - y) * 4;
-        const int left = (97 - span) / 2;
-        for (int x = left; x < left + span; ++x) {
-            const std::size_t at = static_cast<std::size_t>(y * 97 + x) * 4;
-            flat.rgba[at] = static_cast<std::uint8_t>(x * 2);
-            flat.rgba[at + 1] = static_cast<std::uint8_t>(y * 4);
-            flat.rgba[at + 2] = static_cast<std::uint8_t>((x + y) * 2);
-            flat.rgba[at + 3] = 255;
-        }
+    const auto grass_slp = terrain.read("slp", 15001);
+    const aoe::IndexedSlpFrame flat =
+        aoe::decode_indexed_slp_frame(grass_slp, 0);
+    require(flat.source_bytes.size() == 2468, "exact indexed source span");
+    require(flat.row_command_offsets.size() == 49, "indexed row offsets");
+    require(flat.row_command_offsets.front() == 0, "indexed source base");
+    const std::array<std::pair<std::int32_t, std::uint64_t>, 4>
+        indexed_fixtures{{
+            {15001, 3079128777978920411ULL},
+            {15002, 9177422860481952568ULL},
+            {15014, 3970707742325976802ULL},
+            {15017, 16448584681211254875ULL},
+        }};
+    for (const auto [resource, expected_hash] : indexed_fixtures) {
+        const auto indexed = aoe::decode_indexed_slp_frame(
+            terrain.read("slp", resource), 0
+        );
+        require(indexed.source_bytes.size() == 2468,
+                "terrain indexed span size");
+        require(hash(indexed.source_bytes) == expected_hash,
+                "terrain indexed span hash");
     }
-    const aoe::RgbaFrame slope = compose(flat, filters[1]);
+    const aoe::RgbaFrame slope = compose(flat, filters[1], lighting, 2);
     require(slope.width == 97 && slope.height == 25, "composed dimensions");
     require(
-        hash(slope.rgba) == 6863862511191404407ULL,
-        "composed scanline hash"
+        hash(slope.rgba) == 15247931737235412466ULL,
+        "indexed scanline hash"
     );
-    const aoe::RgbaFrame lit = compose(flat, filters[1], &lighting, 2);
+    const aoe::RgbaFrame& lit = slope;
     for (std::size_t y = 0; y < filters[1].rows.size(); ++y) {
         const auto& row = filters[1].rows[y];
         const std::size_t left = (97U - row.pixels.size()) / 2U;
@@ -115,10 +126,30 @@ int main() {
             );
         }
     }
-    require(
-        hash(lit.rgba) == 704675108723462888ULL,
-        "lit scanline hash"
+    for (std::uint8_t slope_id = 1; slope_id <= 16; ++slope_id) {
+        const auto rendered = compose(
+            flat, filters[slope_id], lighting,
+            lighting_orientation(slope_id)
+        );
+        require(!rendered.rgba.empty(), "all slope IDs compose");
+    }
+    std::vector<std::vector<std::uint8_t>> transitions(
+        1, std::vector<std::uint8_t>(4096, 0)
     );
+    const auto transitioned = compose(flat, filters[1], lighting, 2, transitions);
+    require(hash(transitioned.rgba) != hash(slope.rgba),
+            "indexed transition pattern affects slope lighting");
+
+    bool bad_offset_rejected{};
+    try {
+        FilterMap invalid = filters[1];
+        invalid.rows[0].pixels[0].samples[0].source_offset =
+            static_cast<std::uint16_t>(flat.source_bytes.size());
+        (void)compose(flat, invalid, lighting, 2);
+    } catch (const aoe::LegacyAssetError&) {
+        bad_offset_rejected = true;
+    }
+    require(bad_offset_rejected, "out-of-span source offset rejected");
 
     bool rejected{};
     try {

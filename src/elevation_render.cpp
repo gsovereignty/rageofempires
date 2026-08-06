@@ -229,56 +229,26 @@ int lighting_orientation(std::uint8_t slope_id) {
 }
 
 RgbaFrame compose(
-    const RgbaFrame& flat,
+    const IndexedSlpFrame& flat,
     const FilterMap& filter,
-    const Lighting* lighting,
-    int orientation
+    const Lighting& lighting,
+    int orientation,
+    std::span<const std::vector<std::uint8_t>> transition_patterns
 ) {
     if (flat.width != 97 || flat.height != 49 ||
-        flat.rgba.size() != 97U * 49U * 4U || filter.rows.empty()) {
+        flat.source_bytes.empty() || filter.rows.empty()) {
         throw LegacyAssetError{"elevation composition requires 97x49 terrain"};
     }
-    // FUN_0054eb10 addresses the complete 2,468-byte terrain SLP command
-    // stream, not a packed array of only visible RGBA pixels. Preserve the
-    // command-byte slots as opaque palette colors too. FilterMaps normally
-    // target literal pixels, but command slots remain valid source bytes and
-    // must never become transparent holes when sampled at a slope boundary.
-    const auto command_color = [&](std::uint8_t value) {
-        if (lighting == nullptr) {
-            return std::array<std::uint8_t, 4>{value, value, value, 255};
+    if (orientation < 0 || orientation >= 4 ||
+        lighting.palette.colors.size() != 256 ||
+        lighting.pattern_masks.size() < 4 ||
+        lighting.inverse_color_maps.size() != 10U * 32768U) {
+        throw LegacyAssetError{"invalid elevation lighting data"};
+    }
+    for (const auto& table : transition_patterns) {
+        if (table.size() != 4096) {
+            throw LegacyAssetError{"invalid elevation transition pattern"};
         }
-        const auto& rgb = lighting->palette.colors[value];
-        return std::array<std::uint8_t, 4>{rgb[0], rgb[1], rgb[2], 255};
-    };
-    std::vector<std::array<std::uint8_t, 4>> source(
-        2468, command_color(0)
-    );
-    std::size_t encoded = 0;
-    for (int y = 0; y < flat.height; ++y) {
-        std::vector<std::array<std::uint8_t, 4>> row;
-        for (int x = 0; x < flat.width; ++x) {
-            const std::size_t at = static_cast<std::size_t>(y * flat.width + x) * 4;
-            if (flat.rgba[at + 3] == 0) continue;
-            row.push_back({flat.rgba[at], flat.rgba[at + 1],
-                           flat.rgba[at + 2], flat.rgba[at + 3]});
-        }
-        if (row.size() < 64) {
-            source[encoded++] = command_color(
-                static_cast<std::uint8_t>(row.size() << 2U)
-            );
-        } else {
-            source[encoded++] = command_color(0x02);
-            source[encoded++] = command_color(
-                static_cast<std::uint8_t>(row.size())
-            );
-        }
-        for (const auto& color : row) {
-            if (encoded >= source.size()) {
-                throw LegacyAssetError{"terrain command stream exceeds classic size"};
-            }
-            source[encoded++] = color;
-        }
-        source[encoded++] = command_color(0x0f);
     }
     RgbaFrame output{
         97, static_cast<int>(filter.rows.size()), 48,
@@ -289,55 +259,59 @@ RgbaFrame compose(
         const auto& pixels = filter.rows[y].pixels;
         const std::size_t left = (97U - pixels.size()) / 2U;
         for (std::size_t x = 0; x < pixels.size(); ++x) {
-            std::array<std::uint64_t, 4> sum{};
-            std::uint64_t weights{};
+            std::uint32_t red{};
+            std::uint32_t green{};
+            std::uint32_t blue{};
+            std::uint32_t total_weight{};
             for (const FilterSample sample : pixels[x].samples) {
-                if (sample.source_offset >= source.size()) {
+                if (sample.source_offset >= flat.source_bytes.size()) {
                     throw LegacyAssetError{"elevation source offset is invalid"};
                 }
-                weights += sample.weight;
-                for (std::size_t channel = 0; channel < 4; ++channel) {
-                    sum[channel] += source[sample.source_offset][channel] *
-                        static_cast<std::uint64_t>(sample.weight);
-                }
-            }
-            if (weights == 0) throw LegacyAssetError{"zero elevation filter weight"};
-            const std::size_t at = (y * 97U + left + x) * 4U;
-            std::array<std::uint8_t, 4> color{};
-            for (std::size_t channel = 0; channel < 4; ++channel) {
-                color[channel] = static_cast<std::uint8_t>(
-                    std::min<std::uint64_t>(255, (sum[channel] + weights / 2) / weights)
-                );
-            }
-            // Classic output is an indexed SLP literal command. Every
-            // FilterMaps output pixel is opaque; source alpha is not data.
-            color[3] = 255;
-            if (lighting != nullptr) {
-                if (orientation < 0 || orientation >= 4 ||
-                    pixels[x].lighting_offset >= 4096) {
-                    throw LegacyAssetError{"invalid elevation lighting offset"};
-                }
-                const std::uint8_t pattern = lighting->pattern_masks[
-                    static_cast<std::size_t>(orientation)
-                ][pixels[x].lighting_offset] >> 2U;
-                if (pattern >= lighting->light_maps.size()) {
-                    throw LegacyAssetError{"invalid elevation lighting pattern"};
-                }
-                const std::uint8_t icm = lighting->light_maps[pattern][
-                    pixels[x].lighting_offset
+                const auto& rgb = lighting.palette.colors[
+                    flat.source_bytes[sample.source_offset]
                 ];
-                if (icm >= 10) {
-                    throw LegacyAssetError{"invalid elevation ICM index"};
-                }
-                const std::size_t rgb555 =
-                    static_cast<std::size_t>(color[0] >> 3U) * 1024U +
-                    static_cast<std::size_t>(color[1] >> 3U) * 32U +
-                    static_cast<std::size_t>(color[2] >> 3U);
-                const std::uint8_t palette_index =
-                    lighting->inverse_color_maps[icm * 32768U + rgb555];
-                const auto& mapped = lighting->palette.colors[palette_index];
-                color = {mapped[0], mapped[1], mapped[2], color[3]};
+                total_weight += sample.weight;
+                red += static_cast<std::uint32_t>(rgb[0]) * sample.weight;
+                green += static_cast<std::uint32_t>(rgb[1]) * sample.weight;
+                blue += static_cast<std::uint32_t>(rgb[2]) * sample.weight;
             }
+            if (total_weight == 0) {
+                throw LegacyAssetError{"zero elevation filter weight"};
+            }
+            const std::size_t at = (y * 97U + left + x) * 4U;
+            if (pixels[x].lighting_offset >= 4096) {
+                throw LegacyAssetError{"invalid elevation lighting offset"};
+            }
+            std::uint8_t pattern = lighting.pattern_masks[
+                static_cast<std::size_t>(orientation)
+            ][pixels[x].lighting_offset] >> 2U;
+            for (auto table = transition_patterns.rbegin();
+                 table != transition_patterns.rend(); ++table) {
+                const std::uint8_t encoded =
+                    (*table)[pixels[x].lighting_offset];
+                if ((encoded & 1U) != 0) continue;
+                const std::uint8_t candidate = encoded >> 2U;
+                pattern = (encoded & 2U) != 0
+                    ? std::max(pattern, candidate)
+                    : std::min(pattern, candidate);
+            }
+            if (pattern >= lighting.light_maps.size()) {
+                throw LegacyAssetError{"invalid elevation lighting pattern"};
+            }
+            const std::uint8_t icm = lighting.light_maps[pattern][
+                pixels[x].lighting_offset
+            ];
+            if (icm >= 10) throw LegacyAssetError{"invalid elevation ICM index"};
+            const std::size_t rgb555 =
+                ((red & 0xf800U) >> 1U) |
+                ((green & 0xf800U) >> 6U) |
+                ((blue & 0xf800U) >> 11U);
+            const std::uint8_t palette_index =
+                lighting.inverse_color_maps[icm * 32768U + rgb555];
+            const auto& mapped = lighting.palette.colors[palette_index];
+            const std::array<std::uint8_t, 4> color{
+                mapped[0], mapped[1], mapped[2], 255
+            };
             std::copy(color.begin(), color.end(), output.rgba.begin() + at);
         }
     }

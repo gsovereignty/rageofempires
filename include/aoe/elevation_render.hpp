@@ -70,13 +70,15 @@ struct Lighting {
     LegacyPalette palette
 );
 
-// Exact classic FilterMaps weighted scanline composition. Output keeps the
-// source RGBA colors; palette lighting is applied by renderer's asset chain.
+// Exact classic FilterMaps weighted scanline composition. Source offsets are
+// relative to IndexedSlpFrame::source_bytes. Transition pattern tables use
+// FUN_0054eb10's encoded min/max/override semantics.
 [[nodiscard]] RgbaFrame compose(
-    const RgbaFrame& flat,
+    const IndexedSlpFrame& flat,
     const FilterMap& filter,
-    const Lighting* lighting = nullptr,
-    int orientation = 0
+    const Lighting& lighting,
+    int orientation,
+    std::span<const std::vector<std::uint8_t>> transition_patterns = {}
 );
 
 }  // namespace aoe::elevation_render

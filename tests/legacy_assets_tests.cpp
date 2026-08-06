@@ -277,6 +277,10 @@ void test_slp_decoder() {
         frame.rgba[8] == 35,
         "SLP applies player palette bank"
     );
+    check_throws(
+        [&] { (void)aoe::decode_indexed_slp_frame(slp, 0); },
+        "indexed terrain rejects empty rows and non-terrain commands"
+    );
     constexpr std::array<std::uint8_t, 8> player_bases{
         16, 32, 48, 64, 96, 112, 128, 80,
     };

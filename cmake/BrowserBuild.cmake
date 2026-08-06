@@ -41,7 +41,9 @@ target_link_options(aoe_web PRIVATE
     "SHELL:--shell-file ${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html"
     "SHELL:--pre-js ${CMAKE_CURRENT_SOURCE_DIR}/web/browser_runtime.js"
     "SHELL:--preload-file ${AOE_WEB_ASSET_DIR}/resources@/resources"
-    "SHELL:--preload-file ${AOE_WEB_ASSET_DIR}/game_data@/game_data"
+    "SHELL:--preload-file ${AOE_WEB_ASSET_DIR}/game_data/Bin@/game_data/Bin"
+    "SHELL:--preload-file ${AOE_WEB_ASSET_DIR}/game_data/Data@/game_data/Data"
+    "SHELL:--preload-file ${AOE_WEB_ASSET_DIR}/game_data/Terrain@/game_data/Terrain"
 )
 set_target_properties(aoe_web PROPERTIES
     OUTPUT_NAME aoe_web
@@ -51,6 +53,16 @@ set_target_properties(aoe_web PROPERTIES
         "${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html;${CMAKE_CURRENT_SOURCE_DIR}/web/browser_runtime.js"
 )
 add_custom_command(TARGET aoe_web POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E make_directory
+        "${AOE_WEB_DIST_DIR}/game_data/Sound/music"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory
+        "${AOE_WEB_DIST_DIR}/game_data/Taunt/en"
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+        "${AOE_WEB_ASSET_DIR}/game_data/Sound/music/xmusic1.mp3"
+        "${AOE_WEB_DIST_DIR}/game_data/Sound/music/xmusic1.mp3"
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+        "${AOE_WEB_ASSET_DIR}/game_data/Taunt/en/03 Food, please.mp3"
+        "${AOE_WEB_DIST_DIR}/game_data/Taunt/en/03 Food, please.mp3"
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different
         "${CMAKE_CURRENT_SOURCE_DIR}/web/styles.css"
         "${AOE_WEB_DIST_DIR}/styles.css"

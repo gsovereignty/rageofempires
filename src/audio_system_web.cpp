@@ -103,6 +103,7 @@ EM_JS(void, browser_audio_stop, (), {
 EM_JS(void, browser_audio_set_paused, (bool paused), {
     const state = Module.audioState;
     if (!state) return;
+    if (state.paused === paused) return;
     state.paused = paused;
     if (paused) {
       state.music.pause();

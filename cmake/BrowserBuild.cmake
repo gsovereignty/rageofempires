@@ -1,6 +1,19 @@
 set(AOE_WEB_DIST_DIR "${CMAKE_BINARY_DIR}/dist")
 set(AOE_WEB_ASSET_DIR "${CMAKE_BINARY_DIR}/web-assets")
 
+set(AOE_WEB_CORE_SOURCES ${AOE_CORE_SOURCES})
+list(REMOVE_ITEM AOE_WEB_CORE_SOURCES
+    src/commercial_multiplayer_service.cpp
+)
+add_library(aoe_web_core STATIC ${AOE_WEB_CORE_SOURCES})
+target_include_directories(
+    aoe_web_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/generated"
+)
+target_link_libraries(aoe_web_core PUBLIC ZLIB::ZLIB)
+target_compile_definitions(aoe_web_core PRIVATE AOE_NO_NATIVE_TCP=1)
+target_compile_options(aoe_web_core PRIVATE -Wall -Wextra -Wpedantic)
+
 add_custom_target(web_asset_pack
     COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/build_web_asset_pack.py"
@@ -21,7 +34,7 @@ add_executable(aoe_web
 target_include_directories(
     aoe_web PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include"
 )
-target_link_libraries(aoe_web PRIVATE aoe_core SDL3::SDL3)
+target_link_libraries(aoe_web PRIVATE aoe_web_core SDL3::SDL3)
 target_compile_definitions(aoe_web PRIVATE
     AOE_HAVE_NATIVE_MP3=0
     AOE_HAVE_MPG123=0

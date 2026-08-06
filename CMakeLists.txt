@@ -1,10 +1,16 @@
 cmake_minimum_required(VERSION 3.24)
 
+set(AOE_BUILD_SDL3_DEFAULT ${APPLE})
+if(EMSCRIPTEN)
+    set(AOE_BUILD_SDL3_DEFAULT ON)
+endif()
+
 option(
     AOE_BUILD_SDL3
     "Build locked SDL3 source instead of using a host-built package"
-    ${APPLE}
+    ${AOE_BUILD_SDL3_DEFAULT}
 )
+option(AOE_BUILD_WEB "Build browser WebAssembly risk spike" OFF)
 
 if(
     APPLE
@@ -32,7 +38,12 @@ project(AoeArchaeology VERSION 0.1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-find_package(ZLIB REQUIRED)
+if(EMSCRIPTEN)
+    add_library(ZLIB::ZLIB INTERFACE IMPORTED)
+    target_link_options(ZLIB::ZLIB INTERFACE "SHELL:-s USE_ZLIB=1")
+else()
+    find_package(ZLIB REQUIRED)
+endif()
 find_package(Python3 3.9 REQUIRED COMPONENTS Interpreter)
 
 # FindZLIB can publish the macOS SDK's usr/include as an explicit system
@@ -62,8 +73,13 @@ endif()
 if(AOE_BUILD_SDL3)
     include(FetchContent)
     set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
-    set(SDL_SHARED ON CACHE BOOL "" FORCE)
-    set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+    if(EMSCRIPTEN)
+        set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+        set(SDL_STATIC ON CACHE BOOL "" FORCE)
+    else()
+        set(SDL_SHARED ON CACHE BOOL "" FORCE)
+        set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+    endif()
     set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
     set(SDL_TESTS OFF CACHE BOOL "" FORCE)
     set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -1430,3 +1446,7 @@ set_tests_properties(
     aoe_packaged_startup_sdl_smoke
     PROPERTIES ENVIRONMENT "AOE_DISABLE_LEGACY_ASSETS=0"
 )
+
+if(EMSCRIPTEN AND AOE_BUILD_WEB)
+    include(cmake/BrowserBuild.cmake)
+endif()

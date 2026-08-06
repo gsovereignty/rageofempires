@@ -28,9 +28,10 @@ AOE_EXIT_AFTER_SCREENSHOT=1 \
 "$isolated_source/build/aoe_reconstruction" >"$log" 2>&1
 
 game_data=$(cd "$isolated_source/build/game_data/Data" && pwd -P)
+game_data_root=$(cd "$isolated_source/build/game_data" && pwd -P)
 test -s "$frame"
 grep -F "using optional original sprites from $game_data" "$log"
-grep -F "using optional original terrain textures from" "$log"
+grep -F "using packaged HD terrain textures from $game_data_root" "$log"
 python3 "$isolated_source/scripts/verify_resource_manifest.py" \
     "$isolated_source/build/resource-manifest.json" \
     "$isolated_source/build"

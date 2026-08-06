@@ -1,4 +1,15 @@
 set(AOE_WEB_DIST_DIR "${CMAKE_BINARY_DIR}/dist")
+set(AOE_WEB_ASSET_DIR "${CMAKE_BINARY_DIR}/web-assets")
+
+add_custom_target(web_asset_pack
+    COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/build_web_asset_pack.py"
+        --source-root "${CMAKE_CURRENT_SOURCE_DIR}"
+        --output-root "${AOE_WEB_ASSET_DIR}"
+    BYPRODUCTS
+        "${AOE_WEB_ASSET_DIR}/web_asset_manifest.json"
+    VERBATIM
+)
 
 add_executable(aoe_web
     "${CMAKE_CURRENT_SOURCE_DIR}/src/web_main.cpp"
@@ -8,6 +19,7 @@ target_include_directories(
     aoe_web PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include"
 )
 target_link_libraries(aoe_web PRIVATE SDL3::SDL3)
+add_dependencies(aoe_web web_asset_pack)
 target_compile_options(aoe_web PRIVATE -Wall -Wextra -Wpedantic)
 target_link_options(aoe_web PRIVATE
     "SHELL:-s ALLOW_MEMORY_GROWTH=1"
@@ -31,4 +43,9 @@ add_custom_command(TARGET aoe_web POST_BUILD
     VERBATIM
 )
 
-add_custom_target(web_risk_spike DEPENDS aoe_web)
+add_custom_target(web_risk_spike
+    COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/test_build_web_asset_pack.py"
+    DEPENDS aoe_web
+    VERBATIM
+)

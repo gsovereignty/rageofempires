@@ -221,6 +221,11 @@ target_compile_options(
     application_loop_tests PRIVATE -Wall -Wextra -Wpedantic
 )
 add_test(NAME application_loop_tests COMMAND application_loop_tests)
+add_test(
+    NAME web_asset_pack_tests
+    COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/test_build_web_asset_pack.py"
+)
 
 add_executable(audio_mix_tests tests/audio_mix_tests.cpp)
 target_link_libraries(audio_mix_tests PRIVATE aoe_core)

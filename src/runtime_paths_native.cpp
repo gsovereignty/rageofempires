@@ -61,6 +61,16 @@ std::filesystem::path user_autosave_directory() {
     return user_data_directory();
 }
 
+std::optional<std::filesystem::path> startup_autosave_path() {
+    return std::nullopt;
+}
+
+void request_persistence_sync() {}
+
+PersistenceSyncStatus persistence_sync_status() {
+    return PersistenceSyncStatus::not_required;
+}
+
 std::optional<std::filesystem::path> configured_asset_root() {
     if (const char* disabled = SDL_getenv("AOE_DISABLE_LEGACY_ASSETS");
         disabled != nullptr && disabled[0] != '\0' &&

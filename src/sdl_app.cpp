@@ -387,6 +387,10 @@ struct TerrainTextures {
     std::vector<RgbaFrame> water_archive_rgba;
     std::vector<RgbaFrame> beach_archive_rgba;
     std::vector<RgbaFrame> shallows_archive_rgba;
+    std::vector<IndexedSlpFrame> grass_archive_indexed;
+    std::vector<IndexedSlpFrame> water_archive_indexed;
+    std::vector<IndexedSlpFrame> beach_archive_indexed;
+    std::vector<IndexedSlpFrame> shallows_archive_indexed;
     std::optional<BlendomaticData> blendomatic;
     std::optional<std::array<elevation_render::FilterMap, 17>> elevation_filters;
     std::optional<elevation_render::Lighting> elevation_lighting;
@@ -425,6 +429,10 @@ struct TerrainTextures {
         water_archive_rgba.clear();
         beach_archive_rgba.clear();
         shallows_archive_rgba.clear();
+        grass_archive_indexed.clear();
+        water_archive_indexed.clear();
+        beach_archive_indexed.clear();
+        shallows_archive_indexed.clear();
         for (auto& [key, texture] : transition_cache) {
             (void)key;
             SDL_DestroyTexture(texture);
@@ -2723,7 +2731,8 @@ std::vector<SDL_Texture*> load_terrain_archive_frames(
     const DrsArchive& terrain,
     const LegacyPalette& palette,
     std::int32_t resource_id,
-    std::vector<RgbaFrame>* rgba_frames
+    std::vector<RgbaFrame>* rgba_frames,
+    std::vector<IndexedSlpFrame>* indexed_frames
 ) {
     const std::vector<std::byte> bytes =
         terrain.read("slp", resource_id);
@@ -2734,11 +2743,16 @@ std::vector<SDL_Texture*> load_terrain_archive_frames(
         rgba_frames->clear();
         rgba_frames->reserve(count);
     }
+    if (indexed_frames != nullptr) {
+        indexed_frames->clear();
+        indexed_frames->reserve(count);
+    }
     try {
         for (std::size_t index = 0; index < count; ++index) {
             RgbaFrame decoded = decode_slp_frame(
                 bytes, palette, index
             );
+            IndexedSlpFrame indexed = decode_indexed_slp_frame(bytes, index);
             SDL_Surface* surface = SDL_CreateSurfaceFrom(
                 decoded.width,
                 decoded.height,
@@ -2769,10 +2783,14 @@ std::vector<SDL_Texture*> load_terrain_archive_frames(
             if (rgba_frames != nullptr) {
                 rgba_frames->push_back(std::move(decoded));
             }
+            if (indexed_frames != nullptr) {
+                indexed_frames->push_back(std::move(indexed));
+            }
         }
     } catch (...) {
         for (SDL_Texture* texture : frames) SDL_DestroyTexture(texture);
         if (rgba_frames != nullptr) rgba_frames->clear();
+        if (indexed_frames != nullptr) indexed_frames->clear();
         throw;
     }
     return frames;
@@ -2830,7 +2848,8 @@ TerrainTextures load_local_terrain_textures(SDL_Renderer* renderer) {
                 textures.grass_archive_frames =
                     load_terrain_archive_frames(
                         renderer, terrain, palette, 15001,
-                        &textures.grass_archive_rgba
+                        &textures.grass_archive_rgba,
+                        &textures.grass_archive_indexed
                 );
                 SDL_Log(
                     "using original terrain.drs SLP 15001 grass frames: %zu",
@@ -2841,7 +2860,8 @@ TerrainTextures load_local_terrain_textures(SDL_Renderer* renderer) {
                 textures.water_archive_frames =
                     load_terrain_archive_frames(
                         renderer, terrain, palette, 15002,
-                        &textures.water_archive_rgba
+                        &textures.water_archive_rgba,
+                        &textures.water_archive_indexed
                 );
                 SDL_Log(
                     "using original terrain.drs SLP 15002 water frames: %zu",
@@ -2852,7 +2872,8 @@ TerrainTextures load_local_terrain_textures(SDL_Renderer* renderer) {
                 textures.beach_archive_frames =
                     load_terrain_archive_frames(
                         renderer, terrain, palette, 15017,
-                        &textures.beach_archive_rgba
+                        &textures.beach_archive_rgba,
+                        &textures.beach_archive_indexed
                 );
                 SDL_Log(
                     "using original terrain.drs SLP 15017 beach frames: %zu",
@@ -2863,7 +2884,8 @@ TerrainTextures load_local_terrain_textures(SDL_Renderer* renderer) {
                 textures.shallows_archive_frames =
                     load_terrain_archive_frames(
                         renderer, terrain, palette, 15014,
-                        &textures.shallows_archive_rgba
+                        &textures.shallows_archive_rgba,
+                        &textures.shallows_archive_indexed
                 );
                 SDL_Log(
                     "using original terrain.drs SLP 15014 shallows frames: %zu",
@@ -2970,6 +2992,21 @@ const std::vector<RgbaFrame>* terrain_archive_rgba(Terrain terrain) {
         return &active_terrain_textures.shallows_archive_rgba;
     }
     return &active_terrain_textures.grass_archive_rgba;
+}
+
+const std::vector<IndexedSlpFrame>* terrain_archive_indexed(Terrain terrain) {
+    if (terrain == Terrain::water || terrain == Terrain::deep_water ||
+        terrain == Terrain::fish || terrain == Terrain::fish_shore ||
+        terrain == Terrain::fish_deep) {
+        return &active_terrain_textures.water_archive_indexed;
+    }
+    if (terrain == Terrain::beach) {
+        return &active_terrain_textures.beach_archive_indexed;
+    }
+    if (terrain == Terrain::shallows) {
+        return &active_terrain_textures.shallows_archive_indexed;
+    }
+    return &active_terrain_textures.grass_archive_indexed;
 }
 
 SDL_Texture* terrain_transition_texture(
@@ -3103,71 +3140,28 @@ SDL_Texture* terrain_elevation_texture(
     std::size_t frame_index
 ) {
     TerrainTextures& textures = active_terrain_textures;
-    if (!textures.elevation_filters) return nullptr;
+    if (!textures.elevation_filters || !textures.elevation_lighting) {
+        return nullptr;
+    }
     const auto topology = terrain_elevation_topology(
         simulation.map(), position
     );
     if (topology.slope_id == 0) return nullptr;
     const Terrain terrain = simulation.map().terrain_at(position);
-    const std::vector<RgbaFrame>* frames = terrain_archive_rgba(terrain);
+    const std::vector<IndexedSlpFrame>* frames =
+        terrain_archive_indexed(terrain);
     if (frame_index >= frames->size()) return nullptr;
-    RgbaFrame flat = (*frames)[frame_index];
     std::ostringstream key;
     key << "slope:" << static_cast<int>(terrain) << ':' << frame_index
         << ':' << static_cast<int>(topology.slope_id);
-    if (textures.blendomatic) {
-        constexpr std::array<TilePosition, 8> offsets{{
-            {0, -1}, {1, -1}, {1, 0}, {1, 1},
-            {0, 1}, {-1, 1}, {-1, 0}, {-1, -1},
-        }};
-        std::array<std::optional<Terrain>, 8> neighbors;
-        for (std::size_t index = 0; index < offsets.size(); ++index) {
-            const TilePosition neighbor{
-                position.x + offsets[index].x,
-                position.y + offsets[index].y,
-            };
-            if (simulation.map().contains(neighbor) &&
-                (!active_settings.fog ||
-                 simulation.is_explored_to_controller(
-                     active_view_player, neighbor))) {
-                neighbors[index] = simulation.map().terrain_at(neighbor);
-            }
-        }
-        const auto selections = select_terrain_transition_masks(
-            terrain, neighbors, position
-        );
-        for (const TerrainMaskSelection& selected : selections) {
-            const std::vector<RgbaFrame>* overlay =
-                terrain_archive_rgba(selected.overlay);
-            if (frame_index >= overlay->size() || selected.blend_mode < 0 ||
-                static_cast<std::size_t>(selected.blend_mode) >=
-                    textures.blendomatic->modes.size()) return nullptr;
-            for (const int mask_id : selected.fixed_mask_ids) {
-                const auto& masks = textures.blendomatic->modes[
-                    static_cast<std::size_t>(selected.blend_mode)];
-                if (mask_id < 0 ||
-                    static_cast<std::size_t>(mask_id) >= masks.size()) {
-                    return nullptr;
-                }
-                key << '/' << static_cast<int>(selected.overlay) << ':'
-                    << selected.blend_mode << ':' << mask_id;
-                flat = compose_terrain_transition(
-                    flat, (*overlay)[frame_index],
-                    masks[static_cast<std::size_t>(mask_id)]
-                );
-            }
-        }
-    }
     if (const auto found = textures.transition_cache.find(key.str());
         found != textures.transition_cache.end()) {
         return found->second;
     }
     const RgbaFrame composed = elevation_render::compose(
-        flat,
+        (*frames)[frame_index],
         (*textures.elevation_filters)[topology.slope_id],
-        textures.elevation_lighting
-            ? &*textures.elevation_lighting
-            : nullptr,
+        *textures.elevation_lighting,
         elevation_render::lighting_orientation(topology.slope_id)
     );
     SDL_Surface* surface = SDL_CreateSurfaceFrom(
@@ -3181,6 +3175,9 @@ SDL_Texture* terrain_elevation_texture(
         SDL_DestroyTexture(texture);
         return nullptr;
     }
+    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+    SDL_SetTextureColorMod(texture, 255, 255, 255);
+    SDL_SetTextureAlphaMod(texture, 255);
     textures.transition_cache.emplace(key.str(), texture);
     return texture;
 }

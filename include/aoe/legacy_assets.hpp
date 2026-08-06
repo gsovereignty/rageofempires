@@ -49,6 +49,20 @@ struct RgbaFrame {
     std::vector<std::uint8_t> rgba;
 };
 
+// Terrain elevation FilterMaps address bytes relative to the first command
+// byte of a classic SLP frame. Keep that exact, unmodified byte span beside
+// the ordinary RGBA rendering path.
+struct IndexedSlpFrame {
+    int width{};
+    int height{};
+    int hotspot_x{};
+    int hotspot_y{};
+    std::vector<std::uint8_t> source_bytes;
+    std::vector<std::size_t> row_command_offsets;
+    std::vector<std::uint16_t> outline_left;
+    std::vector<std::uint16_t> outline_right;
+};
+
 class DrsArchive {
 public:
     explicit DrsArchive(const std::filesystem::path& path);
@@ -115,6 +129,11 @@ discover_legacy_music_tracks(
     const LegacyPalette& palette,
     std::size_t frame_index,
     unsigned player = 1
+);
+
+[[nodiscard]] IndexedSlpFrame decode_indexed_slp_frame(
+    std::span<const std::byte> slp,
+    std::size_t frame_index
 );
 
 [[nodiscard]] RgbaFrame decode_slp_frame(

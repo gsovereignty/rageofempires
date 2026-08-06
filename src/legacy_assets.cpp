@@ -529,6 +529,103 @@ std::size_t slp_frame_count(std::span<const std::byte> slp) {
     return static_cast<std::size_t>(raw_count);
 }
 
+IndexedSlpFrame decode_indexed_slp_frame(
+    std::span<const std::byte> slp,
+    std::size_t frame_index
+) {
+    const std::size_t count = slp_frame_count(slp);
+    require(frame_index < count, "SLP frame index is invalid");
+    const FrameInfo info = frame_info(slp, frame_index);
+    require(
+        (info.properties & 0x0fU) != 7,
+        "direct-RGBA SLP cannot be used as indexed terrain"
+    );
+
+    IndexedSlpFrame frame{
+        info.width, info.height, info.hotspot_x, info.hotspot_y, {}, {}, {}, {}
+    };
+    frame.row_command_offsets.reserve(static_cast<std::size_t>(info.height));
+    frame.outline_left.reserve(static_cast<std::size_t>(info.height));
+    frame.outline_right.reserve(static_cast<std::size_t>(info.height));
+
+    std::size_t source_base = slp.size();
+    std::size_t source_end{};
+    std::vector<std::size_t> absolute_rows;
+    std::vector<std::size_t> absolute_ends;
+    absolute_rows.reserve(static_cast<std::size_t>(info.height));
+    absolute_ends.reserve(static_cast<std::size_t>(info.height));
+    for (std::size_t row = 0; row < static_cast<std::size_t>(info.height); ++row) {
+        const std::uint16_t left = u16(slp, info.outline + row * 4);
+        const std::uint16_t right = u16(slp, info.outline + row * 4 + 2);
+        frame.outline_left.push_back(left);
+        frame.outline_right.push_back(right);
+        require(
+            left != 0x8000 && right != 0x8000,
+            "indexed terrain contains an empty SLP row"
+        );
+        require(
+            static_cast<std::uint32_t>(left) + right <=
+                static_cast<std::uint32_t>(info.width),
+            "SLP row outline is invalid"
+        );
+        std::size_t position = u32(slp, info.commands + row * 4);
+        absolute_rows.push_back(position);
+        source_base = std::min(source_base, position);
+        std::size_t pixels{};
+        bool ended{};
+        while (!ended) {
+            const std::uint8_t command = byte_at(slp, position++);
+            const std::uint8_t low = command & 0x0fU;
+            if (low == 0x0fU) {
+                ended = true;
+            } else if ((command & 0x03U) == 0) {
+                const std::size_t amount = command >> 2U;
+                require(amount != 0, "indexed terrain has empty color list");
+                checked_range(position, amount, slp.size(),
+                              "SLP color list is truncated");
+                position += amount;
+                pixels += amount;
+            } else if (low == 0x02U) {
+                const std::size_t amount =
+                    (static_cast<std::size_t>(command & 0xf0U) << 4U) +
+                    byte_at(slp, position++);
+                require(amount != 0, "indexed terrain has empty color list");
+                checked_range(position, amount, slp.size(),
+                              "SLP long color list is truncated");
+                position += amount;
+                pixels += amount;
+            } else {
+                throw LegacyAssetError{
+                    "unsupported command in indexed terrain SLP"
+                };
+            }
+        }
+        require(
+            pixels == static_cast<std::size_t>(info.width) - left - right,
+            "indexed terrain row has wrong pixel count"
+        );
+        source_end = std::max(source_end, position);
+        absolute_ends.push_back(position);
+    }
+    require(source_base < source_end, "indexed terrain command stream is empty");
+    for (std::size_t row = 0; row < absolute_rows.size(); ++row) {
+        require(
+            absolute_rows[row] ==
+                (row == 0 ? source_base : absolute_ends[row - 1]),
+            "indexed terrain command rows are not contiguous"
+        );
+        frame.row_command_offsets.push_back(absolute_rows[row] - source_base);
+    }
+    frame.source_bytes.reserve(source_end - source_base);
+    std::transform(
+        slp.begin() + static_cast<std::ptrdiff_t>(source_base),
+        slp.begin() + static_cast<std::ptrdiff_t>(source_end),
+        std::back_inserter(frame.source_bytes),
+        [](std::byte value) { return std::to_integer<std::uint8_t>(value); }
+    );
+    return frame;
+}
+
 RgbaFrame decode_slp_frame(
     std::span<const std::byte> slp,
     const LegacyPalette& palette,

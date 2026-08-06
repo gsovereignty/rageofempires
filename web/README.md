@@ -30,6 +30,23 @@ cmake --build build-web --target aoe_web
 cmake --build build-web --target web_risk_spike
 ```
 
+`web_risk_spike` runs the deterministic asset-pack checks, complete Chrome
+journey, pointer/display matrix, and persistence fault checks against the
+production bundle. Cross-browser journey commands are:
+
+```sh
+MOZ_HEADLESS=1 python3 tests/web/browser_risk_spike_test.py \
+  --browser firefox \
+  --evidence artifacts/browser-risk-spike/evidence-firefox.json
+python3 tests/web/browser_risk_spike_test.py \
+  --browser safari --headed \
+  --evidence artifacts/browser-risk-spike/evidence-safari.json
+```
+
+Safari requires **Allow remote automation** in Safari's Developer settings.
+The build and tests remain frontend-only: they serve static files locally and
+do not provide or exercise an application server.
+
 Generated browser files belong only in `build-web/dist/`; they are not native
 runtime or package inputs. Serve that directory through static HTTP rather
 than opening its HTML through `file://`.

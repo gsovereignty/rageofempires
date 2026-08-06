@@ -11,6 +11,22 @@ browser edition.
 Native targets, behavior, resources, packaging, and default build remain
 unchanged. Browser support is a separate, disabled-by-default Emscripten target.
 
+## Frontend-only deployment contract
+
+The browser spike is entirely frontend-only. The production output is a set of
+static HTML, JavaScript, WebAssembly, data, CSS, and media files that may be
+served by any ordinary static HTTP host. It must not require or implement an
+application server, API server, server-side rendering, database service,
+WebSocket service, multiplayer relay, or other runtime backend.
+
+All simulation, AI, rendering, input handling, save serialization, and restore
+logic execute locally in the browser. Settings and the single autosave persist
+locally through IndexedDB. Runtime network requests are limited to fetching the
+static production files, including the directly streamed MP3; after those
+files are delivered, no server computation or mutable server state may be
+required. Browser automation may launch a local static file server solely to
+provide HTTP delivery and must prove that no dynamic endpoint is used.
+
 ## Fixed product slice
 
 The browser exposes exactly this flow:

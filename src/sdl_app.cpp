@@ -2687,7 +2687,7 @@ SDL_Texture* load_local_terrain_texture(
     if (!std::filesystem::is_regular_file(path, path_error)) {
         SDL_LogWarn(
             SDL_LOG_CATEGORY_APPLICATION,
-            "optional original terrain texture missing: %s",
+            "packaged HD terrain texture missing: %s",
             path.string().c_str()
         );
         return nullptr;
@@ -2696,7 +2696,7 @@ SDL_Texture* load_local_terrain_texture(
     if (surface == nullptr) {
         SDL_LogWarn(
             SDL_LOG_CATEGORY_APPLICATION,
-            "cannot decode optional original terrain texture %s: %s",
+            "cannot decode packaged HD terrain texture %s: %s",
             path.string().c_str(),
             SDL_GetError()
         );
@@ -2707,7 +2707,7 @@ SDL_Texture* load_local_terrain_texture(
     if (texture == nullptr) {
         SDL_LogWarn(
             SDL_LOG_CATEGORY_APPLICATION,
-            "cannot upload optional original terrain texture %s: %s",
+            "cannot upload packaged HD terrain texture %s: %s",
             path.string().c_str(),
             SDL_GetError()
         );
@@ -2804,36 +2804,30 @@ TerrainTextures load_local_terrain_textures(SDL_Renderer* renderer) {
     }
     const std::filesystem::path texture_root =
         *requested_root / "Terrain" / "Textures";
-    const bool archive_only =
-        SDL_getenv("AOE_TERRAIN_ARCHIVE_ONLY") != nullptr;
-    if (!archive_only) {
-        textures.grass = load_local_terrain_texture(
-            renderer,
-            texture_root / "g_grs_00_COLOR.png"
-        );
-        textures.water = load_local_terrain_texture(
-            renderer,
-            texture_root / "g_wtr_00_COLOR.png"
-        );
-        textures.beach = load_local_terrain_texture(
-            renderer,
-            texture_root / "g_bch_00_COLOR.png"
-        );
-        textures.shallows = load_local_terrain_texture(
-            renderer,
-            texture_root / "g_sha_00_COLOR.png"
-        );
-        textures.farm_growing = load_local_terrain_texture(
-            renderer,
-            texture_root / "g_fm1_00_COLOR.png"
-        );
-        textures.farm_harvested = load_local_terrain_texture(
-            renderer,
-            texture_root / "g_fm2_00_COLOR.png"
-        );
-    } else {
-        SDL_Log("terrain audit forcing archive/Blendomatic path");
-    }
+    textures.grass = load_local_terrain_texture(
+        renderer,
+        texture_root / "g_grs_00_COLOR.png"
+    );
+    textures.water = load_local_terrain_texture(
+        renderer,
+        texture_root / "g_wtr_00_COLOR.png"
+    );
+    textures.beach = load_local_terrain_texture(
+        renderer,
+        texture_root / "g_bch_00_COLOR.png"
+    );
+    textures.shallows = load_local_terrain_texture(
+        renderer,
+        texture_root / "g_sha_00_COLOR.png"
+    );
+    textures.farm_growing = load_local_terrain_texture(
+        renderer,
+        texture_root / "g_fm1_00_COLOR.png"
+    );
+    textures.farm_harvested = load_local_terrain_texture(
+        renderer,
+        texture_root / "g_fm2_00_COLOR.png"
+    );
     if (textures.grass == nullptr || textures.water == nullptr ||
         textures.beach == nullptr || textures.shallows == nullptr) {
         const std::filesystem::path data_root =
@@ -2898,10 +2892,7 @@ TerrainTextures load_local_terrain_textures(SDL_Renderer* renderer) {
                 data_root / "blendomatic.dat",
                 data_root / "Blendomatic.dat",
             };
-            const bool disable_blendomatic =
-                SDL_getenv("AOE_DISABLE_BLENDOMATIC_AUDIT") != nullptr;
             for (const auto& path : blend_paths) {
-                if (disable_blendomatic) break;
                 if (!std::filesystem::is_regular_file(path)) continue;
                 try {
                     textures.blendomatic =
@@ -2920,9 +2911,6 @@ TerrainTextures load_local_terrain_textures(SDL_Renderer* renderer) {
                         error.what()
                     );
                 }
-            }
-            if (disable_blendomatic) {
-                SDL_Log("terrain audit disabled Blendomatic composition");
             }
             const std::filesystem::path filter_path =
                 data_root / "FilterMaps.dat";
@@ -2972,7 +2960,7 @@ TerrainTextures load_local_terrain_textures(SDL_Renderer* renderer) {
         !textures.beach_archive_frames.empty() ||
         !textures.shallows_archive_frames.empty()) {
         SDL_Log(
-            "using optional original terrain textures from %s",
+            "using packaged HD terrain textures from %s",
             requested_root->string().c_str()
         );
     }

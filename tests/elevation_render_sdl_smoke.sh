@@ -17,7 +17,6 @@ capture() {
         AOE_WINDOW_SIZE=800x600 \
         AOE_CAMERA_TILE=8,8 \
         AOE_CAMERA_ZOOM=1.0 \
-        AOE_TERRAIN_ARCHIVE_ONLY=1 \
         "AOE_SCENARIO_PATH=$script_dir/../resources/elevation-transition-matrix.scenario" \
         AOE_EXIT_AFTER_SCREENSHOT=1 \
         "AOE_SCREENSHOT_PATH=$smoke_dir/$name.bmp" \
@@ -27,7 +26,12 @@ capture() {
 capture first
 capture second
 cmp "$smoke_dir/first.bmp" "$smoke_dir/second.bmp"
-grep -q 'using exact classic FilterMaps.dat slope scanlines' "$smoke_dir/first.log"
+grep -q 'using packaged HD terrain textures from' "$smoke_dir/first.log"
+if grep -q 'using exact classic FilterMaps.dat slope scanlines' \
+    "$smoke_dir/first.log"; then
+    echo 'production HD elevation smoke loaded classic terrain fallback' >&2
+    exit 1
+fi
 
 python3 - "$smoke_dir/first.bmp" <<'PY'
 import pathlib
@@ -49,7 +53,7 @@ if len(set(pixels[index:index + step] for index in range(0, len(pixels), step)))
     raise SystemExit("elevation capture lost filtered terrain variation")
 
 # Central viewport covers graded hills but excludes map-edge background.
-# Pin chromatic grass and reject transparent FilterMaps holes or white terrain.
+# Pin production HD grass and reject transparent or white terrain holes.
 stride = ((width * step + 3) // 4) * 4
 black = white = grass = 0
 for screen_y in range(80, 390):

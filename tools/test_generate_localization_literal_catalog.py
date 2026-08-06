@@ -50,6 +50,7 @@ class LiteralCatalogTests(unittest.TestCase):
         allowed_functions = {
             # Non-visible cache/evidence identifiers.
             "terrain_transition_texture",
+            "terrain_elevation_texture",
             "begin_overlap_case",
             # Bug families explicitly excluded from this localization pass.
             "render_campaign_presentation",
@@ -60,6 +61,8 @@ class LiteralCatalogTests(unittest.TestCase):
         function_declarations = {
             "terrain_transition_texture":
                 "SDL_Texture* terrain_transition_texture(",
+            "terrain_elevation_texture":
+                "SDL_Texture* terrain_elevation_texture(",
             "begin_overlap_case": "void begin_overlap_case(",
             "render_campaign_presentation":
                 "void render_campaign_presentation(",

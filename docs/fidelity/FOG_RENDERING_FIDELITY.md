@@ -66,11 +66,28 @@ pointer tables, filenames, and DAT files are not shipped or read at runtime.
 user-owned archives. `fog_rendering_contract` rejects every out-of-range shape
 or edge class and exposes only terminated `{row,left,right}` payloads.
 
-World rendering normalizes all eight compass neighbors, selects exact edge
-classes, scales original 96x48 scanlines to reconstruction's 64x32 diamonds,
-applies both TileEdge halves, removes BlkEdge spans, and overlays recovered
-explored stipple. Minimap uses matching state colors, visibility-gated markers,
-and recovered viewport bounds. Runtime and build have no parent path fallback.
+World rendering first composites textured terrain without drawing unexplored
+diamonds into terrain depth order. It then builds one viewport-sized shroud
+coverage texture: opaque black is the initial state, complete explored diamonds
+expose composed terrain, selected TileEdge halves refine visible coverage, and
+BlkEdge spans subtract shroud coverage through transparent mask operations.
+The completed texture is composited once over terrain. BlkEdge triples are
+therefore never emitted as standalone opaque black artwork.
+
+Each tile selects its shape from the production elevation topology classifier's
+`slope_id`; shape 0 is no longer hardcoded. Original 96x48 coordinates scale to
+the reconstruction's 64x32 diamonds, including vertically extended slope
+records. Explored terrain remains half-bright beneath recovered stipple, visible
+terrain retains archive texture and chroma, and pixels outside completed
+explored coverage remain opaque black. Minimap uses matching state colors,
+visibility-gated markers, and recovered viewport bounds. Runtime and build have
+no parent path fallback.
+
+Commit `31953a9` replaced direct opaque BlkEdge scanline rendering. Production
+Cocoa-window and deterministic SDL captures confirmed mask composition through
+the packaged executable. The prior transition contained exposed combs, bars,
+and rectangular cuts at explored/unexplored boundaries; completed coverage no
+longer renders those raw span shapes.
 
 ## Enemy building memory
 
@@ -168,11 +185,17 @@ python3 tools/generate_fog_edge_geometry.py \
   --output generated/fog_edge_geometry.hpp
 cmake --build build-release --target aoe_fog_rendering_contract_tests
 ./build-release/aoe_fog_rendering_contract_tests
+ctest --test-dir build-release --output-on-failure \
+  -R 'aoe_fog_rendering_contract_tests|fog_terrain_texture_sdl_smoke'
 ```
 
 Tests verify exact 256-to-47 normalization, all 93,281 derived span records,
 17-by-47 dimensions, compass order, state selection, shape bounds, terminators,
 pointer rejection, recovered dither constants, and enabled archive renderer.
+Production selection coverage exercises every visible/explored neighbor-mask
+pair against all 17 tile shapes. SDL smoke coverage verifies deterministic
+packaged rendering, opaque hidden interiors, a bounded shroud transition,
+chromatic textured grass, and absence of near-white terrain replacement.
 `aoe_core_tests` additionally verifies stale destruction and age state,
 per-viewer isolation, sight-return invalidation, save/load, and lockstep hash.
 Starting-allied-Town-Center coverage includes four roster slots, team and

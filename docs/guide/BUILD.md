@@ -67,6 +67,13 @@ unreadable, or unset terrain assets fall back individually to built-in
 procedural terrain. Original assets stay at their source path and are never
 copied into build outputs.
 
+Fog rendering uses packaged, pointer-free TileEdge and BlkEdge geometry. World
+terrain is composed first, then one completed shroud coverage texture is
+applied. BlkEdge records modify that mask and are not drawn as opaque scanline
+artwork. Elevation topology selects all 17 shape tables; explored terrain stays
+half-bright and stippled while unexplored coverage remains opaque black. See
+[fog rendering fidelity](../fidelity/FOG_RENDERING_FIDELITY.md).
+
 When the same local root contains `Data/graphics.drs` and
 `Data/interfac.drs`, original sprites are also used for sheep, deer, boar,
 villagers, current military units, oak/forest trees, and gold mines. Directional

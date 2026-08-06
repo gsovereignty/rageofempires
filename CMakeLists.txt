@@ -145,6 +145,7 @@ add_library(aoe_core
     src/selection_controls.cpp
     src/building_placement.cpp
     src/terrain_transition.cpp
+    src/terrain_catalog.cpp
     src/window_mode.cpp
     src/shadow_catalog.cpp
     src/projectile_catalog.cpp

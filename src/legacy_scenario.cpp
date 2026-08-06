@@ -1,4 +1,5 @@
 #include "aoe/legacy_scenario.hpp"
+#include "aoe/terrain_catalog.hpp"
 
 #include <algorithm>
 #include <array>
@@ -1546,34 +1547,10 @@ LegacyScenarioConversionReport convert_legacy_scenario(
         static_cast<int>(source.map_width),
         static_cast<int>(source.map_height)
     );
-    const auto terrain = [&dat, allow_preserved_unsupported_semantics](std::uint8_t id)
+    const auto terrain = [&dat](std::uint8_t id)
         -> std::optional<Terrain> {
         if (id >= dat.terrain_count()) return std::nullopt;
-        switch (id) {
-            case 0: return Terrain::grass;
-            case 1: return Terrain::water;
-            case 2: return Terrain::beach;
-            case 3: return Terrain::dirt3;
-            case 4: return Terrain::shallows;
-            case 5: case 9: return Terrain::grass2;
-            case 6: case 14: return Terrain::dirt;
-            case 10: case 40: return Terrain::forest;
-            case 13: return Terrain::palm_forest;
-            case 17: return Terrain::jungle_forest;
-            case 18: return Terrain::bamboo_forest;
-            case 19: case 21: return Terrain::pine_forest;
-            case 20: return Terrain::oak_forest;
-            case 15: case 23: return Terrain::water;
-            case 22: return Terrain::deep_water;
-            case 32: case 34: return Terrain::snow;
-            case 35: return Terrain::ice;
-            default:
-                // Import mode keeps valid commercial maps playable while
-                // strict archaeology conversion still reports unproved IDs.
-                return allow_preserved_unsupported_semantics
-                    ? std::optional<Terrain>{Terrain::grass}
-                    : std::nullopt;
-        }
+        return classic_terrain_from_id(id);
     };
     for (std::size_t index = 0; index < source.map_tiles.size(); ++index) {
         const TilePosition position{

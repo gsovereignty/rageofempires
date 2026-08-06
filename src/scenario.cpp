@@ -2,6 +2,7 @@
 #include "aoe/format_versions.hpp"
 
 #include "aoe/game_rules.hpp"
+#include "aoe/terrain_catalog.hpp"
 
 #include <algorithm>
 #include <fstream>
@@ -26,18 +27,9 @@ bool valid_scenario_text(const std::string& text) {
 }
 
 Terrain parse_terrain(const std::string& value, int line) {
-    if (value == "grass") return Terrain::grass;
-    if (value == "grass2") return Terrain::grass2;
-    if (value == "dirt") return Terrain::dirt;
-    if (value == "dirt2") return Terrain::dirt2;
-    if (value == "dirt3") return Terrain::dirt3;
-    if (value == "road") return Terrain::road;
-    if (value == "snow") return Terrain::snow;
-    if (value == "ice") return Terrain::ice;
-    if (value == "water") return Terrain::water;
-    if (value == "deep_water") return Terrain::deep_water;
-    if (value == "beach") return Terrain::beach;
-    if (value == "shallows") return Terrain::shallows;
+    if (const auto terrain = classic_terrain_from_token(value)) {
+        return *terrain;
+    }
     if (value == "forest") return Terrain::forest;
     if (value == "pine_forest") return Terrain::pine_forest;
     if (value == "oak_forest") return Terrain::oak_forest;
@@ -958,19 +950,11 @@ std::optional<TriggerEffect> parse_trigger_effect(
 }
 
 std::string terrain_name(Terrain terrain) {
+    if (const ClassicTerrainRecord* record =
+            classic_terrain_record(terrain)) {
+        return std::string{record->token};
+    }
     switch (terrain) {
-        case Terrain::grass: return "grass";
-        case Terrain::grass2: return "grass2";
-        case Terrain::dirt: return "dirt";
-        case Terrain::dirt2: return "dirt2";
-        case Terrain::dirt3: return "dirt3";
-        case Terrain::road: return "road";
-        case Terrain::snow: return "snow";
-        case Terrain::ice: return "ice";
-        case Terrain::water: return "water";
-        case Terrain::deep_water: return "deep_water";
-        case Terrain::beach: return "beach";
-        case Terrain::shallows: return "shallows";
         case Terrain::forest: return "forest";
         case Terrain::pine_forest: return "pine_forest";
         case Terrain::oak_forest: return "oak_forest";
@@ -983,6 +967,7 @@ std::string terrain_name(Terrain terrain) {
         case Terrain::fish: return "fish";
         case Terrain::fish_shore: return "fish_shore";
         case Terrain::fish_deep: return "fish_deep";
+        default: break;
     }
     return "grass";
 }

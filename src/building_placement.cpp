@@ -36,8 +36,10 @@ PlacementPreview evaluate_building_placement(
             const bool terrain =
                 kind == BuildingKind::fish_trap
                     ? simulation.map().sailable(tile)
-                    : simulation.map().contains(tile) &&
-                        simulation.map().terrain_at(tile) == Terrain::grass;
+                    : kind == BuildingKind::dock
+                        ? simulation.map().contains(tile) &&
+                            simulation.map().terrain_at(tile) == Terrain::grass
+                        : simulation.map().buildable(tile);
             if (!terrain) {
                 result.reason = "INVALID TERRAIN OR RESOURCE";
                 return result;

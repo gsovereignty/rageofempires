@@ -1,4 +1,5 @@
 #include "aoe/game_map.hpp"
+#include "aoe/terrain_catalog.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -40,20 +41,13 @@ int GameMap::elevation_at(TilePosition position) const {
 
 bool GameMap::walkable(TilePosition position) const {
     if (!contains(position)) return false;
+    if (classic_terrain_id(terrain_at(position))) {
+        return classic_terrain_passable(
+            terrain_at(position),
+            ClassicTerrainRestriction::land_unit
+        );
+    }
     switch (terrain_at(position)) {
-    case Terrain::grass:
-        case Terrain::grass2:
-        case Terrain::dirt:
-        case Terrain::dirt2:
-        case Terrain::dirt3:
-        case Terrain::road:
-        case Terrain::snow:
-        case Terrain::ice:
-        case Terrain::beach:
-        case Terrain::shallows:
-            return true;
-        case Terrain::water:
-        case Terrain::deep_water:
         case Terrain::forest:
         case Terrain::pine_forest:
         case Terrain::oak_forest:
@@ -67,8 +61,9 @@ bool GameMap::walkable(TilePosition position) const {
         case Terrain::fish_shore:
         case Terrain::fish_deep:
             return false;
+        default:
+            return false;
     }
-    return false;
 }
 
 bool GameMap::sailable(TilePosition position) const {
@@ -76,10 +71,20 @@ bool GameMap::sailable(TilePosition position) const {
         return false;
     }
     const Terrain terrain = terrain_at(position);
-    return terrain == Terrain::water || terrain == Terrain::deep_water ||
-        terrain == Terrain::fish || terrain == Terrain::fish_shore ||
-        terrain == Terrain::fish_deep ||
-        terrain == Terrain::beach || terrain == Terrain::shallows;
+    if (classic_terrain_id(terrain)) {
+        return classic_terrain_passable(
+            terrain, ClassicTerrainRestriction::ship
+        );
+    }
+    return terrain == Terrain::fish || terrain == Terrain::fish_shore ||
+        terrain == Terrain::fish_deep;
+}
+
+bool GameMap::buildable(TilePosition position) const {
+    return contains(position) && classic_terrain_passable(
+        terrain_at(position),
+        ClassicTerrainRestriction::generic_building
+    );
 }
 
 bool GameMap::traversable(
@@ -117,23 +122,11 @@ void GameMap::set_terrain(TilePosition position, Terrain terrain) {
             case Terrain::fish_deep:
                 resources_.at(tile) = 200;
                 break;
-            case Terrain::grass:
-            case Terrain::grass2:
-            case Terrain::dirt:
-            case Terrain::dirt2:
-            case Terrain::dirt3:
-            case Terrain::road:
-            case Terrain::snow:
-            case Terrain::ice:
-            case Terrain::water:
-            case Terrain::deep_water:
-            case Terrain::beach:
-            case Terrain::shallows:
+            default:
                 resources_.at(tile) = 0;
                 break;
         }
-    } else if (terrain == Terrain::grass || terrain == Terrain::water ||
-               terrain == Terrain::beach || terrain == Terrain::shallows) {
+    } else if (classic_terrain_id(terrain)) {
         resources_.at(tile) = 0;
     }
 }

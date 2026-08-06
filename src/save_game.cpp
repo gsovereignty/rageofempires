@@ -14,6 +14,7 @@
 
 #include "aoe/game_rules.hpp"
 #include "aoe/player_codec.hpp"
+#include "aoe/terrain_catalog.hpp"
 
 namespace aoe {
 namespace {
@@ -215,19 +216,10 @@ int encode(BuildingKind kind) {
 }
 
 int encode(Terrain terrain) {
+    if (const auto id = classic_terrain_id(terrain)) {
+        return 100 + *id;
+    }
     switch (terrain) {
-        case Terrain::grass:
-            return 0;
-        case Terrain::grass2: return 9;
-        case Terrain::dirt: return 10;
-        case Terrain::dirt2: return 11;
-        case Terrain::dirt3: return 12;
-        case Terrain::road: return 13;
-        case Terrain::snow: return 14;
-        case Terrain::ice: return 15;
-        case Terrain::water:
-            return 1;
-        case Terrain::deep_water: return 16;
         case Terrain::forest:
             return 2;
         case Terrain::pine_forest: return 17;
@@ -245,10 +237,7 @@ int encode(Terrain terrain) {
             return 6;
         case Terrain::fish_shore: return 22;
         case Terrain::fish_deep: return 23;
-        case Terrain::beach:
-            return 7;
-        case Terrain::shallows:
-            return 8;
+        default: break;
     }
     return 0;
 }
@@ -1747,7 +1736,13 @@ Simulation load_game(const std::filesystem::path& path) {
             if (version >= 103) input >> elevation;
             bool cliff{};
             if (version >= 116) input >> cliff;
-            const Terrain decoded =
+            const std::optional<Terrain> classic =
+                version >= 127 && terrain >= 100 && terrain <= 140
+                    ? classic_terrain_from_id(
+                        static_cast<std::uint8_t>(terrain - 100)
+                    )
+                    : std::nullopt;
+            const Terrain decoded = classic.value_or(
                 terrain == 1 ? Terrain::water :
                 terrain == 2 ? Terrain::forest :
                 terrain == 3 ? Terrain::berry_bush :
@@ -1771,7 +1766,8 @@ Simulation load_game(const std::filesystem::path& path) {
                 terrain == 21 && version >= 116 ? Terrain::jungle_forest :
                 terrain == 22 && version >= 116 ? Terrain::fish_shore :
                 terrain == 23 && version >= 116 ? Terrain::fish_deep :
-                Terrain::grass;
+                Terrain::grass
+            );
             map->set_terrain(position, decoded);
             map->set_resource_amount(position, resources);
             map->set_elevation(position, elevation);

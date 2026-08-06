@@ -447,8 +447,9 @@ bool cliff_forbidden_terrain(Terrain terrain) {
         case Terrain::snow:
         case Terrain::ice:
             return false;
+        default:
+            return true;
     }
-    return true;
 }
 
 template <typename Active>

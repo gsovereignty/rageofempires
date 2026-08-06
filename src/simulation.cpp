@@ -842,8 +842,9 @@ ResourceKind resource_for(Terrain terrain) {
         case Terrain::beach:
         case Terrain::shallows:
             return ResourceKind::none;
+        default:
+            return ResourceKind::none;
     }
-    return ResourceKind::none;
 }
 
 bool accepts_resource(BuildingKind building, ResourceKind resource) {
@@ -4731,8 +4732,10 @@ void Simulation::validate_loaded_state() const {
                 const bool terrain_allowed =
                     building.kind == BuildingKind::fish_trap
                         ? map_.sailable(tile)
-                        : map_.contains(tile) &&
-                            map_.terrain_at(tile) == Terrain::grass;
+                        : building.kind == BuildingKind::dock
+                            ? map_.contains(tile) &&
+                                map_.terrain_at(tile) == Terrain::grass
+                            : map_.buildable(tile);
                 if (!terrain_allowed) {
                     throw std::runtime_error(
                         "invalid building footprint in save"
@@ -9763,8 +9766,10 @@ bool Simulation::footprint_available(
             const bool terrain_allowed =
                 kind == BuildingKind::fish_trap
                 ? map_.sailable(tile)
-                : map_.contains(tile) &&
-                    map_.terrain_at(tile) == Terrain::grass;
+                : kind == BuildingKind::dock
+                    ? map_.contains(tile) &&
+                        map_.terrain_at(tile) == Terrain::grass
+                    : map_.buildable(tile);
             if (!terrain_allowed ||
                 occupied(tile, except)) {
                 return false;

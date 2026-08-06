@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <source_location>
 #include <string>
 #include <vector>
@@ -15,6 +16,9 @@
 
 #include "aoe/legacy_scenario.hpp"
 #include "aoe/legacy_campaign.hpp"
+#include "aoe/save_game.hpp"
+#include "aoe/scenario.hpp"
+#include "aoe/terrain_catalog.hpp"
 
 namespace {
 
@@ -420,6 +424,13 @@ void conversion_reports_every_unsupported_record() {
 
     source.map_tiles[1].terrain = 7;
     report = aoe::convert_legacy_scenario(source, dat);
+    require(report.scenario.has_value());
+    require(report.translated_tiles == 2);
+    require(report.unsupported_tiles == 0);
+    require(report.scenario->map.terrain_at({1, 0}) == aoe::Terrain::farm1);
+
+    source.map_tiles[1].terrain = 41;
+    report = aoe::convert_legacy_scenario(source, dat);
     require(!report.scenario);
     require(report.translated_tiles == 1);
     require(report.unsupported_tiles == 1);
@@ -427,6 +438,138 @@ void conversion_reports_every_unsupported_record() {
     require(report.unsupported_tile_indices[0] == 1);
     require(report.translated_objects == 1);
     require(report.unsupported_objects == 1);
+}
+
+void every_classic_terrain_converts_round_trips_and_obeys_restrictions() {
+    constexpr std::array terrains{
+        aoe::Terrain::grass,
+        aoe::Terrain::water,
+        aoe::Terrain::beach,
+        aoe::Terrain::dirt3,
+        aoe::Terrain::shallows,
+        aoe::Terrain::leaves,
+        aoe::Terrain::dirt,
+        aoe::Terrain::farm1,
+        aoe::Terrain::farm2,
+        aoe::Terrain::grass3,
+        aoe::Terrain::classic_forest,
+        aoe::Terrain::dirt2,
+        aoe::Terrain::grass2,
+        aoe::Terrain::palm_desert,
+        aoe::Terrain::desert,
+        aoe::Terrain::old_water,
+        aoe::Terrain::old_grass,
+        aoe::Terrain::jungle,
+        aoe::Terrain::bamboo,
+        aoe::Terrain::pine_forest_floor,
+        aoe::Terrain::oak_forest_floor,
+        aoe::Terrain::snow_forest,
+        aoe::Terrain::deep_water,
+        aoe::Terrain::medium_water,
+        aoe::Terrain::road,
+        aoe::Terrain::road2,
+        aoe::Terrain::ice,
+        aoe::Terrain::foundation,
+        aoe::Terrain::water_bridge,
+        aoe::Terrain::farm_construction1,
+        aoe::Terrain::farm_construction2,
+        aoe::Terrain::farm_construction3,
+        aoe::Terrain::snow,
+        aoe::Terrain::snow_dirt,
+        aoe::Terrain::snow_grass,
+        aoe::Terrain::ice2,
+        aoe::Terrain::snow_foundation,
+        aoe::Terrain::ice_beach,
+        aoe::Terrain::snow_road,
+        aoe::Terrain::snow_road2,
+        aoe::Terrain::koh,
+    };
+    constexpr std::array<std::uint8_t, 8> ship{
+        1, 2, 4, 15, 22, 23, 26, 37,
+    };
+    constexpr std::array<std::uint8_t, 11> building_blocked{
+        1, 2, 4, 15, 22, 23, 26, 28, 35, 37, 40,
+    };
+    constexpr std::array<std::uint8_t, 9> dock{
+        1, 2, 4, 15, 22, 23, 26, 35, 37,
+    };
+    constexpr std::array<std::uint8_t, 4> land_blocked{1, 15, 22, 23};
+    constexpr std::array<std::uint8_t, 8> fish_trap{
+        1, 2, 4, 15, 22, 23, 26, 37,
+    };
+    const auto contains = [](const auto& values, std::uint8_t value) {
+        return std::find(values.begin(), values.end(), value) != values.end();
+    };
+
+    const auto& catalog = aoe::classic_terrain_catalog();
+    require(catalog.size() == terrains.size());
+    aoe::LegacyScenarioMetadata source;
+    source.map_decoded = true;
+    source.player_settings_decoded = true;
+    source.objects_decoded = true;
+    source.map_width = static_cast<std::uint32_t>(terrains.size());
+    source.map_height = 1;
+    source.players.resize(16);
+    source.players[1].diplomacy.assign(16, 3);
+    source.players[2].diplomacy.assign(16, 3);
+    for (std::size_t id = 0; id < terrains.size(); ++id) {
+        source.map_tiles.push_back({static_cast<std::uint8_t>(id), 0, 0});
+    }
+    const auto report =
+        aoe::convert_legacy_scenario(source, conversion_dat_fixture());
+    require(report.scenario.has_value());
+    require(report.translated_tiles == terrains.size());
+    require(report.unsupported_tiles == 0);
+
+    const auto path = std::filesystem::temp_directory_path() /
+        "aoe-classic-terrain-round-trip.scenario";
+    aoe::save_scenario(*report.scenario, path);
+    const auto loaded = aoe::load_scenario(path);
+    std::filesystem::remove(path);
+    const auto save_path = std::filesystem::temp_directory_path() /
+        "aoe-classic-terrain-round-trip.save";
+    aoe::save_game(aoe::Simulation{loaded.map}, save_path);
+    const auto restored = aoe::load_game(save_path);
+    std::filesystem::remove(save_path);
+    for (std::size_t index = 0; index < terrains.size(); ++index) {
+        const auto id = static_cast<std::uint8_t>(index);
+        const auto position = aoe::TilePosition{
+            static_cast<int>(index), 0
+        };
+        require(catalog[index].id == id);
+        require(catalog[index].terrain == terrains[index]);
+        require(aoe::classic_terrain_from_id(id) == terrains[index]);
+        require(aoe::classic_terrain_id(terrains[index]) == id);
+        require(
+            aoe::classic_terrain_from_token(catalog[index].token) ==
+            terrains[index]
+        );
+        require(report.scenario->map.terrain_at(position) == terrains[index]);
+        require(loaded.map.terrain_at(position) == terrains[index]);
+        require(restored.map().terrain_at(position) == terrains[index]);
+        require(
+            loaded.map.sailable(position) == contains(ship, id)
+        );
+        require(
+            loaded.map.buildable(position) ==
+            !contains(building_blocked, id)
+        );
+        require(
+            loaded.map.walkable(position) == !contains(land_blocked, id)
+        );
+        require(
+            aoe::classic_terrain_passable(
+                terrains[index], aoe::ClassicTerrainRestriction::dock
+            ) == contains(dock, id)
+        );
+        require(
+            aoe::classic_terrain_passable(
+                terrains[index], aoe::ClassicTerrainRestriction::fish_trap
+            ) == contains(fish_trap, id)
+        );
+    }
+    require(!aoe::classic_terrain_from_id(41));
+    require(!aoe::classic_terrain_id(aoe::Terrain::forest));
 }
 
 void every_catalog_mapping_converts_exhaustively() {
@@ -1175,6 +1318,19 @@ void cpx2_import_installs_and_persists_completion() {
     require(campaign.name == "CPX2 fixture");
     require(campaign.scenarios.size() == 1);
     require(std::filesystem::is_regular_file(campaign.scenarios[0].path));
+    const aoe::Scenario imported =
+        aoe::load_scenario(campaign.scenarios[0].path);
+    require(imported.map.terrain_at({1, 0}) == aoe::Terrain::farm1);
+    require(imported.map.walkable({1, 0}));
+    require(!imported.map.sailable({1, 0}));
+    {
+        std::ifstream input(campaign.scenarios[0].path);
+        const std::string text{
+            std::istreambuf_iterator<char>{input},
+            std::istreambuf_iterator<char>{}
+        };
+        require(text.find("terrain farm1 1 0") != std::string::npos);
+    }
     aoe::CampaignProgress progress = aoe::fresh_campaign_progress(campaign);
     const auto progress_path = root / "progress.txt";
     require(aoe::commit_campaign_outcome(
@@ -1200,6 +1356,7 @@ int main(int argc, char** argv) {
     reads_proved_classic_header_and_body();
     rejects_unknown_versions_and_corrupt_payloads();
     conversion_reports_every_unsupported_record();
+    every_classic_terrain_converts_round_trips_and_obeys_restrictions();
     every_catalog_mapping_converts_exhaustively();
     converts_lossless_trigger_subset_and_preserves_order_flags();
     trigger_audit_is_deterministic_and_machine_readable();

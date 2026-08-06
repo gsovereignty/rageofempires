@@ -18,6 +18,7 @@ public:
     [[nodiscard]] int elevation_at(TilePosition position) const;
     [[nodiscard]] bool walkable(TilePosition position) const;
     [[nodiscard]] bool sailable(TilePosition position) const;
+    [[nodiscard]] bool buildable(TilePosition position) const;
     [[nodiscard]] bool traversable(
         TilePosition from, TilePosition to
     ) const;

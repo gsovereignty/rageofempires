@@ -253,8 +253,9 @@ ResourceKind resource_kind(Terrain terrain) {
         case Terrain::beach:
         case Terrain::shallows:
             return ResourceKind::none;
+        default:
+            return ResourceKind::none;
     }
-    return ResourceKind::none;
 }
 
 std::optional<TilePosition> nearest_resource(

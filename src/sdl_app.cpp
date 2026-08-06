@@ -2186,19 +2186,48 @@ SDL_Color terrain_color(Terrain terrain) {
         case Terrain::grass:
             return {92, 138, 74, 255};
         case Terrain::grass2: return {76, 126, 65, 255};
+        case Terrain::grass3: return {82, 132, 70, 255};
+        case Terrain::leaves: return {75, 111, 58, 255};
+        case Terrain::farm1: return {111, 139, 69, 255};
+        case Terrain::farm2: return {139, 119, 70, 255};
         case Terrain::dirt: return {174, 145, 91, 255};
         case Terrain::dirt2: return {154, 124, 76, 255};
         case Terrain::dirt3: return {131, 104, 67, 255};
         case Terrain::road: return {137, 116, 83, 255};
+        case Terrain::road2: return {123, 101, 73, 255};
+        case Terrain::foundation: return {133, 113, 85, 255};
+        case Terrain::farm_construction1: return {124, 127, 70, 255};
+        case Terrain::farm_construction2: return {137, 121, 68, 255};
+        case Terrain::farm_construction3: return {150, 116, 65, 255};
         case Terrain::snow: return {214, 222, 218, 255};
+        case Terrain::snow_dirt: return {190, 184, 167, 255};
+        case Terrain::snow_grass: return {184, 203, 184, 255};
+        case Terrain::snow_foundation: return {177, 170, 157, 255};
+        case Terrain::snow_road: return {187, 181, 169, 255};
+        case Terrain::snow_road2: return {174, 167, 155, 255};
         case Terrain::ice: return {162, 202, 217, 255};
+        case Terrain::ice2: return {143, 190, 211, 255};
+        case Terrain::ice_beach: return {175, 204, 210, 255};
         case Terrain::water:
             return {65, 110, 170, 255};
         case Terrain::deep_water: return {42, 78, 142, 255};
+        case Terrain::medium_water: return {53, 94, 157, 255};
+        case Terrain::old_water: return {61, 105, 164, 255};
+        case Terrain::water_bridge: return {91, 126, 151, 255};
         case Terrain::beach:
             return {208, 177, 135, 255};
         case Terrain::shallows:
             return {26, 124, 124, 255};
+        case Terrain::old_grass: return {88, 133, 71, 255};
+        case Terrain::palm_desert: return {183, 148, 88, 255};
+        case Terrain::desert: return {194, 160, 98, 255};
+        case Terrain::classic_forest: return {58, 102, 48, 255};
+        case Terrain::jungle: return {54, 105, 48, 255};
+        case Terrain::bamboo: return {68, 116, 55, 255};
+        case Terrain::pine_forest_floor: return {56, 96, 57, 255};
+        case Terrain::oak_forest_floor: return {65, 108, 50, 255};
+        case Terrain::snow_forest: return {143, 168, 145, 255};
+        case Terrain::koh: return {132, 105, 74, 255};
         case Terrain::forest:
         case Terrain::pine_forest:
         case Terrain::oak_forest:
@@ -15322,10 +15351,8 @@ std::size_t render(
                 simulation.map().terrain_at(position);
             bool full_texture_diamond = false;
             if (explored) {
-                const std::vector<SDL_Texture*>* archive_frames =
-                    &active_terrain_textures.grass_archive_frames;
+                const std::vector<SDL_Texture*>* archive_frames = nullptr;
                 if (terrain == Terrain::water ||
-                    terrain == Terrain::deep_water ||
                     terrain == Terrain::fish ||
                     terrain == Terrain::fish_shore ||
                     terrain == Terrain::fish_deep) {
@@ -15340,10 +15367,22 @@ std::size_t render(
                     texture = active_terrain_textures.shallows;
                     archive_frames =
                         &active_terrain_textures.shallows_archive_frames;
-                } else {
+                } else if (terrain == Terrain::grass ||
+                           terrain == Terrain::forest ||
+                           terrain == Terrain::pine_forest ||
+                           terrain == Terrain::oak_forest ||
+                           terrain == Terrain::bamboo_forest ||
+                           terrain == Terrain::palm_forest ||
+                           terrain == Terrain::jungle_forest ||
+                           terrain == Terrain::berry_bush ||
+                           terrain == Terrain::gold_mine ||
+                           terrain == Terrain::stone_mine) {
                     texture = active_terrain_textures.grass;
+                    archive_frames =
+                        &active_terrain_textures.grass_archive_frames;
                 }
-                if (texture == nullptr && !archive_frames->empty()) {
+                if (texture == nullptr && archive_frames != nullptr &&
+                    !archive_frames->empty()) {
                     const std::size_t flat_frame_count =
                         std::min<std::size_t>(
                             100, archive_frames->size()

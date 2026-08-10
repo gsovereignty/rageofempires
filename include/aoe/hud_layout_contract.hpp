@@ -137,8 +137,9 @@ inline constexpr int information_content_x = 286;
     )];
 }
 
-// Exact FUN_005e7cb0 call order and operands. Coordinates are SLP draw
-// anchors; callers apply each frame hotspot when producing its destination.
+// FUN_005e7cb0 call order and operands, with its decorative centered frame 5
+// intentionally omitted. Coordinates are SLP draw anchors; callers apply each
+// frame hotspot when producing its destination.
 [[nodiscard]] inline std::vector<BackgroundDraw> background_composition(
     int screen_width,
     int screen_height,
@@ -170,12 +171,6 @@ inline constexpr int information_content_x = 286;
     }
     draws.push_back({1, 0, bottom});
     draws.push_back({4, right_cap_x, bottom});
-    draws.push_back({
-        5,
-        ((right_cap_x - frames[1].width) / 2 -
-         frames[5].width / 2) + frames[1].width,
-        bottom - frames[5].height / 2,
-    });
     draws.push_back({
         7,
         sibling_x - (frames[7].width - sibling_width) / 2,

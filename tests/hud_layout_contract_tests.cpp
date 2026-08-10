@@ -211,7 +211,7 @@ int main() {
     const auto draws = background_composition(
         1280, 1024, sibling.x, sibling.width, frames
     );
-    assert(draws.size() == 64);
+    assert(draws.size() == 63);
     assert((draws.front() == BackgroundDraw{0, 0, 0}));
     assert((draws[39] == BackgroundDraw{0, 1248, 0}));
     assert((draws[40] == BackgroundDraw{6, 0, 0}));
@@ -222,8 +222,11 @@ int main() {
     ) == 4);
     assert((draws[60] == BackgroundDraw{1, 0, 849}));
     assert((draws[61] == BackgroundDraw{4, 889, 849}));
-    assert((draws[62] == BackgroundDraw{5, 488, 784}));
-    assert((draws[63] == BackgroundDraw{7, 624, 0}));
+    assert(std::none_of(
+        draws.begin(), draws.end(),
+        [](const BackgroundDraw& draw) { return draw.frame == 5; }
+    ));
+    assert((draws[62] == BackgroundDraw{7, 624, 0}));
     auto missing_frames = frames;
     missing_frames[0].width = 0;
     assert(background_composition(

@@ -1,21 +1,57 @@
 Module['browserUncaughtErrors'] = [];
+Module['browserDiagnostics'] = [];
+const diagnosticValue = function (value) {
+  if (value instanceof Error) {
+    return {name: value.name, message: value.message, stack: value.stack || ''};
+  }
+  if (typeof value === 'string' || typeof value === 'number' ||
+      typeof value === 'boolean' || value === null || value === undefined) {
+    return value === undefined ? 'undefined' : value;
+  }
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch (_) {
+    return String(value);
+  }
+};
+const recordDiagnostic = function (level, values) {
+  Module['browserDiagnostics'].push({
+    elapsedMilliseconds: Math.round(performance.now()),
+    level,
+    values: Array.from(values, diagnosticValue)
+  });
+  if (Module['browserDiagnostics'].length > 1000) {
+    Module['browserDiagnostics'].splice(0, 100);
+  }
+};
+for (const level of ['error', 'warn']) {
+  const original = console[level].bind(console);
+  console[level] = function (...values) {
+    recordDiagnostic(level, values);
+    original(...values);
+  };
+}
 window.addEventListener('error', function (event) {
-  Module['browserUncaughtErrors'].push({
+  const error = {
     message: event.message || String(event.error || 'unknown error'),
     source: event.filename || '',
     line: event.lineno || 0,
     column: event.colno || 0,
     stack: event.error && event.error.stack || ''
-  });
-});
+  };
+  Module['browserUncaughtErrors'].push(error);
+  recordDiagnostic('uncaught-error', [error]);
+}, true);
 window.addEventListener('unhandledrejection', function (event) {
-  Module['browserUncaughtErrors'].push({
+  const error = {
     message: String(event.reason || 'unhandled rejection'),
     source: '',
     line: 0,
     column: 0,
     stack: event.reason && event.reason.stack || ''
-  });
+  };
+  Module['browserUncaughtErrors'].push(error);
+  recordDiagnostic('unhandled-rejection', [error]);
 });
 Module['canvas'] = document.getElementById('canvas');
 Module['browserDisplayMetrics'] = function () {
@@ -68,12 +104,53 @@ Module['onRuntimeInitialized'] = function () {
   document.getElementById('start').hidden = false;
 };
 Module['reportFailure'] = function (reason) {
+  recordDiagnostic('reported-failure', [reason]);
   document.getElementById('loading').hidden = false;
   document.getElementById('start').hidden = true;
   Module['canvas'].hidden = true;
   Module['setStatus']('Browser startup failed: ' + reason);
 };
 Module['onAbort'] = Module['reportFailure'];
+
+document.getElementById('diagnostics').addEventListener('click', function () {
+  const canvas = Module['canvas'];
+  const report = {
+    capturedAt: new Date().toISOString(),
+    page: location.href,
+    userAgent: navigator.userAgent,
+    display: Module['browserDisplayMetrics'](),
+    bodyText: document.body.innerText,
+    canvasHidden: canvas.hidden,
+    runtimeCalled: Boolean(Module.calledRun),
+    storageReady: Boolean(Module.storageReady),
+    persistence: {
+      status: Module.persistenceSyncStatus || null,
+      error: Module.persistenceSyncError || null
+    },
+    uncaughtErrors: Module['browserUncaughtErrors'],
+    diagnostics: Module['browserDiagnostics'],
+    lifecycle: Module.browserLifecycle || null,
+    telemetry: Module.browserTelemetry || null,
+    audioTelemetry: Module.browserAudioTelemetry || null,
+    resources: performance.getEntriesByType('resource').map(function (entry) {
+      return {
+        name: entry.name,
+        duration: entry.duration,
+        transferSize: entry.transferSize,
+        decodedBodySize: entry.decodedBodySize
+      };
+    })
+  };
+  const blob = new Blob([JSON.stringify(report, null, 2) + '\n'], {
+    type: 'application/json'
+  });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'aoe-browser-diagnostics-' +
+    new Date().toISOString().replaceAll(':', '-') + '.json';
+  link.click();
+  setTimeout(function () { URL.revokeObjectURL(link.href); }, 0);
+});
 
 document.getElementById('start').addEventListener('pointerup', function () {
   if (!Module['storageReady']) return;

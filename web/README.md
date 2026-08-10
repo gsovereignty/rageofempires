@@ -61,3 +61,23 @@ do not provide or exercise an application server.
 Generated browser files belong only in `build-web/dist/`; they are not native
 runtime or package inputs. Serve that directory through static HTTP rather
 than opening its HTML through `file://`.
+
+## Agent-readable console capture
+
+Capture production-page console output without Selenium or Playwright:
+
+```sh
+python3 tools/capture_browser_console.py
+```
+
+The collector serves `build-web/dist`, launches an isolated headless Chrome,
+activates the production Start control, and writes console calls, JavaScript
+exceptions, page failure state, and Chrome diagnostics to
+`artifacts/browser-console/console.json`. Use `--seconds`, `--chrome`,
+`--dist`, or `--output` when defaults do not fit the local environment.
+
+For failures in a real gameplay session, reproduce the problem and select
+**Download diagnostics**. The resulting `aoe-browser-diagnostics-*.json` file
+contains a bounded rolling log of console errors and warnings, uncaught errors,
+runtime failure reports, display state, telemetry, and loaded resources. Give
+that file to the agent so it can inspect evidence from the affected session.

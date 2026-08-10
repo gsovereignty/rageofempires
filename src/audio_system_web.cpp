@@ -111,6 +111,12 @@ EM_JS(void, browser_audio_set_paused, (bool paused), {
       Module.browserAudioTelemetry.musicPlayAttempts += 1;
       const play = state.music.play();
       if (play) play.catch(reason => {
+        if (reason?.name === 'NotAllowedError') {
+          state.awaitingGesture = true;
+          return;
+        }
+        if (reason?.name === 'AbortError' &&
+            (state.paused || Module.audioState !== state)) return;
         const message = 'Music resume failed: ' + reason;
         Module.browserAudioTelemetry.errors.push(message);
         Module.reportFailure(message);

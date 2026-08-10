@@ -79,13 +79,13 @@ add_custom_command(TARGET aoe_web POST_BUILD
     COMMAND "${CMAKE_COMMAND}" -E make_directory
         "${AOE_WEB_DIST_DIR}/game_data/Sound/music"
     COMMAND "${CMAKE_COMMAND}" -E make_directory
-        "${AOE_WEB_DIST_DIR}/game_data/Taunt/en"
+        "${AOE_WEB_DIST_DIR}/game_data/Sound/effects"
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different
         "${AOE_WEB_ASSET_DIR}/game_data/Sound/music/xmusic1.mp3"
         "${AOE_WEB_DIST_DIR}/game_data/Sound/music/xmusic1.mp3"
-    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-        "${AOE_WEB_ASSET_DIR}/game_data/Taunt/en/03 Food, please.mp3"
-        "${AOE_WEB_DIST_DIR}/game_data/Taunt/en/03 Food, please.mp3"
+    COMMAND "${CMAKE_COMMAND}" -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/game_data/Sound/effects"
+        "${AOE_WEB_DIST_DIR}/game_data/Sound/effects"
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different
         "${CMAKE_CURRENT_SOURCE_DIR}/web/styles.css"
         "${AOE_WEB_DIST_DIR}/styles.css"

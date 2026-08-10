@@ -140,6 +140,7 @@ set(AOE_CORE_SOURCES
     src/ui_perspective.cpp
     src/multiplayer_transport.cpp
     src/legacy_dat.cpp
+    src/legacy_sound_resolver.cpp
     src/legacy_campaign.cpp
     src/legacy_recorded_game.cpp
     src/legacy_ai_script.cpp
@@ -229,11 +230,29 @@ add_test(
     COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/tools/test_build_web_asset_pack.py"
 )
+add_test(
+    NAME mp3_effect_pack_tests
+    COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/test_mp3_effect_pack.py"
+)
 
 add_executable(audio_mix_tests tests/audio_mix_tests.cpp)
 target_link_libraries(audio_mix_tests PRIVATE aoe_core)
 target_compile_options(audio_mix_tests PRIVATE -Wall -Wextra -Wpedantic)
 add_test(NAME audio_mix_tests COMMAND audio_mix_tests)
+
+add_executable(
+    legacy_sound_resolver_tests tests/legacy_sound_resolver_tests.cpp
+)
+target_link_libraries(legacy_sound_resolver_tests PRIVATE aoe_core)
+target_compile_definitions(
+    legacy_sound_resolver_tests PRIVATE
+    AOE_TEST_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+)
+target_compile_options(
+    legacy_sound_resolver_tests PRIVATE -Wall -Wextra -Wpedantic
+)
+add_test(NAME legacy_sound_resolver_tests COMMAND legacy_sound_resolver_tests)
 
 add_executable(statistics_view_tests tests/statistics_view_tests.cpp)
 target_link_libraries(statistics_view_tests PRIVATE aoe_core)

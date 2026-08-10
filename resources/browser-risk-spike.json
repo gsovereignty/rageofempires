@@ -36,7 +36,7 @@
     "defeat": "lose entity 3 (blue town_center)"
   },
   "audio": {
-    "effect": "game_data/Taunt/en/03 Food, please.mp3",
+    "effect_catalog": "game_data/Sound/effects/manifest.json",
     "music": "game_data/Sound/music/xmusic1.mp3",
     "music_mode": "stream"
   },
@@ -145,7 +145,7 @@
       "dependencies": []
     },
     "audio": {
-      "reason": "required streamed music and cached effect",
+      "reason": "required streamed music and mapped MP3 effects",
       "dependencies": ["music", "effect"]
     },
     "music": {
@@ -154,8 +154,8 @@
       "dependencies": []
     },
     "effect": {
-      "reason": "short decoded MP3 effect",
-      "source": "game_data/Taunt/en/03 Food, please.mp3",
+      "reason": "generated DAT-to-MP3 effect catalog",
+      "source": "game_data/Sound/effects/manifest.json",
       "dependencies": []
     }
   }

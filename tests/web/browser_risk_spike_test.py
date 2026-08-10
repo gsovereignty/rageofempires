@@ -341,6 +341,17 @@ class Journey:
         self.evidence.setdefault("suspension", {})[name] = result
 
     def play_to_victory(self, label: str) -> dict[str, object]:
+        before_town_center = self.telemetry()
+        self.pointer("townCenter")
+        wait_until(
+            "town center selection",
+            lambda: int(self.telemetry()["selectedBuilding"]) != 0,
+        )
+        wait_until(
+            "town center selection keeps simulation running",
+            lambda: int(self.telemetry()["tick"])
+            > int(before_town_center["tick"]),
+        )
         self.pointer("villager")
         wait_until(
             "villager selection",

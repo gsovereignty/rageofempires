@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <memory>
 #include <string_view>
 
 #include "aoe/game_rules.hpp"
@@ -827,9 +828,9 @@ SelectionPanelModel build_selection_panel(
                 std::min(first + page_capacity, units.size());
             for (std::size_t index = first; index < last; ++index) {
                 const UnitKind kind = units[index];
-                Simulation probe = simulation;
+                auto probe = std::make_unique<Simulation>(simulation);
                 const bool enabled =
-                    probe.queue_unit_at(selected->id, kind);
+                    probe->queue_unit_at(selected->id, kind);
                 add(panel, PanelCommand::train_unit,
                     std::string{name(kind)}, page_slot_hotkey(index - first),
                     "Train " + std::string{name(kind)} + ".",
@@ -845,8 +846,8 @@ SelectionPanelModel build_selection_panel(
                 std::min(first + page_capacity, technologies.size());
             for (std::size_t index = first; index < last; ++index) {
                 const Technology technology = technologies[index];
-                Simulation probe = simulation;
-                const bool enabled = probe.research_technology_at(
+                auto probe = std::make_unique<Simulation>(simulation);
+                const bool enabled = probe->research_technology_at(
                     selected->id, technology);
                 add_technology(panel, technology, enabled);
                 panel.commands.back().hotkey =
@@ -860,10 +861,10 @@ SelectionPanelModel build_selection_panel(
             const auto villager = std::ranges::find(
                 units, UnitKind::villager);
             if (villager != units.end()) {
-                Simulation probe = simulation;
+                auto probe = std::make_unique<Simulation>(simulation);
                 add(panel, PanelCommand::train_unit, "villager", "V",
                     "Train villager.",
-                    probe.queue_unit_at(selected->id, UnitKind::villager),
+                    probe->queue_unit_at(selected->id, UnitKind::villager),
                     UnitKind::villager, false, std::nullopt, 0);
             }
             const auto town_center_slot = [](Technology technology)
@@ -880,11 +881,11 @@ SelectionPanelModel build_selection_panel(
             for (const Technology technology : technologies) {
                 const auto slot = town_center_slot(technology);
                 if (!slot) continue;
-                Simulation probe = simulation;
+                auto probe = std::make_unique<Simulation>(simulation);
                 add_technology(
                     panel,
                     technology,
-                    probe.research_technology_at(selected->id, technology),
+                    probe->research_technology_at(selected->id, technology),
                     *slot
                 );
             }
@@ -894,12 +895,12 @@ SelectionPanelModel build_selection_panel(
                     simulation.age(player) == Age::dark ? Age::feudal
                     : simulation.age(player) == Age::feudal ? Age::castle
                     : Age::imperial;
-                Simulation probe = simulation;
+                auto probe = std::make_unique<Simulation>(simulation);
                 add(panel, PanelCommand::advance_age,
                     "ADVANCE TO " + std::string{name(target)}, "A",
                     "Advance civilization to " +
                         std::string{name(target)} + ".",
-                    probe.advance_age_at(selected->id));
+                    probe->advance_age_at(selected->id));
                 panel.commands.back().grid_slot = 10;
                 panel.commands.back().icon = ui_icons::Binding{
                     ui_icons::technology_sheet,

@@ -25224,6 +25224,10 @@ ApplicationLoop SdlApp::loop() {
                 building.kind == BuildingKind::barracks) {
                 browser_targets.barracks_x = center.x;
                 browser_targets.barracks_y = center.y;
+            } else if (building.owner == Player::blue &&
+                       building.kind == BuildingKind::town_center) {
+                browser_targets.town_center_x = center.x;
+                browser_targets.town_center_y = center.y;
             } else if (building.owner == Player::red &&
                        building.kind == BuildingKind::house) {
                 browser_targets.enemy_building_x = center.x;

@@ -32,6 +32,8 @@ EM_JS(void, publish_browser_telemetry_js,
      float military_y,
      float barracks_x,
      float barracks_y,
+     float town_center_x,
+     float town_center_y,
      float enemy_building_x,
      float enemy_building_y), {
       Module.browserTelemetry = {
@@ -54,6 +56,7 @@ EM_JS(void, publish_browser_telemetry_js,
           resource: {x: resource_x, y: resource_y},
           military: {x: military_x, y: military_y},
           barracks: {x: barracks_x, y: barracks_y},
+          townCenter: {x: town_center_x, y: town_center_y},
           enemyBuilding: {x: enemy_building_x, y: enemy_building_y}
         },
         wasmHeapBytes: HEAPU8.length
@@ -89,6 +92,8 @@ void publish_browser_telemetry(const BrowserTelemetry& telemetry) {
         telemetry.targets.military_y,
         telemetry.targets.barracks_x,
         telemetry.targets.barracks_y,
+        telemetry.targets.town_center_x,
+        telemetry.targets.town_center_y,
         telemetry.targets.enemy_building_x,
         telemetry.targets.enemy_building_y
     );

@@ -14,6 +14,8 @@ struct BrowserTargetTelemetry {
     float military_y{-1.0F};
     float barracks_x{-1.0F};
     float barracks_y{-1.0F};
+    float town_center_x{-1.0F};
+    float town_center_y{-1.0F};
     float enemy_building_x{-1.0F};
     float enemy_building_y{-1.0F};
 };

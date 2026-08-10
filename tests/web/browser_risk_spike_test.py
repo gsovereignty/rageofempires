@@ -444,7 +444,7 @@ class Journey:
         self.record(f"{label}-victory", screenshot=True)
         return outcome  # type: ignore[return-value]
 
-    def assert_audio(self, require_effect: bool = False) -> None:
+    def assert_audio(self, require_ignored_effect: bool = False) -> None:
         audio = self.script("return Module.browserAudioTelemetry")
         streaming = self.script(
             "return Module.audioState && "
@@ -461,8 +461,13 @@ class Journey:
             raise Failure(f"unexpected live effect instances: {audio}")
         if int(audio["musicPlayAttempts"]) > int(audio["starts"]) * 4:
             raise Failure(f"duplicated music playback attempts: {audio}")
-        if require_effect and int(audio["effectPlayAttempts"]) == 0:
-            raise Failure(f"no production effect playback attempt: {audio}")
+        if int(audio["effectPlayAttempts"]) != 0:
+            raise Failure(f"legacy sound played as browser codec probe: {audio}")
+        if (
+            require_ignored_effect
+            and int(audio["ignoredEffectRequests"]) == 0
+        ):
+            raise Failure(f"no production effect request observed: {audio}")
 
     def prepare_pointer_matrix(self) -> None:
         self.pointer("villager")
@@ -583,7 +588,7 @@ def run(browser: str, headed: bool) -> dict[str, object]:
             journey.record("loading-complete")
             first = journey.play_to_victory("first")
             first_heap = int(first["wasmHeapBytes"])
-            journey.assert_audio(require_effect=True)
+            journey.assert_audio(require_ignored_effect=True)
 
             saved = {
                 key: first[key]
@@ -655,7 +660,7 @@ def run(browser: str, headed: bool) -> dict[str, object]:
                     "second-victory heap growth exceeded: "
                     f"{second_heap - first_heap}"
                 )
-            journey.assert_audio(require_effect=True)
+            journey.assert_audio(require_ignored_effect=True)
             evidence["memory"] = {
                 "first_victory": first_heap,
                 "restart": restart_heap,

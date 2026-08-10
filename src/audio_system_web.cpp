@@ -13,6 +13,7 @@ EM_JS(bool, browser_audio_start, (), {
       stops: 0,
       musicPlayAttempts: 0,
       effectPlayAttempts: 0,
+      ignoredEffectRequests: 0,
       liveMusicInstances: 0,
       liveEffectInstances: 0,
       errors: []
@@ -132,21 +133,9 @@ EM_JS(void, browser_audio_set_muted, (bool muted), {
     state.effect.muted = muted;
 });
 
-EM_JS(void, browser_audio_play_effect, (), {
-    const state = Module.audioState;
-    if (!state || state.muted || state.paused) return;
-    state.effect.currentTime = 0;
-    Module.browserAudioTelemetry.effectPlayAttempts += 1;
-    const play = state.effect.play();
-    if (play) play.catch(reason => {
-      if (reason?.name === 'NotAllowedError') {
-        state.awaitingGesture = true;
-        return;
-      }
-      const message = 'Effect playback failed: ' + reason;
-      Module.browserAudioTelemetry.errors.push(message);
-      Module.reportFailure(message);
-    });
+EM_JS(void, browser_audio_ignore_effect, (), {
+    if (!Module.browserAudioTelemetry) return;
+    Module.browserAudioTelemetry.ignoredEffectRequests += 1;
 });
 
 }  // namespace
@@ -190,10 +179,12 @@ void AudioSystem::set_muted(bool muted) {
 void AudioSystem::play_effect(
     int, AudioCategory, float, float, std::optional<Civilization>
 ) {
-    browser_audio_play_effect();
+    // Browser package has no DAT/DRS effect mapping. Playing its one codec
+    // probe for every legacy sound ID turns all gameplay sounds into taunt 3.
+    browser_audio_ignore_effect();
 }
 void AudioSystem::play_named_interface_effect(std::string_view) {
-    browser_audio_play_effect();
+    browser_audio_ignore_effect();
 }
 void AudioSystem::update() {}
 

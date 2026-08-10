@@ -8,13 +8,15 @@ JOBS ?= $(shell \
 	getconf _NPROCESSORS_ONLN 2>/dev/null || \
 	echo 1)
 CMAKE_ARGS ?=
+WEB_PORT ?= 8000
+PYTHON ?= python3
 ifeq ($(shell uname -s),Darwin)
 PLATFORM_CMAKE_ARGS := -DAOE_BUILD_SDL3=ON
 endif
 
 .DEFAULT_GOAL := build
 
-.PHONY: all configure build run test clean help
+.PHONY: all configure build run web test clean help
 
 all: build
 
@@ -41,6 +43,18 @@ run: build
 		"$(BUILD_DIR)/aoe_reconstruction"; \
 	fi
 
+web:
+	./web/bootstrap_emsdk.sh
+	. "build-web/emsdk/emsdk_env.sh" && \
+		emcmake $(CMAKE) -S . -B build-web \
+			-DCMAKE_BUILD_TYPE="$(BUILD_TYPE)" \
+			-DAOE_BUILD_WEB=ON \
+			-DAOE_ENABLE_MPG123=OFF && \
+		$(CMAKE) --build build-web --target aoe_web \
+			--parallel "$(JOBS)" && \
+		$(PYTHON) -m http.server "$(WEB_PORT)" \
+			--directory build-web/dist
+
 test: build
 	$(CTEST) --test-dir "$(BUILD_DIR)" --parallel "$(JOBS)" \
 		--output-on-failure
@@ -51,6 +65,7 @@ clean:
 help:
 	@echo "make                 Configure and build"
 	@echo "make run             Build and launch the game"
+	@echo "make web             Build web game and serve it on http://localhost:$(WEB_PORT)"
 	@echo "make test            Build and run all tests"
 	@echo "make clean           Clean compiled outputs"
-	@echo "Variables: BUILD_DIR, BUILD_TYPE, JOBS (defaults to all logical CPUs), CMAKE, CTEST, CMAKE_ARGS"
+	@echo "Variables: BUILD_DIR, WEB_PORT, BUILD_TYPE, JOBS, CMAKE, CTEST, PYTHON, CMAKE_ARGS"

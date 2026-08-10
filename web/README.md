@@ -79,5 +79,6 @@ exceptions, page failure state, and Chrome diagnostics to
 For failures in a real gameplay session, reproduce the problem and select
 **Download diagnostics**. The resulting `aoe-browser-diagnostics-*.json` file
 contains a bounded rolling log of console errors and warnings, uncaught errors,
-runtime failure reports, display state, telemetry, and loaded resources. Give
-that file to the agent so it can inspect evidence from the affected session.
+runtime failure reports, display/resize/fullscreen history, telemetry, and
+loaded resources. Give that file to the agent so it can inspect evidence from
+the affected session.

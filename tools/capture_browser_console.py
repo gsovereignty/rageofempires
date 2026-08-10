@@ -245,6 +245,21 @@ def capture(args: argparse.Namespace) -> dict[str, Any]:
                 raise RuntimeError("timed out waiting for Runtime.evaluate")
             return remote_value(responses.pop(identifier))
 
+        def click_element(identifier: str) -> None:
+            center = evaluate(
+                "(() => {const rect=document.getElementById(" +
+                json.dumps(identifier) + ").getBoundingClientRect(); return "
+                "{x:rect.x+rect.width/2,y:rect.y+rect.height/2};})()"
+            )
+            send("Input.dispatchMouseEvent", {
+                "type": "mousePressed", "x": center["x"], "y": center["y"],
+                "button": "left", "buttons": 1, "clickCount": 1
+            })
+            send("Input.dispatchMouseEvent", {
+                "type": "mouseReleased", "x": center["x"], "y": center["y"],
+                "button": "left", "buttons": 0, "clickCount": 1
+            })
+
         try:
             target = devtools_target(debug_port, time.monotonic() + 10)
             websocket = WebSocket(str(target["webSocketDebuggerUrl"]))
@@ -262,18 +277,18 @@ def capture(args: argparse.Namespace) -> dict[str, Any]:
                 if ready:
                     break
             if ready:
-                center = evaluate(
-                    "(() => {const rect=document.getElementById('start')"
-                    ".getBoundingClientRect(); return {x:rect.x+rect.width/2, "
-                    "y:rect.y+rect.height/2};})()"
-                )
-                send("Input.dispatchMouseEvent", {
-                    "type": "mousePressed", "x": center["x"], "y": center["y"],
-                    "button": "left", "buttons": 1, "clickCount": 1
+                click_element("start")
+            if ready and args.fullscreen_roundtrip:
+                time.sleep(1)
+                click_element("fullscreen")
+                time.sleep(1)
+                send("Input.dispatchKeyEvent", {
+                    "type": "keyDown", "key": "Escape", "code": "Escape",
+                    "windowsVirtualKeyCode": 27, "nativeVirtualKeyCode": 27
                 })
-                send("Input.dispatchMouseEvent", {
-                    "type": "mouseReleased", "x": center["x"], "y": center["y"],
-                    "button": "left", "buttons": 0, "clickCount": 1
+                send("Input.dispatchKeyEvent", {
+                    "type": "keyUp", "key": "Escape", "code": "Escape",
+                    "windowsVirtualKeyCode": 27, "nativeVirtualKeyCode": 27
                 })
             capture_deadline = time.monotonic() + args.seconds
             while time.monotonic() < capture_deadline:
@@ -314,6 +329,7 @@ def main() -> int:
     parser.add_argument("--chrome")
     parser.add_argument("--seconds", type=float, default=8.0)
     parser.add_argument("--start-timeout", type=float, default=30.0)
+    parser.add_argument("--fullscreen-roundtrip", action="store_true")
     args = parser.parse_args()
     try:
         evidence = capture(args)

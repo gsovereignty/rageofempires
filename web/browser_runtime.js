@@ -56,15 +56,54 @@ window.addEventListener('unhandledrejection', function (event) {
 Module['canvas'] = document.getElementById('canvas');
 Module['browserDisplayMetrics'] = function () {
   const rect = Module['canvas'].getBoundingClientRect();
+  const computed = getComputedStyle(Module['canvas']);
   return {
     cssWidth: rect.width,
     cssHeight: rect.height,
     backingWidth: Module['canvas'].width,
     backingHeight: Module['canvas'].height,
     devicePixelRatio: window.devicePixelRatio,
-    fullscreen: document.fullscreenElement !== null
+    fullscreen: document.fullscreenElement !== null,
+    fullscreenElement: document.fullscreenElement?.id || null,
+    windowInnerWidth: window.innerWidth,
+    windowInnerHeight: window.innerHeight,
+    windowOuterWidth: window.outerWidth,
+    windowOuterHeight: window.outerHeight,
+    visualViewport: window.visualViewport ? {
+      width: window.visualViewport.width,
+      height: window.visualViewport.height,
+      scale: window.visualViewport.scale
+    } : null,
+    canvasInlineStyle: Module['canvas'].getAttribute('style') || '',
+    canvasComputedStyle: {
+      display: computed.display,
+      width: computed.width,
+      height: computed.height
+    },
+    documentHidden: document.hidden
   };
 };
+Module['browserDisplayHistory'] = [];
+const recordDisplay = function (event) {
+  Module['browserDisplayHistory'].push({
+    elapsedMilliseconds: Math.round(performance.now()),
+    event,
+    display: Module['browserDisplayMetrics']()
+  });
+  if (Module['browserDisplayHistory'].length > 200) {
+    Module['browserDisplayHistory'].shift();
+  }
+};
+window.addEventListener('resize', function () { recordDisplay('resize'); });
+window.addEventListener('fullscreenchange', function () {
+  recordDisplay('fullscreenchange');
+});
+document.addEventListener('visibilitychange', function () {
+  recordDisplay('visibilitychange');
+});
+new ResizeObserver(function () { recordDisplay('canvas-resize'); })
+  .observe(Module['canvas']);
+recordDisplay('diagnostics-installed');
 Module['canvas'].addEventListener('contextmenu', function (event) {
   event.preventDefault();
 });
@@ -119,6 +158,7 @@ document.getElementById('diagnostics').addEventListener('click', function () {
     page: location.href,
     userAgent: navigator.userAgent,
     display: Module['browserDisplayMetrics'](),
+    displayHistory: Module['browserDisplayHistory'],
     bodyText: document.body.innerText,
     canvasHidden: canvas.hidden,
     runtimeCalled: Boolean(Module.calledRun),

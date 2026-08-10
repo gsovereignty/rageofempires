@@ -4,6 +4,27 @@
 
 namespace aoe {
 
+EdgeScrollDirections edge_scroll_directions(
+    float pointer_x,
+    float pointer_y,
+    int window_width,
+    int window_height,
+    float edge_margin
+) {
+    if (window_width <= 0 || window_height <= 0 || edge_margin < 0.0F ||
+        pointer_x < 0.0F || pointer_y < 0.0F ||
+        pointer_x >= static_cast<float>(window_width) ||
+        pointer_y >= static_cast<float>(window_height)) {
+        return {};
+    }
+    return {
+        pointer_x <= edge_margin,
+        pointer_x >= static_cast<float>(window_width) - edge_margin,
+        pointer_y <= edge_margin,
+        pointer_y >= static_cast<float>(window_height) - edge_margin,
+    };
+}
+
 std::optional<RenderExtent> render_extent_for_window(
     int window_width,
     int window_height,

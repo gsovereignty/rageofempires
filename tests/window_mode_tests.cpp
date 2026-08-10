@@ -14,6 +14,12 @@ void require(bool condition) {
 
 int main() {
     using namespace aoe;
+    require((edge_scroll_directions(400.0F, 424.0F, 800, 600, 5.0F) ==
+             EdgeScrollDirections{}));
+    require(edge_scroll_directions(400.0F, 595.0F, 800, 600, 5.0F).down);
+    require(edge_scroll_directions(0.0F, 500.0F, 800, 600, 5.0F).left);
+    require((edge_scroll_directions(-1.0F, 300.0F, 800, 600, 5.0F) ==
+             EdgeScrollDirections{}));
     require((render_extent_for_window(1280, 720, 1280, 720, 175) ==
              RenderExtent{1280, 720, 545}));
     require((render_extent_for_window(640, 360, 640, 360, 175) ==

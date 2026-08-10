@@ -24588,33 +24588,31 @@ ApplicationLoop SdlApp::loop() {
             camera_step * static_cast<float>(active_settings.mouse_speed) /
             100.0F;
         const bool* keys = SDL_GetKeyboardState(nullptr);
-        const bool pointer_in_world =
-            mouse_position.y >= 0.0F &&
-            mouse_position.y < static_cast<float>(view_pixel_height);
+        const EdgeScrollDirections edge_scroll = edge_scroll_directions(
+            mouse_position.x,
+            mouse_position.y,
+            view_pixel_width,
+            view_pixel_height + hud_height,
+            5.0F
+        );
         if (keys[SDL_SCANCODE_LEFT]) {
             camera.x -= camera_step;
-        } else if (active_settings.edge_scroll && pointer_in_world &&
-                   mouse_position.x <= 5.0F) {
+        } else if (active_settings.edge_scroll && edge_scroll.left) {
             camera.x -= mouse_camera_step;
         }
         if (keys[SDL_SCANCODE_RIGHT]) {
             camera.x += camera_step;
-        } else if (active_settings.edge_scroll && pointer_in_world &&
-                   mouse_position.x >=
-                       static_cast<float>(view_pixel_width) - 5.0F) {
+        } else if (active_settings.edge_scroll && edge_scroll.right) {
             camera.x += mouse_camera_step;
         }
         if (keys[SDL_SCANCODE_UP]) {
             camera.y -= camera_step;
-        } else if (active_settings.edge_scroll && pointer_in_world &&
-                   mouse_position.y <= 5.0F) {
+        } else if (active_settings.edge_scroll && edge_scroll.up) {
             camera.y -= mouse_camera_step;
         }
         if (keys[SDL_SCANCODE_DOWN]) {
             camera.y += camera_step;
-        } else if (active_settings.edge_scroll && pointer_in_world &&
-                   mouse_position.y >=
-                       static_cast<float>(view_pixel_height) - 5.0F) {
+        } else if (active_settings.edge_scroll && edge_scroll.down) {
             camera.y += mouse_camera_step;
         }
         clamp_camera(camera);

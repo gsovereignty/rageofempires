@@ -28,6 +28,23 @@ struct DisplayMode {
     bool operator==(const DisplayMode&) const = default;
 };
 
+struct EdgeScrollDirections {
+    bool left{};
+    bool right{};
+    bool up{};
+    bool down{};
+
+    bool operator==(const EdgeScrollDirections&) const = default;
+};
+
+EdgeScrollDirections edge_scroll_directions(
+    float pointer_x,
+    float pointer_y,
+    int window_width,
+    int window_height,
+    float edge_margin
+);
+
 std::vector<DisplayMode> supported_display_modes(
     std::span<const DisplayMode> reported
 );

@@ -5750,6 +5750,9 @@ void town_center_produces_villager() {
         simulation.update();
     }
     require(simulation.units().size() == original_units + 1);
+    require((
+        simulation.units().back().position == aoe::TilePosition{1, 14}
+    ));
 }
 
 void completed_villager_order_retries_once_on_valid_land() {

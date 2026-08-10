@@ -10202,7 +10202,7 @@ std::optional<TilePosition> Simulation::spawn_position(
     const BuildingRules& rules = rules_for(building.kind);
     if (rules.footprint_width == 1 && rules.footprint_height == 1) {
         constexpr TilePosition offsets[] = {
-            {1, 0}, {0, 1}, {-1, 0}, {0, -1},
+            {0, 1}, {1, 0}, {-1, 0}, {0, -1},
             {1, 1}, {-1, 1}, {-1, -1}, {1, -1},
         };
         for (TilePosition offset : offsets) {
@@ -10218,24 +10218,38 @@ std::optional<TilePosition> Simulation::spawn_position(
     }
 
     std::vector<TilePosition> perimeter;
-    for (int x = 0; x < rules.footprint_width; ++x) {
-        perimeter.push_back({
-            building.position.x + x, building.position.y - 1
-        });
-    }
-    for (int y = 0; y < rules.footprint_height; ++y) {
-        perimeter.push_back({
-            building.position.x + rules.footprint_width,
-            building.position.y + y
-        });
-    }
-    for (int x = rules.footprint_width - 1; x >= 0; --x) {
+    const auto center_out = [](int count) {
+        std::vector<int> result;
+        result.reserve(static_cast<std::size_t>(count));
+        for (int distance = 0; static_cast<int>(result.size()) < count;
+             ++distance) {
+            const int left = (count - 1) / 2 - distance;
+            const int right = count / 2 + distance;
+            if (left >= 0) result.push_back(left);
+            if (right != left && right < count) result.push_back(right);
+        }
+        return result;
+    };
+    const std::vector<int> horizontal = center_out(rules.footprint_width);
+    const std::vector<int> vertical = center_out(rules.footprint_height);
+    for (const int x : horizontal) {
         perimeter.push_back({
             building.position.x + x,
             building.position.y + rules.footprint_height
         });
     }
-    for (int y = rules.footprint_height - 1; y >= 0; --y) {
+    for (const int y : vertical) {
+        perimeter.push_back({
+            building.position.x + rules.footprint_width,
+            building.position.y + y
+        });
+    }
+    for (const int x : horizontal) {
+        perimeter.push_back({
+            building.position.x + x, building.position.y - 1
+        });
+    }
+    for (const int y : vertical) {
         perimeter.push_back({
             building.position.x - 1, building.position.y + y
         });

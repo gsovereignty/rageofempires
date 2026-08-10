@@ -19326,6 +19326,9 @@ ApplicationLoop SdlApp::loop() {
                 );
                 continue;
             }
+            if (event.type == SDL_EVENT_MOUSE_MOTION) {
+                mouse_position = {event.motion.x, event.motion.y};
+            }
             if (
                 event.type == SDL_EVENT_MOUSE_WHEEL &&
                 active_technology_tree_visible

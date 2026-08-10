@@ -61,8 +61,9 @@ body,
 
 #canvas {
   display: block;
-  width: min(100vw, calc(100vh * 16 / 9));
-  height: min(100vh, calc(100vw * 9 / 16));
+  /* SDL's Emscripten backend probes CSS ownership with an inline 1px size. */
+  width: min(100vw, calc(100vh * 16 / 9)) !important;
+  height: min(100vh, calc(100vw * 9 / 16)) !important;
   aspect-ratio: 16 / 9;
   outline: 0;
   touch-action: none;

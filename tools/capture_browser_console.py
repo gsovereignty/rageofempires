@@ -197,8 +197,12 @@ def capture(args: argparse.Namespace) -> dict[str, Any]:
             "--no-default-browser-check",
             f"--remote-debugging-port={debug_port}",
             f"--user-data-dir={profile}",
-            url,
         ]
+        if args.device_scale_factor is not None:
+            command.append(
+                f"--force-device-scale-factor={args.device_scale_factor}"
+            )
+        command.append(url)
         process = subprocess.Popen(
             command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True
         )
@@ -299,6 +303,8 @@ def capture(args: argparse.Namespace) -> dict[str, Any]:
                 "runtimeCalled:Boolean(Module.calledRun), "
                 "storageReady:Boolean(Module.storageReady), "
                 "uncaught:Module.browserUncaughtErrors || [], "
+                "display:Module.browserDisplayMetrics?.() || null, "
+                "displayHistory:Module.browserDisplayHistory || [], "
                 "telemetry:Module.browserTelemetry || null})"
             )
         finally:
@@ -330,6 +336,7 @@ def main() -> int:
     parser.add_argument("--seconds", type=float, default=8.0)
     parser.add_argument("--start-timeout", type=float, default=30.0)
     parser.add_argument("--fullscreen-roundtrip", action="store_true")
+    parser.add_argument("--device-scale-factor", type=float)
     args = parser.parse_args()
     try:
         evidence = capture(args)

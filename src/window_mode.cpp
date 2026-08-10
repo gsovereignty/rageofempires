@@ -13,8 +13,8 @@ EdgeScrollDirections edge_scroll_directions(
 ) {
     if (window_width <= 0 || window_height <= 0 || edge_margin < 0.0F ||
         pointer_x < 0.0F || pointer_y < 0.0F ||
-        pointer_x >= static_cast<float>(window_width) ||
-        pointer_y >= static_cast<float>(window_height)) {
+        pointer_x > static_cast<float>(window_width) ||
+        pointer_y > static_cast<float>(window_height)) {
         return {};
     }
     return {

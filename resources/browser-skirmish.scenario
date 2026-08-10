@@ -1,0 +1,45 @@
+# Browser single-player skirmish. Default web launch uses this production path.
+AOE-ARCHAEOLOGY-SCENARIO 69
+map 48 32
+trigger_syntax strict
+match 1 0 0 0 0 0 0 0 0 0 0
+player-slot 0 human "browser-player" 500 500 200 200 feudal britons 0 0
+team 0 0
+player-slot 1 computer "computer-ai" 500 500 200 200 feudal franks 0 0
+team 1 0
+diplomacy 0 1 enemy
+diplomacy 1 0 enemy
+objective 1 blue 1 0 "Destroy the enemy Town Center."
+objective 2 red 1 0 "Destroy the human Town Center."
+trigger 1 100 1 0 1 "building_destroyed 21" 2 "complete_objective 1" "victory blue"
+trigger 2 90 1 0 1 "building_destroyed 17" 2 "complete_objective 2" "defeat blue"
+terrain gold 12 20
+terrain gold 13 20
+terrain gold 12 21
+terrain gold 35 10
+terrain gold 36 10
+terrain gold 36 11
+unit villager 0 7 23 stance passive
+unit villager 0 9 21 stance passive
+unit villager 0 11 23 stance passive
+unit militia 0 12 25 stance aggressive
+unit villager 1 37 8 stance passive
+unit villager 1 39 9 stance passive
+unit villager 1 41 8 stance passive
+unit militia 1 35 6 stance aggressive
+unit sheep 0 7 19 stance passive
+unit sheep 0 9 18 stance passive
+unit sheep 0 11 19 stance passive
+unit sheep 0 13 18 stance passive
+unit sheep 1 35 12 stance passive
+unit sheep 1 37 11 stance passive
+unit sheep 1 39 12 stance passive
+unit sheep 1 41 13 stance passive
+building town_center 0 6 24
+building barracks 0 13 23
+building house 0 5 19
+building house 0 10 17
+building town_center 1 38 4
+building barracks 1 31 5
+building house 1 42 10
+building house 1 37 13

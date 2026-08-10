@@ -1,8 +1,19 @@
 # Browser risk spike
 
-This directory contains the static browser shell for the fixed risk-spike
-scenario. Browser support is disabled unless both Emscripten and
+This directory contains the static browser shell. Its default launch is a
+48x32 single-player skirmish against the production computer AI, with normal
+fog, two bases, villagers, livestock, military production, and terminal
+victory/defeat objectives. Browser support is disabled unless both Emscripten and
 `AOE_BUILD_WEB=ON` are selected.
+
+The original fixed risk-spike fixture remains available for automated
+acceptance at `aoe_web.html?scenario=risk-spike`.
+
+Run default skirmish smoke with:
+
+```sh
+python3 tests/web/browser_risk_spike_test.py --skirmish-smoke
+```
 
 Pinned dependencies:
 

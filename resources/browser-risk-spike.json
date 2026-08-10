@@ -54,11 +54,16 @@
     "risk-scenario": {
       "reason": "fixed scenario root",
       "source": "resources/browser-risk-spike.scenario",
-      "dependencies": ["scenario-record", "civilizations", "entities", "technology", "terrain", "ui", "audio"]
+      "dependencies": ["scenario-record", "skirmish-scenario", "civilizations", "entities", "technology", "terrain", "ui", "audio"]
     },
     "scenario-record": {
       "reason": "fixed IDs, positions, budgets, and dependency graph",
       "source": "resources/browser-risk-spike.json",
+      "dependencies": []
+    },
+    "skirmish-scenario": {
+      "reason": "default browser single-player skirmish",
+      "source": "resources/browser-skirmish.scenario",
       "dependencies": []
     },
     "civilizations": {
@@ -91,7 +96,7 @@
       "reason": "exact fixed-journey world sprites, damage overlays, and rubble",
       "source": "game_data/Data/graphics.drs",
       "drs_entries": {
-        "slp": [73, 75, 133, 424, 425, 427, 428, 429, 430, 431, 432, 903, 929, 930, 931, 987, 990, 993, 997, 1038, 1041, 1044, 1048, 1473, 1476, 1479, 1484, 1528, 2247, 2561]
+        "slp": [73, 75, 133, 424, 425, 427, 428, 429, 430, 431, 432, 903, 929, 930, 931, 987, 990, 993, 997, 1038, 1041, 1044, 1048, 1473, 1476, 1479, 1484, 1528, 2235, 2247, 2561, 3629]
       },
       "dependencies": []
     },

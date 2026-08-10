@@ -11,6 +11,11 @@
 
 namespace {
 
+EM_JS(bool, browser_risk_fixture_requested, (), {
+    return new URLSearchParams(window.location.search).get('scenario') ===
+        'risk-spike';
+});
+
 aoe::SdlApp application;
 
 EM_JS(void, report_browser_failure, (const char* message), {
@@ -59,13 +64,18 @@ void browser_frame() {
 }  // namespace
 
 int main() {
+    const bool use_risk_fixture = browser_risk_fixture_requested();
     setenv(
         "AOE_SCENARIO_PATH",
-        "/resources/browser-risk-spike.scenario",
+        use_risk_fixture
+            ? "/resources/browser-risk-spike.scenario"
+            : "/resources/browser-skirmish.scenario",
         true
     );
     setenv("AOE_MAIN_MENU", "0", true);
-    setenv("AOE_FOG", "0", true);
+    if (use_risk_fixture) {
+        setenv("AOE_FOG", "0", true);
+    }
     setenv("AOE_RENDER_FALLBACK_REPORT", "/user/fallback-report.json", true);
     try {
         initialize_application();

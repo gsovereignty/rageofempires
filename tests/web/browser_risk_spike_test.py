@@ -25,7 +25,8 @@ from selenium.webdriver.common.keys import Keys
 ROOT = Path(__file__).resolve().parents[2]
 DIST = ROOT / "build-web" / "dist"
 ARTIFACTS = ROOT / "artifacts" / "browser-risk-spike"
-PAGE = "aoe_web.html"
+PAGE = "aoe_web.html?scenario=risk-spike"
+SKIRMISH_PAGE = "aoe_web.html"
 WAIT_SECONDS = 30.0
 MAXIMUM_RESUME_SECONDS = 2.0
 MAXIMUM_HEAP_BYTES = 256 * 1024 * 1024
@@ -567,8 +568,9 @@ class Journey:
 
 
 def run(browser: str, headed: bool) -> dict[str, object]:
-    if not (DIST / PAGE).is_file():
-        raise Failure(f"browser distribution is missing: {DIST / PAGE}")
+    distribution = DIST / "aoe_web.html"
+    if not distribution.is_file():
+        raise Failure(f"browser distribution is missing: {distribution}")
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
     evidence: dict[str, object] = {"browser": browser}
     with static_server() as (base_url, requests):
@@ -593,7 +595,7 @@ def run(browser: str, headed: bool) -> dict[str, object]:
                     "manAtArmsResearched",
                 )
             }
-            journey.driver.get(f"{base_url}/{PAGE}?restore=1")
+            journey.driver.get(f"{base_url}/{PAGE}&restore=1")
             wait_until(
                 "reload storage initialization",
                 lambda: journey.script(
@@ -796,6 +798,52 @@ def run_display_matrix(browser: str, headed: bool) -> dict[str, object]:
     return evidence
 
 
+def run_skirmish_smoke(browser: str, headed: bool) -> dict[str, object]:
+    evidence: dict[str, object] = {}
+    with static_server() as (base_url, requests):
+        driver = make_driver(browser, headed)
+        journey = Journey(driver, base_url, evidence)
+        try:
+            driver.get(f"{base_url}/{SKIRMISH_PAGE}")
+            wait_until(
+                "skirmish storage initialization",
+                lambda: journey.script(
+                    "return Module.storageReady === true && "
+                    "!document.getElementById('start').hidden"
+                ),
+            )
+            driver.find_element(By.ID, "start").click()
+            initial = journey.wait_telemetry()
+            if int(initial["unitCount"]) != 16:
+                raise Failure(f"unexpected skirmish unit roster: {initial}")
+            if int(initial["buildingCount"]) != 8:
+                raise Failure(f"unexpected skirmish bases: {initial}")
+            if int(initial["fallbackCount"]) != 0:
+                raise Failure(f"skirmish render fallback: {initial}")
+            final = wait_until(
+                "computer AI unit production",
+                lambda: (
+                    state
+                    if int((state := journey.telemetry())["unitCount"])
+                    > int(initial["unitCount"])
+                    else None
+                ),
+            )
+            if int(final["fallbackCount"]) != 0:
+                raise Failure(f"skirmish render fallback after AI turn: {final}")
+            evidence["initial"] = initial
+            evidence["after_computer_turn"] = final
+            evidence["requests"] = list(requests)
+            driver.save_screenshot(str(ARTIFACTS / "skirmish-smoke.png"))
+        finally:
+            try:
+                evidence["console"] = driver.get_log("browser")
+            except Exception:
+                evidence["console"] = []
+            driver.quit()
+    return evidence
+
+
 def run_persistence_checks(browser: str, headed: bool) -> dict[str, object]:
     if browser != "chrome":
         raise Failure("persistence fault injection currently requires Chrome CDP")
@@ -867,7 +915,7 @@ def run_persistence_checks(browser: str, headed: bool) -> dict[str, object]:
             if "minimap" not in str(settings_before).lower():
                 raise Failure("production minimap setting was not serialized")
 
-            driver.get(f"{base_url}/{PAGE}?settings-restore=1")
+            driver.get(f"{base_url}/{PAGE}&settings-restore=1")
             wait_until(
                 "settings reload sync",
                 lambda: journey.script(
@@ -904,7 +952,7 @@ def run_persistence_checks(browser: str, headed: bool) -> dict[str, object]:
                     """
                 },
             )
-            driver.get(f"{base_url}/{PAGE}?forced-sync-failure=1")
+            driver.get(f"{base_url}/{PAGE}&forced-sync-failure=1")
             wait_until(
                 "failure-injection startup",
                 lambda: journey.script(
@@ -950,11 +998,14 @@ def main() -> int:
     parser.add_argument("--headed", action="store_true")
     parser.add_argument("--display-matrix", action="store_true")
     parser.add_argument("--persistence-checks", action="store_true")
+    parser.add_argument("--skirmish-smoke", action="store_true")
     parser.add_argument(
         "--evidence", type=Path, default=ARTIFACTS / "evidence.json"
     )
     arguments = parser.parse_args()
-    if arguments.display_matrix:
+    if arguments.skirmish_smoke:
+        evidence = run_skirmish_smoke(arguments.browser, arguments.headed)
+    elif arguments.display_matrix:
         evidence = run_display_matrix(arguments.browser, arguments.headed)
     elif arguments.persistence_checks:
         evidence = run_persistence_checks(arguments.browser, arguments.headed)
@@ -965,7 +1016,7 @@ def main() -> int:
         json.dumps(evidence, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    print(f"browser risk spike passed: {arguments.evidence}")
+    print(f"browser acceptance passed: {arguments.evidence}")
     return 0
 
 

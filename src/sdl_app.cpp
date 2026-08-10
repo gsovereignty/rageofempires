@@ -4853,6 +4853,7 @@ LegacySprites load_local_legacy_sprites(
                 sprites.death[UnitKind::villager], 1476, 15
             );
             attempt_animation(sprites.villager_gather, 1528, 15);
+            attempt_animation(sprites.sheep_animation, 3629, 9);
 
             for (const auto& [kind, idle, idle_frames, move, move_frames,
                               attack_slp, attack_frames, death_slp,
@@ -4903,7 +4904,12 @@ LegacySprites load_local_legacy_sprites(
                     BuildingKind::town_center, Age::feudal
                 )
             );
-            const std::size_t castle = static_cast<std::size_t>(
+            const std::size_t house_feudal = static_cast<std::size_t>(
+                render_building_visual_age(
+                    BuildingKind::house, Age::feudal
+                )
+            );
+            const std::size_t house_castle = static_cast<std::size_t>(
                 render_building_visual_age(
                     BuildingKind::house, Age::castle
                 )
@@ -4913,8 +4919,19 @@ LegacySprites load_local_legacy_sprites(
                 903,
                 1
             );
+            attempt(
+                sprites.town_center_age_red[feudal][britons_family],
+                903,
+                2
+            );
             attempt_building_shadowed(
-                sprites.house_red[castle][franks_family], 2247, 2
+                sprites.house_blue[house_feudal][franks_family], 2235, 1
+            );
+            attempt_building_shadowed(
+                sprites.house_red[house_feudal][franks_family], 2235, 2
+            );
+            attempt_building_shadowed(
+                sprites.house_red[house_castle][franks_family], 2247, 2
             );
 
             SDL_Log("fixed browser assets: building composites");

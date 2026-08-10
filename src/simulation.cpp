@@ -5956,11 +5956,12 @@ bool Simulation::queue_commercial_object_at(
     economy.stone -= stone;
     ProductionOrder order;
     order.kind = UnitKind::villager;
+    constexpr int simulation_ticks_per_source_second = 5;
     order.ticks_remaining = std::max(1, static_cast<int>(std::lround(
         effective_commercial_attribute(
             building->owner, identity, 101,
             static_cast<float>(object->creation_time)
-        )
+        ) * simulation_ticks_per_source_second
     )));
     order.paid_wood = wood;
     order.paid_food = food;
@@ -11417,40 +11418,37 @@ void Simulation::gather(Unit& unit) {
     const bool korean_stone =
         resource == ResourceKind::stone &&
         civilization(unit.owner) == Civilization::koreans;
-    const bool extended_rate =
-        mongol_hunter || turk_gold || korean_stone ||
-        (resource == ResourceKind::wood &&
-         (has_technology(unit.owner, Technology::bow_saw) ||
-          has_technology(unit.owner, Technology::two_man_saw))) ||
-        (resource == ResourceKind::gold &&
-         (has_technology(unit.owner, Technology::gold_mining) ||
-          has_technology(
-              unit.owner, Technology::gold_shaft_mining
-          ))) ||
-        (resource == ResourceKind::stone &&
-         (has_technology(unit.owner, Technology::stone_mining) ||
-          has_technology(
-              unit.owner, Technology::stone_shaft_mining
-          )));
     const bool commercial_worker = unit.commercial_identity.has_value();
-    const int base_work = extended_rate || commercial_worker ? 10000 : 5;
-    int work = base_work;
-    if (resource == ResourceKind::wood) {
-        if (extended_rate) {
-            if (has_technology(
-                    unit.owner, Technology::double_bit_axe
-                )) work = work * 6 / 5;
-            if (has_technology(
-                    unit.owner, Technology::bow_saw
-                )) work = work * 6 / 5;
-            if (has_technology(
-                    unit.owner, Technology::two_man_saw
-                )) work = work * 11 / 10;
-        } else if (has_technology(
-                       unit.owner, Technology::double_bit_axe
-                   )) {
-            ++work;
+    constexpr int fixed_point_scale = 10000;
+    constexpr int simulation_ticks_per_source_second = 5;
+    float source_rate{};
+    if (resource == ResourceKind::wood) source_rate = 0.39F;
+    else if (resource == ResourceKind::gold) source_rate = 0.38F;
+    else if (resource == ResourceKind::stone) source_rate = 0.36F;
+    else if (resource == ResourceKind::food) {
+        if (unit.resource_building_id != 0) source_rate = 0.53F;
+        else if (animal != nullptr && is_huntable(animal->kind)) {
+            source_rate = 0.41F;
+        } else if (animal != nullptr && animal->kind == UnitKind::sheep) {
+            source_rate = 0.33F;
+        } else {
+            source_rate = 0.31F;
         }
+    }
+    int work = std::max(0, static_cast<int>(std::lround(
+        source_rate * fixed_point_scale /
+        simulation_ticks_per_source_second
+    )));
+    if (resource == ResourceKind::wood) {
+        if (has_technology(
+                unit.owner, Technology::double_bit_axe
+            )) work = work * 6 / 5;
+        if (has_technology(
+                unit.owner, Technology::bow_saw
+            )) work = work * 6 / 5;
+        if (has_technology(
+                unit.owner, Technology::two_man_saw
+            )) work = work * 11 / 10;
     } else if (resource == ResourceKind::gold) {
         if (turk_gold) work = work * 23 / 20;
         if (has_technology(
@@ -11480,13 +11478,14 @@ void Simulation::gather(Unit& unit) {
                   record->work_rate
               );
         work = std::max(0, static_cast<int>(std::lround(
-            static_cast<float>(base_work) * rate
+            static_cast<float>(fixed_point_scale) * rate /
+            simulation_ticks_per_source_second
         )));
     }
     unit.gather_work_remainder += work;
     const int resource_per_tick =
-        unit.gather_work_remainder / base_work;
-    unit.gather_work_remainder %= base_work;
+        unit.gather_work_remainder / fixed_point_scale;
+    unit.gather_work_remainder %= fixed_point_scale;
     const int requested =
         std::min(resource_per_tick, capacity - unit.carried_amount);
     int credited_this_tick{};

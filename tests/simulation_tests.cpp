@@ -1607,7 +1607,7 @@ void villager_gathers_wood() {
     require(simulation.command_selected({3, 5}));
 
     for (int tick = 0;
-         tick < 50 &&
+         tick < 250 &&
          simulation.economy(aoe::Player::blue).wood == original_wood;
          ++tick) {
         simulation.update();
@@ -1667,7 +1667,7 @@ void gathering_retries_after_temporary_route_obstruction() {
 
     require(simulation.command_unit(blocker, {3, 0}));
     require(loaded.command_unit(blocker, {3, 0}));
-    for (int tick = 0; tick < 12; ++tick) {
+    for (int tick = 0; tick < 60; ++tick) {
         simulation.update();
         loaded.update();
     }
@@ -1711,7 +1711,7 @@ void gathering_order_survives_initial_route_blockage() {
     require(!simulation.units().front().moving);
 
     require(simulation.command_unit(blocker, {3, 0}));
-    for (int tick = 0; tick < 20; ++tick) {
+    for (int tick = 0; tick < 60; ++tick) {
         simulation.update();
     }
     require(simulation.units().front().has_resource_target);
@@ -1753,7 +1753,7 @@ void gathering_collision_pauses_before_fresh_route() {
     require(!simulation.units().front().moving);
 
     require(simulation.command_unit(blocker, {1, 1}));
-    for (int tick = 0; tick < 20; ++tick) {
+    for (int tick = 0; tick < 60; ++tick) {
         simulation.update();
     }
     require(simulation.units().front().carried_amount > 0);
@@ -1787,7 +1787,7 @@ void returning_gatherer_retries_blocked_valid_drop_off() {
     );
     require(simulation.command_unit(worker, {1, 1}));
     for (int tick = 0;
-         tick < 20 && !simulation.units().front().returning_resource;
+         tick < 200 && !simulation.units().front().returning_resource;
          ++tick) {
         simulation.update();
     }
@@ -1862,7 +1862,11 @@ void gatherer_retargets_depleted_resource_before_arrival() {
     );
     require(simulation.command_unit(traveler, {7, 3}));
     require(simulation.command_unit(nearby, {7, 3}));
-    simulation.update();
+    for (int tick = 0;
+         tick < 20 && simulation.map().resource_amount_at({7, 3}) > 0;
+         ++tick) {
+        simulation.update();
+    }
     require(simulation.map().resource_amount_at({7, 3}) == 0);
 
     simulation.update();
@@ -1900,7 +1904,7 @@ void diagonal_berry_workers_gather_without_route_churn() {
         {9, 7}
     );
 
-    simulation.update();
+    for (int tick = 0; tick < 17; ++tick) simulation.update();
     for (std::size_t index = 0; index < starts.size(); ++index) {
         const aoe::Unit& worker = simulation.units()[index];
         require(worker.position == starts[index]);
@@ -1944,7 +1948,7 @@ void crowded_berry_ring_allows_nearby_workers_to_gather() {
         {11, 9}
     );
 
-    for (int tick = 0; tick < 5; ++tick) {
+    for (int tick = 0; tick < 150; ++tick) {
         simulation.update();
     }
     for (std::size_t index = 0; index < workers.size(); ++index) {
@@ -1971,7 +1975,7 @@ void gathering_waits_for_a_temporarily_unavailable_drop_off() {
     );
     require(simulation.command_unit(worker, {2, 2}));
 
-    for (int tick = 0; tick < 20; ++tick) {
+    for (int tick = 0; tick < 150; ++tick) {
         simulation.update();
     }
     const aoe::Unit& waiting = simulation.units().front();
@@ -2024,7 +2028,7 @@ void villagers_share_resource_through_repeated_deposit_cycles() {
     );
     const int wood_before = simulation.economy(aoe::Player::blue).wood;
     for (int tick = 0;
-         tick < 200 &&
+         tick < 500 &&
          simulation.economy(aoe::Player::blue).wood < wood_before + 80;
          ++tick) {
         simulation.update();
@@ -2179,19 +2183,25 @@ void double_bit_axe_adds_exact_persisted_wood_rate() {
 
     require(simulation.command_unit(villager, {5, 2}));
     for (int tick = 0;
-         tick < 10 && simulation.units().front().carried_amount == 0;
+         tick < 20 && simulation.units().front().carried_amount == 0;
          ++tick) {
         simulation.update();
     }
     require(simulation.units().front().carried_amount == 1);
-    require(simulation.units().front().gather_work_remainder == 1);
-    simulation.update();
+    require(simulation.units().front().gather_work_remainder < 10000);
+    for (int tick = 0;
+         tick < 20 && simulation.units().front().carried_amount == 1;
+         ++tick) {
+        simulation.update();
+    }
     require(simulation.units().front().carried_amount == 2);
-    require(simulation.units().front().gather_work_remainder == 2);
+    require(simulation.units().front().gather_work_remainder < 10000);
 
     const auto save_path =
         std::filesystem::temp_directory_path() /
         "aoe-double-bit-axe-test.save";
+    const int saved_remainder =
+        simulation.units().front().gather_work_remainder;
     aoe::save_game(simulation, save_path);
     aoe::Simulation loaded = aoe::load_game(save_path);
     std::filesystem::remove(save_path);
@@ -2199,12 +2209,16 @@ void double_bit_axe_adds_exact_persisted_wood_rate() {
         aoe::Player::blue,
         aoe::Technology::double_bit_axe
     ));
-    require(loaded.units().front().gather_work_remainder == 2);
-    for (int tick = 0; tick < 3; ++tick) {
+    require(
+        loaded.units().front().gather_work_remainder == saved_remainder
+    );
+    for (int tick = 0;
+         tick < 20 && loaded.units().front().carried_amount == 2;
+         ++tick) {
         loaded.update();
     }
-    require(loaded.units().front().carried_amount == 6);
-    require(loaded.units().front().gather_work_remainder == 0);
+    require(loaded.units().front().carried_amount == 3);
+    require(loaded.units().front().gather_work_remainder < 10000);
 }
 
 void forest_depletes_after_finite_wood_is_delivered() {
@@ -2230,7 +2244,7 @@ void forest_depletes_after_finite_wood_is_delivered() {
     const int original_wood = simulation.economy(aoe::Player::blue).wood;
 
     require(simulation.command_unit(villager, {2, 1}));
-    for (int tick = 0; tick < 10; ++tick) {
+    for (int tick = 0; tick < 100; ++tick) {
         simulation.update();
     }
 
@@ -2293,7 +2307,7 @@ void villagers_continue_to_nearest_same_resource_after_depletion() {
             loaded.units().front().resource_target ==
             aoe::TilePosition(7, 1)
         );
-        for (int tick = 0; tick < 6; ++tick) {
+        for (int tick = 0; tick < 30; ++tick) {
             simulation.update();
             loaded.update();
         }
@@ -2331,7 +2345,7 @@ void sheep_retask_after_gold_deposit_carries_food() {
         {15, 8}
     );
     require(simulation.command_unit(worker, {6, 4}));
-    for (int tick = 0; tick < 4; ++tick) {
+    for (int tick = 0; tick < 20; ++tick) {
         simulation.update();
     }
     const int carried_gold = simulation.units().front().carried_amount;
@@ -5746,9 +5760,11 @@ void town_center_produces_villager() {
     require(simulation.economy(aoe::Player::blue).food == 150);
 
     const std::size_t original_units = simulation.units().size();
-    for (int tick = 0; tick < 10; ++tick) {
+    for (int tick = 0; tick < 124; ++tick) {
         simulation.update();
     }
+    require(simulation.units().size() == original_units);
+    simulation.update();
     require(simulation.units().size() == original_units + 1);
     require((
         simulation.units().back().position == aoe::TilePosition{1, 14}

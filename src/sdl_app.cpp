@@ -67,6 +67,7 @@
 #include "aoe/scenario.hpp"
 #include "aoe/scenario_editor.hpp"
 #include "aoe/selection_controls.hpp"
+#include "aoe/selection_visual_contract.hpp"
 #include "aoe/settings.hpp"
 #include "aoe/shadow_catalog.hpp"
 #include "aoe/statistics_view.hpp"
@@ -8242,8 +8243,9 @@ void render_building(
                 0,
                 building.id
             )) {
-            if (building.hit_points < maximum_hit_points ||
-                simulation.selected_building() == building.id) {
+            if (selection_visual::world_health_bar_visible(
+                    simulation.selected_building() == building.id
+                )) {
                 render_health_bar(
                     renderer, top.x, top.y - 42.0F,
                     building.hit_points, maximum_hit_points
@@ -8291,8 +8293,9 @@ void render_building(
                     remembered_topology
                 )) {
                 if (!damage_screenshot_audit &&
-                    (building.hit_points < maximum_hit_points ||
-                     simulation.selected_building() == building.id)) {
+                    selection_visual::world_health_bar_visible(
+                        simulation.selected_building() == building.id
+                    )) {
                     render_health_bar(
                         renderer, top.x, top.y - 62.0F,
                         building.hit_points, maximum_hit_points
@@ -8511,8 +8514,9 @@ void render_building(
         if (sprite != nullptr && render_legacy_building_sprite(
                 renderer, *sprite, {top.x, top.y + half_tile_height}
             )) {
-            if (building.hit_points < maximum_hit_points ||
-                simulation.selected_building() == building.id) {
+            if (selection_visual::world_health_bar_visible(
+                    simulation.selected_building() == building.id
+                )) {
                 render_health_bar(
                     renderer, top.x, top.y - 72.0F,
                     building.hit_points, maximum_hit_points
@@ -8647,8 +8651,9 @@ void render_building(
                 {top.x, top.y + half_tile_height}
             )) {
             if (!damage_screenshot_audit &&
-                (building.hit_points < maximum_hit_points ||
-                 simulation.selected_building() == building.id)) {
+                selection_visual::world_health_bar_visible(
+                    simulation.selected_building() == building.id
+                )) {
                 render_health_bar(
                     renderer, top.x, top.y - 62.0F,
                     building.hit_points, maximum_hit_points
@@ -8723,8 +8728,9 @@ void render_building(
                     {top.x, top.y + half_tile_height}
                 )) {
                 if (!damage_screenshot_audit &&
-                    (building.hit_points < maximum_hit_points ||
-                     simulation.selected_building() == building.id)) {
+                    selection_visual::world_health_bar_visible(
+                        simulation.selected_building() == building.id
+                    )) {
                     render_health_bar(
                         renderer,
                         top.x,
@@ -8782,8 +8788,9 @@ void render_building(
                     found->second,
                     {top.x, top.y + half_tile_height}
                 )) {
-                if (building.hit_points < maximum_hit_points ||
-                    simulation.selected_building() == building.id) {
+                if (selection_visual::world_health_bar_visible(
+                        simulation.selected_building() == building.id
+                    )) {
                     render_health_bar(
                         renderer,
                         top.x,
@@ -8853,8 +8860,9 @@ void render_building(
                 *sprite,
                 {top.x, top.y + half_tile_height}
             )) {
-            if (building.hit_points < maximum_hit_points ||
-                simulation.selected_building() == building.id) {
+            if (selection_visual::world_health_bar_visible(
+                    simulation.selected_building() == building.id
+                )) {
                 render_health_bar(
                     renderer, top.x, top.y - 54.0F,
                     building.hit_points, maximum_hit_points
@@ -8927,8 +8935,9 @@ void render_building(
             );
         }
         if (rendered_original) {
-            if (building.hit_points < maximum_hit_points ||
-                simulation.selected_building() == building.id) {
+            if (selection_visual::world_health_bar_visible(
+                    simulation.selected_building() == building.id
+                )) {
                 render_health_bar(
                     renderer,
                     top.x,
@@ -9525,8 +9534,9 @@ void render_building(
         }
     }
     if (!damage_screenshot_audit &&
-        (building.hit_points < maximum_hit_points ||
-         simulation.selected_building() == building.id)) {
+        selection_visual::world_health_bar_visible(
+            simulation.selected_building() == building.id
+        )) {
         render_health_bar(
             renderer,
             top.x,
@@ -9736,8 +9746,9 @@ void render_unit(
                 unit.commercial_identity->object_id
             );
             const int maximum_hit_points = record ? record->hit_points : 1;
-            if (unit.hit_points < maximum_hit_points ||
-                simulation.is_unit_selected(unit.id)) {
+            if (selection_visual::world_health_bar_visible(
+                    simulation.is_unit_selected(unit.id)
+                )) {
                 render_health_bar(
                     renderer, ground_top.x, ground_top.y - 36.0F,
                     unit.hit_points, maximum_hit_points
@@ -9845,8 +9856,9 @@ void render_unit(
                         0,
                         unit.id
                     )) {
-                    if (unit.hit_points < unit_rules.hit_points ||
-                        simulation.is_unit_selected(unit.id)) {
+                    if (selection_visual::world_health_bar_visible(
+                            simulation.is_unit_selected(unit.id)
+                        )) {
                         render_health_bar(
                             renderer,
                             ground_top.x,
@@ -9883,8 +9895,9 @@ void render_unit(
                     interpolating,
                     unit.id
                 )) {
-                if (unit.hit_points < unit_rules.hit_points ||
-                    simulation.is_unit_selected(unit.id)) {
+                if (selection_visual::world_health_bar_visible(
+                        simulation.is_unit_selected(unit.id)
+                    )) {
                     render_health_bar(
                         renderer,
                         ground_top.x,
@@ -10006,8 +10019,9 @@ void render_unit(
                 SDL_RenderFillRect(renderer, &marker);
             }
         }
-        if (unit.hit_points < unit_rules.hit_points ||
-            simulation.is_unit_selected(unit.id)) {
+        if (selection_visual::world_health_bar_visible(
+                simulation.is_unit_selected(unit.id)
+            )) {
             render_health_bar(
                 renderer,
                 ground_top.x,
@@ -10046,8 +10060,9 @@ void render_unit(
                 )) {
                 const int maximum_hit_points =
                     simulation.maximum_hit_points(unit);
-                if (unit.hit_points < maximum_hit_points ||
-                    simulation.is_unit_selected(unit.id)) {
+                if (selection_visual::world_health_bar_visible(
+                        simulation.is_unit_selected(unit.id)
+                    )) {
                     render_health_bar(
                         renderer,
                         ground_top.x,
@@ -10094,8 +10109,9 @@ void render_unit(
         }
         const int maximum_hit_points =
             simulation.maximum_hit_points(unit);
-        if (unit.hit_points < maximum_hit_points ||
-            simulation.is_unit_selected(unit.id)) {
+        if (selection_visual::world_health_bar_visible(
+                simulation.is_unit_selected(unit.id)
+            )) {
             render_health_bar(
                 renderer,
                 ground_top.x,
@@ -10129,8 +10145,9 @@ void render_unit(
             )) {
             const int maximum_hit_points =
                 simulation.maximum_hit_points(unit);
-            if (unit.hit_points < maximum_hit_points ||
-                simulation.is_unit_selected(unit.id)) {
+            if (selection_visual::world_health_bar_visible(
+                    simulation.is_unit_selected(unit.id)
+                )) {
                 render_health_bar(
                     renderer,
                     ground_top.x,
@@ -10171,8 +10188,9 @@ void render_unit(
             )) {
             const int maximum_hit_points =
                 simulation.maximum_hit_points(unit);
-            if (unit.hit_points < maximum_hit_points ||
-                simulation.is_unit_selected(unit.id)) {
+            if (selection_visual::world_health_bar_visible(
+                    simulation.is_unit_selected(unit.id)
+                )) {
                 render_health_bar(
                     renderer,
                     ground_top.x,
@@ -10202,8 +10220,9 @@ void render_unit(
             )) {
             const int maximum_hit_points =
                 simulation.maximum_hit_points(unit);
-            if (unit.hit_points < maximum_hit_points ||
-                simulation.is_unit_selected(unit.id)) {
+            if (selection_visual::world_health_bar_visible(
+                    simulation.is_unit_selected(unit.id)
+                )) {
                 render_health_bar(
                     renderer,
                     ground_top.x,
@@ -11035,8 +11054,9 @@ void render_unit(
         );
     }
     const int maximum_hit_points = simulation.maximum_hit_points(unit);
-    if (unit.hit_points < maximum_hit_points ||
-        simulation.is_unit_selected(unit.id)) {
+    if (selection_visual::world_health_bar_visible(
+            simulation.is_unit_selected(unit.id)
+        )) {
         render_health_bar(
             renderer,
             top.x,

@@ -20,8 +20,11 @@ int main() {
     assert(selected(1));
     assert(selected_overlay(1));
     assert(!selected_overlay(9));
+    assert(!selected_health(0, 0));
     assert(selected_health(1, 0));
     assert(!selected_health(1, 2));
+    assert(!world_health_bar_visible(false));
+    assert(world_health_bar_visible(true));
 
     assert(palette_index(0, false, 0) == 255);
     assert(palette_index(0, true, 0) == 133);

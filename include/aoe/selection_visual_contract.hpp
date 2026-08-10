@@ -71,6 +71,10 @@ struct Dispatch {
         (master_flags_b8 & 0x02U) == 0;
 }
 
+[[nodiscard]] constexpr bool world_health_bar_visible(bool is_selected) {
+    return is_selected;
+}
+
 [[nodiscard]] constexpr std::uint8_t palette_index(
     std::uint8_t feedback_flags,
     bool alternate_mode,

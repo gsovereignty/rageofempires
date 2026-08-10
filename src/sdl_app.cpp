@@ -34,6 +34,7 @@
 #include "aoe/campaign.hpp"
 #include "aoe/building_placement.hpp"
 #include "aoe/building_damage.hpp"
+#include "aoe/browser_telemetry.hpp"
 #include "aoe/command_panel.hpp"
 #include "aoe/cursor_contract.hpp"
 #include "aoe/elevation_render.hpp"
@@ -60,6 +61,7 @@
 #include "aoe/random_map.hpp"
 #include "aoe/render_asset_coverage.hpp"
 #include "aoe/rms_import.hpp"
+#include "aoe/runtime_paths.hpp"
 #include "aoe/save_game.hpp"
 #include "aoe/save_browser.hpp"
 #include "aoe/scenario.hpp"
@@ -83,6 +85,11 @@ constexpr int tile_width = 64;
 constexpr int tile_height = 32;
 constexpr int half_tile_width = tile_width / 2;
 constexpr int half_tile_height = tile_height / 2;
+#if defined(AOE_BROWSER_FIXED_ASSET_SCOPE)
+constexpr bool browser_fixed_asset_scope = true;
+#else
+constexpr bool browser_fixed_asset_scope = false;
+#endif
 // World viewport size in pixels. This is the drawing surface, not the map:
 // it used to be spelled (24 + 16) * half_tile, which silently tied the
 // window and the camera clamp to a 24x16 map.
@@ -2930,6 +2937,18 @@ TerrainTextures load_local_terrain_textures(SDL_Renderer* renderer) {
         renderer,
         texture_root / "g_grs_00_COLOR.png"
     );
+    if (browser_fixed_asset_scope) {
+        if (textures.grass == nullptr) {
+            throw LegacyAssetError{
+                "fixed browser grass texture failed to load"
+            };
+        }
+        SDL_Log(
+            "using fixed browser terrain texture from %s",
+            requested_root->string().c_str()
+        );
+        return textures;
+    }
     textures.water = load_local_terrain_texture(
         renderer,
         texture_root / "g_wtr_00_COLOR.png"
@@ -4284,26 +4303,28 @@ LegacySprites load_local_legacy_sprites(
             }
             return sprite;
         };
-    sprites.frontend_background = load_packaged_texture(
-        *requested_root / "launcher_res" / "background.png", true
-    );
-    sprites.scenario_background = load_packaged_texture(
-        *requested_root / "scenariobkg.bmp", false
-    );
-    sprites.town_center_dark_annexes_blue = load_packaged_sprite(
-        data_root / "Slp" / "town-center-dark-annexes-blue.png",
-        394,
-        102,
-        204,
-        68
-    );
-    sprites.town_center_dark_annexes_red = load_packaged_sprite(
-        data_root / "Slp" / "town-center-dark-annexes-red.png",
-        394,
-        102,
-        204,
-        68
-    );
+    if (!browser_fixed_asset_scope) {
+        sprites.frontend_background = load_packaged_texture(
+            *requested_root / "launcher_res" / "background.png", true
+        );
+        sprites.scenario_background = load_packaged_texture(
+            *requested_root / "scenariobkg.bmp", false
+        );
+        sprites.town_center_dark_annexes_blue = load_packaged_sprite(
+            data_root / "Slp" / "town-center-dark-annexes-blue.png",
+            394,
+            102,
+            204,
+            68
+        );
+        sprites.town_center_dark_annexes_red = load_packaged_sprite(
+            data_root / "Slp" / "town-center-dark-annexes-red.png",
+            394,
+            102,
+            204,
+            68
+        );
+    }
     if (sprites.frontend_background != nullptr) {
         SDL_Log(
             "using packaged frontend background from %s",
@@ -4316,7 +4337,7 @@ LegacySprites load_local_legacy_sprites(
             requested_root->string().c_str()
         );
     }
-    try {
+    if (!browser_fixed_asset_scope) try {
         const std::filesystem::path media =
             *requested_root / "Campaign" / "Media";
         const LegacyPalette campaign_palette = LegacyPalette::from_jasc(
@@ -4342,7 +4363,7 @@ LegacySprites load_local_legacy_sprites(
         const LegacyPalette palette = LegacyPalette::from_jasc(
             interface.read("bina", 50500)
         );
-        try {
+        if (!browser_fixed_asset_scope) try {
             const LegacyPalette menu_palette =
                 LegacyPalette::from_jasc(
                     interface.read("bina", 50589)
@@ -4458,20 +4479,22 @@ LegacySprites load_local_legacy_sprites(
         };
         // Decompiled original loads AchDecal, PNBnr1/2, sat_tabs, sat_btn,
         // AchTeam, and tml_bck using these interface resource IDs.
-        load_statistics_frame(sprites.statistics_decal, 50766);
-        load_statistics_frame(sprites.statistics_banner_blue, 50762);
-        load_statistics_frame(sprites.statistics_banner_red, 50767);
-        for (std::size_t frame = 0;
-             frame < sprites.statistics_tabs.size(); ++frame) {
-            load_statistics_frame(
-                sprites.statistics_tabs[frame], 50765, frame
-            );
-        }
-        load_statistics_frame(sprites.statistics_button, 50768);
-        load_statistics_frame(sprites.statistics_team, 50769);
-        load_statistics_frame(sprites.statistics_background, 50763);
-        if (sprites.statistics_background.texture != nullptr) {
-            SDL_Log("using original statistics interface SLPs");
+        if (!browser_fixed_asset_scope) {
+            load_statistics_frame(sprites.statistics_decal, 50766);
+            load_statistics_frame(sprites.statistics_banner_blue, 50762);
+            load_statistics_frame(sprites.statistics_banner_red, 50767);
+            for (std::size_t frame = 0;
+                 frame < sprites.statistics_tabs.size(); ++frame) {
+                load_statistics_frame(
+                    sprites.statistics_tabs[frame], 50765, frame
+                );
+            }
+            load_statistics_frame(sprites.statistics_button, 50768);
+            load_statistics_frame(sprites.statistics_team, 50769);
+            load_statistics_frame(sprites.statistics_background, 50763);
+            if (sprites.statistics_background.texture != nullptr) {
+                SDL_Log("using original statistics interface SLPs");
+            }
         }
         try {
             const LegacyPalette game_palette =
@@ -4481,6 +4504,12 @@ LegacySprites load_local_legacy_sprites(
             for (int civilization = 1;
                  civilization <= 18;
                  ++civilization) {
+                if (browser_fixed_asset_scope &&
+                    civilization != static_cast<int>(
+                        Civilization::britons
+                    )) {
+                    continue;
+                }
                 const Civilization value =
                     static_cast<Civilization>(civilization);
                 const std::filesystem::path path =
@@ -4508,8 +4537,14 @@ LegacySprites load_local_legacy_sprites(
                 error.what()
             );
         }
+        if (browser_fixed_asset_scope) {
+            SDL_Log("fixed browser assets: loading DAT");
+        }
         const LegacyDatFile dat =
             LegacyDatFile::load(data_root / "empires2_x1_p1.dat");
+        if (browser_fixed_asset_scope) {
+            SDL_Log("fixed browser assets: DAT loaded");
+        }
         std::array<bool, 5> required_architecture_families{};
         for (std::size_t civilization = 0;
              civilization < required_civilizations.size();
@@ -4805,6 +4840,183 @@ LegacySprites load_local_legacy_sprites(
                 );
             }
         };
+        if (browser_fixed_asset_scope) {
+            SDL_Log("fixed browser assets: unit animations");
+            attempt_animation(sprites.villager_animation, 1479, 15);
+            attempt_animation(
+                sprites.movement[UnitKind::villager], 1484, 15
+            );
+            attempt_animation(
+                sprites.attack[UnitKind::villager], 1473, 15
+            );
+            attempt_animation(
+                sprites.death[UnitKind::villager], 1476, 15
+            );
+            attempt_animation(sprites.villager_gather, 1528, 15);
+
+            for (const auto& [kind, idle, idle_frames, move, move_frames,
+                              attack_slp, attack_frames, death_slp,
+                              death_frames] : {
+                     std::tuple{
+                         UnitKind::militia, 993, std::size_t{6},
+                         997, std::size_t{12}, 987, std::size_t{10},
+                         990, std::size_t{10}
+                     },
+                     std::tuple{
+                         UnitKind::man_at_arms, 1044, std::size_t{11},
+                         1048, std::size_t{11}, 1038, std::size_t{11},
+                         1041, std::size_t{11}
+                     },
+                 }) {
+                attempt_animation(
+                    sprites.military[kind], idle, idle_frames
+                );
+                attempt_animation(
+                    sprites.movement[kind], move, move_frames
+                );
+                attempt_animation(
+                    sprites.attack[kind], attack_slp, attack_frames
+                );
+                attempt_animation(
+                    sprites.death[kind], death_slp, death_frames
+                );
+            }
+
+            SDL_Log("fixed browser assets: resource sprites");
+            for (std::size_t frame = 0;
+                 frame < sprites.gold_states.size(); ++frame) {
+                attempt(sprites.gold_states[frame], 2561, 1, frame);
+            }
+
+            const std::size_t britons_family = static_cast<std::size_t>(
+                render_building_architecture_family(
+                    BuildingKind::town_center, Civilization::britons
+                )
+            );
+            const std::size_t franks_family = static_cast<std::size_t>(
+                render_building_architecture_family(
+                    BuildingKind::house, Civilization::franks
+                )
+            );
+            const std::size_t feudal = static_cast<std::size_t>(
+                render_building_visual_age(
+                    BuildingKind::town_center, Age::feudal
+                )
+            );
+            const std::size_t castle = static_cast<std::size_t>(
+                render_building_visual_age(
+                    BuildingKind::house, Age::castle
+                )
+            );
+            attempt(
+                sprites.town_center_age_blue[feudal][britons_family],
+                903,
+                1
+            );
+            attempt_building_shadowed(
+                sprites.house_red[castle][franks_family], 2247, 2
+            );
+
+            SDL_Log("fixed browser assets: building composites");
+            const BuildingCompositeSet* barracks =
+                building_composite_set(BuildingKind::barracks);
+            if (barracks == nullptr) {
+                throw LegacyAssetError{
+                    "fixed browser barracks mapping is absent"
+                };
+            }
+            const std::size_t barracks_age = static_cast<std::size_t>(
+                render_building_composite_variant(
+                    BuildingKind::barracks, Age::feudal, 0
+                )
+            );
+            attempt_composite(
+                sprites.building_composites[BuildingKind::barracks]
+                    [barracks_age][britons_family],
+                barracks->graphic_roots[barracks_age][britons_family],
+                barracks->composition_policy ==
+                    CompositePolicy::delta_graph
+            );
+
+            for (const BuildingKind kind : {
+                     BuildingKind::house,
+                     BuildingKind::barracks,
+                     BuildingKind::town_center,
+                 }) {
+                const BuildingStateRoot* death = building_state_root(
+                    kind, RenderBuildingState::destroyed
+                );
+                if (death == nullptr) {
+                    throw LegacyAssetError{
+                        "fixed browser building death mapping is absent"
+                    };
+                }
+                attempt_animated_composite(
+                    sprites.building_death_composites[kind],
+                    death->graphic_root
+                );
+                const Civilization civilization =
+                    kind == BuildingKind::house
+                    ? Civilization::franks : Civilization::britons;
+                for (const BuildingDamageRecord& damage :
+                     canonical_building_damage_records(
+                         kind, civilization
+                     )) {
+                    attempt_animated_composite(
+                        sprites.building_damage_graphics[
+                            damage.graphic_id
+                        ],
+                        damage.graphic_id,
+                        true
+                    );
+                }
+            }
+
+            SDL_Log("fixed browser assets: interface sprites");
+            attempt_interface(sprites.command_chrome[0], 50751, 36);
+            attempt_interface(sprites.command_chrome[1], 50751, 37);
+            for (std::int32_t frame = 0; frame < 69; ++frame) {
+                attempt_interface(
+                    sprites.action_command_icons[frame], 50721, frame
+                );
+            }
+            for (std::int32_t frame = 0; frame < 134; ++frame) {
+                attempt_interface(
+                    sprites.unit_command_icons[frame], 50730, frame
+                );
+            }
+            for (std::int32_t frame = 0; frame < 118; ++frame) {
+                attempt_interface(
+                    sprites.technology_command_icons[frame], 50729, frame
+                );
+            }
+            for (std::int32_t frame = 0; frame < 52; ++frame) {
+                attempt_interface(
+                    sprites.building_command_icons[frame], 50706, frame
+                );
+            }
+            attempt_interface(sprites.hud_actions, 50721);
+            constexpr std::array<std::size_t, 4> resource_frames{
+                18, 19, 20, 21
+            };
+            for (std::size_t index = 0;
+                 index < resource_frames.size(); ++index) {
+                attempt_interface(
+                    sprites.resource_icons[index],
+                    50721,
+                    resource_frames[index]
+                );
+            }
+
+            if (!active_animation_load_failures.empty() ||
+                !active_composite_load_failures.empty()) {
+                throw LegacyAssetError{
+                    "fixed browser asset closure failed eager decoding"
+                };
+            }
+            SDL_Log("fixed browser asset closure decoded eagerly");
+            return sprites;
+        }
         // Exact civilization records share these construction roots. Farm
         // has no root; Stone Wall and Palisade Gate roots vary by civilization
         // and remain fallback until that complete selection map is bound.
@@ -16782,8 +16994,6 @@ Simulation load_presentable_game(
     return load_game(path);
 }
 
-std::filesystem::path user_data_directory();
-
 ScenarioStartup load_startup_scenario() {
     if (const char* requested = SDL_getenv("AOE_CAMPAIGN")) {
         if (requested[0] != '\0') {
@@ -16895,27 +17105,13 @@ std::array<bool, 19> required_legacy_civilizations(
     return result;
 }
 
-std::filesystem::path user_data_directory() {
-    char* raw_path = SDL_GetPrefPath(
-        "Software Archaeology",
-        "AoE Archaeology"
-    );
-    if (raw_path == nullptr) {
-        throw std::runtime_error(
-            std::string{"cannot locate user data directory: "} + SDL_GetError()
-        );
-    }
-
-    const std::filesystem::path path{raw_path};
-    SDL_free(raw_path);
-    std::filesystem::create_directories(path);
-    return path;
-}
-
 }  // namespace
 
-int SdlApp::run() {
+ApplicationLoop SdlApp::loop() {
     active_view_player = Player::blue;
+    active_statistics_visible = false;
+    active_statistics_postgame = false;
+    active_statistics_tab = StatisticsTab::economy;
     const bool gameplay_automation =
         SDL_getenv("AOE_GAMEPLAY_TEST_API_DIR") != nullptr &&
         SDL_getenv("AOE_GAMEPLAY_TEST_API_DIR")[0] != '\0';
@@ -16928,7 +17124,8 @@ int SdlApp::run() {
     }
     auto audio = AudioSystem::start_from_environment();
     const std::filesystem::path user_data = user_data_directory();
-    active_settings_path = user_data / "reconstruction-settings.txt";
+    active_settings_path =
+        user_settings_directory() / "reconstruction-settings.txt";
     const SettingsLoadResult loaded_settings =
         load_settings(active_settings_path);
     if (loaded_settings.status == SettingsLoadStatus::current ||
@@ -17173,7 +17370,12 @@ int SdlApp::run() {
     };
     double gameplay_benchmark_command_ms{};
     std::size_t gameplay_benchmark_commanded_units{};
-    Simulation simulation = new_game();
+    const std::optional<std::filesystem::path> startup_autosave =
+        startup_autosave_path();
+    Simulation simulation =
+        startup_autosave && std::filesystem::is_regular_file(*startup_autosave)
+        ? load_presentable_game(*startup_autosave)
+        : new_game();
     // Deterministic screenshot-only construction checkpoint. Normal launches
     // never mutate scenario placements through this opt-in audit hook.
     if (const char* requested = SDL_getenv("AOE_CONSTRUCTION_AUDIT_PERCENT");
@@ -18041,8 +18243,9 @@ int SdlApp::run() {
         active_statistics_tab = StatisticsTab::economy;
         active_frontend_screen = FrontendScreen::hidden;
     }
-    const std::filesystem::path save_path =
-        user_data / "archaeology-save.txt";
+    const std::filesystem::path save_path = startup_autosave.value_or(
+        user_data / "archaeology-save.txt"
+    );
     const std::filesystem::path replay_path =
         user_data / "archaeology-replay.txt";
     const std::filesystem::path multiplayer_checkpoint_save =
@@ -18172,8 +18375,9 @@ int SdlApp::run() {
     bool pending_map_signal = false;
     std::uint64_t local_signal_sequence = 1;
     std::vector<Uint64> local_signal_times;
-    bool outcome_statistics_seen =
-        simulation.outcome() != MatchOutcome::ongoing;
+    bool outcome_statistics_seen = browser_fixed_asset_scope
+        ? false
+        : simulation.outcome() != MatchOutcome::ongoing;
     bool paused = false;
     WindowGeometry windowed_geometry{};
     SDL_GetWindowPosition(
@@ -18967,8 +19171,27 @@ int SdlApp::run() {
         );
     }
 
-    while (running) {
+    PersistenceSyncStatus observed_persistence_status =
+        persistence_sync_status();
+    co_yield false;
+    while (running && !stop_requested_) {
         const auto frame_started = std::chrono::steady_clock::now();
+        const PersistenceSyncStatus current_persistence_status =
+            persistence_sync_status();
+        if (current_persistence_status != observed_persistence_status) {
+            observed_persistence_status = current_persistence_status;
+            if (current_persistence_status ==
+                    PersistenceSyncStatus::succeeded) {
+                control_group_status = "AUTOSAVE SYNCHRONIZED";
+                if (active_options_visible) {
+                    active_options_status = "SETTINGS SYNCHRONIZED";
+                }
+            } else if (current_persistence_status ==
+                       PersistenceSyncStatus::failed) {
+                control_group_status = "AUTOSAVE SYNC FAILED";
+                active_options_status = "STORAGE SYNC FAILED";
+            }
+        }
         if (gameplay_test_api) {
             gameplay_test_api->poll(
                 simulation,
@@ -19965,6 +20188,8 @@ int SdlApp::run() {
                                     error
                                 )) {
                                 SDL_Log("cannot persist minimap mode: %s", error.c_str());
+                            } else {
+                                request_persistence_sync();
                             }
                         } else {
                             active_minimap_statistics =
@@ -20943,6 +21168,8 @@ int SdlApp::run() {
                             active_settings, active_settings_path, error
                         )) {
                         SDL_Log("cannot persist minimap mode: %s", error.c_str());
+                    } else {
+                        request_persistence_sync();
                     }
                     continue;
                 }
@@ -21097,12 +21324,17 @@ int SdlApp::run() {
                         active_statistics_visible = false;
                     } else if (active_statistics_postgame &&
                                event.key.key == SDLK_R) {
-                        simulation = new_game();
-                        computer = ComputerPlayer(Player::red);
-                        center_camera_on_local_start();
-                        active_statistics_visible = false;
-                        active_statistics_postgame = false;
-                        outcome_statistics_seen = false;
+                        if (postgame_restart_reinitializes_application()) {
+                            request_application_restart();
+                            running = false;
+                        } else {
+                            simulation = new_game();
+                            computer = ComputerPlayer(Player::red);
+                            center_camera_on_local_start();
+                            active_statistics_visible = false;
+                            active_statistics_postgame = false;
+                            outcome_statistics_seen = false;
+                        }
                     } else if (active_statistics_postgame &&
                                event.key.key == SDLK_B) {
                         active_statistics_visible = false;
@@ -21224,13 +21456,18 @@ int SdlApp::run() {
                     } else if (event.key.key == SDLK_S) {
                         if (apply_options()) {
                             std::string error;
-                            active_options_status = save_settings_atomic(
-                                active_settings,
-                                active_settings_path,
-                                error
-                            ) ? "SAVED ATOMICALLY: " +
-                                    active_settings_path.string()
-                              : "SAVE FAILED: " + error;
+                            if (save_settings_atomic(
+                                    active_settings,
+                                    active_settings_path,
+                                    error
+                                )) {
+                                request_persistence_sync();
+                                active_options_status =
+                                    "SAVED; STORAGE SYNCHRONIZING";
+                            } else {
+                                active_options_status =
+                                    "SAVE FAILED: " + error;
+                            }
                         }
                     }
                     continue;
@@ -23294,6 +23531,8 @@ int SdlApp::run() {
                 if (!event.key.repeat && event.key.key ==
                         static_cast<SDL_Keycode>(active_settings.hotkeys[1])) {
                     save_game(simulation, save_path);
+                    request_persistence_sync();
+                    control_group_status = "AUTOSAVE SYNCHRONIZING";
                     continue;
                 }
                 switch (event.key.key) {
@@ -24354,8 +24593,16 @@ int SdlApp::run() {
             !paused && !campaign_modal && !scenario_editor &&
             active_frontend_screen == FrontendScreen::hidden &&
             (!multiplayer_runtime || !multiplayer_runtime->paused());
-        const FrameDuration frame_elapsed = now - last_frame_time;
+        const FrameDuration raw_frame_elapsed = now - last_frame_time;
         last_frame_time = now;
+        const std::optional<std::chrono::milliseconds> frame_elapsed_limit =
+            maximum_frame_elapsed();
+        const FrameDuration frame_elapsed = frame_elapsed_limit
+            ? std::min<FrameDuration>(
+                  raw_frame_elapsed,
+                  *frame_elapsed_limit
+              )
+            : raw_frame_elapsed;
         const std::optional<int> multiplayer_cadence =
             multiplayer_runtime
             ? std::optional<int>{
@@ -24822,6 +25069,11 @@ int SdlApp::run() {
         if (!outcome_statistics_seen &&
             simulation.outcome() != MatchOutcome::ongoing) {
             outcome_statistics_seen = true;
+            if (startup_autosave) {
+                save_game(simulation, save_path);
+                request_persistence_sync();
+                control_group_status = "AUTOSAVE SYNCHRONIZING";
+            }
             active_statistics_visible = true;
             active_statistics_postgame = true;
             active_statistics_tab = StatisticsTab::economy;
@@ -24924,9 +25176,86 @@ int SdlApp::run() {
                 }
                 running = false;
             }
-        } else {
-            SDL_Delay(8);
         }
+        const Economy& browser_economy = simulation.economy(Player::blue);
+        const std::size_t browser_blue_military =
+            static_cast<std::size_t>(std::ranges::count_if(
+                simulation.units(),
+                [](const Unit& unit) {
+                    return unit.owner == Player::blue &&
+                        unit.kind != UnitKind::villager;
+                }
+            ));
+        const auto browser_tile_center = [&camera](float x, float y) {
+            return SDL_FPoint{
+                (static_cast<float>(map_origin_x()) +
+                 (x - y) * half_tile_width - camera.x) * camera.zoom,
+                (static_cast<float>(map_origin_y + half_tile_height) +
+                 (x + y) * half_tile_height - camera.y) * camera.zoom,
+            };
+        };
+        BrowserTargetTelemetry browser_targets;
+        int browser_enemy_building_hit_points = -1;
+        browser_targets.resource_x = browser_tile_center(7.0F, 8.0F).x;
+        browser_targets.resource_y = browser_tile_center(7.0F, 8.0F).y;
+        for (const Unit& unit : simulation.units()) {
+            const SDL_FPoint center = browser_tile_center(
+                static_cast<float>(unit.position.x),
+                static_cast<float>(unit.position.y)
+            );
+            if (unit.owner == Player::blue &&
+                unit.kind == UnitKind::villager) {
+                browser_targets.villager_x = center.x;
+                browser_targets.villager_y = center.y;
+            } else if (unit.owner == Player::blue) {
+                browser_targets.military_x = center.x;
+                browser_targets.military_y = center.y;
+            }
+        }
+        for (const Building& building : simulation.buildings()) {
+            const BuildingRules& rules = rules_for(building.kind);
+            const SDL_FPoint center = browser_tile_center(
+                static_cast<float>(building.position.x) +
+                    static_cast<float>(rules.footprint_width - 1) / 2.0F,
+                static_cast<float>(building.position.y) +
+                    static_cast<float>(rules.footprint_height - 1) / 2.0F
+            );
+            if (building.owner == Player::blue &&
+                building.kind == BuildingKind::barracks) {
+                browser_targets.barracks_x = center.x;
+                browser_targets.barracks_y = center.y;
+            } else if (building.owner == Player::red &&
+                       building.kind == BuildingKind::house) {
+                browser_targets.enemy_building_x = center.x;
+                browser_targets.enemy_building_y = center.y;
+                browser_enemy_building_hit_points = building.hit_points;
+            }
+        }
+        publish_browser_telemetry({
+            simulation.tick_number(),
+            simulation.selected_unit().value_or(0),
+            simulation.selected_building().value_or(0),
+            browser_economy.wood,
+            browser_economy.food,
+            browser_economy.gold,
+            browser_economy.stone,
+            static_cast<int>(simulation.outcome()),
+            view_pixel_width,
+            logical_screen_height,
+            camera.x,
+            camera.y,
+            camera.zoom,
+            simulation.units().size(),
+            simulation.buildings().size(),
+            browser_blue_military,
+            simulation.has_technology(
+                Player::blue, Technology::man_at_arms
+            ),
+            browser_enemy_building_hit_points,
+            runtime_fallback_telemetry().events().size(),
+            browser_targets,
+        });
+        co_yield !gameplay_benchmark;
     }
 
     if (multiplayer_runtime) {
@@ -24941,6 +25270,71 @@ int SdlApp::run() {
     SDL_DestroyWindow(window);
     SDL_Quit();
     active_string_table = nullptr;
+    co_return;
+}
+
+SdlApp::~SdlApp() {
+    try {
+        shutdown();
+    } catch (...) {
+    }
+}
+
+void SdlApp::initialize() {
+    if (loop_) {
+        throw std::logic_error("SdlApp is already initialized");
+    }
+    stop_requested_ = false;
+    delay_requested_ = false;
+    loop_.emplace(loop());
+    try {
+        if (loop_->resume()) return;
+    } catch (...) {
+        loop_.reset();
+        throw;
+    }
+    loop_.reset();
+    throw std::runtime_error("SdlApp stopped during initialization");
+}
+
+bool SdlApp::frame() {
+    if (!loop_) {
+        throw std::logic_error("SdlApp is not initialized");
+    }
+    const bool running = loop_->resume();
+    delay_requested_ = running && loop_->delay_requested();
+    if (!running) loop_.reset();
+    return running;
+}
+
+void SdlApp::shutdown() {
+    if (!loop_) return;
+    stop_requested_ = true;
+    try {
+        while (loop_->resume()) {
+        }
+    } catch (...) {
+        loop_.reset();
+        stop_requested_ = false;
+        delay_requested_ = false;
+        throw;
+    }
+    loop_.reset();
+    stop_requested_ = false;
+    delay_requested_ = false;
+}
+
+int SdlApp::run() {
+    initialize();
+    try {
+        while (frame()) {
+            if (delay_requested_) SDL_Delay(8);
+        }
+    } catch (...) {
+        shutdown();
+        throw;
+    }
+    shutdown();
     return 0;
 }
 

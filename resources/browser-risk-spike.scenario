@@ -1,0 +1,21 @@
+# Fixed browser risk-spike scenario. No runtime choice or random generation.
+AOE-ARCHAEOLOGY-SCENARIO 69
+map 24 16
+trigger_syntax strict
+match 1 0 0 0 0 0 0 0 0 0 0
+player-slot 0 human "browser-human" 0 160 20 0 feudal britons 0 0
+team 0 0
+player-slot 1 computer "browser-ai" 0 0 0 0 castle franks 0 0
+team 1 0
+diplomacy 0 1 enemy
+diplomacy 1 0 enemy
+objective 1 blue 1 0 "Destroy the enemy building."
+objective 2 red 1 0 "Destroy the human town center."
+trigger 1 100 1 0 1 "building_destroyed 5" 2 "complete_objective 1" "victory blue"
+trigger 2 90 1 0 1 "building_destroyed 3" 2 "complete_objective 2" "defeat blue"
+terrain gold 7 8
+unit villager 0 6 8 stance passive
+unit militia 1 18 8 stance aggressive
+building town_center 0 1 6
+building barracks 0 9 6
+building house 1 20 7 hit_points 90

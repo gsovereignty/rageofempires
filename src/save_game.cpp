@@ -3193,22 +3193,24 @@ Simulation load_game(const std::filesystem::path& path) {
               condition.first.x > condition.second.x ||
               condition.first.y > condition.second.y ||
               condition.amount < 0)) ||
-            ((condition.kind == TriggerConditionKind::unit_exists ||
-              condition.kind == TriggerConditionKind::unit_destroyed) &&
+            (condition.kind == TriggerConditionKind::unit_exists &&
              std::ranges::none_of(
                  units,
                  [id = condition.entity](const Unit& unit) {
                      return unit.id == id;
                  }
              )) ||
-            ((condition.kind == TriggerConditionKind::building_exists ||
-              condition.kind == TriggerConditionKind::building_destroyed) &&
+            (condition.kind == TriggerConditionKind::unit_destroyed &&
+             condition.entity == 0) ||
+            (condition.kind == TriggerConditionKind::building_exists &&
              std::ranges::none_of(
                  buildings,
                  [id = condition.entity](const Building& building) {
                      return building.id == id;
                  }
-             ))) {
+             )) ||
+            (condition.kind == TriggerConditionKind::building_destroyed &&
+             condition.entity == 0)) {
             throw std::runtime_error(
                 "invalid scenario trigger semantics in save"
             );

@@ -154,7 +154,7 @@ local interface events because they are viewer/UI actions, not world actions.
 |---|---|---|
 | unit selection | fires only when selected ID set changes | exact live `selected_sound` mapping for 94/96 represented units |
 | building selection | fires only when selected building ID changes | exact live `selected_sound` mapping for all 27 represented buildings |
-| movement start | false-to-true moving transition | exact live `move_sound` mapping for 93/96 represented units |
+| movement start | false-to-true moving transition outside a durable resource order; automatic gather delivery/return legs stay silent | exact live `move_sound` mapping for 93/96 represented units |
 | training completion | newly observed blue unit ID | exact live `train_sound` mapping for 91/96 represented units |
 | attack | cooldown increase and blue visibility | exact documented special cases below; arrows 314; remaining represented units 329 |
 | impact | newly created effect and blue visibility | 323 |

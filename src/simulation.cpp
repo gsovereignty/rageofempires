@@ -6975,6 +6975,7 @@ void Simulation::update() {
     ++tick_number_;
     for (EntityId id : pending_movement_sound_ids_) {
         if (const Unit* unit = find_unit(id)) {
+            if (unit->has_resource_target) continue;
             const int sound = movement_sound(unit->kind);
             if (sound >= 0) reactive_sound_events_.push_back({
                 next_reactive_sound_sequence_++, tick_number_,
@@ -8979,7 +8980,8 @@ void Simulation::update() {
             emit_direct(unit.id, unit.owner, unit.position, trained_sound(unit.kind));
             continue;
         }
-        if (unit.moving && !old->second.second &&
+        if (unit.moving && !unit.has_resource_target &&
+            !old->second.second &&
             !pending_movement_sound_ids_.contains(unit.id))
             emit_direct(unit.id, unit.owner, unit.position, movement_sound(unit.kind));
         const int work = unit.has_resource_target ? 1 : unit.repair_target_id ? 2 :

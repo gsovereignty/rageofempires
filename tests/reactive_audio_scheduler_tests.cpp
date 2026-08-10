@@ -67,5 +67,20 @@ int main() {
     require(movement.reactive_sound_events().front().sound_id == 467,
             "move sound identity incorrect");
 
+    aoe::Simulation gathering = aoe::Simulation::create_demo();
+    const auto villager = gathering.units().front().id;
+    const int initial_wood = gathering.economy(aoe::Player::blue).wood;
+    require(gathering.command_unit(villager, {3, 5}),
+            "gather order rejected");
+    for (int tick = 0; tick < 100; ++tick) {
+        gathering.update();
+        for (const auto& event : gathering.reactive_sound_events()) {
+            require(event.source_entity_id != villager || event.sound_id != 301,
+                    "automatic gather loop emitted villager voice");
+        }
+    }
+    require(gathering.economy(aoe::Player::blue).wood > initial_wood,
+            "gather sound test never completed a drop-off cycle");
+
     std::cout << "Reactive audio scheduler tests passed\n";
 }

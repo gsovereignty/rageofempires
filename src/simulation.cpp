@@ -12273,6 +12273,8 @@ void Simulation::update_production() {
                             builder->path.clear();
                         }
                     }
+                    building.builder_id = 0;
+                    building.builder_ids.clear();
                 }
             }
             continue;

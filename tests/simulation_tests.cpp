@@ -9539,6 +9539,8 @@ void houses_raise_population_cap_only_after_completion() {
         simulation.update();
     }
     require(simulation.population_capacity(aoe::Player::blue) == 10);
+    require(simulation.buildings().back().builder_id == 0);
+    require(simulation.buildings().back().builder_ids.empty());
     const auto path =
         std::filesystem::temp_directory_path() / "aoe-population-test.save";
     aoe::save_game(simulation, path);

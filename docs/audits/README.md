@@ -8,3 +8,4 @@ them to rank or implement work.
 - [2026-08-04: pointer coordinates](2026-08-04-pointer-coordinate-audit.md)
 - [2026-08-06: browser pointer coordinates](2026-08-06-browser-pointer-coordinate-audit.md)
 - [2026-08-11: browser multiplayer gameplay](2026-08-11-BROWSER-MULTIPLAYER-GAMEPLAY-AUDIT.md)
+- [2026-08-11: automated visual-audit policy addendum](2026-08-11-AUTOMATED-VISUAL-AUDIT-POLICY.md)

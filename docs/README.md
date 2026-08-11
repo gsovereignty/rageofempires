@@ -12,6 +12,7 @@ Reader-facing setup, controls, architecture, content, and status:
 
 ## Contracts
 
+- [Production visual asset policy](contracts/PRODUCTION_VISUAL_ASSETS.md)
 - [Minimap modes](contracts/MINIMAP_MODES.md)
 
 - [Commercial multiplayer adapter ABI](contracts/COMMERCIAL_MULTIPLAYER_ADAPTER.md)

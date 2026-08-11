@@ -155,8 +155,8 @@ shadow, layers, and fallback reason.
 
 Confirm as bugs when reproduced in production:
 
-- procedural, placeholder, synthetic, debug, missing-asset, or fallback draw
-  where a real legacy asset is expected;
+- any procedural, placeholder, synthetic, debug, missing-asset, or fallback
+  draw. No procedural production visual is intentional or acceptable;
 - wrong unit/building/resource, civilization, age, ownership palette, frame,
   facing, scale, anchor, transparency, shadow, or multipart layer;
 - terrain painted over opaque sprite pixels;
@@ -172,9 +172,12 @@ proved.
 
 Use `tools/capture_visual_overlap.py` and the sprite review tools only when
 their scenario/capture contract matches the case. Do not silently replace the
-live two-browser frame with a different scenario. Produce one batch review
-page when isolated sprite candidates require human decisions; accept only
-`bug`, `intentional`, or `uncertain`, and never count `uncertain` as pass.
+live two-browser frame with a different scenario. Perform visual classification
+with automated telemetry, provenance, pixel, frame-sequence, and reference-asset
+checks. Do not request or schedule human testing, screenshot review, contact
+sheet review, or visual decisions unless the user explicitly requests human
+testing in the current task. A human may report an individual visual bug for
+case-by-case investigation; do not infer broader human-testing permission.
 
 ### 4. Deterministic relay chaos
 
@@ -284,8 +287,9 @@ A confirmed finding must contain:
 - duplicate-group ID and affected coverage cells.
 
 Infrastructure failures, relay outages, black frames, stale WebDriver nodes,
-ambiguous captures, unsupported provenance, hypotheses, and uncertain human
-decisions are not product bugs.
+ambiguous captures, unsupported provenance, and hypotheses are not product
+bugs. A directly observed procedural or fallback production draw is a product
+visual bug even when its intended replacement asset is not yet known.
 
 When durable reconstruction contracts, original assets/metadata, and
 decompiled evidence conflict, record each source and mark the expectation

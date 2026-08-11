@@ -49,8 +49,9 @@ The game is self-contained. Development builds and installed bundles do not
 search sibling directories or accept an external asset-root override. Required
 legacy sprite inputs live under `game_data/Data` in this repository and are
 copied beside the development executable or into the app bundle. Procedural
-rendering remains the deterministic fallback for missing or unreadable sprite
-records.
+rendering currently remains the deterministic fallback for some missing or
+unreadable sprite records, but every production use is a visual defect under
+the [production visual asset policy](../contracts/PRODUCTION_VISUAL_ASSETS.md).
 
 Legacy research tools may inspect an explicitly supplied archive path outside
 the normal build/test/runtime graph. Product binaries never consume that path.

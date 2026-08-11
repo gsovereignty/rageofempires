@@ -1,0 +1,4 @@
+interface:
+  display_name: "Test Nostr Multiplayer"
+  short_description: "Audit two-browser public Nostr gameplay"
+  default_prompt: "Use $test-nostr-multiplayer to run and document an end-to-end two-browser Nostr multiplayer gameplay audit."

@@ -45,6 +45,9 @@ std::string canonical_lockstep_config(
 std::string lockstep_config_digest(
     const LockstepSessionConfig& config
 );
+std::string lockstep_compatibility_digest(
+    LockstepSessionConfig config
+);
 
 enum class LockstepFrameKind {
     hello,

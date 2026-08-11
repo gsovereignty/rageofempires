@@ -8,6 +8,7 @@ import {
   APP_TAG,
   LOBBY_KIND,
   makeMatchReference,
+  matchSubscriptionFilters,
   MATCH_KIND,
   parseMatchReference,
   validateIntent,
@@ -58,4 +59,17 @@ test("relay and intent bounds reject unsupported inputs", () => {
     tags: [["t", APP_TAG]],
     content: "{}",
   }));
+});
+
+test("match subscriptions stay within ordinary relay tag limits", () => {
+  const filters = matchSubscriptionFilters("host-public-key", "match-id");
+  assert.equal(filters.length, 2);
+  for (const filter of filters) {
+    assert.deepEqual(filter["#m"], ["match-id"]);
+    assert.equal(
+      Object.keys(filter).filter((key) => key.startsWith("#")).length,
+      1,
+    );
+  }
+  assert.deepEqual(filters[0].authors, ["host-public-key"]);
 });

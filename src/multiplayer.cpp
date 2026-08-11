@@ -59,32 +59,32 @@ PlayerSlotId frame_source(const LockstepFrame& frame) {
 }
 
 void validate_config(const LockstepSessionConfig& config) {
-    if (config.build_id.empty() || config.build_id.size() > 128 ||
-        config.command_schema_version <= 0 ||
-        config.save_version != reconstruction_save_version ||
-        config.scenario_version != reconstruction_scenario_version ||
-        config.scenario_digest.empty() ||
-        config.scenario_digest.size() > 256 ||
-        config.content_rules_digest.empty() ||
-        config.content_rules_digest.size() > 256 ||
-        config.tick_cadence_ms <= 0 ||
-        config.tick_cadence_ms > 10000 ||
-        config.input_delay_ticks < 0 ||
-        config.input_delay_ticks > 256 ||
-        config.blue.peer_id.empty() || config.blue.peer_id.size() > 128 ||
-        config.red.peer_id.empty() || config.red.peer_id.size() > 128 ||
-        config.blue.peer_id == config.red.peer_id ||
-        config.blue.slot != Player::blue ||
-        config.red.slot != Player::red ||
-        config.blue.team < 1 || config.blue.team > 8 ||
-        config.red.team < 1 || config.red.team > 8 ||
-        config.blue.civilization < Civilization::generic ||
-        config.blue.civilization > Civilization::mayans ||
-        config.red.civilization < Civilization::generic ||
-        config.red.civilization > Civilization::mayans ||
-        config.native_roster.has_value() !=
-            config.native_diplomacy.has_value()) {
-        throw std::invalid_argument("invalid lockstep session config");
+    const auto invalid = [](std::string_view field) {
+        throw std::invalid_argument(
+            "invalid lockstep session config: " + std::string{field}
+        );
+    };
+    if (config.build_id.empty() || config.build_id.size() > 128) invalid("build ID");
+    if (config.command_schema_version <= 0) invalid("command schema version");
+    if (config.save_version != reconstruction_save_version) invalid("save version");
+    if (config.scenario_version != reconstruction_scenario_version) invalid("scenario version");
+    if (config.scenario_digest.empty() || config.scenario_digest.size() > 256) invalid("scenario digest");
+    if (config.content_rules_digest.empty() || config.content_rules_digest.size() > 256) invalid("content rules digest");
+    if (config.tick_cadence_ms <= 0 || config.tick_cadence_ms > 10000) invalid("tick cadence");
+    if (config.input_delay_ticks < 0 || config.input_delay_ticks > 256) invalid("input delay");
+    if (config.blue.peer_id.empty() || config.blue.peer_id.size() > 128) invalid("blue peer ID");
+    if (config.red.peer_id.empty() || config.red.peer_id.size() > 128) invalid("red peer ID");
+    if (config.blue.peer_id == config.red.peer_id) invalid("distinct peer IDs");
+    if (config.blue.slot != Player::blue) invalid("blue slot");
+    if (config.red.slot != Player::red) invalid("red slot");
+    if (config.blue.team < 1 || config.blue.team > 8) invalid("blue team");
+    if (config.red.team < 1 || config.red.team > 8) invalid("red team");
+    if (config.blue.civilization < Civilization::generic ||
+        config.blue.civilization > Civilization::mayans) invalid("blue civilization");
+    if (config.red.civilization < Civilization::generic ||
+        config.red.civilization > Civilization::mayans) invalid("red civilization");
+    if (config.native_roster.has_value() != config.native_diplomacy.has_value()) {
+        invalid("native roster/diplomacy pairing");
     }
     if (!config.native_roster) {
         if (config.host_slot &&
@@ -555,6 +555,14 @@ std::string lockstep_config_digest(
     output << "lockstep-config-fnv1a64:" << std::hex
            << std::setfill('0') << std::setw(16) << hash;
     return output.str();
+}
+
+std::string lockstep_compatibility_digest(
+    LockstepSessionConfig config
+) {
+    config.blue.peer_id = "compatibility-blue";
+    config.red.peer_id = "compatibility-red";
+    return lockstep_config_digest(config);
 }
 
 std::string encode_lockstep_frame(const LockstepFrame& frame) {

@@ -421,9 +421,7 @@ int slot_number(Player player) {
 }
 
 std::string compatibility_digest(LockstepSessionConfig config) {
-    config.blue.peer_id.clear();
-    config.red.peer_id.clear();
-    return lockstep_config_digest(config);
+    return lockstep_compatibility_digest(std::move(config));
 }
 
 bool compatible_configuration(
@@ -770,6 +768,21 @@ public:
                << ",\"reliabilityReason\":"
                << static_cast<int>(reliability_reason_)
                << ",\"lobbyRevision\":" << accepted_lobby_revision_
+               << ",\"startRequested\":"
+               << (start_requested_ ? "true" : "false")
+               << ",\"startSent\":" << (start_sent_ ? "true" : "false")
+               << ",\"blueAckObserved\":"
+               << (ack_event_ids_[0]
+                       ? observed_count(*ack_event_ids_[0]) : 0)
+               << ",\"redAckObserved\":"
+               << (ack_event_ids_[1]
+                       ? observed_count(*ack_event_ids_[1]) : 0)
+               << ",\"blueReadyObserved\":"
+               << (ready_event_ids_[0]
+                       ? observed_count(*ready_event_ids_[0]) : 0)
+               << ",\"redReadyObserved\":"
+               << (ready_event_ids_[1]
+                       ? observed_count(*ready_event_ids_[1]) : 0)
                << ",\"sessionStatus\":" << static_cast<int>(status())
                << ",\"blueReady\":"
                << (peer_ready(Player::blue) ? "true" : "false")

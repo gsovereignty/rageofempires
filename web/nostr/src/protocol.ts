@@ -4,6 +4,23 @@ export const LOBBY_KIND = 30078;
 export const MATCH_KIND = 78;
 
 export const MAX_BRIDGE_BYTES = 1024 * 1024;
+
+export function matchSubscriptionFilters(
+  hostPublicKey: string,
+  matchId: string,
+) {
+  return [
+    {
+      kinds: [LOBBY_KIND],
+      authors: [hostPublicKey],
+      "#m": [matchId],
+    },
+    {
+      kinds: [MATCH_KIND],
+      "#m": [matchId],
+    },
+  ];
+}
 export const MAX_CONTENT_BYTES = 768 * 1024;
 export const MAX_TAGS = 64;
 export const MAX_TAG_PARTS = 8;

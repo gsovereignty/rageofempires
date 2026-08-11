@@ -6,20 +6,19 @@ import {PrivateKeySigner} from "applesauce-signers";
 import type {Subscription} from "rxjs";
 
 import {
-  APP_TAG,
   applicationTags,
   EventIntent,
   LaunchConfig,
   LOBBY_KIND,
   makeMatchReference,
   MATCH_KIND,
+  matchSubscriptionFilters,
   MAX_BRIDGE_BYTES,
   MAX_CONTENT_BYTES,
   MAX_TAGS,
   MAX_TAG_PARTS,
   MAX_TAG_PART_BYTES,
   parseMatchReference,
-  PROTOCOL_VERSION,
   randomMatchId,
   validateIntent,
   validateRelays,
@@ -38,8 +37,14 @@ type RuntimeDiagnostics = {
   eoseRelays: string[];
   relayStatus: Record<string, RelayStatus>;
   recentPublications: Array<{
+    intentId: string;
     eventId: string;
     results: Array<{relay: string; ok: boolean; message: string}>;
+  }>;
+  recentSubscriptionMessages: Array<{
+    type: string;
+    relay: string;
+    detail?: string;
   }>;
   cachedEvents: number;
 };
@@ -82,6 +87,7 @@ export class AoeNostrClient {
   private eoseRelays = new Set<string>();
   private relayStatus = new Map<string, RelayStatus>();
   private recentPublications: RuntimeDiagnostics["recentPublications"] = [];
+  private recentSubscriptionMessages: RuntimeDiagnostics["recentSubscriptionMessages"] = [];
   private relays: string[] = [];
   private matchId = "";
   private publicKey = "";
@@ -161,22 +167,7 @@ export class AoeNostrClient {
   }
 
   private openMatchSubscription(): void {
-    const filters = [
-      {
-        kinds: [LOBBY_KIND],
-        authors: [this.hostPublicKey],
-        "#d": [this.matchId],
-        "#m": [this.matchId],
-        "#t": [APP_TAG],
-        "#v": [String(PROTOCOL_VERSION)],
-      },
-      {
-        kinds: [MATCH_KIND],
-        "#m": [this.matchId],
-        "#t": [APP_TAG],
-        "#v": [String(PROTOCOL_VERSION)],
-      },
-    ];
+    const filters = matchSubscriptionFilters(this.hostPublicKey, this.matchId);
     const subscription = this.pool.req(this.relays, filters, {
       waitForAuth: false,
       resubscribe: true,
@@ -190,6 +181,16 @@ export class AoeNostrClient {
 
   private receivePoolMessage(message: GroupReqMessage): void {
     if (!this.running) return;
+    const detail = message.type === "CLOSED" ? message.reason :
+      message.type === "ERROR" ? String(message.error) : undefined;
+    this.recentSubscriptionMessages.push({
+      type: message.type,
+      relay: message.from,
+      ...(detail ? {detail} : {}),
+    });
+    if (this.recentSubscriptionMessages.length > 64) {
+      this.recentSubscriptionMessages.shift();
+    }
     if (message.type === "OPEN") {
       this.eoseRelays.delete(message.from);
       this.status("backfill_open", {relay: message.from});
@@ -252,6 +253,7 @@ export class AoeNostrClient {
     results: PublishResponse[],
   ): void {
     const publication = {
+      intentId,
       eventId: event.id,
       results: results.map((result) => ({
         relay: result.from,
@@ -294,6 +296,7 @@ export class AoeNostrClient {
     this.eoseRelays.clear();
     this.relayStatus.clear();
     this.recentPublications = [];
+    this.recentSubscriptionMessages = [];
   }
 
   diagnostics(): RuntimeDiagnostics {
@@ -307,6 +310,7 @@ export class AoeNostrClient {
       eoseRelays: [...this.eoseRelays],
       relayStatus: Object.fromEntries(this.relayStatus),
       recentPublications: [...this.recentPublications],
+      recentSubscriptionMessages: [...this.recentSubscriptionMessages],
       cachedEvents: this.signedEvents.size,
     };
   }

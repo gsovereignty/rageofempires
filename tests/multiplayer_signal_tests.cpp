@@ -22,6 +22,14 @@ int main() {
             std::string::npos,
         "lockstep config preserves blue/red numeric wire IDs"
     );
+    const std::string compatibility =
+        aoe::lockstep_compatibility_digest(golden_config);
+    golden_config.blue.peer_id = "different-blue";
+    golden_config.red.peer_id = "different-red";
+    expect(
+        aoe::lockstep_compatibility_digest(golden_config) == compatibility,
+        "compatibility digest ignores valid peer identities"
+    );
 
     aoe::LockstepFrame codec;
     codec.kind = aoe::LockstepFrameKind::signal;

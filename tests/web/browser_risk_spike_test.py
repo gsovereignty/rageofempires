@@ -65,12 +65,12 @@ class RequestLogHandler(SimpleHTTPRequestHandler):
 
 
 @contextlib.contextmanager
-def static_server() -> tuple[str, list[dict[str, object]]]:
+def static_server(port: int = 0) -> tuple[str, list[dict[str, object]]]:
     RequestLogHandler.requests = []
     handler = lambda *args, **kwargs: RequestLogHandler(
         *args, directory=str(DIST), **kwargs
     )
-    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    server = ThreadingHTTPServer(("127.0.0.1", port), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:

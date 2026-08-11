@@ -98,14 +98,14 @@ def require_quorum(driver, name: str) -> dict[str, object]:
     return value
 
 
-def run(relays: str, headed: bool) -> dict[str, object]:
+def run(relays: str, headed: bool, port: int = 8888) -> dict[str, object]:
     if not (DIST / "aoe_web.html").exists():
         raise Failure("packaged browser distribution is missing")
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
     evidence: dict[str, object] = {"relays": relays.split(",")}
     host = make_driver("chrome", headed)
     join = make_driver("chrome", headed)
-    with static_server() as (base_url, requests):
+    with static_server(port) as (base_url, requests):
         host_journey: Journey | None = None
         join_journey: Journey | None = None
         try:
@@ -250,13 +250,14 @@ def run(relays: str, headed: bool) -> dict[str, object]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--relays", default=DEFAULT_RELAYS)
+    parser.add_argument("--port", type=int, default=8888)
     parser.add_argument("--headed", action="store_true")
     parser.add_argument(
         "--evidence", type=Path,
         default=ARTIFACTS / "production-smoke.json",
     )
     arguments = parser.parse_args()
-    evidence = run(arguments.relays, arguments.headed)
+    evidence = run(arguments.relays, arguments.headed, arguments.port)
     arguments.evidence.parent.mkdir(parents=True, exist_ok=True)
     arguments.evidence.write_text(
         json.dumps(evidence, indent=2, sort_keys=True) + "\n",

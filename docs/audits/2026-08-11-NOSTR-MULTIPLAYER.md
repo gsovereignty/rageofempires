@@ -2,22 +2,22 @@
 
 ## Scope and build
 
-- Commit tested: `c9321b7` plus the focused relay-recovery fixes documented below.
+- Commit tested: `53c6ba5` plus the focused movement-evidence changes documented below.
 - Branch: `main`.
 - UTC test window: 2026-08-11.
 - Browser / Selenium / Emscripten: Chrome 151.0.7922.76 / Selenium 4.47.0 / Emscripten 4.0.10.
 - Relays: `wss://relay.damus.io`, `wss://nos.lol`, `wss://relay.primal.net`.
-- Local serving port: 8888, released after each run.
-- Terminal/recovery evidence: `artifacts/nostr-multiplayer/20260811T140630Z/final-production-smoke.json`.
-- Checkpoint/recovery evidence: `artifacts/nostr-multiplayer/20260811T140657Z/final-production-checkpoint.json`.
+- Local serving ports: 8890 and 8891, released after each run.
+- Terminal/recovery/movement evidence: `artifacts/nostr-multiplayer/20260811T-movement-proof/final-production-smoke.json`.
+- Checkpoint evidence: `artifacts/nostr-multiplayer/20260811T-movement-proof/final-production-checkpoint.json`.
 - Packaged artifact: `build-web/dist/aoe_web.html` and its generated JS, WASM, data, and Nostr bridge files.
 
 ## Identity ledger
 
 | Role | Public key | Slot | Distinct | Private material absent |
 |---|---|---:|---|---|
-| Host | `c05e27f5308edfe74032ba7ac5d422f3fe7243ced3363165999ddd9ef11f8694` | Blue | Yes | Yes |
-| Joiner | `07d7d5b6079b90b7604e050a0aa00104a997cd4ebd2fed42d4585b4d1cd858e3` | Red | Yes | Yes |
+| Host | `a194d9a4ab5bf366db7c3b7aa9a620ca357cd9b281ee9660eee59e905795323f` | Blue | Yes | Yes |
+| Joiner | `2e1b313901de8ea59f035bbf09cb5e5ae32a5664f0f09bde785079a73d448bf0` | Red | Yes | Yes |
 
 Both keys were created by separate normal browser launches using independent
 Chrome profiles. No private key or signer serialization was inspected, copied,
@@ -30,13 +30,13 @@ persisted, or found in captured diagnostics and logs.
 | Public relay EOSE/quorum | 3 relays, quorum 2 | 3 relays, quorum 2 | PASS | `final-production-smoke.json` |
 | Canonical lobby and roster | Revision 2, Blue | Revision 2, Red | PASS | same evidence; distinct public keys above |
 | Exact-lobby acknowledgement and ready | Both observed at quorum | Both observed at quorum | PASS | final diagnostics |
-| Visible start and lockstep | Started; tick 38 | Joined; tick 38 | PASS | final diagnostics and screenshots |
-| Non-empty unit command and empty turns | Both streams contiguous through 13 | Same streams, no missing range | PASS | equal terminal state hash after normal canvas selection/right-click; final diagnostics |
+| Visible start and lockstep | Started; tick 45 | Joined; tick 45 | PASS | final diagnostics and screenshots |
+| Non-empty unit command and empty turns | Selected unit 3 moved `(11,23)` to `(12,23)` | Same ID and positions | PASS | direct production simulation diagnostics after normal canvas selection/right-click; both streams contiguous through 15 with no missing range |
 | Public chat | One entry | One entry | PASS | `chatCount: 1` on both |
 | Allied signal | One entry | One entry | PASS | `signalCount: 1` on both; `signal-armed.png` |
 | Speed and pause/resume | Fast, resumed | Fast, resumed | PASS | `gameSpeed: 2`, `paused: false`; production run reached terminal |
-| Save/checkpoint barrier | Matched at tick 39 | Matched at tick 39 | PASS | `final-production-checkpoint.json`; `stateHashStatus: 2`, equal sequences, no missing ranges |
-| Resignation and terminal result | Blue resigned, Red active; outcome 2, tick 38 | Same roster result | PASS | both observe two agreeing signed result records and hash `save130+ids-fnv1a64:8917245126f2c22e`; stable tick |
+| Save/checkpoint barrier | Matched at tick 42 | Matched at tick 42 | PASS | `final-production-checkpoint.json`; `stateHashStatus: 2`, equal sequences through 14, no missing ranges |
+| Resignation and terminal result | Blue resigned, Red active; outcome 2, tick 45 | Same roster result | PASS | both observe two agreeing signed result records and hash `save130+ids-fnv1a64:1f59400ed6cf8180`; stable tick |
 
 The checkpoint and terminal checks use separate fresh production journeys.
 Matched checkpoint is intentionally a resumable-session stop, so continuing
@@ -48,9 +48,9 @@ ordinary play after it is not part of that runtime contract.
 |---|---|---|
 | Continue after one relay loss | PASS | Visible control disconnected Damus on both; tick advanced equally from 8 to 10 over Primal and nos.lol quorum. |
 | Stop safely after quorum loss | PASS | Visible control also disconnected nos.lol; both suspended at tick 10 with `relay_quorum_lost`; tick stayed unchanged for two seconds. |
-| Restore, EOSE, backfill, and resume | PASS | Visible Restore for nos.lol reached EOSE; both resumed equally at tick 11, then all three relays restored by tick 14. |
-| Duplicate delivery executes once | PASS | Both final streams contiguous through 13 with empty missing ranges; chat and signal counts remain one. |
-| Post-recovery hash agreement | PASS | Both reached stable terminal tick 38 and identical final state hash. |
+| Restore, EOSE, backfill, and resume | PASS | Visible Restore for nos.lol reached EOSE; both resumed equally at tick 11, then all three relays restored by tick 15. |
+| Duplicate delivery executes once | PASS | Both final streams contiguous through 15 with empty missing ranges; chat and signal counts remain one. |
+| Post-recovery hash agreement | PASS | Both reached stable terminal tick 45 and identical final state hash. |
 
 All relay changes used visible production buttons. No direct JavaScript state
 mutation, mock, proxy, local relay, or synthetic event was used.
@@ -158,6 +158,22 @@ mutation, mock, proxy, local relay, or synthetic event was used.
 - Affected production path: none; harness expectation was wrong.
 - Evidence: checkpoint run `last-failure.json`; terminal rerun without post-checkpoint input passed.
 
+### Relay-control harness retained a replaced DOM node
+
+- Classification: automation.
+- First failed milestone: one-relay degradation.
+- Observed behavior: Selenium raised `StaleElementReferenceException` while
+  clicking a visible relay button.
+- Expected behavior: live status refresh does not invalidate the test action.
+- Reproduction: open relay management while diagnostics refresh its buttons,
+  then click a previously located button.
+- Proven root cause: the browser shell re-renders relay buttons on diagnostics
+  updates while the harness retained one DOM element between state read and
+  click.
+- Affected production path: none; visible control remained available.
+- Evidence: failed production-run traceback; harness now re-locates the button
+  after replacement, and the final recovery journey passes.
+
 ### In-match relay recovery control is absent
 
 - Classification: missing capability.
@@ -203,7 +219,7 @@ mutation, mock, proxy, local relay, or synthetic event was used.
 **PROBLEMS FOUND.** Corrected packaged build passes complete base gameplay,
 terminal result, one-relay degradation, quorum-loss stop, restored-relay EOSE
 and backfill, resumed lockstep, duplicate suppression, post-recovery hash
-agreement, and separate matching checkpoint journey. Eight product defects
-were confirmed; seven corrections were verified through affected production
-journeys. Keyboard-only resignation routing remains built but not separately
-reproduced; visible terminal route passes.
+agreement, direct equal-world movement, and separate matching checkpoint
+journey. Eight product defects were confirmed; seven corrections were verified
+through affected production journeys. Keyboard-only resignation routing
+remains built but not separately reproduced; visible terminal route passes.

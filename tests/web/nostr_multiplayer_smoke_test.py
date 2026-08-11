@@ -12,6 +12,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.actions.action_builder import ActionBuilder
 from selenium.webdriver.common.actions.pointer_input import PointerInput
 from selenium.webdriver.common.by import By
+from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import Select
 
@@ -45,6 +46,23 @@ def game_diagnostics(driver) -> dict[str, object] | None:
     value = diagnostics(driver)
     game = value.get("game") if value else None
     return game if isinstance(game, dict) else None
+
+
+def blue_villager_positions(game: dict[str, object]) -> dict[int, tuple[int, int]]:
+    return {
+        int(unit["id"]): (int(unit["x"]), int(unit["y"]))
+        for unit in game.get("blueVillagers", [])
+        if isinstance(unit, dict)
+    }
+
+
+def matching_moved_villager(host, join, unit_id: int,
+                            before: tuple[int, int]):
+    games = [game_diagnostics(driver) or {} for driver in (host, join)]
+    positions = [blue_villager_positions(game) for game in games]
+    if positions[0] != positions[1] or positions[0].get(unit_id) == before:
+        return None
+    return games if unit_id in positions[0] else None
 
 
 def launch(driver, base_url: str, mode: str, relays: str,
@@ -110,12 +128,17 @@ def set_relay_enabled(driver, relay_index: int, enabled: bool) -> None:
     details = driver.find_element(By.ID, "relay-management")
     if not details.get_attribute("open"):
         details.find_element(By.TAG_NAME, "summary").click()
-    button = driver.find_element(
-        By.CSS_SELECTOR, f"#relay-controls button[data-relay-index='{relay_index}']"
-    )
-    current = button.get_attribute("data-enabled") == "true"
-    if current != enabled:
-        button.click()
+    selector = f"#relay-controls button[data-relay-index='{relay_index}']"
+    for attempt in range(10):
+        try:
+            button = driver.find_element(By.CSS_SELECTOR, selector)
+            current = button.get_attribute("data-enabled") == "true"
+            if current != enabled:
+                button.click()
+            return
+        except StaleElementReferenceException:
+            if attempt == 9:
+                raise
 
 
 def matching_relay_state(host, join, *, disabled: int, status: int,
@@ -305,8 +328,48 @@ def run(relays: str, headed: bool, port: int = 8888,
             evidence["recovery"] = recovery
 
             # Normal world input creates a non-empty lockstep turn batch.
+            movement_before = [game_diagnostics(driver) or {}
+                               for driver in (host, join)]
+            before_positions = [blue_villager_positions(game)
+                                for game in movement_before]
+            if (
+                before_positions[0] != before_positions[1] or
+                not before_positions[0]
+            ):
+                raise Failure(
+                    f"peers lack matching blue villager: {before_positions}"
+                )
             host_journey.pointer("villager")
+            selected_id = wait_until(
+                "host selected observed blue villager",
+                lambda: (
+                    unit_id
+                    if (unit_id := int(host_journey.telemetry().get(
+                        "selectedUnit", 0
+                    ))) in before_positions[0]
+                    else None
+                ),
+            )
             host_journey.pointer("villager", button=2, logical_dx=50)
+            movement_after = wait_until(
+                "matching world movement on both peers",
+                lambda: matching_moved_villager(
+                    host, join, selected_id,
+                    before_positions[0][selected_id],
+                ),
+                timeout=WAIT_SECONDS,
+            )
+            evidence["movement"] = {
+                "unitId": selected_id,
+                "before": {
+                    "host": movement_before[0],
+                    "join": movement_before[1],
+                },
+                "after": {
+                    "host": movement_after[0],
+                    "join": movement_after[1],
+                },
+            }
 
             # Normal chat input becomes public side-channel state on both peers.
             key_chord(join, Keys.ENTER)

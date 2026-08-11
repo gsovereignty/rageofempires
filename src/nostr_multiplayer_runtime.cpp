@@ -764,6 +764,21 @@ public:
     }
 
     void update_browser_diagnostics(const Simulation& simulation) const {
+        const Unit* blue_villager = nullptr;
+        std::ostringstream blue_villagers_json;
+        blue_villagers_json << '[';
+        for (const Unit& unit : simulation.units()) {
+            if (unit.owner == Player::blue &&
+                unit.kind == UnitKind::villager && unit.hit_points > 0) {
+                if (!blue_villager) blue_villager = &unit;
+                if (blue_villagers_json.tellp() > 1) blue_villagers_json << ',';
+                blue_villagers_json
+                    << "{\"id\":" << unit.id
+                    << ",\"x\":" << unit.position.x
+                    << ",\"y\":" << unit.position.y << '}';
+            }
+        }
+        blue_villagers_json << ']';
         std::ostringstream output;
         output << "{\"currentTick\":" << current_tick()
                << ",\"waiting\":"
@@ -807,6 +822,13 @@ public:
                << static_cast<int>(save_barrier_.status())
                << ",\"outcome\":"
                << static_cast<int>(simulation.outcome())
+               << ",\"blueVillagerId\":"
+               << (blue_villager ? blue_villager->id : 0)
+               << ",\"blueVillagerX\":"
+               << (blue_villager ? blue_villager->position.x : -1)
+               << ",\"blueVillagerY\":"
+               << (blue_villager ? blue_villager->position.y : -1)
+               << ",\"blueVillagers\":" << blue_villagers_json.str()
                << ",\"blueControllerState\":"
                << static_cast<int>(
                       simulation.controller_state(Player::blue)

@@ -21,6 +21,7 @@
 #include <iterator>
 #include <limits>
 #include <map>
+#include <memory>
 #include <optional>
 #include <set>
 #include <sstream>
@@ -54,6 +55,7 @@
 #include "aoe/legacy_campaign.hpp"
 #include "aoe/localization.hpp"
 #include "aoe/multiplayer.hpp"
+#include "aoe/multiplayer_runtime.hpp"
 #include "aoe/multiplayer_transport.hpp"
 #include "aoe/minimap_contract.hpp"
 #include "aoe/ordinary_match_setup.hpp"
@@ -17933,7 +17935,7 @@ ApplicationLoop SdlApp::loop() {
         }
     }
     std::optional<MultiplayerPresentation> multiplayer_presentation;
-    std::optional<LocalhostMultiplayerRuntime> multiplayer_runtime;
+    std::unique_ptr<MultiplayerRuntime> multiplayer_runtime;
     std::uint64_t multiplayer_exit_tick{};
     std::filesystem::path multiplayer_state_path;
     bool multiplayer_state_written = false;
@@ -18016,16 +18018,12 @@ ApplicationLoop SdlApp::loop() {
         multiplayer_presentation->port = multiplayer_port;
         if (capture_state.empty()) {
             multiplayer_presentation->live_transport = true;
-            multiplayer_runtime.emplace(
-                hosting
-                    ? LocalhostMultiplayerRuntime::host(
-                          multiplayer_port,
-                          multiplayer_presentation->config
-                      )
-                    : LocalhostMultiplayerRuntime::join(
-                          multiplayer_port,
-                          multiplayer_presentation->config
-                      )
+            MultiplayerLaunchConfig launch;
+            launch.hosting = hosting;
+            launch.port = multiplayer_port;
+            launch.session = multiplayer_presentation->config;
+            multiplayer_runtime = create_multiplayer_runtime(
+                std::move(launch)
             );
             if (const char* auto_ready =
                     SDL_getenv("AOE_MULTIPLAYER_AUTO_READY");

@@ -134,6 +134,7 @@ set(AOE_CORE_SOURCES
     src/commercial_multiplayer_service.cpp
     src/localization.cpp
     src/multiplayer.cpp
+    src/multiplayer_runtime.cpp
     src/multiplayer_checkpoint.cpp
     src/ui_assets.cpp
     src/ui_icon_contract.cpp

@@ -810,25 +810,27 @@ LocalhostLockstepDriver::LocalhostLockstepDriver(
 LockstepFrame LocalhostLockstepDriver::control_frame(
     LockstepFrameKind kind
 ) const {
-    LockstepFrame frame;
-    frame.kind = kind;
-    frame.player = local_slot_;
-    frame.scenario_digest = scenario_digest_;
-    return frame;
+    return LockstepRuntimeCoordinator::control(
+        session_, local_slot_, kind
+    );
 }
 
 bool LocalhostLockstepDriver::send_hello(const Simulation& simulation) {
-    LockstepFrame frame = control_frame(LockstepFrameKind::hello);
-    frame.config = session_.config();
-    frame.config_digest = lockstep_config_digest(session_.config());
-    if (!session_.receive(frame, simulation)) return false;
+    LockstepFrame frame = LockstepRuntimeCoordinator::hello(
+        session_, local_slot_
+    );
+    if (!LockstepRuntimeCoordinator::receive(
+            session_, frame, simulation
+        )) return false;
     stream_.send_frame(frame);
     return true;
 }
 
 bool LocalhostLockstepDriver::send_ready(const Simulation& simulation) {
     LockstepFrame frame = control_frame(LockstepFrameKind::ready);
-    if (!session_.receive(frame, simulation)) return false;
+    if (!LockstepRuntimeCoordinator::receive(
+            session_, frame, simulation
+        )) return false;
     stream_.send_frame(frame);
     return true;
 }
@@ -836,7 +838,9 @@ bool LocalhostLockstepDriver::send_ready(const Simulation& simulation) {
 bool LocalhostLockstepDriver::send_start(const Simulation& simulation) {
     if (!host_) return false;
     LockstepFrame frame = control_frame(LockstepFrameKind::start);
-    if (!session_.receive(frame, simulation)) return false;
+    if (!LockstepRuntimeCoordinator::receive(
+            session_, frame, simulation
+        )) return false;
     stream_.send_frame(frame);
     return true;
 }
@@ -856,18 +860,13 @@ bool LocalhostLockstepDriver::submit_turn_at(
     std::vector<GameCommand> commands
 ) {
     if (session_.status() != LockstepStatus::running) return false;
-    LockstepFrame frame;
-    frame.kind = LockstepFrameKind::turn;
-    frame.player = local_slot_;
-    frame.scenario_digest = scenario_digest_;
-    frame.tick = execution_tick;
-    frame.sequence = frame.tick;
-    if (frame.tick == session_.current_tick() &&
-        frame.tick % session_.hash_interval() == 0) {
-        frame.state_hash = deterministic_state_hash(simulation);
-    }
-    frame.commands = std::move(commands);
-    if (!session_.receive(frame, simulation)) return false;
+    LockstepFrame frame = LockstepRuntimeCoordinator::turn(
+        session_, simulation, local_slot_, execution_tick,
+        std::move(commands)
+    );
+    if (!LockstepRuntimeCoordinator::receive(
+            session_, frame, simulation
+        )) return false;
     stream_.send_frame(frame);
     return true;
 }
@@ -1418,7 +1417,9 @@ bool LocalhostLockstepDriver::pump_one(const Simulation& simulation) {
         frame->kind == LockstepFrameKind::disconnect) {
         return receive_drop(*frame);
     }
-    return session_.receive(*frame, simulation);
+    return LockstepRuntimeCoordinator::receive(
+        session_, *frame, simulation
+    );
 }
 
 TcpFramePoll LocalhostLockstepDriver::pump_nonblocking(
@@ -1480,7 +1481,9 @@ TcpFramePoll LocalhostLockstepDriver::pump_nonblocking(
         );
         remote_eof_polls_ = 0;
     } else if (result.status == TcpPollStatus::frame &&
-               !session_.receive(*result.frame, simulation)) {
+               !LockstepRuntimeCoordinator::receive(
+                    session_, *result.frame, simulation
+               )) {
         return result;
     } else if (result.status == TcpPollStatus::frame) {
         remote_eof_polls_ = 0;
@@ -1498,7 +1501,7 @@ bool LocalhostLockstepDriver::advance(Simulation& simulation) {
         paused_ || control_barrier_waiting()) {
         return false;
     }
-    return session_.advance(simulation);
+    return LockstepRuntimeCoordinator::advance(session_, simulation);
 }
 
 void LocalhostLockstepDriver::close() {

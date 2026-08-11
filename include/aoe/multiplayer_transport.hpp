@@ -10,33 +10,9 @@
 
 #include "aoe/multiplayer.hpp"
 #include "aoe/multiplayer_checkpoint.hpp"
+#include "aoe/multiplayer_runtime.hpp"
 
 namespace aoe {
-
-enum class LatencyBand { unknown, green, yellow, red };
-enum class MultiplayerReliabilityStatus {
-    active,
-    waiting,
-    suspended,
-    dropped,
-    disconnected,
-};
-enum class MultiplayerReliabilityReason {
-    none,
-    peer_silent,
-    transport_lost,
-    host_dropped_peer,
-    peer_disconnected,
-};
-
-struct NetworkTimingMetrics {
-    std::optional<std::uint64_t> round_trip_ms;
-    std::uint64_t milliseconds_since_peer_traffic{};
-    bool waiting{};
-    LatencyBand latency_band{LatencyBand::unknown};
-};
-
-LatencyBand latency_band_for_rtt(std::uint64_t milliseconds);
 
 enum class TcpPollStatus {
     no_data,
@@ -353,7 +329,7 @@ private:
     LockstepSession session_;
 };
 
-class LocalhostMultiplayerRuntime {
+class LocalhostMultiplayerRuntime final : public MultiplayerRuntime {
 public:
     static LocalhostMultiplayerRuntime host(
         std::uint16_t port,
@@ -380,64 +356,76 @@ public:
         std::uint64_t hash_interval = 50
     );
 
-    bool queue_command(GameCommand command);
-    void poll_transport(Simulation& simulation);
-    void pump(Simulation& simulation);
-    void disconnect();
-    bool send_chat(std::string text, ChatAudience audience);
-    bool send_signal(TilePosition tile, ChatAudience audience);
-    bool request_save_barrier(std::uint64_t target_tick);
-    bool propose_pause(bool paused, std::uint64_t barrier_tick);
-    bool propose_speed(GameSpeed speed, std::uint64_t barrier_tick);
-    bool drop_peer();
-    void set_ready(bool ready = true) { ready_requested_ = ready; }
-    void request_start() { start_requested_ = true; }
+    bool queue_command(GameCommand command) override;
+    void poll_transport(Simulation& simulation) override;
+    void pump(Simulation& simulation) override;
+    void disconnect() override;
+    bool send_chat(std::string text, ChatAudience audience) override;
+    bool send_signal(TilePosition tile, ChatAudience audience) override;
+    bool request_save_barrier(std::uint64_t target_tick) override;
+    bool propose_pause(bool paused, std::uint64_t barrier_tick) override;
+    bool propose_speed(GameSpeed speed, std::uint64_t barrier_tick) override;
+    bool drop_peer() override;
+    void set_ready(bool ready = true) override { ready_requested_ = ready; }
+    void request_start() override { start_requested_ = true; }
 
-    [[nodiscard]] LockstepStatus status() const;
-    [[nodiscard]] bool connected() const { return driver_.has_value(); }
-    [[nodiscard]] std::uint16_t port() const { return port_; }
-    [[nodiscard]] std::uint64_t current_tick() const;
-    [[nodiscard]] bool waiting_for_turn() const;
-    [[nodiscard]] PlayerControllerState local_controller_state() const {
+    [[nodiscard]] LockstepStatus status() const override;
+    [[nodiscard]] bool connected() const override { return driver_.has_value(); }
+    [[nodiscard]] std::uint16_t port() const override { return port_; }
+    [[nodiscard]] std::uint64_t current_tick() const override;
+    [[nodiscard]] bool waiting_for_turn() const override;
+    [[nodiscard]] PlayerControllerState local_controller_state() const override {
         return local_controller_state_;
     }
-    [[nodiscard]] bool peer_ready(Player player) const {
+    [[nodiscard]] bool peer_ready(Player player) const override {
         return driver_ && driver_->session().ready(player);
     }
-    [[nodiscard]] const LockstepSessionConfig& session_config() const {
+    [[nodiscard]] const LockstepSessionConfig& session_config() const override {
         return config_;
     }
-    [[nodiscard]] const std::vector<LockstepChatMessage>& chat_log() const;
-    [[nodiscard]] const std::vector<LockstepMapSignal>& signal_log() const;
-    [[nodiscard]] const LockstepSaveBarrier* save_barrier() const {
+    [[nodiscard]] const std::vector<LockstepChatMessage>& chat_log() const override;
+    [[nodiscard]] const std::vector<LockstepMapSignal>& signal_log() const override;
+    [[nodiscard]] const LockstepSaveBarrier* save_barrier() const override {
         return driver_ ? &driver_->save_barrier() : nullptr;
     }
-    [[nodiscard]] NetworkTimingMetrics network_metrics() const {
+    [[nodiscard]] NetworkTimingMetrics network_metrics() const override {
         return driver_ ? driver_->network_metrics()
                        : NetworkTimingMetrics{};
     }
-    [[nodiscard]] bool paused() const {
+    [[nodiscard]] bool paused() const override {
         return driver_ && driver_->paused();
     }
-    [[nodiscard]] GameSpeed game_speed() const {
+    [[nodiscard]] GameSpeed game_speed() const override {
         return driver_ ? driver_->game_speed() : GameSpeed::normal;
     }
-    [[nodiscard]] int effective_tick_cadence_ms() const {
+    [[nodiscard]] int effective_tick_cadence_ms() const override {
         const int base = config_.tick_cadence_ms;
         return game_speed() == GameSpeed::slow
             ? base * 2
             : game_speed() == GameSpeed::fast
                 ? (base / 2 > 0 ? base / 2 : 1) : base;
     }
-    [[nodiscard]] MultiplayerReliabilityStatus reliability_status() const {
+    [[nodiscard]] MultiplayerReliabilityStatus reliability_status() const override {
         return driver_
             ? driver_->reliability_status()
             : MultiplayerReliabilityStatus::active;
     }
-    [[nodiscard]] MultiplayerReliabilityReason reliability_reason() const {
+    [[nodiscard]] MultiplayerReliabilityReason reliability_reason() const override {
         return driver_
             ? driver_->reliability_reason()
             : MultiplayerReliabilityReason::none;
+    }
+    [[nodiscard]] std::string transport_name() const override {
+        return "LOCALHOST TCP";
+    }
+    [[nodiscard]] std::string transport_detail() const override {
+        return "PORT " + std::to_string(port_);
+    }
+    [[nodiscard]] std::string public_match_reference() const override {
+        return {};
+    }
+    [[nodiscard]] std::string local_identity() const override {
+        return host_ ? config_.blue.peer_id : config_.red.peer_id;
     }
 
 private:

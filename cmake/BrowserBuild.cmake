@@ -93,7 +93,7 @@ target_link_options(aoe_web PRIVATE
     "SHELL:-s EXIT_RUNTIME=0"
     "SHELL:-s ENVIRONMENT=web"
     "SHELL:-s INVOKE_RUN=0"
-    "SHELL:-s EXPORTED_RUNTIME_METHODS=['callMain']"
+    "SHELL:-s EXPORTED_RUNTIME_METHODS=['callMain','HEAPU8']"
     "SHELL:-s EXPORTED_FUNCTIONS=['_main','_malloc','_free','_aoe_nostr_enqueue_event','_aoe_nostr_enqueue_status','_aoe_nostr_publish_result']"
     "SHELL:--shell-file ${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html"
     "SHELL:--pre-js ${CMAKE_CURRENT_SOURCE_DIR}/web/browser_runtime.js"

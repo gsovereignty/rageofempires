@@ -3,6 +3,14 @@ Module['browserUncaughtErrors'] = [];
 // through globalThis when its asynchronous callbacks cross into WASM.
 globalThis.Module = Module;
 Module['browserDiagnostics'] = [];
+const recordUncaughtError = function (error) {
+  Module['browserUncaughtErrors'].push(error);
+  if (Module['browserUncaughtErrors'].length > 200) {
+    Module['browserUncaughtErrors'].splice(
+      0, Module['browserUncaughtErrors'].length - 200
+    );
+  }
+};
 const diagnosticValue = function (value) {
   if (value instanceof Error) {
     return {name: value.name, message: value.message, stack: value.stack || ''};
@@ -42,7 +50,7 @@ window.addEventListener('error', function (event) {
     column: event.colno || 0,
     stack: event.error && event.error.stack || ''
   };
-  Module['browserUncaughtErrors'].push(error);
+  recordUncaughtError(error);
   recordDiagnostic('uncaught-error', [error]);
 }, true);
 window.addEventListener('unhandledrejection', function (event) {
@@ -53,7 +61,7 @@ window.addEventListener('unhandledrejection', function (event) {
     column: 0,
     stack: event.reason && event.reason.stack || ''
   };
-  Module['browserUncaughtErrors'].push(error);
+  recordUncaughtError(error);
   recordDiagnostic('unhandled-rejection', [error]);
 });
 Module['canvas'] = document.getElementById('canvas');

@@ -52,6 +52,7 @@ def launch(driver, base_url: str, mode: str, relays: str,
         f"{mode} browser storage",
         lambda: driver.execute_script(
             "return Module.storageReady === true && "
+            "Module.HEAPU8 instanceof Uint8Array && "
             "!document.getElementById('start').hidden"
         ),
     )

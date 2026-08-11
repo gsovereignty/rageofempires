@@ -232,3 +232,28 @@ WebAssembly build succeeded. Public-relay run
 `20260811T203000Z-facing-gather-oracle` timed out before gameplay at
 `deterministic lockstep tick exchange`; therefore live public-relay acceptance
 remains **BLOCKED**, not failed.
+
+## Complete-audit rerun at `90b85b4`
+
+Two fresh runs used packaged artifact SHA-256
+`5ac6a546da35510de18956ca83550e5de54851bf29249d77b144bd643d54629c`
+with Chrome 151.0.7922.76 and distinct ephemeral identities:
+
+- `20260811T193346Z-complete-audit`, using Damus, nos.lol, and Primal,
+  reached the canonical lobby but timed out at `deterministic lockstep tick
+  exchange`. Its complete failure bundle is retained under the matching
+  artifact directory.
+- `20260811T194000Z-complete-audit-retry`, using nostr.band, Snort, and
+  nostr.mom, timed out earlier at `host relay quorum and EOSE`. While preserving
+  the failure, the harness attempted `diagnostics(join)` after that browser no
+  longer exposed `Module`; the resulting JavaScript exception prevented bundle
+  finalization for this retry.
+
+No gameplay phase ran, so neither run exercised facing, gathering, production,
+combat, destruction, relay-chaos recovery, or natural victory. These are
+infrastructure-blocked cells, not passes. No product gameplay defect was
+confirmed. A separate audit-harness cleanup defect is confirmed: failure
+evidence collection assumes `Module` exists and can mask the primary failure
+when a browser leaves the packaged game context. Root cause is the unguarded
+identifier access in `diagnostics()` combined with an unconditional diagnostics
+call in the failure handler. Overall verdict remains **BLOCKED**.

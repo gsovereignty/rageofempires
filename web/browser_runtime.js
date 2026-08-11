@@ -168,6 +168,33 @@ const nostrPublicKey = document.getElementById('nostr-public-key');
 const nostrPublicReference = document.getElementById('nostr-public-reference');
 const copyMatchReference = document.getElementById('copy-match-reference');
 const copyMatchStatus = document.getElementById('copy-match-status');
+const relayControls = document.getElementById('relay-controls');
+
+relayControls.addEventListener('click', function (event) {
+  const button = event.target.closest('button[data-relay]');
+  if (!button || !globalThis.AoeNostrRuntime) return;
+  const enabled = button.dataset.enabled !== 'true';
+  globalThis.AoeNostrRuntime.setRelayEnabled(button.dataset.relay, enabled);
+  Module['canvas'].focus({preventScroll: true});
+});
+
+const refreshRelayControls = function (value) {
+  const relays = value?.relays || [];
+  const disabled = new Set(value?.disabledRelays || []);
+  const signature = JSON.stringify([relays, [...disabled]]);
+  if (relayControls.dataset.signature === signature) return;
+  relayControls.dataset.signature = signature;
+  relayControls.replaceChildren(...relays.map(function (relay, index) {
+    const enabled = !disabled.has(relay);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.relay = relay;
+    button.dataset.enabled = String(enabled);
+    button.dataset.relayIndex = String(index);
+    button.textContent = (enabled ? 'Disconnect ' : 'Restore ') + relay;
+    return button;
+  }));
+};
 
 const refreshNostrSession = function () {
   if (!Module.browserNostrMode) return;
@@ -179,6 +206,7 @@ const refreshNostrSession = function () {
     (Module.browserNostrMode === 'join'
       ? document.getElementById('match-reference').value.trim() : '');
   copyMatchReference.disabled = nostrPublicReference.value.length === 0;
+  refreshRelayControls(value);
 };
 setInterval(refreshNostrSession, 500);
 

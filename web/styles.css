@@ -78,6 +78,28 @@ body,
   justify-self: start;
 }
 
+#relay-management p {
+  margin: 0.35rem 0;
+  color: #ffca85;
+}
+
+#relay-controls {
+  display: grid;
+  gap: 0.3rem;
+}
+
+#relay-controls button {
+  overflow: hidden;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #8293a8;
+  background: #182536;
+  color: #e6ecf2;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
 #start {
   padding: 0.9rem 1.4rem;
   border: 1px solid #d7b44b;

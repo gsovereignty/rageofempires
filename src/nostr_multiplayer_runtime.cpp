@@ -807,6 +807,21 @@ public:
                << static_cast<int>(save_barrier_.status())
                << ",\"outcome\":"
                << static_cast<int>(simulation.outcome())
+               << ",\"blueControllerState\":"
+               << static_cast<int>(
+                      simulation.controller_state(Player::blue)
+                  )
+               << ",\"redControllerState\":"
+               << static_cast<int>(
+                      simulation.controller_state(Player::red)
+                  )
+               << ",\"resultCount\":"
+               << static_cast<int>(result_fingerprints_[0].has_value()) +
+                      static_cast<int>(result_fingerprints_[1].has_value())
+               << ",\"terminalResultAgreement\":"
+               << (result_fingerprints_[0] && result_fingerprints_[1] &&
+                           result_fingerprints_[0] == result_fingerprints_[1]
+                       ? "true" : "false")
                << ",\"terminalStateHash\":"
                << json_string(
                       simulation.outcome() == MatchOutcome::ongoing
@@ -1075,7 +1090,23 @@ private:
         }
         if (type == "relay_disabled") {
             const std::string relay = string_field(object, "relay", 512);
-            relay_states_[relay].auth_required = true;
+            RelayState& state = relay_states_[relay];
+            state.connected = false;
+            state.ready = false;
+            state.eose = false;
+            state.auth_required = optional_string_field(
+                object, "reason", 128
+            ) == "authentication required";
+            update_reliability();
+            return;
+        }
+        if (type == "relay_enabled") {
+            const std::string relay = string_field(object, "relay", 512);
+            RelayState& state = relay_states_[relay];
+            state.connected = false;
+            state.ready = false;
+            state.eose = false;
+            state.auth_required = false;
             update_reliability();
             return;
         }
@@ -1086,6 +1117,7 @@ private:
         }
         if (type == "eose") {
             relay_states_[string_field(object, "relay", 512)].eose = true;
+            republish_failed_turns();
             update_reliability();
             return;
         }
@@ -1120,12 +1152,32 @@ private:
         const std::string intent_id = string_field(object, "intent_id", 128);
         const bool ok = bool_field(object, "ok");
         const std::string event_id = optional_string_field(object, "event_id", 64);
+        constexpr std::string_view republish_prefix{"republish:"};
+        if (intent_id.starts_with(republish_prefix)) {
+            const std::string requested_event_id = intent_id.substr(
+                republish_prefix.size()
+            );
+            if (!hex64(requested_event_id) || event_id != requested_event_id) {
+                throw std::runtime_error("invalid republication result");
+            }
+            turn_republish_outstanding_ids_.erase(event_id);
+            if (ok) failed_turn_event_ids_.erase(event_id);
+            update_reliability();
+            return;
+        }
         const auto found = pending_intents_.find(intent_id);
         if (found == pending_intents_.end()) return;
         const IntentState intent = found->second;
         pending_intents_.erase(found);
         if (!ok || !hex64(event_id)) {
-            if (intent.kind == IntentKind::turn) turn_publish_outstanding_ = false;
+            if (intent.kind == IntentKind::turn) {
+                turn_publish_outstanding_ = false;
+                if (hex64(event_id)) {
+                    last_outbound_turn_event_id_ = event_id;
+                    outbound_turn_event_ids_[intent.sender_sequence] = event_id;
+                    failed_turn_event_ids_.insert(event_id);
+                }
+            }
             suspend(
                 MultiplayerReliabilityReason::relay_quorum_lost,
                 "relay publication failed for " + intent_id
@@ -1202,8 +1254,10 @@ private:
         else if (family == "save_hash") handle_save_hash(event, content);
         else if (family == "drop") handle_drop(event, content);
         else if (family == "receipt") handle_receipt(event, content);
-        else if (family == "checkpoint" ||
-                 family == "result") {
+        else if (family == "result") {
+            handle_result(event, content);
+        }
+        else if (family == "checkpoint") {
             // Public diagnostic/agreement events have no direct simulation
             // mutation. Authoritative turns still use LockstepSession::receive.
         } else {
@@ -1603,6 +1657,15 @@ private:
         (void)publish("receipt", content.str(), false, false);
     }
 
+    void republish_failed_turns() {
+        for (const std::string& event_id : failed_turn_event_ids_) {
+            if (turn_republish_outstanding_ids_.contains(event_id)) continue;
+            if (nostr_bridge_republish(event_id)) {
+                turn_republish_outstanding_ids_.insert(event_id);
+            }
+        }
+    }
+
     static std::string missing_json(const NostrSenderSequence& stream) {
         std::ostringstream output;
         output << '[';
@@ -1946,12 +2009,35 @@ private:
             !session_) return;
         std::ostringstream content;
         content << base_content("result")
+                << ",\"sender_slot\":" << slot_number(local_slot_)
                 << ",\"final_tick\":" << session_->current_tick()
                 << ",\"outcome\":"
                 << static_cast<int>(simulation.outcome())
                 << ",\"state_hash\":"
                 << json_string(deterministic_state_hash(simulation)) << '}';
         result_published_ = publish("result", content.str(), false, true);
+    }
+
+    void handle_result(
+        const BrowserEvent& event,
+        const JsonValue::Object& content
+    ) {
+        const Player sender = validated_sender(event, content);
+        const std::uint64_t final_tick = number_field(content, "final_tick");
+        const std::uint64_t outcome = number_field(content, "outcome");
+        const std::string state_hash = string_field(content, "state_hash", 256);
+        if (outcome == static_cast<std::uint64_t>(MatchOutcome::ongoing) ||
+            outcome > static_cast<std::uint64_t>(MatchOutcome::draw) ||
+            state_hash.empty()) {
+            throw std::runtime_error("invalid terminal result");
+        }
+        std::ostringstream fingerprint;
+        fingerprint << final_tick << ':' << outcome << ':' << state_hash;
+        auto& accepted = result_fingerprints_[slot_number(sender)];
+        if (accepted && *accepted != fingerprint.str()) {
+            throw std::runtime_error("conflicting terminal result");
+        }
+        accepted = fingerprint.str();
     }
 
     void reset_lobby_prerequisites() {
@@ -2015,6 +2101,11 @@ private:
             reliability_reason_ = MultiplayerReliabilityReason::backfill_incomplete;
             return;
         }
+        if (!failed_turn_event_ids_.empty()) {
+            reliability_status_ = MultiplayerReliabilityStatus::waiting;
+            reliability_reason_ = MultiplayerReliabilityReason::backfill_incomplete;
+            return;
+        }
         if (session_ && session_->status() == LockstepStatus::running) {
             const auto silence = std::chrono::steady_clock::now() - last_peer_traffic_;
             if (silence >= std::chrono::seconds(30)) {
@@ -2050,6 +2141,7 @@ private:
     bool start_requested_{};
     bool start_sent_{};
     bool result_published_{};
+    std::array<std::optional<std::string>, 2> result_fingerprints_{};
     bool checkpoint_published_{};
     bool save_hash_sent_{};
     bool drop_proposal_pending_{};
@@ -2085,6 +2177,8 @@ private:
     std::uint64_t next_sender_sequence_{1};
     std::string last_outbound_turn_event_id_;
     std::map<std::uint64_t, std::string> outbound_turn_event_ids_;
+    std::set<std::string> failed_turn_event_ids_;
+    std::set<std::string> turn_republish_outstanding_ids_;
     bool turn_publish_outstanding_{};
     std::size_t received_since_receipt_{};
     std::uint64_t next_chat_sequence_{1};

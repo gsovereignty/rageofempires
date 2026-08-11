@@ -17,6 +17,7 @@ type AoeNostrFacade = {
   publish(intent: EventIntent): void;
   subscribe(): void;
   republish(eventId: string): void;
+  setRelayEnabled(relay: string, enabled: boolean): void;
   shutdown(): void;
   diagnostics(): unknown;
 };
@@ -70,6 +71,9 @@ const facade = {
   },
   republish(eventId: string): void {
     void client?.republish(eventId);
+  },
+  setRelayEnabled(relay: string, enabled: boolean): void {
+    client?.setRelayEnabled(relay, enabled);
   },
   shutdown(): void {
     client?.shutdown();

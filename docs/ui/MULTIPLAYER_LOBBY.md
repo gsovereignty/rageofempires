@@ -24,3 +24,25 @@ compatibility is claimed.
 Automated SDL smoke uses `AOE_MULTIPLAYER_AUTO_READY=1` on both processes and
 `AOE_MULTIPLAYER_AUTO_START=1` on the host. Interactive runs do not enable
 either behavior by default.
+
+## Browser public-relay controls
+
+Browser Nostr matches keep configured relay list immutable, but Public Nostr
+match panel exposes a `Manage relay connections` disclosure during play. Each
+configured relay has a visible `Disconnect` or `Restore` button.
+
+- Disconnect stops that relay's match subscription and socket, excludes it
+  from publication, and clears its EOSE state.
+- With two of three relays still active, quorum remains two and play continues.
+- Below configured quorum, runtime suspends before scheduling more turns.
+- Restore opens a fresh stored-event subscription. Play remains blocked until
+  required relay quorum is connected, ready, and has reached EOSE.
+- A signed turn that failed publication quorum remains cached by event ID.
+  After restored-relay EOSE, runtime republishes exact signed bytes and remains
+  in `backfill_incomplete` until republication reaches quorum. It never creates
+  replacement input.
+- EventStore and sender-sequence checks make multi-relay duplicates
+  idempotent. Conflicting logical input still suspends session.
+
+Controls are ordinary production UI. They are useful for changing relay
+connectivity and diagnosing a degraded match; they are not a test-only hook.

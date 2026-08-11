@@ -2,21 +2,22 @@
 
 ## Scope and build
 
-- Commit tested: `47dc31ddee6ca67c4b1b45946fac6cee0ba1c4f3` plus the focused fixes documented below.
+- Commit tested: `c9321b7` plus the focused relay-recovery fixes documented below.
 - Branch: `main`.
 - UTC test window: 2026-08-11.
 - Browser / Selenium / Emscripten: Chrome 151.0.7922.76 / Selenium 4.47.0 / Emscripten 4.0.10.
 - Relays: `wss://relay.damus.io`, `wss://nos.lol`, `wss://relay.primal.net`.
 - Local serving port: 8888, released after each run.
-- Evidence directory: `artifacts/nostr-multiplayer/20260811T112539Z/`.
+- Terminal/recovery evidence: `artifacts/nostr-multiplayer/20260811T140630Z/final-production-smoke.json`.
+- Checkpoint/recovery evidence: `artifacts/nostr-multiplayer/20260811T140657Z/final-production-checkpoint.json`.
 - Packaged artifact: `build-web/dist/aoe_web.html` and its generated JS, WASM, data, and Nostr bridge files.
 
 ## Identity ledger
 
 | Role | Public key | Slot | Distinct | Private material absent |
 |---|---|---:|---|---|
-| Host | `67a48bb81458ae8a3dc107e1e77903d5367df15a999e4f1b55a22419e40a21cc` | Blue | Yes | Yes |
-| Joiner | `edadfc80b8898afd1eb7ba54eea115d5e21cabb137931bc68985a9163647e177` | Red | Yes | Yes |
+| Host | `c05e27f5308edfe74032ba7ac5d422f3fe7243ced3363165999ddd9ef11f8694` | Blue | Yes | Yes |
+| Joiner | `07d7d5b6079b90b7604e050a0aa00104a997cd4ebd2fed42d4585b4d1cd858e3` | Red | Yes | Yes |
 
 Both keys were created by separate normal browser launches using independent
 Chrome profiles. No private key or signer serialization was inspected, copied,
@@ -26,16 +27,16 @@ persisted, or found in captured diagnostics and logs.
 
 | Milestone | Host | Join | Status | Evidence |
 |---|---|---|---|---|
-| Public relay EOSE/quorum | 3 relays, quorum 2 | 3 relays, quorum 2 | PASS | `production-smoke-terminal-stop-fix.json` |
+| Public relay EOSE/quorum | 3 relays, quorum 2 | 3 relays, quorum 2 | PASS | `final-production-smoke.json` |
 | Canonical lobby and roster | Revision 2, Blue | Revision 2, Red | PASS | same evidence; distinct public keys above |
 | Exact-lobby acknowledgement and ready | Both observed at quorum | Both observed at quorum | PASS | final diagnostics |
-| Visible start and lockstep | Started; tick 30 | Joined; tick 30 | PASS | final diagnostics and screenshots |
-| Non-empty unit command and empty turns | Blue sequences contiguous through 10 | Same received stream, no missing range | PASS | equal terminal state hash after normal canvas selection/right-click; final diagnostics |
+| Visible start and lockstep | Started; tick 38 | Joined; tick 38 | PASS | final diagnostics and screenshots |
+| Non-empty unit command and empty turns | Both streams contiguous through 13 | Same streams, no missing range | PASS | equal terminal state hash after normal canvas selection/right-click; final diagnostics |
 | Public chat | One entry | One entry | PASS | `chatCount: 1` on both |
 | Allied signal | One entry | One entry | PASS | `signalCount: 1` on both; `signal-armed.png` |
 | Speed and pause/resume | Fast, resumed | Fast, resumed | PASS | `gameSpeed: 2`, `paused: false`; production run reached terminal |
-| Save/checkpoint barrier | Matched at tick 29 | Matched at tick 29 | PASS | `last-failure.json` from the checkpoint run shows `stateHashStatus: 2` on both; checkpoint publication succeeded on quorum |
-| Resignation and terminal result | Outcome 2, tick 30 | Outcome 2, tick 30 | PASS | equal terminal hash `save130+ids-fnv1a64:51a157e22c85e5ed`; stable tick; `production-smoke-terminal-stop-fix.json` |
+| Save/checkpoint barrier | Matched at tick 39 | Matched at tick 39 | PASS | `final-production-checkpoint.json`; `stateHashStatus: 2`, equal sequences, no missing ranges |
+| Resignation and terminal result | Blue resigned, Red active; outcome 2, tick 38 | Same roster result | PASS | both observe two agreeing signed result records and hash `save130+ids-fnv1a64:8917245126f2c22e`; stable tick |
 
 The checkpoint and terminal checks use separate fresh production journeys.
 Matched checkpoint is intentionally a resumable-session stop, so continuing
@@ -45,14 +46,14 @@ ordinary play after it is not part of that runtime contract.
 
 | Check | Status | Evidence |
 |---|---|---|
-| Continue after one relay loss | blocked: missing production control | Browser UI exposes relay selection only before launch. |
-| Stop safely after quorum loss | blocked: missing production control | No supported in-match relay disconnect control. |
-| Restore, EOSE, backfill, and resume | blocked: missing production control | No supported in-match relay restore control. |
-| Duplicate delivery executes once | PASS in ordinary operation | Multi-relay duplicate delivery present; contiguous sender sequences and single chat/signal entries on both. |
-| Post-recovery hash agreement | blocked: missing production control | Recovery cannot be initiated through production UI. |
+| Continue after one relay loss | PASS | Visible control disconnected Damus on both; tick advanced equally from 8 to 10 over Primal and nos.lol quorum. |
+| Stop safely after quorum loss | PASS | Visible control also disconnected nos.lol; both suspended at tick 10 with `relay_quorum_lost`; tick stayed unchanged for two seconds. |
+| Restore, EOSE, backfill, and resume | PASS | Visible Restore for nos.lol reached EOSE; both resumed equally at tick 11, then all three relays restored by tick 14. |
+| Duplicate delivery executes once | PASS | Both final streams contiguous through 13 with empty missing ranges; chat and signal counts remain one. |
+| Post-recovery hash agreement | PASS | Both reached stable terminal tick 38 and identical final state hash. |
 
-No relay was disconnected through JavaScript mutation, mocks, a proxy, or a
-local relay. The unsupported checks therefore remain unclaimed.
+All relay changes used visible production buttons. No direct JavaScript state
+mutation, mock, proxy, local relay, or synthetic event was used.
 
 ## Problems encountered
 
@@ -165,24 +166,44 @@ local relay. The unsupported checks therefore remain unclaimed.
 - Expected behavior: an auditable supported control for relay loss/restoration if recovery is to be acceptance-tested through production behavior.
 - Proven root cause: no in-match relay management control exists in the browser launch shell or game UI.
 - Affected production path: relay recovery acceptance only.
-- Evidence: browser shell and runtime UI inspection.
+- Evidence: browser shell and runtime UI inspection. Closed by visible
+  per-relay Disconnect/Restore controls; both final production journeys use
+  those controls successfully.
+
+### Quorum-failed turn was unavailable to restored relay
+
+- Classification: product defect.
+- First failed milestone: relay EOSE backfill and lockstep recovery.
+- Observed behavior: after nos.lol restoration reached EOSE, both peers stayed
+  at tick 10 and eventually entered peer-silent suspension.
+- Expected behavior: exact signed turn unavailable on restored relay is
+  republished, then both peers resume from same sender sequence.
+- Reproduction: disconnect Damus on both peers, continue with quorum, disconnect
+  nos.lol to lose quorum, then restore nos.lol through visible controls.
+- Proven root cause: a turn that reached only Primal returned a quorum-failed
+  publication result. `handle_publish_result` discarded its event-ID/sequence
+  mapping, while receipt recovery could only republish IDs in that mapping.
+  Restored nos.lol therefore completed EOSE without exact signed turn.
+- Affected production path: turn publication result → cached signed-event
+  recovery → restored-relay subscription.
+- Evidence: pre-fix `last-failure.json` showed tick 10, contiguous sequence 4,
+  nos.lol EOSE, and peer-silent suspension; `final-production-smoke.json`
+  proves exact republication, tick resumption, empty missing ranges, and final
+  hash agreement through same production path.
 
 ## Coverage gaps
 
-- Relay loss, quorum loss, stored-event EOSE/backfill, and recovery remain
-  untested because production exposes no supported in-match relay control.
 - The UI does not display npub encoding; distinct 64-hex public keys provide
-  the available identity proof.
-- Final roster result is represented by agreed simulation outcome and final
-  state hash; diagnostics do not expose a separate roster-result field or
-  explicit received-result-event ledger.
+  available identity proof.
+- Exact `Ctrl+Shift+R` browser modifier synthesis remains a harness limitation.
+  Visible RESIGN production control covers terminal gameplay path.
 
 ## Verdict
 
-**PROBLEMS FOUND.** The complete base gameplay path and terminal result pass in
-the corrected packaged build, and a separate packaged journey proves matching
-checkpoint hashes. Seven product defects were confirmed; six corrections were
-verified through their affected production journey, while the keyboard-only
-resignation route is implemented and built but not separately reproduced.
-Full PASS is unavailable because production relay loss/recovery is blocked by
-missing controls.
+**PROBLEMS FOUND.** Corrected packaged build passes complete base gameplay,
+terminal result, one-relay degradation, quorum-loss stop, restored-relay EOSE
+and backfill, resumed lockstep, duplicate suppression, post-recovery hash
+agreement, and separate matching checkpoint journey. Eight product defects
+were confirmed; seven corrections were verified through affected production
+journeys. Keyboard-only resignation routing remains built but not separately
+reproduced; visible terminal route passes.

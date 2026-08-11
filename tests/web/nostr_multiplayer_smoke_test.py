@@ -106,6 +106,39 @@ def click_canvas_logical(driver, x: float, y: float) -> None:
     actions.perform()
 
 
+def set_relay_enabled(driver, relay_index: int, enabled: bool) -> None:
+    details = driver.find_element(By.ID, "relay-management")
+    if not details.get_attribute("open"):
+        details.find_element(By.TAG_NAME, "summary").click()
+    button = driver.find_element(
+        By.CSS_SELECTOR, f"#relay-controls button[data-relay-index='{relay_index}']"
+    )
+    current = button.get_attribute("data-enabled") == "true"
+    if current != enabled:
+        button.click()
+
+
+def matching_relay_state(host, join, *, disabled: int, status: int,
+                         eose: int = 0, reason: int | None = None,
+                         minimum_tick: int | None = None):
+    states = [diagnostics(host) or {}, diagnostics(join) or {}]
+    games = [state.get("game") or {} for state in states]
+    if not all(
+        len(state.get("disabledRelays", [])) == disabled and
+        len(state.get("eoseRelays", [])) >= eose and
+        int(game.get("reliabilityStatus", -1)) == status and
+        (reason is None or int(game.get("reliabilityReason", -1)) == reason)
+        for state, game in zip(states, games, strict=True)
+    ):
+        return None
+    ticks = [int(game.get("currentTick", -1)) for game in games]
+    if minimum_tick is not None and (
+        min(ticks) < minimum_tick or len(set(ticks)) != 1
+    ):
+        return None
+    return states
+
+
 def require_quorum(driver, name: str) -> dict[str, object]:
     value = wait_until(
         f"{name} relay quorum and EOSE",
@@ -121,7 +154,8 @@ def require_quorum(driver, name: str) -> dict[str, object]:
     return value
 
 
-def run(relays: str, headed: bool, port: int = 8888) -> dict[str, object]:
+def run(relays: str, headed: bool, port: int = 8888,
+        checkpoint: bool = False) -> dict[str, object]:
     if not (DIST / "aoe_web.html").exists():
         raise Failure("packaged browser distribution is missing")
     ARTIFACTS.mkdir(parents=True, exist_ok=True)
@@ -183,6 +217,92 @@ def run(relays: str, headed: bool, port: int = 8888) -> dict[str, object]:
                 ),
                 timeout=WAIT_SECONDS,
             )
+
+            recovery: dict[str, object] = {
+                "before": {
+                    "host": diagnostics(host),
+                    "join": diagnostics(join),
+                }
+            }
+            initial_tick = min(
+                int((game_diagnostics(driver) or {}).get("currentTick", 0))
+                for driver in (host, join)
+            )
+            for driver in (host, join):
+                set_relay_enabled(driver, 0, False)
+            one_relay_loss = wait_until(
+                "continued lockstep with one relay disconnected",
+                lambda: matching_relay_state(
+                    host, join, disabled=1, status=0, eose=2,
+                    minimum_tick=initial_tick + 2,
+                ),
+                timeout=WAIT_SECONDS,
+            )
+            recovery["oneRelayLoss"] = {
+                "host": one_relay_loss[0],
+                "join": one_relay_loss[1],
+            }
+
+            for driver in (host, join):
+                set_relay_enabled(driver, 1, False)
+            quorum_loss = wait_until(
+                "quorum-loss suspension",
+                lambda: matching_relay_state(
+                    host, join, disabled=2, status=2, reason=5,
+                ),
+                timeout=WAIT_SECONDS,
+            )
+            stopped_ticks = [
+                int((state.get("game") or {}).get("currentTick", -1))
+                for state in quorum_loss
+            ]
+            time.sleep(2.0)
+            if [
+                int((game_diagnostics(driver) or {}).get("currentTick", -2))
+                for driver in (host, join)
+            ] != stopped_ticks:
+                raise Failure("lockstep advanced while relay quorum was lost")
+            recovery["quorumLoss"] = {
+                "host": quorum_loss[0],
+                "join": quorum_loss[1],
+                "stableTicks": stopped_ticks,
+            }
+
+            for driver in (host, join):
+                set_relay_enabled(driver, 1, True)
+            recovered = wait_until(
+                "relay EOSE backfill and lockstep recovery",
+                lambda: matching_relay_state(
+                    host, join, disabled=1, status=0, eose=2,
+                    minimum_tick=max(stopped_ticks) + 1,
+                ),
+                timeout=WAIT_SECONDS,
+            )
+            recovery["recovered"] = {
+                "host": recovered[0],
+                "join": recovered[1],
+            }
+            for driver in (host, join):
+                set_relay_enabled(driver, 0, True)
+            wait_until(
+                "all configured relays restored through EOSE",
+                lambda: (
+                    True
+                    if all(
+                        not (state := diagnostics(driver) or {}).get(
+                            "disabledRelays"
+                        ) and len(state.get("eoseRelays", [])) >= 3
+                        for driver in (host, join)
+                    )
+                    else None
+                ),
+                timeout=WAIT_SECONDS,
+            )
+            recovery["allRestored"] = {
+                "host": diagnostics(host),
+                "join": diagnostics(join),
+            }
+            evidence["recovery"] = recovery
 
             # Normal world input creates a non-empty lockstep turn batch.
             host_journey.pointer("villager")
@@ -270,6 +390,29 @@ def run(relays: str, headed: bool, port: int = 8888) -> dict[str, object]:
                 ),
                 timeout=WAIT_SECONDS,
             )
+            if checkpoint:
+                key_chord(host, Keys.F6)
+                wait_until(
+                    "matched public checkpoint digest",
+                    lambda: (
+                        True
+                        if all(int((game_diagnostics(driver) or {}).get(
+                            "stateHashStatus", 0
+                        )) == 2 for driver in (host, join))
+                        else None
+                    ),
+                    timeout=WAIT_SECONDS,
+                )
+                evidence.update({
+                    "host": diagnostics(host) or {},
+                    "join": diagnostics(join) or {},
+                    "requests": list(requests),
+                    "hostConsole": host.get_log("browser"),
+                    "joinConsole": join.get_log("browser"),
+                })
+                host.save_screenshot(str(ARTIFACTS / "checkpoint-host.png"))
+                join.save_screenshot(str(ARTIFACTS / "checkpoint-join.png"))
+                return evidence
             # Visible production control submits resignation through lockstep.
             click_canvas_logical(host, 1165, 388)
             terminal = wait_until(
@@ -284,7 +427,13 @@ def run(relays: str, headed: bool, port: int = 8888) -> dict[str, object]:
                         )
                     ) and bool(host_game.get("terminalStateHash")) and
                     host_game.get("terminalStateHash") ==
-                    join_game.get("terminalStateHash")
+                    join_game.get("terminalStateHash") and all(
+                        int(game.get("blueControllerState", -1)) == 1 and
+                        int(game.get("redControllerState", -1)) == 0 and
+                        int(game.get("resultCount", 0)) == 2 and
+                        bool(game.get("terminalResultAgreement"))
+                        for game in (host_game, join_game)
+                    )
                     else None
                 ),
                 timeout=WAIT_SECONDS,
@@ -317,6 +466,7 @@ def run(relays: str, headed: bool, port: int = 8888) -> dict[str, object]:
         except Exception as error:
             failure = {
                 "error": f"{type(error).__name__}: {error}",
+                "completedEvidence": evidence,
                 "relays": relays.split(","),
                 "host": diagnostics(host),
                 "join": diagnostics(join),
@@ -345,12 +495,16 @@ def main() -> int:
     parser.add_argument("--relays", default=DEFAULT_RELAYS)
     parser.add_argument("--port", type=int, default=8888)
     parser.add_argument("--headed", action="store_true")
+    parser.add_argument("--checkpoint", action="store_true")
     parser.add_argument(
         "--evidence", type=Path,
         default=ARTIFACTS / "production-smoke.json",
     )
     arguments = parser.parse_args()
-    evidence = run(arguments.relays, arguments.headed, arguments.port)
+    evidence = run(
+        arguments.relays, arguments.headed, arguments.port,
+        checkpoint=arguments.checkpoint,
+    )
     arguments.evidence.parent.mkdir(parents=True, exist_ok=True)
     arguments.evidence.write_text(
         json.dumps(evidence, indent=2, sort_keys=True) + "\n",

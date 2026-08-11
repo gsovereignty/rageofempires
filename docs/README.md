@@ -74,6 +74,7 @@ Pinned static-analysis and observed-runtime evidence:
 ## UI
 
 - [Minimap mode controls](ui/MINIMAP_MODES_UI.md)
+- [Multiplayer lobby and browser relay controls](ui/MULTIPLAYER_LOBBY.md)
 
 Focused interaction and presentation contracts:
 [ui/](ui/).

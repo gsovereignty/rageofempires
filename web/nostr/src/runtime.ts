@@ -20,6 +20,7 @@ import {
   MAX_TAG_PART_BYTES,
   parseMatchReference,
   randomMatchId,
+  validateRelay,
   validateIntent,
   validateRelays,
 } from "./protocol.js";
@@ -82,6 +83,7 @@ export class AoeNostrClient {
   private store = new EventStore();
   private signer = new PrivateKeySigner();
   private subscriptions: Subscription[] = [];
+  private matchSubscriptions = new Map<string, Subscription>();
   private signedEvents = new Map<string, NostrEvent>();
   private disabledRelays = new Set<string>();
   private eoseRelays = new Set<string>();
@@ -126,7 +128,7 @@ export class AoeNostrClient {
     });
     this.quorum = this.relays.length === 1 ? 1 : 2;
     this.observeRelayStatus();
-    this.openMatchSubscription();
+    for (const relay of this.relays) this.openRelaySubscription(relay);
     this.status("initialized", {
       role: input.role,
       pubkey: this.publicKey,
@@ -155,9 +157,7 @@ export class AoeNostrClient {
           });
           if ((status.authRequiredForRead || status.authRequiredForPublish) &&
               !this.disabledRelays.has(url)) {
-            this.disabledRelays.add(url);
-            this.pool.remove(url, true);
-            this.status("relay_disabled", {relay: url, reason: "authentication required"});
+            this.setRelayEnabled(url, false, "authentication required");
           }
         }
       },
@@ -166,9 +166,10 @@ export class AoeNostrClient {
     this.subscriptions.push(subscription);
   }
 
-  private openMatchSubscription(): void {
+  private openRelaySubscription(relay: string): void {
+    this.matchSubscriptions.get(relay)?.unsubscribe();
     const filters = matchSubscriptionFilters(this.hostPublicKey, this.matchId);
-    const subscription = this.pool.req(this.relays, filters, {
+    const subscription = this.pool.req([relay], filters, {
       waitForAuth: false,
       resubscribe: true,
       reconnect: true,
@@ -176,7 +177,34 @@ export class AoeNostrClient {
       next: (message: GroupReqMessage) => this.receivePoolMessage(message),
       error: (error: unknown) => this.status("subscription_error", {message: String(error)}),
     });
-    this.subscriptions.push(subscription);
+    this.matchSubscriptions.set(relay, subscription);
+  }
+
+  setRelayEnabled(
+    untrustedRelay: string,
+    enabled: boolean,
+    reason = "user control",
+  ): void {
+    const relay = validateRelay(untrustedRelay);
+    if (!this.running || !this.relays.includes(relay)) {
+      throw new Error("relay is not part of active match");
+    }
+    if (enabled) {
+      if (!this.disabledRelays.delete(relay)) return;
+      this.eoseRelays.delete(relay);
+      this.relayStatus.delete(relay);
+      this.status("relay_enabled", {relay, reason});
+      this.openRelaySubscription(relay);
+      return;
+    }
+    if (this.disabledRelays.has(relay)) return;
+    this.disabledRelays.add(relay);
+    this.eoseRelays.delete(relay);
+    this.matchSubscriptions.get(relay)?.unsubscribe();
+    this.matchSubscriptions.delete(relay);
+    this.pool.remove(relay, true);
+    this.relayStatus.delete(relay);
+    this.status("relay_disabled", {relay, reason});
   }
 
   private receivePoolMessage(message: GroupReqMessage): void {
@@ -288,6 +316,10 @@ export class AoeNostrClient {
 
   shutdown(): void {
     this.running = false;
+    for (const subscription of this.matchSubscriptions.values()) {
+      subscription.unsubscribe();
+    }
+    this.matchSubscriptions.clear();
     for (const subscription of this.subscriptions.splice(0)) subscription.unsubscribe();
     this.pool.close();
     this.store.dispose();

@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string_view>
 
 namespace aoe {
 
@@ -44,5 +45,7 @@ struct BrowserTelemetry {
 };
 
 void publish_browser_telemetry(const BrowserTelemetry& telemetry);
+[[nodiscard]] bool browser_render_telemetry_enabled();
+void publish_browser_render_telemetry(std::string_view json);
 
 }  // namespace aoe

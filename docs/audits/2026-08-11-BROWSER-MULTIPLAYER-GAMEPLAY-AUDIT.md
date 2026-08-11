@@ -117,3 +117,42 @@ Both audit WebDrivers exited and port 8892 was released. The pre-existing
 server on port 8888 was not touched. Runtime artifacts remain untracked under
 `artifacts/`. Existing unrelated `.codebase-memory` working-tree changes were
 preserved.
+
+## Tooling follow-up
+
+Later on 2026-08-11, tooling changes implemented the missing evidence path:
+
+- browser targets and aggregate economy/research telemetry are now relative to
+  the local multiplayer slot, allowing the Red joiner to use ordinary canvas
+  controls;
+- Nostr diagnostics now include both players' units, buildings, economies,
+  populations, and current deterministic state hash;
+- the production renderer now publishes per-frame visible-entity simulation
+  position, destination, movement/action/facing/animation state, interpolated
+  render position, and exact successful legacy draw layers with resource ID,
+  frame, palette, flip, and destination rectangle;
+- the multiplayer harness now issues distinct Blue and Red movement commands,
+  includes a simultaneous-command phase, captures correlated render frames,
+  runs motion/provenance assertions, and writes the complete audit evidence
+  bundle.
+
+The oracle accepts a frame only when both render snapshots match an unchanged,
+equal authoritative tick and hash. Screenshot evidence is retained only when
+post-capture telemetry still identifies that same frame and tick. It rejects
+unmapped assets, unexpected sprite resources, peer layer/frame or animation
+state divergence, animation reversal/skips, frozen moving animation,
+teleport-sized displacement, and missing entities when cameras match. Live
+units, buildings, and resources have direct expected-asset mappings. Death,
+rubble, and projectile/effect provenance remains an explicit blocking scope
+gap: unsupported captures fail instead of silently passing, and projectiles
+are not yet isolated by the renderer capture.
+
+Native `make`, packaged WebAssembly build, and 13 focused render-oracle tests
+pass.
+A packaged single-browser production probe observed six visible entities, all
+with direct legacy sprite provenance. Two fresh public-relay multiplayer runs
+could not verify the new two-client journey: nos.lol returned HTTP 502, Damus
+returned HTTP 503, then the second match suspended both peers equally at tick
+4 for peer silence with equal state hashes. The historical verdict therefore
+remains **BLOCKED** until the same packaged two-client path completes over a
+working public-relay quorum.

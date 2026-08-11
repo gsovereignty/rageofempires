@@ -1077,6 +1077,7 @@ LegacySprites active_legacy_sprites;
 struct OverlapCaptureDraw {
     const LegacySprite* sprite{};
     SDL_FRect destination{};
+    SDL_FPoint ground{};
     bool flip{};
     bool visible{true};
 };
@@ -1104,6 +1105,14 @@ struct OverlapCaptureState {
 };
 
 OverlapCaptureState active_overlap_capture;
+struct BrowserRenderCaptureState {
+    bool active{};
+    std::uint64_t frame{};
+    std::vector<OverlapCaptureCase> cases;
+    OverlapCaptureCase* current{};
+};
+
+BrowserRenderCaptureState active_browser_render_capture;
 struct RuntimeAssetLoadFailure {
     AssetCoverageStatus status{AssetCoverageStatus::decode_failure};
     std::string reason;
@@ -6638,20 +6647,33 @@ void begin_overlap_case(
     int facing,
     EntityOwner owner = EntityOwner{Player::neutral}
 ) {
-    if (!active_overlap_capture.active) return;
-    std::ostringstream identifier;
-    identifier << "tick-" << active_overlap_capture.tick << '-'
-               << kind << '-' << entity;
-    active_overlap_capture.cases.push_back({
-        identifier.str(), std::move(kind), entity, std::move(state), facing,
-        owner,
-        0, 0, {}
-    });
-    active_overlap_capture.current = &active_overlap_capture.cases.back();
+    const std::string shared_kind = kind;
+    const std::string shared_state = state;
+    if (active_overlap_capture.active) {
+        std::ostringstream identifier;
+        identifier << "tick-" << active_overlap_capture.tick << '-'
+                   << kind << '-' << entity;
+        active_overlap_capture.cases.push_back({
+            identifier.str(), kind, entity, state, facing, owner, 0, 0, {}
+        });
+        active_overlap_capture.current = &active_overlap_capture.cases.back();
+    }
+    if (active_browser_render_capture.active) {
+        std::ostringstream identifier;
+        identifier << "frame-" << active_browser_render_capture.frame << '-'
+                   << shared_kind << '-' << entity;
+        active_browser_render_capture.cases.push_back({
+            identifier.str(), shared_kind, entity, shared_state, facing,
+            owner, 0, 0, {}
+        });
+        active_browser_render_capture.current =
+            &active_browser_render_capture.cases.back();
+    }
 }
 
 void finish_overlap_case() {
     active_overlap_capture.current = nullptr;
+    active_browser_render_capture.current = nullptr;
 }
 
 std::string overlap_json_escape(std::string_view value) {
@@ -6667,6 +6689,214 @@ std::string overlap_json_escape(std::string_view value) {
         }
     }
     return escaped;
+}
+
+std::string browser_render_telemetry_json(
+    const Simulation& simulation,
+    float movement_alpha,
+    std::uint64_t presentation_time_ms,
+    const CameraView& camera
+) {
+    std::map<EntityId, const Unit*> units_by_id;
+    for (const Unit& unit : simulation.units()) {
+        units_by_id.emplace(unit.id, &unit);
+    }
+    std::map<EntityId, const Building*> buildings_by_id;
+    for (const Building& building : simulation.buildings()) {
+        buildings_by_id.emplace(building.id, &building);
+    }
+    std::ostringstream output;
+    output << "{\"schemaVersion\":1,\"frame\":"
+           << active_browser_render_capture.frame
+           << ",\"tick\":" << simulation.tick_number()
+           << ",\"presentationTimeMs\":" << presentation_time_ms
+           << ",\"movementAlpha\":" << movement_alpha
+           << ",\"camera\":{\"x\":" << camera.x
+           << ",\"y\":" << camera.y
+           << ",\"zoom\":" << camera.zoom
+           << "},\"logicalWidth\":" << view_pixel_width
+           << ",\"logicalHeight\":" << logical_screen_height
+           << ",\"entities\":[";
+    for (std::size_t index = 0;
+         index < active_browser_render_capture.cases.size(); ++index) {
+        const OverlapCaptureCase& capture =
+            active_browser_render_capture.cases[index];
+        if (index != 0) output << ',';
+        output << "{\"id\":" << capture.entity
+               << ",\"category\":\""
+               << overlap_json_escape(capture.kind)
+               << "\",\"state\":\""
+               << overlap_json_escape(capture.state)
+               << "\",\"owner\":"
+               << static_cast<int>(capture.owner.stable_id())
+               << ",\"facing\":" << capture.facing;
+        const auto unit_entry = units_by_id.find(capture.entity);
+        const Unit* unit = unit_entry == units_by_id.end()
+            ? nullptr : unit_entry->second;
+        std::optional<AssetResolution> expected_asset;
+        if (unit != nullptr &&
+            capture.kind.starts_with("unit-")) {
+            RenderStateKey expected_state;
+            expected_state.category = RenderObjectCategory::unit;
+            expected_state.object_kind = render_unit_kind_name(unit->kind);
+            expected_state.action = render_action_for(simulation, *unit);
+            expected_state.action_detail =
+                render_action_detail_for(simulation, *unit);
+            expected_state.owner = unit->owner.stable_id();
+            expected_state.civilization = simulation.civilization(unit->owner);
+            expected_state.age = simulation.age(unit->owner);
+            expected_state.direction = unit->facing;
+            expected_state.moving = unit->moving ||
+                render_unit_is_interpolating(simulation, *unit);
+            expected_asset = resolve_unit_asset(expected_state, unit->kind);
+            output << ",\"simulationPosition\":{\"x\":"
+                   << unit->position.x << ",\"y\":"
+                   << unit->position.y << "}"
+                   << ",\"previousPosition\":{\"x\":"
+                   << unit->previous_position.x << ",\"y\":"
+                   << unit->previous_position.y << "}"
+                   << ",\"destination\":{\"x\":"
+                   << unit->destination.x << ",\"y\":"
+                   << unit->destination.y << "}"
+                   << ",\"moving\":"
+                   << (unit->moving ? "true" : "false")
+                   << ",\"interpolating\":"
+                   << (render_unit_is_interpolating(simulation, *unit)
+                           ? "true" : "false")
+                   << ",\"action\":\""
+                   << render_action_name(render_action_for(simulation, *unit))
+                   << "\",\"actionDetail\":\""
+                   << render_action_detail_name(
+                          render_action_detail_for(simulation, *unit)
+                      )
+                   << "\",\"animationState\":"
+                   << static_cast<int>(unit->animation_state)
+                   << "";
+        } else if (capture.kind.starts_with("building-")) {
+            const auto building_entry = buildings_by_id.find(capture.entity);
+            if (building_entry != buildings_by_id.end()) {
+                const Building& building = *building_entry->second;
+                RenderStateKey state;
+                state.category = RenderObjectCategory::building;
+                state.object_kind = render_building_kind_name(building.kind);
+                state.action = building.completed()
+                    ? RenderAction::idle : RenderAction::working;
+                state.building_state = render_state_for(
+                    building, rules_for(building.kind).hit_points
+                );
+                state.owner = building.owner.stable_id();
+                state.civilization = simulation.civilization(building.owner);
+                state.age = simulation.age(building.owner);
+                state.architecture_family = render_building_architecture_family(
+                    building.kind, state.civilization
+                );
+                state.animation_frame =
+                    render_building_topology_frame(simulation, building);
+                state.upgrade_variant = building.kind == BuildingKind::keep ? 2
+                    : building.kind == BuildingKind::guard_tower ? 1 : 0;
+                state.damage_stage =
+                    state.building_state == RenderBuildingState::damaged
+                    ? render_damage_stage(
+                          building.hit_points,
+                          rules_for(building.kind).hit_points
+                      ) : 0;
+                state.construction_stage = render_construction_stage(
+                    building, rules_for(building.kind).construction_ticks
+                );
+                expected_asset = resolve_building_asset(state, building.kind);
+            }
+        } else if (capture.kind.starts_with("resource-")) {
+            const int width = simulation.map().width();
+            const TilePosition position{
+                static_cast<int>(capture.entity % width),
+                static_cast<int>(capture.entity / width),
+            };
+            const Terrain terrain = simulation.map().terrain_at(position);
+            if (const auto resource_kind = resource_render_kind_for(terrain)) {
+                RenderStateKey state;
+                state.category = RenderObjectCategory::resource;
+                state.object_kind = resource_render_kind_name(*resource_kind);
+                state.animation_frame = render_resource_frame(
+                    *resource_kind,
+                    simulation.map().resource_amount_at(position)
+                );
+                expected_asset = resolve_resource_asset(state, *resource_kind);
+            }
+        }
+        if (expected_asset) {
+            output << ",\"expectedAssetStatus\":\""
+                   << asset_coverage_status_name(expected_asset->status)
+                   << "\",\"expectedSourceMapping\":\""
+                   << overlap_json_escape(
+                          expected_asset->request.source_mapping
+                      )
+                   << "\",\"expectedRequiredFrameCount\":"
+                   << expected_asset->request.required_frame_count
+                   << ",\"expectedResourceIds\":[";
+            bool wrote_expected_resource = false;
+            const AssetRequest& request = expected_asset->request;
+            if (request.slp_id) {
+                output << *request.slp_id;
+                wrote_expected_resource = true;
+            }
+            for (const std::int32_t resource : request.composite_slp_ids) {
+                if (wrote_expected_resource) output << ',';
+                output << resource;
+                wrote_expected_resource = true;
+            }
+            for (const std::optional<std::int32_t> resource : {
+                     request.shadow_slp_id,
+                     request.construction_body_slp_id}) {
+                if (!resource) continue;
+                if (wrote_expected_resource) output << ',';
+                output << *resource;
+                wrote_expected_resource = true;
+            }
+            output << ']';
+        } else {
+            output << ",\"expectedAssetStatus\":\"unsupported\""
+                   << ",\"expectedSourceMapping\":null"
+                   << ",\"expectedRequiredFrameCount\":0"
+                   << ",\"expectedResourceIds\":[]";
+        }
+        if (!capture.draws.empty()) {
+            output << ",\"renderPosition\":{\"x\":"
+                   << capture.draws.front().ground.x << ",\"y\":"
+                   << capture.draws.front().ground.y << "}"
+                   << ",\"source\":\"legacy\",\"fallbackReason\":null";
+        } else {
+            output << ",\"renderPosition\":null"
+                   << ",\"source\":\"procedural_or_unproven\""
+                   << ",\"fallbackReason\":\"no legacy sprite draw recorded\"";
+        }
+        output << ",\"layers\":[";
+        for (std::size_t draw_index = 0;
+             draw_index < capture.draws.size(); ++draw_index) {
+            const OverlapCaptureDraw& draw = capture.draws[draw_index];
+            if (draw_index != 0) output << ',';
+            output << "{\"layer\":" << draw_index
+                   << ",\"resourceId\":" << draw.sprite->resource_id
+                   << ",\"frame\":" << draw.sprite->frame_index
+                   << ",\"palettePlayer\":"
+                   << draw.sprite->palette_player
+                   << ",\"hotspotX\":" << draw.sprite->hotspot_x
+                   << ",\"hotspotY\":" << draw.sprite->hotspot_y
+                   << ",\"width\":" << draw.sprite->width
+                   << ",\"height\":" << draw.sprite->height
+                   << ",\"flipHorizontal\":"
+                   << (draw.flip ? "true" : "false")
+                   << ",\"visible\":"
+                   << (draw.visible ? "true" : "false")
+                   << ",\"destination\":{\"x\":"
+                   << draw.destination.x << ",\"y\":"
+                   << draw.destination.y << ",\"w\":"
+                   << draw.destination.w << ",\"h\":"
+                   << draw.destination.h << "}}";
+        }
+        output << "]}";
+    }
+    output << "]}";
+    return output.str();
 }
 
 void write_overlap_sprite(SDL_Renderer* renderer, OverlapCaptureCase& capture) {
@@ -6849,6 +7079,16 @@ bool render_legacy_sprite(
         active_overlap_capture.current->draws.push_back({
             &sprite,
             destination,
+            ground,
+            flip_horizontal,
+            visible,
+        });
+    }
+    if (active_browser_render_capture.current != nullptr) {
+        active_browser_render_capture.current->draws.push_back({
+            &sprite,
+            destination,
+            ground,
             flip_horizontal,
             visible,
         });
@@ -15644,6 +15884,17 @@ std::size_t render(
     const CameraView& camera
 ) {
     std::size_t rendered_tiles{};
+#ifdef __EMSCRIPTEN__
+    active_browser_render_capture.active =
+        browser_render_telemetry_enabled();
+    if (active_browser_render_capture.active) {
+        ++active_browser_render_capture.frame;
+        active_browser_render_capture.cases.clear();
+        active_browser_render_capture.current = nullptr;
+    }
+#else
+    active_browser_render_capture.active = false;
+#endif
     active_overlap_capture.active = false;
     if (!active_overlap_capture.complete) {
         const char* capture_directory = SDL_getenv("AOE_OVERLAP_CAPTURE_DIR");
@@ -15683,6 +15934,13 @@ std::size_t render(
         render_save_browser_overlay(renderer);
         report_map_dimensions(simulation);
         capture_requested_frame(renderer, simulation, movement_alpha);
+        if (active_browser_render_capture.active) {
+            publish_browser_render_telemetry(
+                browser_render_telemetry_json(
+                    simulation, movement_alpha, presentation_time_ms, camera
+                )
+            );
+        }
         SDL_RenderPresent(renderer);
         return 0;
     }
@@ -16887,6 +17145,13 @@ std::size_t render(
         }
     }
     capture_requested_frame(renderer, simulation, movement_alpha);
+    if (active_browser_render_capture.active) {
+        publish_browser_render_telemetry(
+            browser_render_telemetry_json(
+                simulation, movement_alpha, presentation_time_ms, camera
+            )
+        );
+    }
     SDL_RenderPresent(renderer);
     return rendered_tiles;
 }
@@ -25301,12 +25566,14 @@ ApplicationLoop SdlApp::loop() {
                 running = false;
             }
         }
-        const Economy& browser_economy = simulation.economy(Player::blue);
+        const Player browser_player = active_view_player;
+        const Player browser_opponent = opposing_player(browser_player);
+        const Economy& browser_economy = simulation.economy(browser_player);
         const std::size_t browser_blue_military =
             static_cast<std::size_t>(std::ranges::count_if(
                 simulation.units(),
                 [](const Unit& unit) {
-                    return unit.owner == Player::blue &&
+                    return unit.owner == active_view_player &&
                         unit.kind != UnitKind::villager;
                 }
             ));
@@ -25320,20 +25587,66 @@ ApplicationLoop SdlApp::loop() {
         };
         BrowserTargetTelemetry browser_targets;
         int browser_enemy_building_hit_points = -1;
-        browser_targets.resource_x = browser_tile_center(7.0F, 8.0F).x;
-        browser_targets.resource_y = browser_tile_center(7.0F, 8.0F).y;
+        std::optional<TilePosition> browser_worker_position;
         for (const Unit& unit : simulation.units()) {
             const SDL_FPoint center = browser_tile_center(
                 static_cast<float>(unit.position.x),
                 static_cast<float>(unit.position.y)
             );
-            if (unit.owner == Player::blue &&
+            if (unit.owner == browser_player &&
                 unit.kind == UnitKind::villager) {
                 browser_targets.villager_x = center.x;
                 browser_targets.villager_y = center.y;
-            } else if (unit.owner == Player::blue) {
+                browser_worker_position = unit.position;
+            } else if (unit.owner == browser_player) {
                 browser_targets.military_x = center.x;
                 browser_targets.military_y = center.y;
+            }
+        }
+        if (browser_worker_position) {
+            struct ResourceTargetCache {
+                const GameMap* map{};
+                Player player{Player::blue};
+                std::uint64_t tick{std::numeric_limits<std::uint64_t>::max()};
+                TilePosition worker{};
+                std::optional<TilePosition> resource;
+            };
+            static ResourceTargetCache cache;
+            if (cache.map != &simulation.map() ||
+                cache.player != browser_player ||
+                cache.tick != simulation.tick_number() ||
+                cache.worker != *browser_worker_position) {
+                cache.map = &simulation.map();
+                cache.player = browser_player;
+                cache.tick = simulation.tick_number();
+                cache.worker = *browser_worker_position;
+                cache.resource.reset();
+                int nearest_distance = std::numeric_limits<int>::max();
+                for (int y = 0; y < simulation.map().height(); ++y) {
+                    for (int x = 0; x < simulation.map().width(); ++x) {
+                        const TilePosition position{x, y};
+                        if (simulation.map().terrain_at(position) !=
+                                Terrain::gold_mine ||
+                            simulation.map().resource_amount_at(position) <= 0) {
+                            continue;
+                        }
+                        const int distance =
+                            std::abs(x - browser_worker_position->x) +
+                            std::abs(y - browser_worker_position->y);
+                        if (distance < nearest_distance) {
+                            nearest_distance = distance;
+                            cache.resource = position;
+                        }
+                    }
+                }
+            }
+            if (cache.resource) {
+                const SDL_FPoint center = browser_tile_center(
+                    static_cast<float>(cache.resource->x),
+                    static_cast<float>(cache.resource->y)
+                );
+                browser_targets.resource_x = center.x;
+                browser_targets.resource_y = center.y;
             }
         }
         for (const Building& building : simulation.buildings()) {
@@ -25344,15 +25657,15 @@ ApplicationLoop SdlApp::loop() {
                 static_cast<float>(building.position.y) +
                     static_cast<float>(rules.footprint_height - 1) / 2.0F
             );
-            if (building.owner == Player::blue &&
+            if (building.owner == browser_player &&
                 building.kind == BuildingKind::barracks) {
                 browser_targets.barracks_x = center.x;
                 browser_targets.barracks_y = center.y;
-            } else if (building.owner == Player::blue &&
+            } else if (building.owner == browser_player &&
                        building.kind == BuildingKind::town_center) {
                 browser_targets.town_center_x = center.x;
                 browser_targets.town_center_y = center.y;
-            } else if (building.owner == Player::red &&
+            } else if (building.owner == browser_opponent &&
                        building.kind == BuildingKind::house) {
                 browser_targets.enemy_building_x = center.x;
                 browser_targets.enemy_building_y = center.y;
@@ -25377,7 +25690,7 @@ ApplicationLoop SdlApp::loop() {
             simulation.buildings().size(),
             browser_blue_military,
             simulation.has_technology(
-                Player::blue, Technology::man_at_arms
+                browser_player, Technology::man_at_arms
             ),
             browser_enemy_building_hit_points,
             runtime_fallback_telemetry().events().size(),

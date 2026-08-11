@@ -779,8 +779,61 @@ public:
             }
         }
         blue_villagers_json << ']';
+        std::ostringstream units_json;
+        units_json << '[';
+        for (const Unit& unit : simulation.units()) {
+            if (units_json.tellp() > 1) units_json << ',';
+            units_json << "{\"id\":" << unit.id
+                       << ",\"kind\":" << static_cast<int>(unit.kind)
+                       << ",\"owner\":"
+                       << static_cast<int>(unit.owner.stable_id())
+                       << ",\"x\":" << unit.position.x
+                       << ",\"y\":" << unit.position.y
+                       << ",\"destinationX\":" << unit.destination.x
+                       << ",\"destinationY\":" << unit.destination.y
+                       << ",\"hitPoints\":" << unit.hit_points
+                       << ",\"moving\":"
+                       << (unit.moving ? "true" : "false")
+                       << ",\"animationState\":"
+                       << static_cast<int>(unit.animation_state)
+                       << ",\"facing\":"
+                       << static_cast<int>(unit.facing)
+                       << ",\"attackTargetId\":"
+                       << unit.attack_target_id
+                       << ",\"repairTargetId\":"
+                       << unit.repair_target_id << '}';
+        }
+        units_json << ']';
+        std::ostringstream buildings_json;
+        buildings_json << '[';
+        for (const Building& building : simulation.buildings()) {
+            if (buildings_json.tellp() > 1) buildings_json << ',';
+            buildings_json
+                << "{\"id\":" << building.id
+                << ",\"kind\":" << static_cast<int>(building.kind)
+                << ",\"owner\":"
+                << static_cast<int>(building.owner.stable_id())
+                << ",\"x\":" << building.position.x
+                << ",\"y\":" << building.position.y
+                << ",\"hitPoints\":" << building.hit_points
+                << ",\"constructionTicksRemaining\":"
+                << building.construction_ticks_remaining
+                << ",\"productionQueueSize\":"
+                << building.production_queue.size()
+                << ",\"technologyResearchTicksRemaining\":"
+                << building.technology_research_ticks_remaining << '}';
+        }
+        buildings_json << ']';
+        const Economy& blue_economy = simulation.economy(Player::blue);
+        const Economy& red_economy = simulation.economy(Player::red);
         std::ostringstream output;
         output << "{\"currentTick\":" << current_tick()
+               << ",\"stateHash\":\""
+               << deterministic_state_hash(simulation) << '"'
+               << ",\"scenarioDigest\":"
+               << json_string(config_.scenario_digest)
+               << ",\"tickCadenceMs\":"
+               << effective_tick_cadence_ms()
                << ",\"waiting\":"
                << (waiting_for_turn() ? "true" : "false")
                << ",\"reliabilityStatus\":"
@@ -829,6 +882,20 @@ public:
                << ",\"blueVillagerY\":"
                << (blue_villager ? blue_villager->position.y : -1)
                << ",\"blueVillagers\":" << blue_villagers_json.str()
+               << ",\"units\":" << units_json.str()
+               << ",\"buildings\":" << buildings_json.str()
+               << ",\"blueEconomy\":{\"wood\":" << blue_economy.wood
+               << ",\"food\":" << blue_economy.food
+               << ",\"gold\":" << blue_economy.gold
+               << ",\"stone\":" << blue_economy.stone << "}"
+               << ",\"redEconomy\":{\"wood\":" << red_economy.wood
+               << ",\"food\":" << red_economy.food
+               << ",\"gold\":" << red_economy.gold
+               << ",\"stone\":" << red_economy.stone << "}"
+               << ",\"bluePopulation\":"
+               << simulation.population(Player::blue)
+               << ",\"redPopulation\":"
+               << simulation.population(Player::red)
                << ",\"blueControllerState\":"
                << static_cast<int>(
                       simulation.controller_state(Player::blue)

@@ -4,8 +4,11 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import subprocess
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 from selenium.webdriver.common.action_chains import ActionChains
@@ -48,6 +51,295 @@ def game_diagnostics(driver) -> dict[str, object] | None:
     return game if isinstance(game, dict) else None
 
 
+def render_diagnostics(driver) -> dict[str, object] | None:
+    value = driver.execute_script(
+        "return Module.browserRenderTelemetry || null"
+    )
+    return value if isinstance(value, dict) else None
+
+
+def capture_correlated_frames(host, join, seconds: float = 1.0,
+                              artifact_dir: Path | None = None,
+                              label: str = "motion") \
+        -> list[dict[str, object]]:
+    deadline = time.monotonic() + seconds
+    samples: list[dict[str, object]] = []
+    last_frames: tuple[int, int] | None = None
+    while time.monotonic() < deadline and len(samples) < 24:
+        games = [game_diagnostics(driver) or {}
+                 for driver in (host, join)]
+        if (int(games[0].get("currentTick", -1)) !=
+                int(games[1].get("currentTick", -2)) or
+                games[0].get("stateHash") != games[1].get("stateHash")):
+            time.sleep(0.01)
+            continue
+        states = [render_diagnostics(driver) or {}
+                  for driver in (host, join)]
+        frames = tuple(int(state.get("frame", -1)) for state in states)
+        render_ticks = tuple(int(state.get("tick", -1)) for state in states)
+        authoritative_tick = int(games[0].get("currentTick", -1))
+        games_after = [game_diagnostics(driver) or {}
+                       for driver in (host, join)]
+        stable_authoritative = all(
+            int(game.get("currentTick", -2)) == authoritative_tick and
+            game.get("stateHash") == games[0].get("stateHash")
+            for game in games_after
+        )
+        if (frames != last_frames and min(frames) >= 0 and
+                render_ticks == (authoritative_tick, authoritative_tick) and
+                stable_authoritative):
+            sample: dict[str, object] = {
+                "host": states[0], "join": states[1],
+                "authoritativeHost": games[0],
+                "authoritativeJoin": games[1],
+                "capturedMonotonic": time.monotonic(),
+                "action": label,
+                "screenshots": {},
+            }
+            if artifact_dir is not None:
+                screenshots_valid = True
+                for peer, driver, state in zip(
+                    ("host", "join"), (host, join), states, strict=True
+                ):
+                    directory = artifact_dir / "frames" / peer
+                    directory.mkdir(parents=True, exist_ok=True)
+                    path = directory / (
+                        f"{label}-tick-{int(state.get('tick', -1))}-"
+                        f"frame-{int(state.get('frame', -1))}.png"
+                    )
+                    driver.save_screenshot(str(path))
+                    state_after = render_diagnostics(driver) or {}
+                    game_after = game_diagnostics(driver) or {}
+                    if (int(state_after.get("frame", -2)) !=
+                            int(state.get("frame", -1)) or
+                            int(state_after.get("tick", -2)) !=
+                            authoritative_tick or
+                            int(game_after.get("currentTick", -2)) !=
+                            authoritative_tick or
+                            game_after.get("stateHash") !=
+                            games[0].get("stateHash")):
+                        screenshots_valid = False
+                    sample["screenshots"][peer] = str(
+                        path.relative_to(artifact_dir)
+                    )
+                if not screenshots_valid:
+                    for relative in sample["screenshots"].values():
+                        (artifact_dir / str(relative)).unlink(missing_ok=True)
+                    time.sleep(0.01)
+                    continue
+            samples.append(sample)
+            last_frames = frames
+        time.sleep(0.03)
+    return samples
+
+
+def audited_pointer(journey: Journey, actions: list[dict[str, object]],
+                    actor: str, target: str, button: int = 0,
+                    logical_dx: float = 0, logical_dy: float = 0) -> None:
+    telemetry = journey.telemetry()
+    point = telemetry["targets"][target]
+    actions.append({
+        "monotonic": time.monotonic(),
+        "actor": actor,
+        "kind": "pointer",
+        "target": target,
+        "button": button,
+        "logicalDx": logical_dx,
+        "logicalDy": logical_dy,
+        "targetLogicalX": float(point["x"]),
+        "targetLogicalY": float(point["y"]),
+        "telemetryTick": int(telemetry["tick"]),
+    })
+    journey.pointer(target, button, logical_dx, logical_dy)
+
+
+def analyze_render_samples(samples: list[dict[str, object]]) \
+        -> dict[str, object]:
+    if not samples:
+        raise Failure("render oracle captured no correlated frames")
+    counts = {"frames": len(samples), "entities": 0, "legacy": 0,
+              "proceduralOrUnproven": 0}
+    last_frame = {"host": -1, "join": -1}
+    previous_positions: dict[
+        tuple[str, str, int], tuple[float, float, int, tuple[int, int] | None]
+    ] = {}
+    maximum_displacement = 0.0
+    animation_frames: dict[
+        tuple[str, str, int, int], list[tuple[int, int, bool, int, int]]
+    ] = {}
+    unmatched_entities: list[dict[str, object]] = []
+    for sample in samples:
+        for peer in ("host", "join"):
+            state = sample.get(peer) or {}
+            frame = int(state.get("frame", -1))
+            if frame <= last_frame[peer]:
+                raise Failure(f"non-monotonic {peer} render frame: {frame}")
+            last_frame[peer] = frame
+            for entity in state.get("entities", []):
+                if not isinstance(entity, dict):
+                    continue
+                counts["entities"] += 1
+                source = entity.get("source")
+                if source == "legacy":
+                    counts["legacy"] += 1
+                    if not entity.get("layers"):
+                        raise Failure(f"legacy entity lacks provenance: {entity}")
+                    expected_resources = set(
+                        entity.get("expectedResourceIds", [])
+                    )
+                    if entity.get("expectedAssetStatus") != "renderable":
+                        raise Failure(f"unresolved expected asset: {entity}")
+                    if not expected_resources:
+                        raise Failure(f"empty expected asset mapping: {entity}")
+                    actual_resources = {
+                        layer.get("resourceId")
+                        for layer in entity.get("layers", [])
+                    }
+                    if not actual_resources.issubset(expected_resources):
+                        raise Failure(
+                            f"rendered asset violates mapping: {entity}"
+                        )
+                    for layer_index, layer in enumerate(entity.get("layers", [])):
+                        animation_frames.setdefault(
+                            (peer, str(entity.get("category", "")),
+                             int(entity.get("id", -1)), layer_index), []
+                        ).append((
+                            int(state.get("tick", -1)),
+                            int(layer.get("frame", -1)),
+                            bool(entity.get("moving", False)),
+                            int(entity.get("expectedRequiredFrameCount", 0)),
+                            int(state.get("presentationTimeMs", 0)),
+                        ))
+                else:
+                    counts["proceduralOrUnproven"] += 1
+                    raise Failure(f"unproved production render source: {entity}")
+                position = entity.get("renderPosition")
+                if not isinstance(position, dict):
+                    continue
+                key = (peer, str(entity.get("category", "")),
+                       int(entity.get("id", -1)))
+                camera = state.get("camera") or {}
+                current = (
+                    float(position["x"]) + float(camera.get("x", 0.0)),
+                    float(position["y"]) + float(camera.get("y", 0.0)),
+                )
+                simulation_position = entity.get("simulationPosition")
+                authoritative = (
+                    (int(simulation_position["x"]),
+                     int(simulation_position["y"]))
+                    if isinstance(simulation_position, dict) else None
+                )
+                tick = int(state.get("tick", -1))
+                if key in previous_positions:
+                    previous = previous_positions[key]
+                    dx = current[0] - previous[0]
+                    dy = current[1] - previous[1]
+                    displacement = (dx * dx + dy * dy) ** 0.5
+                    maximum_displacement = max(maximum_displacement,
+                                               displacement)
+                    tick_delta = max(tick - previous[2], 1)
+                    if displacement > 80.0 * tick_delta:
+                        raise Failure(
+                            f"render teleport candidate {key}: {displacement}"
+                        )
+                    if (authoritative is not None and
+                            previous[3] is not None and
+                            authoritative != previous[3] and
+                            displacement < 0.5):
+                        raise Failure(f"render stall candidate {key}")
+                previous_positions[key] = (
+                    current[0], current[1], tick, authoritative
+                )
+        host_state = sample.get("host") or {}
+        join_state = sample.get("join") or {}
+        host_entities = {
+            (str(entity.get("category", "")), int(entity.get("id", -1))): entity
+            for entity in host_state.get("entities", [])
+            if isinstance(entity, dict)
+        }
+        join_entities = {
+            (str(entity.get("category", "")), int(entity.get("id", -1))): entity
+            for entity in join_state.get("entities", [])
+            if isinstance(entity, dict)
+        }
+        missing = host_entities.keys() ^ join_entities.keys()
+        if missing:
+            cameras = [state.get("camera") or {}
+                       for state in (host_state, join_state)]
+            same_camera = all(
+                abs(float(cameras[0].get(field, 0.0)) -
+                    float(cameras[1].get(field, 0.0))) < 0.01
+                for field in ("x", "y", "zoom")
+            )
+            unmatched_entities.append({
+                "keys": sorted(missing),
+                "classification": (
+                    "missing-at-shared-camera" if same_camera
+                    else "not-comparable-different-camera"
+                ),
+            })
+            if same_camera:
+                raise Failure(f"client entity-set divergence: {sorted(missing)}")
+        for key in host_entities.keys() & join_entities.keys():
+            host_entity = host_entities[key]
+            join_entity = join_entities[key]
+            for field in ("source", "facing", "action", "actionDetail",
+                          "animationState"):
+                if host_entity.get(field) != join_entity.get(field):
+                    raise Failure(f"client render divergence {key} {field}")
+            host_layers = host_entity.get("layers", [])
+            join_layers = join_entity.get("layers", [])
+            host_assets = [
+                (layer.get("resourceId"), layer.get("frame"),
+                 layer.get("palettePlayer"),
+                 layer.get("flipHorizontal"), layer.get("hotspotX"),
+                 layer.get("hotspotY"), layer.get("width"),
+                 layer.get("height")) for layer in host_layers
+            ]
+            join_assets = [
+                (layer.get("resourceId"), layer.get("frame"),
+                 layer.get("palettePlayer"),
+                 layer.get("flipHorizontal"), layer.get("hotspotX"),
+                 layer.get("hotspotY"), layer.get("width"),
+                 layer.get("height")) for layer in join_layers
+            ]
+            if host_assets != join_assets:
+                raise Failure(f"client asset divergence {key}")
+    if counts["legacy"] == 0:
+        raise Failure("render oracle observed no legacy sprite provenance")
+    for key, observations in animation_frames.items():
+        for (previous_tick, previous_frame, _, previous_count, previous_time), \
+                (tick, frame, _, frame_count, presentation_time) in zip(
+                    observations, observations[1:], strict=False):
+            if frame < 0:
+                raise Failure(f"invalid animation frame {key}: {frame}")
+            count = frame_count or previous_count
+            if count > 0:
+                advance = (frame - previous_frame) % count
+                elapsed_frames = max(
+                    presentation_time - previous_time, 0
+                ) // 200
+                allowed = max(tick - previous_tick, elapsed_frames, 0) + 1
+                if advance > allowed:
+                    raise Failure(
+                        f"animation reversal or skip {key}: "
+                        f"{previous_frame}->{frame}"
+                    )
+            elif frame < previous_frame:
+                raise Failure(f"animation reversal {key}")
+        moving_ticks = {
+            tick for tick, _, moving, _, _ in observations if moving
+        }
+        moving_frames = {
+            frame for _, frame, moving, _, _ in observations if moving
+        }
+        if len(moving_ticks) >= 4 and len(moving_frames) < 2:
+            raise Failure(f"frozen moving animation {key}")
+    counts["maximumFrameDisplacement"] = maximum_displacement
+    counts["unmatchedEntities"] = unmatched_entities
+    return counts
+
+
 def blue_villager_positions(game: dict[str, object]) -> dict[int, tuple[int, int]]:
     return {
         int(unit["id"]): (int(unit["x"]), int(unit["y"]))
@@ -60,6 +352,24 @@ def matching_moved_villager(host, join, unit_id: int,
                             before: tuple[int, int]):
     games = [game_diagnostics(driver) or {} for driver in (host, join)]
     positions = [blue_villager_positions(game) for game in games]
+    if positions[0] != positions[1] or positions[0].get(unit_id) == before:
+        return None
+    return games if unit_id in positions[0] else None
+
+
+def owned_unit_positions(game: dict[str, object], owner: int) \
+        -> dict[int, tuple[int, int]]:
+    return {
+        int(unit["id"]): (int(unit["x"]), int(unit["y"]))
+        for unit in game.get("units", [])
+        if isinstance(unit, dict) and int(unit.get("owner", -1)) == owner
+    }
+
+
+def matching_moved_owned_unit(host, join, owner: int, unit_id: int,
+                              before: tuple[int, int]):
+    games = [game_diagnostics(driver) or {} for driver in (host, join)]
+    positions = [owned_unit_positions(game, owner) for game in games]
     if positions[0] != positions[1] or positions[0].get(unit_id) == before:
         return None
     return games if unit_id in positions[0] else None
@@ -91,6 +401,7 @@ def launch(driver, base_url: str, mode: str, relays: str,
         lambda: diagnostics(driver),
         timeout=WAIT_SECONDS,
     )
+    driver.execute_script("Module.browserRenderTelemetryEnabled = true")
     return Journey(driver, base_url, {})
 
 
@@ -178,13 +489,21 @@ def require_quorum(driver, name: str) -> dict[str, object]:
 
 
 def run(relays: str, headed: bool, port: int = 8888,
-        checkpoint: bool = False) -> dict[str, object]:
+        checkpoint: bool = False,
+        artifact_dir: Path = ARTIFACTS) -> dict[str, object]:
     if not (DIST / "aoe_web.html").exists():
         raise Failure("packaged browser distribution is missing")
-    ARTIFACTS.mkdir(parents=True, exist_ok=True)
-    evidence: dict[str, object] = {"relays": relays.split(",")}
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    evidence: dict[str, object] = {
+        "relays": relays.split(","), "actions": []
+    }
+    actions = evidence["actions"]
     host = make_driver("chrome", headed)
     join = make_driver("chrome", headed)
+    evidence["browser"] = {
+        "host": host.capabilities,
+        "join": join.capabilities,
+    }
     with static_server(port) as (base_url, requests):
         host_journey: Journey | None = None
         join_journey: Journey | None = None
@@ -339,7 +658,7 @@ def run(relays: str, headed: bool, port: int = 8888,
                 raise Failure(
                     f"peers lack matching blue villager: {before_positions}"
                 )
-            host_journey.pointer("villager")
+            audited_pointer(host_journey, actions, "host", "villager")
             selected_id = wait_until(
                 "host selected observed blue villager",
                 lambda: (
@@ -350,7 +669,13 @@ def run(relays: str, headed: bool, port: int = 8888,
                     else None
                 ),
             )
-            host_journey.pointer("villager", button=2, logical_dx=50)
+            audited_pointer(
+                host_journey, actions, "host", "villager",
+                button=2, logical_dx=50,
+            )
+            host_motion_frames = capture_correlated_frames(
+                host, join, artifact_dir=artifact_dir, label="host-move"
+            )
             movement_after = wait_until(
                 "matching world movement on both peers",
                 lambda: matching_moved_villager(
@@ -369,6 +694,118 @@ def run(relays: str, headed: bool, port: int = 8888,
                     "host": movement_after[0],
                     "join": movement_after[1],
                 },
+                "frames": host_motion_frames,
+                "renderOracle": analyze_render_samples(host_motion_frames),
+            }
+
+            # Joiner uses local-player-relative production telemetry and sends
+            # a distinct Red command through the same visible canvas path.
+            red_before_games = [game_diagnostics(driver) or {}
+                                for driver in (host, join)]
+            red_before = [owned_unit_positions(game, 1)
+                          for game in red_before_games]
+            if red_before[0] != red_before[1] or not red_before[0]:
+                raise Failure(f"peers lack matching red unit: {red_before}")
+            audited_pointer(join_journey, actions, "join", "villager")
+            red_selected_id = wait_until(
+                "join selected observed red villager",
+                lambda: (
+                    unit_id
+                    if (unit_id := int(join_journey.telemetry().get(
+                        "selectedUnit", 0
+                    ))) in red_before[0]
+                    else None
+                ),
+            )
+            audited_pointer(
+                join_journey, actions, "join", "villager",
+                button=2, logical_dx=-50,
+            )
+            join_motion_frames = capture_correlated_frames(
+                host, join, artifact_dir=artifact_dir, label="join-move"
+            )
+            red_after = wait_until(
+                "matching join world movement on both peers",
+                lambda: matching_moved_owned_unit(
+                    host, join, 1, red_selected_id,
+                    red_before[0][red_selected_id],
+                ),
+                timeout=WAIT_SECONDS,
+            )
+            evidence["joinMovement"] = {
+                "unitId": red_selected_id,
+                "before": {
+                    "host": red_before_games[0],
+                    "join": red_before_games[1],
+                },
+                "after": {
+                    "host": red_after[0],
+                    "join": red_after[1],
+                },
+                "frames": join_motion_frames,
+                "renderOracle": analyze_render_samples(join_motion_frames),
+            }
+
+            simultaneous_before_games = [game_diagnostics(driver) or {}
+                                         for driver in (host, join)]
+            simultaneous_blue = owned_unit_positions(
+                simultaneous_before_games[0], 0
+            )
+            simultaneous_red = owned_unit_positions(
+                simultaneous_before_games[0], 1
+            )
+            audited_pointer(host_journey, actions, "host", "villager")
+            audited_pointer(join_journey, actions, "join", "villager")
+            simultaneous_blue_id = int(
+                host_journey.telemetry().get("selectedUnit", 0)
+            )
+            simultaneous_red_id = int(
+                join_journey.telemetry().get("selectedUnit", 0)
+            )
+            if (simultaneous_blue_id not in simultaneous_blue or
+                    simultaneous_red_id not in simultaneous_red):
+                raise Failure("simultaneous selections did not resolve owners")
+            audited_pointer(
+                host_journey, actions, "host", "villager",
+                button=2, logical_dx=70,
+            )
+            audited_pointer(
+                join_journey, actions, "join", "villager",
+                button=2, logical_dx=-70,
+            )
+            simultaneous_frames = capture_correlated_frames(
+                host, join, artifact_dir=artifact_dir,
+                label="simultaneous-move",
+            )
+
+            def simultaneous_commands_applied():
+                games = [game_diagnostics(driver) or {}
+                         for driver in (host, join)]
+                if games[0].get("stateHash") != games[1].get("stateHash"):
+                    return None
+                blue = [owned_unit_positions(game, 0) for game in games]
+                red = [owned_unit_positions(game, 1) for game in games]
+                if blue[0] != blue[1] or red[0] != red[1]:
+                    return None
+                if (blue[0].get(simultaneous_blue_id) ==
+                        simultaneous_blue[simultaneous_blue_id] or
+                        red[0].get(simultaneous_red_id) ==
+                        simultaneous_red[simultaneous_red_id]):
+                    return None
+                return games
+
+            simultaneous_after = wait_until(
+                "simultaneous opposing world commands",
+                simultaneous_commands_applied,
+                timeout=WAIT_SECONDS,
+            )
+            evidence["simultaneousMovement"] = {
+                "blueUnitId": simultaneous_blue_id,
+                "redUnitId": simultaneous_red_id,
+                "before": simultaneous_before_games,
+                "after": simultaneous_after,
+                "frames": simultaneous_frames,
+                "renderOracle": analyze_render_samples(simultaneous_frames),
             }
 
             # Normal chat input becomes public side-channel state on both peers.
@@ -390,7 +827,7 @@ def run(relays: str, headed: bool, port: int = 8888,
             # Visible signal control then a world click is the normal UI path.
             click_canvas_logical(host, 1165, 330)
             time.sleep(0.25)
-            host.save_screenshot(str(ARTIFACTS / "signal-armed.png"))
+            host.save_screenshot(str(artifact_dir / "signal-armed.png"))
             host.find_element(By.ID, "canvas").click()
             wait_until(
                 "public map signal delivery",
@@ -473,8 +910,8 @@ def run(relays: str, headed: bool, port: int = 8888,
                     "hostConsole": host.get_log("browser"),
                     "joinConsole": join.get_log("browser"),
                 })
-                host.save_screenshot(str(ARTIFACTS / "checkpoint-host.png"))
-                join.save_screenshot(str(ARTIFACTS / "checkpoint-join.png"))
+                host.save_screenshot(str(artifact_dir / "checkpoint-host.png"))
+                join.save_screenshot(str(artifact_dir / "checkpoint-join.png"))
                 return evidence
             # Visible production control submits resignation through lockstep.
             click_canvas_logical(host, 1165, 388)
@@ -519,12 +956,24 @@ def run(relays: str, headed: bool, port: int = 8888,
             evidence.update({
                 "host": host_final,
                 "join": join_final,
+                "hostRender": render_diagnostics(host),
+                "joinRender": render_diagnostics(join),
                 "requests": list(requests),
                 "hostConsole": host.get_log("browser"),
                 "joinConsole": join.get_log("browser"),
             })
-            host.save_screenshot(str(ARTIFACTS / "host.png"))
-            join.save_screenshot(str(ARTIFACTS / "join.png"))
+            (artifact_dir / "frames" / "host").mkdir(
+                parents=True, exist_ok=True
+            )
+            (artifact_dir / "frames" / "join").mkdir(
+                parents=True, exist_ok=True
+            )
+            host.save_screenshot(str(
+                artifact_dir / "frames" / "host" / "terminal.png"
+            ))
+            join.save_screenshot(str(
+                artifact_dir / "frames" / "join" / "terminal.png"
+            ))
             return evidence
         except Exception as error:
             failure = {
@@ -533,16 +982,20 @@ def run(relays: str, headed: bool, port: int = 8888,
                 "relays": relays.split(","),
                 "host": diagnostics(host),
                 "join": diagnostics(join),
+                "hostRender": render_diagnostics(host),
+                "joinRender": render_diagnostics(join),
+                "browser": evidence.get("browser"),
                 "requests": list(requests),
                 "hostConsole": host.get_log("browser"),
                 "joinConsole": join.get_log("browser"),
             }
-            (ARTIFACTS / "last-failure.json").write_text(
+            (artifact_dir / "first-failure.json").write_text(
                 json.dumps(failure, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
             )
-            host.save_screenshot(str(ARTIFACTS / "last-failure-host.png"))
-            join.save_screenshot(str(ARTIFACTS / "last-failure-join.png"))
+            write_audit_bundle(artifact_dir, failure)
+            host.save_screenshot(str(artifact_dir / "last-failure-host.png"))
+            join.save_screenshot(str(artifact_dir / "last-failure-join.png"))
             raise
         finally:
             if host_journey is not None:
@@ -551,6 +1004,167 @@ def run(relays: str, headed: bool, port: int = 8888,
                 join_journey.evidence.clear()
             host.quit()
             join.quit()
+
+
+def write_jsonl(path: Path, records: list[dict[str, object]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "".join(json.dumps(record, sort_keys=True) + "\n"
+                for record in records),
+        encoding="utf-8",
+    )
+
+
+def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    package = DIST / "aoe_web.html"
+    commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=ROOT, check=True,
+        capture_output=True, text=True,
+    ).stdout.strip()
+    package_files = sorted({
+        *DIST.glob("aoe_web.*"), DIST / "aoe_nostr.js",
+    })
+    package_digests = {
+        str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in package_files if path.is_file()
+    }
+    source_paths = [
+        ROOT / "include/aoe/browser_telemetry.hpp",
+        ROOT / "src/browser_telemetry_native.cpp",
+        ROOT / "src/browser_telemetry_web.cpp",
+        ROOT / "src/nostr_multiplayer_runtime.cpp",
+        ROOT / "src/sdl_app.cpp",
+        ROOT / "tests/web/nostr_multiplayer_smoke_test.py",
+        ROOT / "tests/web/test_nostr_multiplayer_audit_tools.py",
+    ]
+    source_digests = {
+        str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in source_paths
+    }
+    host = evidence.get("host", {})
+    join = evidence.get("join", {})
+    run_ledger = {
+        "schemaVersion": 1,
+        "completedUtc": datetime.now(timezone.utc).isoformat(),
+        "sourceCommit": commit,
+        "package": str(package.relative_to(ROOT)),
+        "packageSha256": package_digests,
+        "sourceFilesSha256": source_digests,
+        "browser": evidence.get("browser"),
+        "relays": evidence.get("relays", []),
+        "hostPublicKey": host.get("publicKey") if isinstance(host, dict) else None,
+        "joinPublicKey": join.get("publicKey") if isinstance(join, dict) else None,
+        "matchReference": host.get("matchReference") if isinstance(host, dict) else None,
+        "lobbyRevision": ((host.get("game") or {}).get("lobbyRevision")
+                          if isinstance(host, dict) else None),
+        "scenarioDigest": ((host.get("game") or {}).get("scenarioDigest")
+                           if isinstance(host, dict) else None),
+        "tickCadenceMs": ((host.get("game") or {}).get("tickCadenceMs")
+                          if isinstance(host, dict) else None),
+        "hostDisplay": ((evidence.get("hostRender") or {}).get("display")
+                        if isinstance(evidence.get("hostRender"), dict)
+                        else None),
+        "joinDisplay": ((evidence.get("joinRender") or {}).get("display")
+                        if isinstance(evidence.get("joinRender"), dict)
+                        else None),
+        "mapSeed": None,
+        "actionSeed": None,
+        "transportFaultSeed": None,
+        "randomized": False,
+        "assertions": [
+            "distinct identities", "equal tick and state hash",
+            "contiguous sender sequences", "both players issue world commands",
+            "quorum loss stops both peers", "EOSE restore resumes both peers",
+            "terminal result agrees and tick freezes",
+        ],
+    }
+    (root / "run.json").write_text(
+        json.dumps(run_ledger, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    actions = evidence.get("actions") or [
+        {"phase": "movement", "actor": "host", "kind": "move",
+         "unitId": (evidence.get("movement") or {}).get("unitId")},
+        {"phase": "movement", "actor": "join", "kind": "move",
+         "unitId": (evidence.get("joinMovement") or {}).get("unitId")},
+        {"phase": "simultaneous", "actor": "host", "kind": "move",
+         "unitId": (evidence.get("simultaneousMovement") or {}).get(
+             "blueUnitId")},
+        {"phase": "simultaneous", "actor": "join", "kind": "move",
+         "unitId": (evidence.get("simultaneousMovement") or {}).get(
+             "redUnitId")},
+        {"phase": "side-channel", "actor": "join", "kind": "chat"},
+        {"phase": "side-channel", "actor": "host", "kind": "signal"},
+        {"phase": "control", "actor": "host", "kind": "speed-pause-resume"},
+        {"phase": "terminal", "actor": "host", "kind": "resign"},
+    ]
+    write_jsonl(root / "actions.jsonl", actions)
+    recovery = evidence.get("recovery") or {}
+    write_jsonl(root / "transport.jsonl", [
+        {"phase": phase, "state": state}
+        for phase, state in recovery.items()
+    ])
+    host_states: list[dict[str, object]] = []
+    join_states: list[dict[str, object]] = []
+    for phase, state in recovery.items():
+        if isinstance(state, dict):
+            if isinstance(state.get("host"), dict):
+                host_states.append({"phase": phase, "state": state["host"]})
+            if isinstance(state.get("join"), dict):
+                join_states.append({"phase": phase, "state": state["join"]})
+    for phase in ("movement", "joinMovement", "simultaneousMovement"):
+        phase_value = evidence.get(phase) or {}
+        for sample in phase_value.get("frames", []):
+            if isinstance(sample.get("authoritativeHost"), dict):
+                host_states.append({
+                    "phase": phase,
+                    "capturedMonotonic": sample.get("capturedMonotonic"),
+                    "state": sample["authoritativeHost"],
+                })
+            if isinstance(sample.get("authoritativeJoin"), dict):
+                join_states.append({
+                    "phase": phase,
+                    "capturedMonotonic": sample.get("capturedMonotonic"),
+                    "state": sample["authoritativeJoin"],
+                })
+    if isinstance(host, dict):
+        host_states.append({"phase": "final", "state": host})
+    if isinstance(join, dict):
+        join_states.append({"phase": "final", "state": join})
+    write_jsonl(root / "states" / "host.jsonl", host_states)
+    write_jsonl(root / "states" / "join.jsonl", join_states)
+    motion = {
+        "hostMovement": evidence.get("movement"),
+        "joinMovement": evidence.get("joinMovement"),
+        "simultaneousMovement": evidence.get("simultaneousMovement"),
+    }
+    (root / "motion.json").write_text(
+        json.dumps(motion, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    provenance: list[dict[str, object]] = []
+    for phase in ("movement", "joinMovement", "simultaneousMovement"):
+        phase_value = evidence.get(phase) or {}
+        for sample in phase_value.get("frames", []):
+            for peer in ("host", "join"):
+                render_state = sample.get(peer) or {}
+                provenance.append({
+                    "phase": phase,
+                    "peer": peer,
+                    "frame": render_state.get("frame"),
+                    "tick": render_state.get("tick"),
+                    "entities": render_state.get("entities", []),
+                })
+    write_jsonl(root / "sprite-provenance.jsonl", provenance)
+    (root / "console-host.json").write_text(
+        json.dumps(evidence.get("hostConsole", []), indent=2) + "\n",
+        encoding="utf-8",
+    )
+    (root / "console-join.json").write_text(
+        json.dumps(evidence.get("joinConsole", []), indent=2) + "\n",
+        encoding="utf-8",
+    )
 
 
 def main() -> int:
@@ -567,12 +1181,14 @@ def main() -> int:
     evidence = run(
         arguments.relays, arguments.headed, arguments.port,
         checkpoint=arguments.checkpoint,
+        artifact_dir=arguments.evidence.parent,
     )
     arguments.evidence.parent.mkdir(parents=True, exist_ok=True)
     arguments.evidence.write_text(
         json.dumps(evidence, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    write_audit_bundle(arguments.evidence.parent, evidence)
     print(f"Nostr multiplayer smoke passed: {arguments.evidence}")
     return 0
 

@@ -1,8 +1,21 @@
 #include "aoe/browser_telemetry.hpp"
 
 #include <emscripten/emscripten.h>
+#include <string>
 
 namespace aoe {
+
+EM_JS(bool, browser_render_telemetry_enabled_js, (), {
+    return Module.browserRenderTelemetryEnabled === true;
+});
+
+EM_JS(void, publish_browser_render_telemetry_js, (const char* json), {
+    const telemetry = JSON.parse(UTF8ToString(json));
+    telemetry.display = Module.browserDisplayMetrics
+        ? Module.browserDisplayMetrics() : null;
+    telemetry.wallTime = performance.now();
+    Module.browserRenderTelemetry = telemetry;
+});
 
 EM_JS(void, publish_browser_telemetry_js,
     (std::uint64_t tick,
@@ -97,6 +110,15 @@ void publish_browser_telemetry(const BrowserTelemetry& telemetry) {
         telemetry.targets.enemy_building_x,
         telemetry.targets.enemy_building_y
     );
+}
+
+bool browser_render_telemetry_enabled() {
+    return browser_render_telemetry_enabled_js();
+}
+
+void publish_browser_render_telemetry(std::string_view json) {
+    const std::string owned{json};
+    publish_browser_render_telemetry_js(owned.c_str());
 }
 
 }  // namespace aoe

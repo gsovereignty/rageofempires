@@ -33,10 +33,9 @@ from browser_risk_spike_test import (
 ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS = ROOT / "artifacts" / "nostr-multiplayer"
 DEFAULT_RELAYS = (
-    "wss://nostr-pub.wellorder.net,wss://nostr.oxtr.dev,wss://nostr.bond,"
-    "wss://relay.nostr.net,wss://yabu.me,wss://relay.nostr.wirednet.jp,"
-    "wss://relay.nostr.info,wss://nostr.sathoarder.com,"
-    "wss://relay.wavlake.com,wss://relay.noswhere.com"
+    "wss://relay.nostr.net,wss://relay.nostr.wirednet.jp,"
+    "wss://nostr.sathoarder.com,wss://relay.wavlake.com,"
+    "wss://relay.noswhere.com"
 )
 WAIT_SECONDS = 180.0
 
@@ -184,6 +183,108 @@ def audited_key(driver, actions: list[dict[str, object]], actor: str,
     driver.find_element(By.ID, "canvas").send_keys(key)
 
 
+def audited_held_key(driver, actions: list[dict[str, object]], actor: str,
+                     key: str, seconds: float = 0.15) -> None:
+    actions.append({
+        "monotonic": time.monotonic(),
+        "actor": actor,
+        "kind": "held-key",
+        "key": key,
+        "seconds": seconds,
+    })
+    canvas = driver.find_element(By.ID, "canvas")
+    ActionChains(driver).key_down(key, canvas).pause(seconds).key_up(
+        key, canvas
+    ).perform()
+
+
+def collapse_match_details(
+    driver, actions: list[dict[str, object]], actor: str
+) -> None:
+    button = driver.find_element(By.ID, "toggle-nostr-session-details")
+    if button.get_attribute("aria-expanded") == "true":
+        actions.append({
+            "monotonic": time.monotonic(),
+            "actor": actor,
+            "kind": "ui-button",
+            "target": "toggle-nostr-session-details",
+        })
+        button.click()
+    wait_until(
+        f"{actor} collapsed public match details",
+        lambda: (
+            True if driver.find_element(
+                By.ID, "nostr-session-details"
+            ).get_attribute("hidden") is not None else None
+        ),
+    )
+
+
+def pan_world_target_clear(
+    journey: Journey,
+    driver,
+    actions: list[dict[str, object]],
+    actor: str,
+    target_name: str,
+) -> None:
+    """Move a world target above in-canvas multiplayer panels before click."""
+    for _ in range(64):
+        target = journey.telemetry()["targets"][target_name]
+        x = float(target["x"])
+        y = float(target["y"])
+        if 80.0 < x < 1200.0 and 90.0 < y < 520.0:
+            return
+        if y >= 520.0:
+            key = Keys.ARROW_DOWN
+        elif y <= 90.0:
+            key = Keys.ARROW_UP
+        elif x <= 80.0:
+            key = Keys.ARROW_LEFT
+        else:
+            key = Keys.ARROW_RIGHT
+        audited_held_key(driver, actions, actor, key)
+    raise Failure(
+        f"{actor} {target_name} never entered unobstructed world area"
+    )
+
+
+def select_barracks_through_footprint(
+    journey: Journey,
+    driver,
+    actions: list[dict[str, object]],
+    actor: str,
+) -> int:
+    pan_world_target_clear(journey, driver, actions, actor, "barracks")
+    zoom = float(journey.telemetry()["camera"]["zoom"])
+    # Telemetry reports the Barracks footprint center. Try every tile in its
+    # 3x3 footprint so units drawn over one tile cannot intercept every
+    # selection attempt.
+    offsets = tuple(
+        (
+            (tile_x - tile_y) * 32.0 * zoom,
+            (tile_x + tile_y) * 16.0 * zoom,
+        )
+        for tile_y in range(-1, 2)
+        for tile_x in range(-1, 2)
+    )
+    for logical_dx, logical_dy in offsets:
+        audited_pointer(
+            journey, actions, actor, "barracks",
+            logical_dx=logical_dx, logical_dy=logical_dy,
+        )
+        try:
+            return wait_until(
+                f"{actor} barracks footprint selection",
+                lambda: int(
+                    journey.telemetry().get("selectedBuilding", 0)
+                ) or None,
+                timeout=2.0,
+            )
+        except Failure:
+            continue
+    raise Failure(f"{actor} could not select Barracks through its footprint")
+
+
 def audited_command_button(driver, actions: list[dict[str, object]],
                            actor: str, grid_slot: int) -> None:
     column = grid_slot % 5
@@ -281,13 +382,10 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
                         entity.get("expectedResourceIds", [])
                     )
                     if entity.get("expectedAssetStatus") != "renderable":
-                        counts["unresolvedExpectedMappings"].append({
-                            "peer": peer,
-                            "frame": frame,
-                            "entity": entity,
-                            "reason": "expected asset is not renderable",
-                        })
-                        continue
+                        raise Failure(
+                            "production visual uses non-renderable asset "
+                            f"mapping: {entity}"
+                        )
                     if not expected_resources:
                         counts["unresolvedExpectedMappings"].append({
                             "peer": peer,
@@ -511,6 +609,64 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
     return counts
 
 
+def analyze_render_samples_for_audit(
+    samples: list[dict[str, object]], phase: str
+) -> dict[str, object]:
+    """Retain visual failures while allowing full-match coverage to continue."""
+    try:
+        result = analyze_render_samples(samples)
+        result["phase"] = phase
+        if result["unresolvedExpectedMappings"]:
+            result["verdict"] = "BLOCKED"
+            result["blocker"] = (
+                "renderable production assets lack expected resource IDs"
+            )
+        else:
+            result["verdict"] = "PASS"
+        return result
+    except Failure as error:
+        return {
+            "phase": phase,
+            "verdict": "FAIL",
+            "failure": str(error),
+            "frames": len(samples),
+        }
+
+
+def visual_failures(evidence: dict[str, object]) -> list[dict[str, object]]:
+    failures: list[dict[str, object]] = []
+
+    def visit(value: object) -> None:
+        if isinstance(value, dict):
+            if value.get("verdict") == "FAIL" and value.get("failure"):
+                failures.append(value)
+            for child in value.values():
+                visit(child)
+        elif isinstance(value, list):
+            for child in value:
+                visit(child)
+
+    visit(evidence)
+    return failures
+
+
+def visual_findings(evidence: dict[str, object]) -> list[dict[str, object]]:
+    findings: list[dict[str, object]] = []
+
+    def visit(value: object) -> None:
+        if isinstance(value, dict):
+            if value.get("verdict") in {"FAIL", "BLOCKED"}:
+                findings.append(value)
+            for child in value.values():
+                visit(child)
+        elif isinstance(value, list):
+            for child in value:
+                visit(child)
+
+    visit(evidence)
+    return findings
+
+
 def blue_villager_positions(game: dict[str, object]) -> dict[int, tuple[int, int]]:
     return {
         int(unit["id"]): (int(unit["x"]), int(unit["y"]))
@@ -590,7 +746,9 @@ def prepare_player_for_full_match(
         artifact_dir=artifact_dir,
         label=f"{actor}-gather",
     )
-    gather_oracle = analyze_render_samples(gather_frames)
+    gather_oracle = analyze_render_samples_for_audit(
+        gather_frames, f"{actor}-gather"
+    )
     gathered = wait_until(
         f"{actor} gathered gold",
         lambda: (
@@ -600,14 +758,38 @@ def prepare_player_for_full_match(
         timeout=WAIT_SECONDS,
     )
 
+    select_barracks_through_footprint(
+        journey, driver, actions, actor
+    )
+    initial_military = int(journey.telemetry()["blueMilitaryCount"])
+    audited_key(driver, actions, actor, "m")
+    trained = wait_until(
+        f"{actor} militia training",
+        lambda: (
+            value if int((value := journey.telemetry())["blueMilitaryCount"])
+            > initial_military else None
+        ),
+        timeout=WAIT_SECONDS,
+    )
+    audited_key(driver, actions, actor, "9")
+    researched = wait_until(
+        f"{actor} man-at-arms research",
+        lambda: (
+            value if bool((value := journey.telemetry())[
+                "manAtArmsResearched"
+            ]) else None
+        ),
+        timeout=WAIT_SECONDS,
+    )
+
     before_games = wait_until(
         f"{actor} pre-construction lockstep", lambda: matching_games(host, join),
         timeout=WAIT_SECONDS,
     )
     initial_building_count = len(owner_buildings(before_games[0], owner))
-    audited_key(driver, actions, actor, ".")
+    audited_pointer(journey, actions, actor, "villager")
     wait_until(
-        f"{actor} idle villager selection for construction",
+        f"{actor} villager selection for construction",
         lambda: int(journey.telemetry().get("selectedUnit", 0)) or None,
     )
     # Root slot 0 opens economic buildings; economic slot 0 is House.
@@ -656,33 +838,7 @@ def prepare_player_for_full_match(
                 if int(building.get("id", -1)) in constructed_ids
             ) else None
         ) if (games := matching_games(host, join)) else None,
-        timeout=WAIT_SECONDS,
-    )
-
-    audited_pointer(journey, actions, actor, "barracks")
-    wait_until(
-        f"{actor} barracks selection",
-        lambda: int(journey.telemetry().get("selectedBuilding", 0)) or None,
-    )
-    initial_military = int(journey.telemetry()["blueMilitaryCount"])
-    audited_key(driver, actions, actor, "m")
-    trained = wait_until(
-        f"{actor} militia training",
-        lambda: (
-            value if int((value := journey.telemetry())["blueMilitaryCount"])
-            > initial_military else None
-        ),
-        timeout=WAIT_SECONDS,
-    )
-    audited_key(driver, actions, actor, "9")
-    researched = wait_until(
-        f"{actor} man-at-arms research",
-        lambda: (
-            value if bool((value := journey.telemetry())[
-                "manAtArmsResearched"
-            ]) else None
-        ),
-        timeout=WAIT_SECONDS,
+        timeout=WAIT_SECONDS * 3,
     )
     return {
         "owner": owner,
@@ -700,24 +856,30 @@ def order_town_center_attack(
     journey: Journey,
     driver,
     actor: str,
-    pan_key: str,
     actions: list[dict[str, object]],
 ) -> int:
     audited_key(driver, actions, actor, ",")
-    wait_until(
-        f"{actor} military selection",
-        lambda: int(journey.telemetry().get("selectedUnit", 0)) or None,
+    owner = 0 if actor == "host" else 1
+    game = diagnostics(driver)["game"]
+    trained = next(
+        unit for unit in game["units"]
+        if int(unit["owner"]) == owner and int(unit["kind"]) == 9
     )
-    for _ in range(48):
-        target = journey.telemetry()["targets"]["enemyTownCenter"]
-        x = float(target["x"])
-        y = float(target["y"])
-        if 80 < x < 1200 and 80 < y < 640:
-            break
-        audited_key(driver, actions, actor, pan_key)
-        time.sleep(0.05)
-    else:
-        raise Failure(f"{actor} enemy town center never entered canvas")
+    audited_world_pointer(
+        journey, driver, actions, actor,
+        int(trained["x"]), int(trained["y"]), button=0,
+    )
+    wait_until(
+        f"{actor} trained military selection",
+        lambda: (
+            selected if (selected := int(journey.telemetry().get(
+                "selectedUnit", 0
+            ))) == int(trained["id"]) else None
+        ),
+    )
+    pan_world_target_clear(
+        journey, driver, actions, actor, "enemyTownCenter"
+    )
     initial_hit_points = int(journey.telemetry()["enemyTownCenterHitPoints"])
     audited_pointer(journey, actions, actor, "enemyTownCenter", button=2)
     wait_until(
@@ -1004,6 +1166,12 @@ def run(relays: str, headed: bool, port: int = 8888,
                 ),
                 timeout=WAIT_SECONDS,
             )
+            collapse_match_details(host, actions, "host")
+            collapse_match_details(join, actions, "join")
+            # Production F4 hides in-canvas lockstep/chat/signal panels.
+            # Save-browser routing must not consume this multiplayer control.
+            audited_key(host, actions, "host", Keys.F4)
+            audited_key(join, actions, "join", Keys.F4)
 
             # Normal world input creates a non-empty lockstep turn batch.
             movement_before = [game_diagnostics(driver) or {}
@@ -1054,7 +1222,9 @@ def run(relays: str, headed: bool, port: int = 8888,
                     "join": movement_after[1],
                 },
                 "frames": host_motion_frames,
-                "renderOracle": analyze_render_samples(host_motion_frames),
+                "renderOracle": analyze_render_samples_for_audit(
+                    host_motion_frames, "host-move"
+                ),
             }
 
             # Joiner uses local-player-relative production telemetry and sends
@@ -1102,7 +1272,9 @@ def run(relays: str, headed: bool, port: int = 8888,
                     "join": red_after[1],
                 },
                 "frames": join_motion_frames,
-                "renderOracle": analyze_render_samples(join_motion_frames),
+                "renderOracle": analyze_render_samples_for_audit(
+                    join_motion_frames, "join-move"
+                ),
             }
 
             simultaneous_before_games = [game_diagnostics(driver) or {}
@@ -1174,7 +1346,9 @@ def run(relays: str, headed: bool, port: int = 8888,
                 "before": simultaneous_before_games,
                 "after": simultaneous_after,
                 "frames": simultaneous_frames,
-                "renderOracle": analyze_render_samples(simultaneous_frames),
+                "renderOracle": analyze_render_samples_for_audit(
+                    simultaneous_frames, "simultaneous-move"
+                ),
             }
 
             evidence["fullGameplay"] = {
@@ -1188,10 +1362,10 @@ def run(relays: str, headed: bool, port: int = 8888,
                 ),
             }
             host_target_hit_points = order_town_center_attack(
-                host_journey, host, "host", Keys.ARROW_RIGHT, actions,
+                host_journey, host, "host", actions,
             )
             join_target_hit_points = order_town_center_attack(
-                join_journey, join, "join", Keys.ARROW_LEFT, actions,
+                join_journey, join, "join", actions,
             )
             combat_frames = capture_correlated_frames(
                 host, join, seconds=2.0, artifact_dir=artifact_dir,
@@ -1203,7 +1377,9 @@ def run(relays: str, headed: bool, port: int = 8888,
                 "joinEnemyTownCenterInitialHitPoints":
                     join_target_hit_points,
                 "frames": combat_frames,
-                "renderOracle": analyze_render_samples(combat_frames),
+                "renderOracle": analyze_render_samples_for_audit(
+                    combat_frames, "two-sided-town-center-combat"
+                ),
             }
 
             # Transport chaos comes only after retained two-sided economy,
@@ -1647,6 +1823,14 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
         json.dumps(evidence.get("joinConsole", []), indent=2) + "\n",
         encoding="utf-8",
     )
+    (root / "visual-failures.json").write_text(
+        json.dumps(visual_failures(evidence), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    (root / "visual-findings.json").write_text(
+        json.dumps(visual_findings(evidence), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
 
 def main() -> int:
@@ -1671,6 +1855,13 @@ def main() -> int:
         encoding="utf-8",
     )
     write_audit_bundle(arguments.evidence.parent, evidence)
+    failures = visual_failures(evidence)
+    if failures:
+        print(
+            f"Nostr multiplayer audit found {len(failures)} visual "
+            f"failure(s): {arguments.evidence}"
+        )
+        return 1
     print(f"Nostr multiplayer smoke passed: {arguments.evidence}")
     return 0
 

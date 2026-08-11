@@ -40,22 +40,28 @@
     </section>
     <section id="nostr-session" hidden aria-live="polite">
       <strong>Public Nostr match</strong>
-      <span>Commands, chat, identities, and results are public.</span>
-      <label>Ephemeral public key
-        <input id="nostr-public-key" readonly>
-      </label>
-      <label>Public match reference
-        <textarea id="nostr-public-reference" rows="3" readonly></textarea>
-      </label>
-      <button id="copy-match-reference" type="button" disabled>
-        Copy match reference
+      <button id="toggle-nostr-session-details" type="button"
+        aria-controls="nostr-session-details" aria-expanded="true">
+        Hide match details
       </button>
-      <span id="copy-match-status"></span>
-      <details id="relay-management">
-        <summary>Manage relay connections</summary>
-        <p>Match pauses when fewer than two configured relays remain.</p>
-        <div id="relay-controls"></div>
-      </details>
+      <div id="nostr-session-details">
+        <span>Commands, chat, identities, and results are public.</span>
+        <label>Ephemeral public key
+          <input id="nostr-public-key" readonly>
+        </label>
+        <label>Public match reference
+          <textarea id="nostr-public-reference" rows="3" readonly></textarea>
+        </label>
+        <button id="copy-match-reference" type="button" disabled>
+          Copy match reference
+        </button>
+        <span id="copy-match-status"></span>
+        <details id="relay-management">
+          <summary>Manage relay connections</summary>
+          <p>Match pauses when fewer than two configured relays remain.</p>
+          <div id="relay-controls"></div>
+        </details>
+      </div>
     </section>
     <button id="start" type="button" hidden>Start</button>
     <button id="fullscreen" type="button" hidden>Fullscreen</button>

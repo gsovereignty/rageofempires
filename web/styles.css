@@ -56,7 +56,7 @@ body,
 }
 
 #public-warning,
-#nostr-session > span:first-of-type {
+#nostr-session-details > span:first-of-type {
   color: #ffca85;
 }
 
@@ -72,6 +72,19 @@ body,
   border: 1px solid #d7b44b;
   background: rgb(8 12 18 / 90%);
   font-size: 0.75rem;
+}
+
+#nostr-session-details {
+  display: grid;
+  gap: 0.35rem;
+}
+
+#nostr-session-details[hidden] {
+  display: none;
+}
+
+#toggle-nostr-session-details {
+  justify-self: start;
 }
 
 #copy-match-reference {

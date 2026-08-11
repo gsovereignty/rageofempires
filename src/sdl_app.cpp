@@ -21765,7 +21765,8 @@ ApplicationLoop SdlApp::loop() {
                     continue;
                 }
                 if (!event.key.repeat && event.key.key == SDLK_F4 &&
-                    !active_save_browser_visible) {
+                    !active_save_browser_visible &&
+                    !multiplayer_presentation) {
                     active_browser_entries =
                         browse_user_data_files(active_browser_root);
                     active_browser_selection = 0;

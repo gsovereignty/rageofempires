@@ -8,10 +8,14 @@ from pathlib import Path
 from nostr_multiplayer_smoke_test import (
     Failure,
     analyze_render_samples,
+    analyze_render_samples_for_audit,
     audited_key,
     capture_failure_value,
+    collapse_match_details,
     diagnostics,
     render_diagnostics,
+    visual_failures,
+    visual_findings,
     write_audit_bundle,
 )
 
@@ -112,6 +116,39 @@ class AuditedInputTests(unittest.TestCase):
         self.assertEqual(driver.canvas.keys, ["h"])
         self.assertEqual(actions[0]["key"], "h")
 
+    def test_collapses_match_details_through_visible_button(self):
+        class Element:
+            def __init__(self, driver, name):
+                self.driver = driver
+                self.name = name
+
+            def get_attribute(self, name):
+                if self.name == "toggle" and name == "aria-expanded":
+                    return "false" if self.driver.hidden else "true"
+                if self.name == "details" and name == "hidden":
+                    return "" if self.driver.hidden else None
+                return None
+
+            def click(self):
+                self.driver.hidden = True
+
+        class Driver:
+            def __init__(self):
+                self.hidden = False
+
+            def find_element(self, _, identifier):
+                return Element(
+                    self,
+                    "toggle" if identifier ==
+                    "toggle-nostr-session-details" else "details",
+                )
+
+        driver = Driver()
+        actions = []
+        collapse_match_details(driver, actions, "host")
+        self.assertTrue(driver.hidden)
+        self.assertEqual(actions[0]["target"], "toggle-nostr-session-details")
+
 
 class FailureEvidenceTests(unittest.TestCase):
     def test_diagnostics_tolerates_missing_module(self):
@@ -203,6 +240,23 @@ class RenderOracleTests(unittest.TestCase):
         with self.assertRaisesRegex(Failure, "unproved production"):
             analyze_render_samples([sample(1, 10.0, "procedural_or_unproven")])
 
+    def test_rejects_non_renderable_expected_mapping(self):
+        value = sample(1, 10.0)
+        for peer in ("host", "join"):
+            value[peer]["entities"][0]["expectedAssetStatus"] = (
+                "missing_composite_part"
+            )
+        with self.assertRaisesRegex(Failure, "non-renderable asset mapping"):
+            analyze_render_samples([value])
+
+    def test_retains_visual_failure_without_aborting_match_journey(self):
+        result = analyze_render_samples_for_audit(
+            [sample(1, 10.0, "intentional_procedural")], "combat"
+        )
+        self.assertEqual(result["verdict"], "FAIL")
+        self.assertEqual(result["phase"], "combat")
+        self.assertEqual(visual_failures({"oracle": result}), [result])
+
     def test_rejects_contractual_procedural_effect(self):
         value = sample(1, 10.0, "intentional_procedural")
         for peer in ("host", "join"):
@@ -281,14 +335,13 @@ class RenderOracleTests(unittest.TestCase):
         with self.assertRaisesRegex(Failure, "client asset divergence"):
             analyze_render_samples([value])
 
-    def test_records_unresolved_expected_mapping_without_stopping_gameplay(self):
+    def test_records_non_renderable_mapping_without_stopping_match(self):
         value = sample(1, 10.0)
         value["host"]["entities"][0]["expectedAssetStatus"] = "missing_mapping"
-        result = analyze_render_samples([value])
-        self.assertEqual(len(result["unresolvedExpectedMappings"]), 1)
-        self.assertEqual(
-            result["unresolvedExpectedMappings"][0]["reason"],
-            "expected asset is not renderable",
+        result = analyze_render_samples_for_audit([value], "movement")
+        self.assertEqual(result["verdict"], "FAIL")
+        self.assertIn(
+            "non-renderable asset mapping", result["failure"]
         )
 
     def test_records_empty_renderable_mapping_without_stopping_gameplay(self):
@@ -297,6 +350,10 @@ class RenderOracleTests(unittest.TestCase):
             value[peer]["entities"][0]["expectedResourceIds"] = []
         result = analyze_render_samples([value])
         self.assertEqual(len(result["unresolvedExpectedMappings"]), 2)
+        classified = analyze_render_samples_for_audit([value], "movement")
+        self.assertEqual(classified["verdict"], "BLOCKED")
+        self.assertEqual(visual_failures({"oracle": classified}), [])
+        self.assertEqual(visual_findings({"oracle": classified}), [classified])
 
     def test_rejects_missing_entity_at_shared_camera(self):
         value = sample(1, 10.0)
@@ -360,7 +417,8 @@ class RenderOracleTests(unittest.TestCase):
                 "run.json", "actions.jsonl", "transport.jsonl",
                 "states/host.jsonl", "states/join.jsonl", "motion.json",
                 "sprite-provenance.jsonl", "console-host.json",
-                "console-join.json",
+                "console-join.json", "visual-failures.json",
+                "visual-findings.json",
             ):
                 self.assertTrue((root / relative).exists(), relative)
             self.assertFalse((root / "first-failure.json").exists())

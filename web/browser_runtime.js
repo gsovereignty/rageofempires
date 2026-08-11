@@ -164,11 +164,24 @@ Module['reportFailure'] = function (reason) {
 Module['onAbort'] = Module['reportFailure'];
 
 const nostrSession = document.getElementById('nostr-session');
+const nostrSessionDetails = document.getElementById('nostr-session-details');
+const toggleNostrSessionDetails = document.getElementById(
+  'toggle-nostr-session-details'
+);
 const nostrPublicKey = document.getElementById('nostr-public-key');
 const nostrPublicReference = document.getElementById('nostr-public-reference');
 const copyMatchReference = document.getElementById('copy-match-reference');
 const copyMatchStatus = document.getElementById('copy-match-status');
 const relayControls = document.getElementById('relay-controls');
+
+toggleNostrSessionDetails.addEventListener('click', function () {
+  nostrSessionDetails.hidden = !nostrSessionDetails.hidden;
+  const expanded = !nostrSessionDetails.hidden;
+  toggleNostrSessionDetails.setAttribute('aria-expanded', String(expanded));
+  toggleNostrSessionDetails.textContent = expanded
+    ? 'Hide match details' : 'Show match details';
+  Module['canvas'].focus({preventScroll: true});
+});
 
 relayControls.addEventListener('click', function (event) {
   const button = event.target.closest('button[data-relay]');

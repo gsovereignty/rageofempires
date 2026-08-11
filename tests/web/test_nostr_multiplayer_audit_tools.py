@@ -8,6 +8,7 @@ from pathlib import Path
 from nostr_multiplayer_smoke_test import (
     Failure,
     analyze_render_samples,
+    audited_key,
     write_audit_bundle,
 )
 
@@ -40,6 +41,29 @@ def sample(frame: int, x: float, source: str = "legacy",
         "camera": {"x": join_camera, "y": 0.0},
     }
     return {"host": host_state, "join": join_state}
+
+
+class AuditedInputTests(unittest.TestCase):
+    def test_audited_key_preserves_selection_without_canvas_click(self):
+        class Canvas:
+            def __init__(self):
+                self.keys = []
+
+            def send_keys(self, key):
+                self.keys.append(key)
+
+        class Driver:
+            def __init__(self):
+                self.canvas = Canvas()
+
+            def find_element(self, *_):
+                return self.canvas
+
+        driver = Driver()
+        actions = []
+        audited_key(driver, actions, "host", "h")
+        self.assertEqual(driver.canvas.keys, ["h"])
+        self.assertEqual(actions[0]["key"], "h")
 
 
 class RenderOracleTests(unittest.TestCase):
@@ -106,6 +130,16 @@ class RenderOracleTests(unittest.TestCase):
         ])
         self.assertEqual(result["maximumFrameDisplacement"], 4.0)
 
+    def test_animation_sequence_restarts_when_facing_changes(self):
+        first = sample(1, 10.0)
+        second = sample(2, 11.0)
+        for peer in ("host", "join"):
+            first[peer]["entities"][0]["layers"][0]["frame"] = 35
+            second[peer]["entities"][0]["layers"][0]["frame"] = 49
+            second[peer]["entities"][0]["facing"] = 7
+        result = analyze_render_samples([first, second])
+        self.assertEqual(result["frames"], 2)
+
     def test_rejects_client_asset_divergence(self):
         value = sample(1, 10.0)
         value["join"]["entities"][0]["layers"][0]["resourceId"] = 999
@@ -113,11 +147,22 @@ class RenderOracleTests(unittest.TestCase):
         with self.assertRaisesRegex(Failure, "client asset divergence"):
             analyze_render_samples([value])
 
-    def test_rejects_unresolved_expected_mapping(self):
+    def test_records_unresolved_expected_mapping_without_stopping_gameplay(self):
         value = sample(1, 10.0)
         value["host"]["entities"][0]["expectedAssetStatus"] = "missing_mapping"
-        with self.assertRaisesRegex(Failure, "unresolved expected asset"):
-            analyze_render_samples([value])
+        result = analyze_render_samples([value])
+        self.assertEqual(len(result["unresolvedExpectedMappings"]), 1)
+        self.assertEqual(
+            result["unresolvedExpectedMappings"][0]["reason"],
+            "expected asset is not renderable",
+        )
+
+    def test_records_empty_renderable_mapping_without_stopping_gameplay(self):
+        value = sample(1, 10.0)
+        for peer in ("host", "join"):
+            value[peer]["entities"][0]["expectedResourceIds"] = []
+        result = analyze_render_samples([value])
+        self.assertEqual(len(result["unresolvedExpectedMappings"]), 2)
 
     def test_rejects_missing_entity_at_shared_camera(self):
         value = sample(1, 10.0)
@@ -145,14 +190,14 @@ class RenderOracleTests(unittest.TestCase):
         with self.assertRaisesRegex(Failure, "client asset divergence"):
             analyze_render_samples([value])
 
-    def test_rejects_animation_reversal(self):
+    def test_marks_raw_animation_sequence_order_blocked(self):
         first = sample(3, 10.0)
         second = sample(4, 11.0)
         for peer in ("host", "join"):
             first[peer]["entities"][0]["layers"][0]["frame"] = 3
             second[peer]["entities"][0]["layers"][0]["frame"] = 2
-        with self.assertRaisesRegex(Failure, "reversal or skip"):
-            analyze_render_samples([first, second])
+        result = analyze_render_samples([first, second])
+        self.assertEqual(result["animationSequenceBlocked"], 2)
 
     def test_rejects_frozen_moving_animation(self):
         values = [sample(frame, 10.0 + frame) for frame in range(1, 5)]

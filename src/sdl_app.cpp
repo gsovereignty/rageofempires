@@ -25729,6 +25729,7 @@ ApplicationLoop SdlApp::loop() {
         };
         BrowserTargetTelemetry browser_targets;
         int browser_enemy_building_hit_points = -1;
+        int browser_enemy_town_center_hit_points = -1;
         std::optional<TilePosition> browser_worker_position;
         for (const Unit& unit : simulation.units()) {
             const SDL_FPoint center = browser_tile_center(
@@ -25812,6 +25813,11 @@ ApplicationLoop SdlApp::loop() {
                 browser_targets.enemy_building_x = center.x;
                 browser_targets.enemy_building_y = center.y;
                 browser_enemy_building_hit_points = building.hit_points;
+            } else if (building.owner == browser_opponent &&
+                       building.kind == BuildingKind::town_center) {
+                browser_targets.enemy_town_center_x = center.x;
+                browser_targets.enemy_town_center_y = center.y;
+                browser_enemy_town_center_hit_points = building.hit_points;
             }
         }
         publish_browser_telemetry({
@@ -25835,6 +25841,7 @@ ApplicationLoop SdlApp::loop() {
                 browser_player, Technology::man_at_arms
             ),
             browser_enemy_building_hit_points,
+            browser_enemy_town_center_hit_points,
             runtime_fallback_telemetry().events().size(),
             browser_targets,
         });

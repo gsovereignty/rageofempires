@@ -19,6 +19,8 @@ struct BrowserTargetTelemetry {
     float town_center_y{-1.0F};
     float enemy_building_x{-1.0F};
     float enemy_building_y{-1.0F};
+    float enemy_town_center_x{-1.0F};
+    float enemy_town_center_y{-1.0F};
 };
 
 struct BrowserTelemetry {
@@ -40,6 +42,7 @@ struct BrowserTelemetry {
     std::size_t blue_military_count{};
     bool man_at_arms_researched{};
     int enemy_building_hit_points{-1};
+    int enemy_town_center_hit_points{-1};
     std::size_t fallback_count{};
     BrowserTargetTelemetry targets;
 };

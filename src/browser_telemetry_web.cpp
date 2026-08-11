@@ -36,6 +36,7 @@ EM_JS(void, publish_browser_telemetry_js,
      std::size_t blue_military_count,
      bool man_at_arms_researched,
      int enemy_building_hit_points,
+     int enemy_town_center_hit_points,
      std::size_t fallback_count,
      float villager_x,
      float villager_y,
@@ -48,7 +49,9 @@ EM_JS(void, publish_browser_telemetry_js,
      float town_center_x,
      float town_center_y,
      float enemy_building_x,
-     float enemy_building_y), {
+     float enemy_building_y,
+     float enemy_town_center_x,
+     float enemy_town_center_y), {
       Module.browserTelemetry = {
         tick: Number(tick),
         selectedUnit: Number(selected_unit),
@@ -63,6 +66,7 @@ EM_JS(void, publish_browser_telemetry_js,
         blueMilitaryCount: Number(blue_military_count),
         manAtArmsResearched: Boolean(man_at_arms_researched),
         enemyBuildingHitPoints: enemy_building_hit_points,
+        enemyTownCenterHitPoints: enemy_town_center_hit_points,
         fallbackCount: Number(fallback_count),
         targets: {
           villager: {x: villager_x, y: villager_y},
@@ -70,7 +74,10 @@ EM_JS(void, publish_browser_telemetry_js,
           military: {x: military_x, y: military_y},
           barracks: {x: barracks_x, y: barracks_y},
           townCenter: {x: town_center_x, y: town_center_y},
-          enemyBuilding: {x: enemy_building_x, y: enemy_building_y}
+          enemyBuilding: {x: enemy_building_x, y: enemy_building_y},
+          enemyTownCenter: {
+            x: enemy_town_center_x, y: enemy_town_center_y
+          }
         },
         wasmHeapBytes: HEAPU8.length
       };
@@ -96,6 +103,7 @@ void publish_browser_telemetry(const BrowserTelemetry& telemetry) {
         telemetry.blue_military_count,
         telemetry.man_at_arms_researched,
         telemetry.enemy_building_hit_points,
+        telemetry.enemy_town_center_hit_points,
         telemetry.fallback_count,
         telemetry.targets.villager_x,
         telemetry.targets.villager_y,
@@ -108,7 +116,9 @@ void publish_browser_telemetry(const BrowserTelemetry& telemetry) {
         telemetry.targets.town_center_x,
         telemetry.targets.town_center_y,
         telemetry.targets.enemy_building_x,
-        telemetry.targets.enemy_building_y
+        telemetry.targets.enemy_building_y,
+        telemetry.targets.enemy_town_center_x,
+        telemetry.targets.enemy_town_center_y
     );
 }
 

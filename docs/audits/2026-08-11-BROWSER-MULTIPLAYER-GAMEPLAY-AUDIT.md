@@ -164,3 +164,44 @@ returned HTTP 503, then the second match suspended both peers equally at tick
 4 for peer silence with equal state hashes. The historical verdict therefore
 remains **BLOCKED** until the same packaged two-client path completes over a
 working public-relay quorum.
+
+## Full-match harness extension and rerun
+
+The harness now requires each peer to gather gold, construct and complete a
+house through the visible command panel, select its barracks, train militia,
+research Man-at-Arms, attack the opposing town center, and continue until a
+natural conquest outcome. Resignation is no longer an audit shortcut. Relay
+loss and recovery run only after core gameplay evidence, and the retained
+combat frames feed the same motion and sprite-provenance oracles.
+
+Two directly observed harness defects were corrected while exercising this
+path:
+
+- `H` on the villager root command page invokes Garrison. The harness now
+  clicks root grid slot 0 (Economic) and economic grid slot 0 (House), matching
+  `hud_layout::command_button` and `build_selection_panel`.
+- The initially visible multiplayer diagnostics panel covered world targets.
+  The harness now uses the production F4 toggle before gameplay and requires a
+  nonzero `selectedBuilding` before issuing barracks commands.
+
+The production browser telemetry now also publishes the opposing town-center
+center and hit points relative to the local multiplayer slot. This lets each
+peer target the actual victory-critical building and lets the harness prove
+damage before accepting a terminal result.
+
+Validation evidence:
+
+- `build-web/selenium-venv/bin/python tests/web/test_nostr_multiplayer_audit_tools.py`:
+  20 tests passed.
+- Packaged WebAssembly target rebuilt successfully after telemetry changes.
+- Run `20260811T184000Z-full-gameplay` passed gathering and house construction,
+  then exposed the diagnostics-overlay barracks-selection defect.
+- Runs `20260811T185000Z-full-gameplay` and
+  `20260811T190000Z-full-gameplay` each timed out before gameplay at
+  `deterministic lockstep tick exchange` against the three ordinary public
+  relays. Neither run supplies product-bug evidence.
+
+The verdict remains **BLOCKED**. The harness now expresses the complete
+two-sided natural-victory audit, but no clean public-relay run has yet completed
+that entire path. Runtime evidence is under
+`artifacts/browser-multiplayer-audits/`; it remains intentionally untracked.

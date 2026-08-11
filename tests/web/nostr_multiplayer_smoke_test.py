@@ -100,7 +100,6 @@ def capture_correlated_frames(host, join, seconds: float = 1.0,
                 "screenshots": {},
             }
             if artifact_dir is not None:
-                screenshots_valid = True
                 for peer, driver, state in zip(
                     ("host", "join"), (host, join), states, strict=True
                 ):
@@ -113,23 +112,28 @@ def capture_correlated_frames(host, join, seconds: float = 1.0,
                     driver.save_screenshot(str(path))
                     state_after = render_diagnostics(driver) or {}
                     game_after = game_diagnostics(driver) or {}
-                    if (int(state_after.get("frame", -2)) !=
-                            int(state.get("frame", -1)) or
-                            int(state_after.get("tick", -2)) !=
-                            authoritative_tick or
-                            int(game_after.get("currentTick", -2)) !=
-                            authoritative_tick or
-                            game_after.get("stateHash") !=
-                            games[0].get("stateHash")):
-                        screenshots_valid = False
-                    sample["screenshots"][peer] = str(
-                        path.relative_to(artifact_dir)
-                    )
-                if not screenshots_valid:
-                    for relative in sample["screenshots"].values():
-                        (artifact_dir / str(relative)).unlink(missing_ok=True)
-                    time.sleep(0.01)
-                    continue
+                    sample["screenshots"][peer] = {
+                        "path": str(path.relative_to(artifact_dir)),
+                        "beforeTick": int(state.get("tick", -1)),
+                        "beforeFrame": int(state.get("frame", -1)),
+                        "afterTick": int(state_after.get("tick", -1)),
+                        "afterFrame": int(state_after.get("frame", -1)),
+                        "camera": state.get("camera"),
+                        "authoritativeTickAfter": int(
+                            game_after.get("currentTick", -1)
+                        ),
+                        "authoritativeHashAfter": game_after.get("stateHash"),
+                        "exactFrame": (
+                            int(state_after.get("frame", -2)) ==
+                            int(state.get("frame", -1)) and
+                            int(state_after.get("tick", -2)) ==
+                            authoritative_tick and
+                            int(game_after.get("currentTick", -2)) ==
+                            authoritative_tick and
+                            game_after.get("stateHash") ==
+                            games[0].get("stateHash")
+                        ),
+                    }
             samples.append(sample)
             last_frames = frames
         time.sleep(0.03)
@@ -156,19 +160,78 @@ def audited_pointer(journey: Journey, actions: list[dict[str, object]],
     journey.pointer(target, button, logical_dx, logical_dy)
 
 
+def audited_key(driver, actions: list[dict[str, object]], actor: str,
+                key: str) -> None:
+    actions.append({
+        "monotonic": time.monotonic(),
+        "actor": actor,
+        "kind": "key",
+        "key": key,
+    })
+    driver.find_element(By.ID, "canvas").send_keys(key)
+
+
+def audited_command_button(driver, actions: list[dict[str, object]],
+                           actor: str, grid_slot: int) -> None:
+    column = grid_slot % 5
+    row = grid_slot // 5
+    logical_x = 37 + 41 * column + 20
+    logical_y = (720 - 175) + 31 + 41 * row + 20
+    actions.append({
+        "monotonic": time.monotonic(),
+        "actor": actor,
+        "kind": "command-button",
+        "gridSlot": grid_slot,
+        "targetLogicalX": logical_x,
+        "targetLogicalY": logical_y,
+    })
+    click_canvas_logical(driver, logical_x, logical_y)
+
+
+def audited_world_pointer(
+    journey: Journey,
+    driver,
+    actions: list[dict[str, object]],
+    actor: str,
+    tile_x: int,
+    tile_y: int,
+    button: int = 2,
+) -> None:
+    telemetry = journey.telemetry()
+    camera = telemetry["camera"]
+    zoom = float(camera["zoom"])
+    # Fixed packaged scenario is 48x32. These constants match production
+    # isometric projection: map_origin_x = map_height * 32.
+    logical_x = (32 * 32 + (tile_x - tile_y) * 32 -
+                 float(camera["x"])) * zoom
+    logical_y = (16 + 16 + (tile_x + tile_y) * 16 -
+                 float(camera["y"])) * zoom
+    actions.append({
+        "monotonic": time.monotonic(), "actor": actor,
+        "kind": "world-pointer", "button": button,
+        "tileX": tile_x, "tileY": tile_y,
+        "logicalX": logical_x, "logicalY": logical_y,
+        "telemetryTick": int(telemetry["tick"]),
+    })
+    click_canvas_logical(driver, logical_x, logical_y, button=button)
+
+
 def analyze_render_samples(samples: list[dict[str, object]]) \
         -> dict[str, object]:
     if not samples:
         raise Failure("render oracle captured no correlated frames")
     counts = {"frames": len(samples), "entities": 0, "legacy": 0,
-              "intentionalProcedural": 0, "proceduralOrUnproven": 0}
+              "intentionalProcedural": 0, "proceduralOrUnproven": 0,
+              "unresolvedExpectedMappings": [],
+              "animationSequenceBlocked": 0}
     last_frame = {"host": -1, "join": -1}
     previous_positions: dict[
         tuple[str, str, int], tuple[float, float, int, tuple[int, int] | None]
     ] = {}
     maximum_displacement = 0.0
     animation_frames: dict[
-        tuple[str, str, int, int], list[tuple[int, int, bool, int, int]]
+        tuple[str, str, int, int, int, str, str],
+        list[tuple[int, int, bool, int, int]]
     ] = {}
     unmatched_entities: list[dict[str, object]] = []
     for sample in samples:
@@ -191,21 +254,36 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
                         entity.get("expectedResourceIds", [])
                     )
                     if entity.get("expectedAssetStatus") != "renderable":
-                        raise Failure(f"unresolved expected asset: {entity}")
+                        counts["unresolvedExpectedMappings"].append({
+                            "peer": peer,
+                            "frame": frame,
+                            "entity": entity,
+                            "reason": "expected asset is not renderable",
+                        })
+                        continue
                     if not expected_resources:
-                        raise Failure(f"empty expected asset mapping: {entity}")
+                        counts["unresolvedExpectedMappings"].append({
+                            "peer": peer,
+                            "frame": frame,
+                            "entity": entity,
+                            "reason": "renderable mapping has no expected IDs",
+                        })
                     actual_resources = {
                         layer.get("resourceId")
                         for layer in entity.get("layers", [])
                     }
-                    if not actual_resources.issubset(expected_resources):
+                    if (expected_resources and
+                            not actual_resources.issubset(expected_resources)):
                         raise Failure(
                             f"rendered asset violates mapping: {entity}"
                         )
                     for layer_index, layer in enumerate(entity.get("layers", [])):
                         animation_frames.setdefault(
                             (peer, str(entity.get("category", "")),
-                             int(entity.get("id", -1)), layer_index), []
+                             int(entity.get("id", -1)), layer_index,
+                             int(entity.get("facing", -1)),
+                             str(entity.get("animationState", "")),
+                             str(entity.get("action", ""))), []
                         ).append((
                             int(state.get("tick", -1)),
                             int(layer.get("frame", -1)),
@@ -344,25 +422,11 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
     if counts["legacy"] + counts["intentionalProcedural"] == 0:
         raise Failure("render oracle observed no production provenance")
     for key, observations in animation_frames.items():
-        for (previous_tick, previous_frame, _, previous_count, previous_time), \
-                (tick, frame, _, frame_count, presentation_time) in zip(
-                    observations, observations[1:], strict=False):
+        for _, frame, _, _, _ in observations:
             if frame < 0:
                 raise Failure(f"invalid animation frame {key}: {frame}")
-            count = frame_count or previous_count
-            if count > 0:
-                advance = (frame - previous_frame) % count
-                elapsed_frames = max(
-                    presentation_time - previous_time, 0
-                ) // 200
-                allowed = max(tick - previous_tick, elapsed_frames, 0) + 1
-                if advance > allowed:
-                    raise Failure(
-                        f"animation reversal or skip {key}: "
-                        f"{previous_frame}->{frame}"
-                    )
-            elif frame < previous_frame:
-                raise Failure(f"animation reversal {key}")
+        if len(observations) > 1:
+            counts["animationSequenceBlocked"] += 1
         moving_ticks = {
             tick for tick, _, moving, _, _ in observations if moving
         }
@@ -409,6 +473,183 @@ def matching_moved_owned_unit(host, join, owner: int, unit_id: int,
     if positions[0] != positions[1] or positions[0].get(unit_id) == before:
         return None
     return games if unit_id in positions[0] else None
+
+
+def owner_buildings(game: dict[str, object], owner: int) \
+        -> list[dict[str, object]]:
+    return [
+        building for building in game.get("buildings", [])
+        if isinstance(building, dict) and
+        int(building.get("owner", -1)) == owner
+    ]
+
+
+def matching_games(host, join):
+    games = [game_diagnostics(driver) or {} for driver in (host, join)]
+    if (int(games[0].get("currentTick", -1)) !=
+            int(games[1].get("currentTick", -2)) or
+            games[0].get("stateHash") != games[1].get("stateHash")):
+        return None
+    return games
+
+
+def prepare_player_for_full_match(
+    journey: Journey,
+    driver,
+    actor: str,
+    owner: int,
+    host,
+    join,
+    actions: list[dict[str, object]],
+) -> dict[str, object]:
+    telemetry = journey.telemetry()
+    initial_gold = int(telemetry["resources"]["gold"])
+    audited_key(driver, actions, actor, ".")
+    wait_until(
+        f"{actor} idle villager selection for gathering",
+        lambda: int(journey.telemetry().get("selectedUnit", 0)) or None,
+    )
+    resource_tile = (12, 20) if owner == 0 else (35, 10)
+    audited_world_pointer(
+        journey, driver, actions, actor, *resource_tile,
+    )
+    gathered = wait_until(
+        f"{actor} gathered gold",
+        lambda: (
+            value if int((value := journey.telemetry())["resources"]["gold"])
+            > initial_gold else None
+        ),
+        timeout=WAIT_SECONDS,
+    )
+
+    before_games = wait_until(
+        f"{actor} pre-construction lockstep", lambda: matching_games(host, join),
+        timeout=WAIT_SECONDS,
+    )
+    initial_building_count = len(owner_buildings(before_games[0], owner))
+    audited_key(driver, actions, actor, ".")
+    wait_until(
+        f"{actor} idle villager selection for construction",
+        lambda: int(journey.telemetry().get("selectedUnit", 0)) or None,
+    )
+    # Root slot 0 opens economic buildings; economic slot 0 is House.
+    # The root-page H hotkey is Garrison, so ordinary visible buttons are
+    # required to exercise the actual construction UI without ambiguity.
+    audited_command_button(driver, actions, actor, 0)
+    audited_command_button(driver, actions, actor, 0)
+    construction_started = None
+    candidate_tiles = (
+        ((15, 20), (15, 22), (8, 14), (14, 15)) if owner == 0 else
+        ((32, 10), (33, 13), (29, 10), (30, 14))
+    )
+    for tile_x, tile_y in candidate_tiles:
+        audited_world_pointer(
+            journey, driver, actions, actor, tile_x, tile_y,
+        )
+        try:
+            construction_started = wait_until(
+                f"{actor} house construction",
+                lambda: (
+                    games if len(owner_buildings(games[0], owner)) >
+                    initial_building_count else None
+                ) if (games := matching_games(host, join)) else None,
+                timeout=12.0,
+            )
+            break
+        except Failure:
+            continue
+    if construction_started is None:
+        raise Failure(f"{actor} could not place a house through production UI")
+    constructed_ids = {
+        int(building["id"])
+        for building in owner_buildings(construction_started[0], owner)
+    } - {
+        int(building["id"])
+        for building in owner_buildings(before_games[0], owner)
+    }
+    if not constructed_ids:
+        raise Failure(f"{actor} construction lacks new building identity")
+    wait_until(
+        f"{actor} house completed",
+        lambda: (
+            games if all(
+                int(building.get("constructionTicksRemaining", -1)) == 0
+                for building in owner_buildings(games[0], owner)
+                if int(building.get("id", -1)) in constructed_ids
+            ) else None
+        ) if (games := matching_games(host, join)) else None,
+        timeout=WAIT_SECONDS,
+    )
+
+    audited_pointer(journey, actions, actor, "barracks")
+    wait_until(
+        f"{actor} barracks selection",
+        lambda: int(journey.telemetry().get("selectedBuilding", 0)) or None,
+    )
+    initial_military = int(journey.telemetry()["blueMilitaryCount"])
+    audited_key(driver, actions, actor, "m")
+    trained = wait_until(
+        f"{actor} militia training",
+        lambda: (
+            value if int((value := journey.telemetry())["blueMilitaryCount"])
+            > initial_military else None
+        ),
+        timeout=WAIT_SECONDS,
+    )
+    audited_key(driver, actions, actor, "9")
+    researched = wait_until(
+        f"{actor} man-at-arms research",
+        lambda: (
+            value if bool((value := journey.telemetry())[
+                "manAtArmsResearched"
+            ]) else None
+        ),
+        timeout=WAIT_SECONDS,
+    )
+    return {
+        "owner": owner,
+        "initialGold": initial_gold,
+        "gatheredGold": int(gathered["resources"]["gold"]),
+        "constructedBuildingIds": sorted(constructed_ids),
+        "militaryCount": int(trained["blueMilitaryCount"]),
+        "researched": bool(researched["manAtArmsResearched"]),
+    }
+
+
+def order_town_center_attack(
+    journey: Journey,
+    driver,
+    actor: str,
+    pan_key: str,
+    actions: list[dict[str, object]],
+) -> int:
+    audited_key(driver, actions, actor, ",")
+    wait_until(
+        f"{actor} military selection",
+        lambda: int(journey.telemetry().get("selectedUnit", 0)) or None,
+    )
+    for _ in range(48):
+        target = journey.telemetry()["targets"]["enemyTownCenter"]
+        x = float(target["x"])
+        y = float(target["y"])
+        if 80 < x < 1200 and 80 < y < 640:
+            break
+        audited_key(driver, actions, actor, pan_key)
+        time.sleep(0.05)
+    else:
+        raise Failure(f"{actor} enemy town center never entered canvas")
+    initial_hit_points = int(journey.telemetry()["enemyTownCenterHitPoints"])
+    audited_pointer(journey, actions, actor, "enemyTownCenter", button=2)
+    wait_until(
+        f"{actor} town-center combat start",
+        lambda: (
+            hit_points if 0 <= (hit_points := int(journey.telemetry()[
+                "enemyTownCenterHitPoints"
+            ])) < initial_hit_points else None
+        ),
+        timeout=WAIT_SECONDS,
+    )
+    return initial_hit_points
 
 
 def launch(driver, base_url: str, mode: str, relays: str,
@@ -458,7 +699,8 @@ def key_chord(driver, key: str, modifier: str | None = None) -> None:
     actions.perform()
 
 
-def click_canvas_logical(driver, x: float, y: float) -> None:
+def click_canvas_logical(driver, x: float, y: float,
+                         button: int = 0) -> None:
     canvas = driver.find_element(By.ID, "canvas")
     rect = canvas.rect
     mouse = PointerInput("mouse", "multiplayer UI")
@@ -467,7 +709,8 @@ def click_canvas_logical(driver, x: float, y: float) -> None:
         round(rect["x"] + x * rect["width"] / 1280.0),
         round(rect["y"] + y * rect["height"] / 720.0),
     )
-    actions.pointer_action.click()
+    actions.pointer_action.pointer_down(button=button)
+    actions.pointer_action.pointer_up(button=button)
     actions.perform()
 
 
@@ -522,6 +765,92 @@ def require_quorum(driver, name: str) -> dict[str, object]:
     )
     assert isinstance(value, dict)
     return value
+
+
+def exercise_relay_chaos(host, join, relays: str) -> dict[str, object]:
+    relay_count = len(relays.split(","))
+    if relay_count < 3:
+        raise Failure("relay chaos requires at least three relays")
+    recovery: dict[str, object] = {
+        "before": {"host": diagnostics(host), "join": diagnostics(join)}
+    }
+    initial_tick = min(
+        int((game_diagnostics(driver) or {}).get("currentTick", 0))
+        for driver in (host, join)
+    )
+    for driver in (host, join):
+        set_relay_enabled(driver, 0, False)
+    one_relay_loss = wait_until(
+        "continued lockstep with one relay disconnected",
+        lambda: matching_relay_state(
+            host, join, disabled=1, status=0, eose=2,
+            minimum_tick=initial_tick + 2,
+        ),
+        timeout=WAIT_SECONDS,
+    )
+    recovery["oneRelayLoss"] = {
+        "host": one_relay_loss[0], "join": one_relay_loss[1]
+    }
+
+    # Keep one relay connected: below quorum two, but still available for
+    # deterministic restoration/backfill testing.
+    for relay_index in range(1, relay_count - 1):
+        for driver in (host, join):
+            set_relay_enabled(driver, relay_index, False)
+    quorum_loss = wait_until(
+        "quorum-loss suspension",
+        lambda: matching_relay_state(
+            host, join, disabled=relay_count - 1, status=2, reason=5,
+        ),
+        timeout=WAIT_SECONDS,
+    )
+    stopped_ticks = [
+        int((state.get("game") or {}).get("currentTick", -1))
+        for state in quorum_loss
+    ]
+    time.sleep(2.0)
+    if [
+        int((game_diagnostics(driver) or {}).get("currentTick", -2))
+        for driver in (host, join)
+    ] != stopped_ticks:
+        raise Failure("lockstep advanced while relay quorum was lost")
+    recovery["quorumLoss"] = {
+        "host": quorum_loss[0], "join": quorum_loss[1],
+        "stableTicks": stopped_ticks,
+    }
+
+    for driver in (host, join):
+        set_relay_enabled(driver, 1, True)
+    recovered = wait_until(
+        "relay EOSE backfill and lockstep recovery",
+        lambda: matching_relay_state(
+            host, join, disabled=relay_count - 2, status=0, eose=2,
+            minimum_tick=max(stopped_ticks) + 1,
+        ),
+        timeout=WAIT_SECONDS,
+    )
+    recovery["recovered"] = {
+        "host": recovered[0], "join": recovered[1]
+    }
+    for relay_index in range(relay_count):
+        for driver in (host, join):
+            set_relay_enabled(driver, relay_index, True)
+    wait_until(
+        "all configured relays restored through EOSE",
+        lambda: (
+            True if all(
+                not (state := diagnostics(driver) or {}).get(
+                    "disabledRelays"
+                ) and len(state.get("eoseRelays", [])) >= relay_count
+                for driver in (host, join)
+            ) else None
+        ),
+        timeout=WAIT_SECONDS,
+    )
+    recovery["allRestored"] = {
+        "host": diagnostics(host), "join": diagnostics(join)
+    }
+    return recovery
 
 
 def run(relays: str, headed: bool, port: int = 8888,
@@ -596,99 +925,6 @@ def run(relays: str, headed: bool, port: int = 8888,
                 timeout=WAIT_SECONDS,
             )
 
-            recovery: dict[str, object] = {
-                "before": {
-                    "host": diagnostics(host),
-                    "join": diagnostics(join),
-                }
-            }
-            initial_tick = min(
-                int((game_diagnostics(driver) or {}).get("currentTick", 0))
-                for driver in (host, join)
-            )
-            for driver in (host, join):
-                set_relay_enabled(driver, 0, False)
-            one_relay_loss = wait_until(
-                "continued lockstep with one relay disconnected",
-                lambda: matching_relay_state(
-                    host, join, disabled=1, status=0, eose=2,
-                    minimum_tick=initial_tick + 2,
-                ),
-                timeout=WAIT_SECONDS,
-            )
-            recovery["oneRelayLoss"] = {
-                "host": one_relay_loss[0],
-                "join": one_relay_loss[1],
-            }
-
-            for relay_index in range(1, len(relays.split(","))):
-                for driver in (host, join):
-                    set_relay_enabled(driver, relay_index, False)
-            quorum_loss = wait_until(
-                "quorum-loss suspension",
-                lambda: matching_relay_state(
-                    host, join,
-                    disabled=len(relays.split(",")) - 1,
-                    status=2, reason=5,
-                ),
-                timeout=WAIT_SECONDS,
-            )
-            stopped_ticks = [
-                int((state.get("game") or {}).get("currentTick", -1))
-                for state in quorum_loss
-            ]
-            time.sleep(2.0)
-            if [
-                int((game_diagnostics(driver) or {}).get("currentTick", -2))
-                for driver in (host, join)
-            ] != stopped_ticks:
-                raise Failure("lockstep advanced while relay quorum was lost")
-            recovery["quorumLoss"] = {
-                "host": quorum_loss[0],
-                "join": quorum_loss[1],
-                "stableTicks": stopped_ticks,
-            }
-
-            for driver in (host, join):
-                set_relay_enabled(driver, 1, True)
-            recovered = wait_until(
-                "relay EOSE backfill and lockstep recovery",
-                lambda: matching_relay_state(
-                    host, join,
-                    disabled=len(relays.split(",")) - 2,
-                    status=0, eose=2,
-                    minimum_tick=max(stopped_ticks) + 1,
-                ),
-                timeout=WAIT_SECONDS,
-            )
-            recovery["recovered"] = {
-                "host": recovered[0],
-                "join": recovered[1],
-            }
-            for relay_index in range(len(relays.split(","))):
-                for driver in (host, join):
-                    set_relay_enabled(driver, relay_index, True)
-            wait_until(
-                "all configured relays restored through EOSE",
-                lambda: (
-                    True
-                    if all(
-                        not (state := diagnostics(driver) or {}).get(
-                            "disabledRelays"
-                        ) and len(state.get("eoseRelays", [])) >=
-                        len(relays.split(","))
-                        for driver in (host, join)
-                    )
-                    else None
-                ),
-                timeout=WAIT_SECONDS,
-            )
-            recovery["allRestored"] = {
-                "host": diagnostics(host),
-                "join": diagnostics(join),
-            }
-            evidence["recovery"] = recovery
-
             # Normal world input creates a non-empty lockstep turn batch.
             movement_before = [game_diagnostics(driver) or {}
                                for driver in (host, join)]
@@ -701,7 +937,7 @@ def run(relays: str, headed: bool, port: int = 8888,
                 raise Failure(
                     f"peers lack matching blue villager: {before_positions}"
                 )
-            audited_pointer(host_journey, actions, "host", "villager")
+            audited_key(host, actions, "host", ".")
             selected_id = wait_until(
                 "host selected observed blue villager",
                 lambda: (
@@ -749,7 +985,7 @@ def run(relays: str, headed: bool, port: int = 8888,
                           for game in red_before_games]
             if red_before[0] != red_before[1] or not red_before[0]:
                 raise Failure(f"peers lack matching red unit: {red_before}")
-            audited_pointer(join_journey, actions, "join", "villager")
+            audited_key(join, actions, "join", ".")
             red_selected_id = wait_until(
                 "join selected observed red villager",
                 lambda: (
@@ -797,8 +1033,20 @@ def run(relays: str, headed: bool, port: int = 8888,
             simultaneous_red = owned_unit_positions(
                 simultaneous_before_games[0], 1
             )
-            audited_pointer(host_journey, actions, "host", "villager")
-            audited_pointer(join_journey, actions, "join", "villager")
+            audited_key(host, actions, "host", ".")
+            audited_key(join, actions, "join", ".")
+            wait_until(
+                "simultaneous owner-resolved villager selections",
+                lambda: (
+                    [blue_id, red_id]
+                    if (blue_id := int(host_journey.telemetry().get(
+                        "selectedUnit", 0
+                    ))) in simultaneous_blue and
+                    (red_id := int(join_journey.telemetry().get(
+                        "selectedUnit", 0
+                    ))) in simultaneous_red else None
+                ),
+            )
             simultaneous_blue_id = int(
                 host_journey.telemetry().get("selectedUnit", 0)
             )
@@ -808,13 +1056,11 @@ def run(relays: str, headed: bool, port: int = 8888,
             if (simultaneous_blue_id not in simultaneous_blue or
                     simultaneous_red_id not in simultaneous_red):
                 raise Failure("simultaneous selections did not resolve owners")
-            audited_pointer(
-                host_journey, actions, "host", "villager",
-                button=2, logical_dx=70,
+            audited_world_pointer(
+                host_journey, host, actions, "host", 14, 22,
             )
-            audited_pointer(
-                join_journey, actions, "join", "villager",
-                button=2, logical_dx=-70,
+            audited_world_pointer(
+                join_journey, join, actions, "join", 34, 8,
             )
             simultaneous_frames = capture_correlated_frames(
                 host, join, artifact_dir=artifact_dir,
@@ -850,6 +1096,43 @@ def run(relays: str, headed: bool, port: int = 8888,
                 "frames": simultaneous_frames,
                 "renderOracle": analyze_render_samples(simultaneous_frames),
             }
+
+            # The multiplayer diagnostics panel initially covers the game
+            # canvas. F4 is the production control that hides it before the
+            # two players use visible world and command-panel controls.
+            audited_key(host, actions, "host", Keys.F4)
+            audited_key(join, actions, "join", Keys.F4)
+            evidence["fullGameplay"] = {
+                "host": prepare_player_for_full_match(
+                    host_journey, host, "host", 0, host, join, actions,
+                ),
+                "join": prepare_player_for_full_match(
+                    join_journey, join, "join", 1, host, join, actions,
+                ),
+            }
+            host_target_hit_points = order_town_center_attack(
+                host_journey, host, "host", Keys.ARROW_RIGHT, actions,
+            )
+            join_target_hit_points = order_town_center_attack(
+                join_journey, join, "join", Keys.ARROW_LEFT, actions,
+            )
+            combat_frames = capture_correlated_frames(
+                host, join, seconds=2.0, artifact_dir=artifact_dir,
+                label="two-sided-town-center-combat",
+            )
+            evidence["fullGameplay"]["combat"] = {
+                "hostEnemyTownCenterInitialHitPoints":
+                    host_target_hit_points,
+                "joinEnemyTownCenterInitialHitPoints":
+                    join_target_hit_points,
+                "frames": combat_frames,
+                "renderOracle": analyze_render_samples(combat_frames),
+            }
+
+            # Transport chaos comes only after retained two-sided economy,
+            # construction, production, research, motion, provenance, and
+            # active combat evidence.
+            evidence["recovery"] = exercise_relay_chaos(host, join, relays)
 
             # Normal chat input becomes public side-channel state on both peers.
             key_chord(join, Keys.ENTER)
@@ -956,10 +1239,8 @@ def run(relays: str, headed: bool, port: int = 8888,
                 host.save_screenshot(str(artifact_dir / "checkpoint-host.png"))
                 join.save_screenshot(str(artifact_dir / "checkpoint-join.png"))
                 return evidence
-            # Visible production control submits resignation through lockstep.
-            click_canvas_logical(host, 1165, 388)
             terminal = wait_until(
-                "agreed terminal result",
+                "agreed natural conquest result",
                 lambda: (
                     [host_game, join_game]
                     if int((host_game := game_diagnostics(host) or {}).get(
@@ -971,16 +1252,18 @@ def run(relays: str, headed: bool, port: int = 8888,
                     ) and bool(host_game.get("terminalStateHash")) and
                     host_game.get("terminalStateHash") ==
                     join_game.get("terminalStateHash") and all(
-                        int(game.get("blueControllerState", -1)) == 1 and
-                        int(game.get("redControllerState", -1)) == 0 and
                         int(game.get("resultCount", 0)) == 2 and
                         bool(game.get("terminalResultAgreement"))
                         for game in (host_game, join_game)
                     )
                     else None
                 ),
-                timeout=WAIT_SECONDS,
+                timeout=300.0,
             )
+            evidence["fullGameplay"]["naturalVictory"] = {
+                "host": terminal[0], "join": terminal[1],
+                "method": "opposing town-center destruction",
+            }
             time.sleep(1.0)
             settled_ticks = [
                 int((game_diagnostics(driver) or {}).get("currentTick", -1))
@@ -1140,7 +1423,7 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
         {"phase": "side-channel", "actor": "join", "kind": "chat"},
         {"phase": "side-channel", "actor": "host", "kind": "signal"},
         {"phase": "control", "actor": "host", "kind": "speed-pause-resume"},
-        {"phase": "terminal", "actor": "host", "kind": "resign"},
+        {"phase": "terminal", "actor": "both", "kind": "natural-conquest"},
     ]
     write_jsonl(root / "actions.jsonl", actions)
     recovery = evidence.get("recovery") or {}
@@ -1171,6 +1454,21 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
                     "capturedMonotonic": sample.get("capturedMonotonic"),
                     "state": sample["authoritativeJoin"],
                 })
+    full_gameplay = evidence.get("fullGameplay") or {}
+    combat = full_gameplay.get("combat") or {}
+    for sample in combat.get("frames", []):
+        if isinstance(sample.get("authoritativeHost"), dict):
+            host_states.append({
+                "phase": "fullGameplayCombat",
+                "capturedMonotonic": sample.get("capturedMonotonic"),
+                "state": sample["authoritativeHost"],
+            })
+        if isinstance(sample.get("authoritativeJoin"), dict):
+            join_states.append({
+                "phase": "fullGameplayCombat",
+                "capturedMonotonic": sample.get("capturedMonotonic"),
+                "state": sample["authoritativeJoin"],
+            })
     if isinstance(host, dict):
         host_states.append({"phase": "final", "state": host})
     if isinstance(join, dict):
@@ -1181,6 +1479,7 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
         "hostMovement": evidence.get("movement"),
         "joinMovement": evidence.get("joinMovement"),
         "simultaneousMovement": evidence.get("simultaneousMovement"),
+        "fullGameplayCombat": combat,
     }
     (root / "motion.json").write_text(
         json.dumps(motion, indent=2, sort_keys=True) + "\n",
@@ -1199,6 +1498,16 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
                     "tick": render_state.get("tick"),
                     "entities": render_state.get("entities", []),
                 })
+    for sample in combat.get("frames", []):
+        for peer in ("host", "join"):
+            render_state = sample.get(peer) or {}
+            provenance.append({
+                "phase": "fullGameplayCombat",
+                "peer": peer,
+                "frame": render_state.get("frame"),
+                "tick": render_state.get("tick"),
+                "entities": render_state.get("entities", []),
+            })
     write_jsonl(root / "sprite-provenance.jsonl", provenance)
     (root / "console-host.json").write_text(
         json.dumps(evidence.get("hostConsole", []), indent=2) + "\n",

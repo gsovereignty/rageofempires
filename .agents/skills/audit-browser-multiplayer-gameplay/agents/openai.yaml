@@ -1,0 +1,4 @@
+interface:
+  display_name: "Audit Browser Multiplayer Gameplay"
+  short_description: "Find browser gameplay and visual defects"
+  default_prompt: "Use $audit-browser-multiplayer-gameplay to audit two-player browser gameplay, motion, sprites, and relay recovery."

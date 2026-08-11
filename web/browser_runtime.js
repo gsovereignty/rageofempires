@@ -247,6 +247,7 @@ document.getElementById('start').addEventListener('pointerup', function () {
   query.delete('relays');
   query.delete('match');
   query.delete('oneRelay');
+  query.delete('allied');
   if (mode === 'host' || mode === 'join') {
     query.set('multiplayer', mode);
     query.set('relays', document.getElementById('relays').value.trim());
@@ -255,6 +256,9 @@ document.getElementById('start').addEventListener('pointerup', function () {
     }
     if (document.getElementById('one-relay').checked) {
       query.set('oneRelay', '1');
+    }
+    if (document.getElementById('allied').checked) {
+      query.set('allied', '1');
     }
   }
   history.replaceState(null, '', location.pathname +
@@ -272,6 +276,7 @@ document.getElementById('launch-mode').addEventListener('change', function () {
   const multiplayer = this.value === 'host' || this.value === 'join';
   document.getElementById('relay-field').hidden = !multiplayer;
   document.getElementById('one-relay-field').hidden = !multiplayer;
+  document.getElementById('allied-field').hidden = !multiplayer;
   document.getElementById('public-warning').hidden = !multiplayer;
   document.getElementById('reference-field').hidden = this.value !== 'join';
 });

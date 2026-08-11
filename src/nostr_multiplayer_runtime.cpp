@@ -594,7 +594,7 @@ public:
         maybe_publish_prerequisites();
         maybe_start();
         update_reliability();
-        update_browser_diagnostics();
+        update_browser_diagnostics(simulation);
     }
 
     void pump(Simulation& simulation) {
@@ -604,6 +604,11 @@ public:
                 PlayerControllerState::active) {
             local_controller_state_ = PlayerControllerState::observer;
             pending_commands_.clear();
+        }
+        if (simulation.outcome() != MatchOutcome::ongoing) {
+            pending_commands_.clear();
+            publish_terminal_result(simulation);
+            return;
         }
         apply_control_if_due();
         if (!session_ || session_->status() != LockstepStatus::running ||
@@ -758,7 +763,7 @@ public:
         return output.str();
     }
 
-    void update_browser_diagnostics() const {
+    void update_browser_diagnostics(const Simulation& simulation) const {
         std::ostringstream output;
         output << "{\"currentTick\":" << current_tick()
                << ",\"waiting\":"
@@ -799,7 +804,15 @@ public:
                << ",\"paused\":" << (paused_ ? "true" : "false")
                << ",\"gameSpeed\":" << static_cast<int>(game_speed_)
                << ",\"stateHashStatus\":"
-               << static_cast<int>(save_barrier_.status()) << '}';
+               << static_cast<int>(save_barrier_.status())
+               << ",\"outcome\":"
+               << static_cast<int>(simulation.outcome())
+               << ",\"terminalStateHash\":"
+               << json_string(
+                      simulation.outcome() == MatchOutcome::ongoing
+                          ? std::string{}
+                          : deterministic_state_hash(simulation)
+                  ) << '}';
         (void)nostr_bridge_update_diagnostics(output.str());
     }
 
@@ -1164,6 +1177,8 @@ private:
              family == "start") &&
             string_field(content, "lobby_event_id", 64) !=
                 current_lobby_event_id_) {
+            if (retired_lobby_event_ids_.contains(
+                    string_field(content, "lobby_event_id", 64))) return;
             defer_handshake_event(std::move(event));
             return;
         }
@@ -1279,6 +1294,10 @@ private:
         if (lobby_relays != relays_) {
             throw std::runtime_error("lobby relay set mismatch");
         }
+        if (!current_lobby_event_id_.empty() &&
+            current_lobby_event_id_ != event.event_id) {
+            retired_lobby_event_ids_.insert(current_lobby_event_id_);
+        }
         accepted_lobby_revision_ = revision;
         accepted_lobby_event_id_ = event.event_id;
         current_lobby_event_id_ = event.event_id;
@@ -1342,7 +1361,7 @@ private:
             string_field(content, "config_digest", 128) !=
                 lockstep_config_digest(config_) ||
             number_field(content, "observed_relay_count") < quorum_) {
-            throw std::runtime_error("stale lobby acknowledgement");
+            return;
         }
         ack_event_ids_[slot_number(sender)] = event.event_id;
         maybe_start();
@@ -1424,7 +1443,9 @@ private:
         }
         pending_start_.reset();
         next_submission_tick_ = 0;
-        last_advanced_at_ = std::chrono::steady_clock::now();
+        const auto started_at = std::chrono::steady_clock::now();
+        last_peer_traffic_ = started_at;
+        last_advanced_at_ = started_at;
         reliability_status_ = MultiplayerReliabilityStatus::active;
         reliability_reason_ = MultiplayerReliabilityReason::none;
         std::vector<BrowserEvent> queued = std::move(prestart_turn_events_);
@@ -1752,7 +1773,11 @@ private:
         PendingControl incoming = parse_control(content);
         if (stage == "proposal") {
             if (hosting_ && event.pubkey == public_key_) return;
-            if (event.pubkey != host_public_key_ || hosting_ || pending_control_ ||
+            if (event.pubkey != host_public_key_ || hosting_) {
+                throw std::runtime_error("invalid control proposal");
+            }
+            if (incoming.id <= last_completed_control_id_) return;
+            if (pending_control_ ||
                 incoming.barrier_tick < session_->current_tick()) {
                 throw std::runtime_error("invalid control proposal");
             }
@@ -1761,24 +1786,28 @@ private:
             (void)publish_control_stage("acknowledge", *pending_control_);
             return;
         }
-        if (!pending_control_ || !same_control(*pending_control_, incoming)) {
-            throw std::runtime_error("control event does not match proposal");
-        }
         if (stage == "acknowledge") {
             if (!hosting_ && event.pubkey == public_key_) return;
             if (!hosting_ || event.pubkey != config_.red.peer_id) {
                 throw std::runtime_error("invalid control acknowledgement");
             }
-            pending_control_->acknowledged = true;
-            pending_control_->committed = true;
-            (void)publish_control_stage("commit", *pending_control_);
         } else if (stage == "commit") {
             if (event.pubkey != host_public_key_) {
                 throw std::runtime_error("invalid control commit");
             }
-            pending_control_->committed = true;
         } else {
             throw std::runtime_error("invalid control stage");
+        }
+        if (incoming.id <= last_completed_control_id_) return;
+        if (!pending_control_ || !same_control(*pending_control_, incoming)) {
+            throw std::runtime_error("control event does not match proposal");
+        }
+        if (stage == "acknowledge") {
+            pending_control_->acknowledged = true;
+            pending_control_->committed = true;
+            (void)publish_control_stage("commit", *pending_control_);
+        } else {
+            pending_control_->committed = true;
         }
         apply_control_if_due();
     }
@@ -1803,6 +1832,7 @@ private:
         if (pending_control_->kind == SessionControlKind::pause) paused_ = true;
         else if (pending_control_->kind == SessionControlKind::resume) paused_ = false;
         else game_speed_ = pending_control_->speed;
+        last_completed_control_id_ = pending_control_->id;
         pending_control_.reset();
     }
 
@@ -2037,6 +2067,7 @@ private:
     std::uint64_t accepted_lobby_revision_{};
     std::string accepted_lobby_event_id_;
     std::string current_lobby_event_id_;
+    std::set<std::string> retired_lobby_event_ids_;
     std::string join_sent_for_;
     std::string local_ack_sent_for_;
     std::string local_ready_sent_for_;
@@ -2062,6 +2093,7 @@ private:
     std::set<std::uint64_t> signal_sequences_;
     std::uint64_t next_control_id_{1};
     std::optional<PendingControl> pending_control_;
+    std::uint64_t last_completed_control_id_{};
     std::chrono::steady_clock::time_point last_peer_traffic_;
     std::chrono::steady_clock::time_point last_advanced_at_{};
     std::string failure_;

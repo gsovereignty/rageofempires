@@ -14135,6 +14135,25 @@ void render_multiplayer_presentation(
         *presentation,
         {box.x + box.w + 10.0F, box.y, 566.0F, box.h}
     );
+    const SDL_FRect signal_button{
+        1070.0F, box.y, 190.0F, 48.0F,
+    };
+    render_beveled_panel(renderer, signal_button, {68, 54, 36, 242});
+    set_color(renderer, {240, 224, 173, 255});
+    render_ui_debug_text(
+        renderer, signal_button.x + 38.0F, signal_button.y + 18.0F,
+        "ALLY SIGNAL"
+    );
+    const SDL_FRect resign_button{
+        signal_button.x, signal_button.y + 58.0F,
+        signal_button.w, signal_button.h,
+    };
+    render_beveled_panel(renderer, resign_button, {72, 38, 28, 242});
+    set_color(renderer, {240, 224, 173, 255});
+    render_ui_debug_text(
+        renderer, resign_button.x + 56.0F, resign_button.y + 18.0F,
+        "RESIGN"
+    );
     if (presentation->network_paused) {
         const SDL_FRect paused_box{
             static_cast<float>(view_pixel_width) * 0.5F - 120.0F,
@@ -20161,6 +20180,39 @@ ApplicationLoop SdlApp::loop() {
                     continue;
                 }
                 if (event.button.button == SDL_BUTTON_LEFT &&
+                    multiplayer_presentation && multiplayer_runtime &&
+                    multiplayer_presentation->live_status ==
+                        LockstepStatus::running) {
+                    const SDL_FRect signal_button{
+                        1070.0F,
+                        static_cast<float>(view_pixel_height) - 239.0F,
+                        190.0F,
+                        48.0F,
+                    };
+                    const SDL_FPoint click{
+                        event.button.x, event.button.y,
+                    };
+                    if (SDL_PointInRectFloat(&click, &signal_button)) {
+                        pending_map_signal = true;
+                        multiplayer_presentation->chat_feedback =
+                            "SIGNAL: CLICK AN EXPLORED WORLD TILE";
+                        continue;
+                    }
+                    const SDL_FRect resign_button{
+                        signal_button.x, signal_button.y + 58.0F,
+                        signal_button.w, signal_button.h,
+                    };
+                    if (SDL_PointInRectFloat(&click, &resign_button)) {
+                        const bool accepted = multiplayer_runtime->queue_command(
+                            ResignCommand{active_view_player}
+                        );
+                        control_group_status = accepted
+                            ? "RESIGNATION SUBMITTED"
+                            : "RESIGNATION REJECTED";
+                        continue;
+                    }
+                }
+                if (event.button.button == SDL_BUTTON_LEFT &&
                     multiplayer_presentation &&
                     !multiplayer_presentation->signal_log.empty() &&
                     event.button.x >= 490.0F &&
@@ -22477,7 +22529,14 @@ ApplicationLoop SdlApp::loop() {
                     (debug_modifiers & SDL_KMOD_SHIFT) != 0) {
                     GameCommand command =
                         ResignCommand{active_view_player};
-                    if (execute(simulation, command)) {
+                    if (multiplayer_runtime) {
+                        control_group_status =
+                            multiplayer_runtime->queue_command(
+                                std::move(command)
+                            )
+                            ? "RESIGNATION SUBMITTED"
+                            : "RESIGNATION REJECTED";
+                    } else if (execute(simulation, command)) {
                         replay.record(
                             simulation.tick_number(),
                             std::move(command)

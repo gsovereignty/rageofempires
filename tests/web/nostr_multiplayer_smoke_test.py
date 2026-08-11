@@ -9,6 +9,8 @@ import time
 from pathlib import Path
 
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.actions.action_builder import ActionBuilder
+from selenium.webdriver.common.actions.pointer_input import PointerInput
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import Select
@@ -46,7 +48,7 @@ def game_diagnostics(driver) -> dict[str, object] | None:
 
 
 def launch(driver, base_url: str, mode: str, relays: str,
-           match_reference: str = "") -> Journey:
+           match_reference: str = "", allied: bool = True) -> Journey:
     driver.get(f"{base_url}/aoe_web.html")
     wait_until(
         f"{mode} browser storage",
@@ -63,6 +65,8 @@ def launch(driver, base_url: str, mode: str, relays: str,
     if mode == "join":
         reference_input = driver.find_element(By.ID, "match-reference")
         reference_input.send_keys(match_reference)
+    if allied:
+        driver.find_element(By.ID, "allied").click()
     driver.find_element(By.ID, "start").click()
     wait_until(
         f"{mode} Nostr initialization",
@@ -75,12 +79,30 @@ def launch(driver, base_url: str, mode: str, relays: str,
 def key_chord(driver, key: str, modifier: str | None = None) -> None:
     canvas = driver.find_element(By.ID, "canvas")
     canvas.click()
+    if modifier == Keys.ALT:
+        ActionChains(driver).key_down(Keys.ALT, canvas).pause(0.1) \
+            .send_keys_to_element(canvas, key).pause(0.1) \
+            .key_up(Keys.ALT, canvas).perform()
+        return
     actions = ActionChains(driver)
     if modifier:
         actions.key_down(modifier)
     actions.send_keys(key)
     if modifier:
         actions.key_up(modifier)
+    actions.perform()
+
+
+def click_canvas_logical(driver, x: float, y: float) -> None:
+    canvas = driver.find_element(By.ID, "canvas")
+    rect = canvas.rect
+    mouse = PointerInput("mouse", "multiplayer UI")
+    actions = ActionBuilder(driver, mouse=mouse)
+    actions.pointer_action.move_to_location(
+        round(rect["x"] + x * rect["width"] / 1280.0),
+        round(rect["y"] + y * rect["height"] / 720.0),
+    )
+    actions.pointer_action.click()
     actions.perform()
 
 
@@ -147,7 +169,7 @@ def run(relays: str, headed: bool, port: int = 8888) -> dict[str, object]:
                 ),
                 timeout=WAIT_SECONDS,
             )
-            key_chord(host, Keys.ENTER, Keys.CONTROL)
+            click_canvas_logical(host, 842, 516)
             wait_until(
                 "deterministic lockstep tick exchange",
                 lambda: (
@@ -164,7 +186,7 @@ def run(relays: str, headed: bool, port: int = 8888) -> dict[str, object]:
 
             # Normal world input creates a non-empty lockstep turn batch.
             host_journey.pointer("villager")
-            host_journey.pointer("resource", button=2, logical_dx=50)
+            host_journey.pointer("villager", button=2, logical_dx=50)
 
             # Normal chat input becomes public side-channel state on both peers.
             key_chord(join, Keys.ENTER)
@@ -182,8 +204,10 @@ def run(relays: str, headed: bool, port: int = 8888) -> dict[str, object]:
                 timeout=WAIT_SECONDS,
             )
 
-            # Alt+F then a world click is the normal allied-map-signal gesture.
-            key_chord(host, "f", Keys.ALT)
+            # Visible signal control then a world click is the normal UI path.
+            click_canvas_logical(host, 1165, 330)
+            time.sleep(0.25)
+            host.save_screenshot(str(ARTIFACTS / "signal-armed.png"))
             host.find_element(By.ID, "canvas").click()
             wait_until(
                 "public map signal delivery",
@@ -213,20 +237,71 @@ def run(relays: str, headed: bool, port: int = 8888) -> dict[str, object]:
                 ),
                 timeout=WAIT_SECONDS,
             )
-            key_chord(host, Keys.F6)
-            wait_until(
-                "matched public checkpoint digest",
+            key_chord(host, Keys.F7)
+            paused = wait_until(
+                "committed pause control",
                 lambda: (
-                    True
-                    if all(int((game_diagnostics(driver) or {}).get(
-                        "stateHashStatus", 0
-                    )) == 2 for driver in (host, join))
+                    [host_game, join_game]
+                    if bool((host_game := game_diagnostics(host) or {}).get(
+                        "paused", False
+                    )) and bool((join_game := game_diagnostics(join) or {}).get(
+                        "paused", False
+                    )) and int(host_game.get("currentTick", -1)) == int(
+                        join_game.get("currentTick", -2)
+                    )
                     else None
                 ),
                 timeout=WAIT_SECONDS,
             )
-
+            pause_tick = int(paused[0]["currentTick"])
+            key_chord(host, Keys.F7)
+            wait_until(
+                "committed resume control",
+                lambda: (
+                    True
+                    if all(
+                        not bool((game_diagnostics(driver) or {}).get("paused"))
+                        and int((game_diagnostics(driver) or {}).get(
+                            "currentTick", 0
+                        )) > pause_tick
+                        for driver in (host, join)
+                    )
+                    else None
+                ),
+                timeout=WAIT_SECONDS,
+            )
+            # Visible production control submits resignation through lockstep.
+            click_canvas_logical(host, 1165, 388)
+            terminal = wait_until(
+                "agreed terminal result",
+                lambda: (
+                    [host_game, join_game]
+                    if int((host_game := game_diagnostics(host) or {}).get(
+                        "outcome", 0
+                    )) != 0 and int(host_game.get("outcome", 0)) == int(
+                        (join_game := game_diagnostics(join) or {}).get(
+                            "outcome", 0
+                        )
+                    ) and bool(host_game.get("terminalStateHash")) and
+                    host_game.get("terminalStateHash") ==
+                    join_game.get("terminalStateHash")
+                    else None
+                ),
+                timeout=WAIT_SECONDS,
+            )
             time.sleep(1.0)
+            settled_ticks = [
+                int((game_diagnostics(driver) or {}).get("currentTick", -1))
+                for driver in (host, join)
+            ]
+            time.sleep(1.0)
+            final_ticks = [
+                int((game_diagnostics(driver) or {}).get("currentTick", -2))
+                for driver in (host, join)
+            ]
+            if len(set(settled_ticks + final_ticks)) != 1:
+                raise Failure("lockstep tick advanced after terminal result")
+
             host_final = diagnostics(host) or {}
             join_final = diagnostics(join) or {}
             evidence.update({
@@ -239,6 +314,23 @@ def run(relays: str, headed: bool, port: int = 8888) -> dict[str, object]:
             host.save_screenshot(str(ARTIFACTS / "host.png"))
             join.save_screenshot(str(ARTIFACTS / "join.png"))
             return evidence
+        except Exception as error:
+            failure = {
+                "error": f"{type(error).__name__}: {error}",
+                "relays": relays.split(","),
+                "host": diagnostics(host),
+                "join": diagnostics(join),
+                "requests": list(requests),
+                "hostConsole": host.get_log("browser"),
+                "joinConsole": join.get_log("browser"),
+            }
+            (ARTIFACTS / "last-failure.json").write_text(
+                json.dumps(failure, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            host.save_screenshot(str(ARTIFACTS / "last-failure-host.png"))
+            join.save_screenshot(str(ARTIFACTS / "last-failure-join.png"))
+            raise
         finally:
             if host_journey is not None:
                 host_journey.evidence.clear()

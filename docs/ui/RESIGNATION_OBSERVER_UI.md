@@ -3,7 +3,8 @@
 State semantics:
 [resignation and observer contract](../contracts/RESIGNATION_OBSERVER.md).
 
-`Ctrl+Shift+R` submits the typed resignation command through the same
+`Ctrl+Shift+R` or the visible `RESIGN` button submits the typed resignation
+command through the same
 single-player/replay or multiplayer lockstep command route as other gameplay
 actions. After committed resignation, local controller becomes read-only.
 

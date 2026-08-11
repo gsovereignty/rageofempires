@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 
@@ -113,6 +114,7 @@ int main() {
     projectile.total_ticks = 2;
     projectile.source_kind = aoe::UnitKind::militia;
     projectile.source_entity_id = green_unit;
+    projectile.effect_id = 101;
     simulation.replace_projectiles({projectile});
     aoe::ImpactEffect impact;
     impact.position = {6, 4};
@@ -120,19 +122,22 @@ int main() {
     impact.total_ticks = 2;
     impact.source_kind = aoe::UnitKind::militia;
     impact.source_entity_id = green_unit;
+    impact.effect_id = 102;
+    impact.commercial_projectile_identity =
+        aoe::CommercialObjectIdentity{7, 42};
     simulation.replace_impact_effects({impact});
     simulation.replace_death_effects({
         {
             {5, 4}, aoe::UnitKind::militia,
             *aoe::EntityOwner::from_stable_id(2), 4, 4,
-            green_unit, {4, 4}, 6,
+            green_unit, {4, 4}, 6, 103,
         },
     });
     simulation.replace_rubble_effects({
         {
             {7, 4}, aoe::BuildingKind::house,
             *aoe::EntityOwner::from_stable_id(2), 4, 4,
-            green_building,
+            green_building, 104,
         },
     });
     aoe::MatchStatistics statistics = simulation.match_statistics();
@@ -178,10 +183,17 @@ int main() {
     require(
         restored.projectiles().front().source_entity_id == green_unit
     );
+    require(restored.projectiles().front().effect_id == 101);
     require(
         restored.impact_effects().front().source_entity_id == green_unit
     );
+    require(restored.impact_effects().front().effect_id == 102);
+    require(
+        restored.impact_effects().front().commercial_projectile_identity ==
+        aoe::CommercialObjectIdentity{7, 42}
+    );
     require(restored.death_effects().front().entity_id == green_unit);
+    require(restored.death_effects().front().effect_id == 103);
     require(restored.death_effects().front().facing == 6);
     require(
         restored.death_effects().front().previous_position ==
@@ -190,8 +202,45 @@ int main() {
     require(
         restored.rubble_effects().front().entity_id == green_building
     );
+    require(restored.rubble_effects().front().effect_id == 104);
+    require(restored.next_transient_effect_id() == 105);
     require(restored.player_statistics(slot(2)).units_created == 12);
     require(restored.match_statistics().timeline.front().score[2] == 222);
+
+    std::istringstream current_lines(saved);
+    std::ostringstream legacy_v130;
+    std::string line;
+    while (std::getline(current_lines, line)) {
+        if (line.starts_with("AOE-ARCHAEOLOGY-SAVE ")) {
+            legacy_v130 << "AOE-ARCHAEOLOGY-SAVE 130\n";
+            continue;
+        }
+        if (line.starts_with("transient-effect-sequence ")) continue;
+        int fields_to_remove = line.starts_with("impact ") ? 3
+            : line.starts_with("projectile ") ||
+              line.starts_with("death ") || line.starts_with("rubble ")
+            ? 1 : 0;
+        while (fields_to_remove-- > 0) {
+            line.erase(line.find_last_of(' '));
+        }
+        legacy_v130 << line << '\n';
+    }
+    write(save_path, legacy_v130.str());
+    const aoe::Simulation restored_v130 = aoe::load_game(save_path);
+    require(restored_v130.projectiles().front().effect_id == 1);
+    require(restored_v130.impact_effects().front().effect_id == 2);
+    require(restored_v130.death_effects().front().effect_id == 3);
+    require(restored_v130.rubble_effects().front().effect_id == 4);
+    require(restored_v130.next_transient_effect_id() == 5);
+
+    std::string duplicate_effect_id = saved;
+    const auto impact_line = duplicate_effect_id.find("impact ");
+    const auto impact_end = duplicate_effect_id.find('\n', impact_line);
+    const auto impact_id = duplicate_effect_id.rfind(' ', impact_end);
+    duplicate_effect_id.replace(
+        impact_id + 1, impact_end - impact_id - 1, "101"
+    );
+    require(save_rejected(save_path, duplicate_effect_id));
 
     const auto diplomacy_line = saved.find("roster-diplomacy 2 1 ");
     require(diplomacy_line != std::string::npos);

@@ -126,6 +126,9 @@ public:
     [[nodiscard]] std::uint64_t next_formation_group_id() const {
         return next_formation_group_id_;
     }
+    [[nodiscard]] std::uint64_t next_transient_effect_id() const {
+        return next_transient_effect_id_;
+    }
     [[nodiscard]] MatchOutcome outcome() const { return outcome_; }
     [[nodiscard]] RosterMatchOutcome roster_outcome() const;
     [[nodiscard]] std::optional<MatchOutcome> legacy_roster_outcome() const;
@@ -550,6 +553,7 @@ public:
     void replace_impact_effects(std::vector<ImpactEffect> effects);
     void replace_death_effects(std::vector<UnitDeathEffect> effects);
     void replace_rubble_effects(std::vector<BuildingRubbleEffect> effects);
+    void replace_next_transient_effect_id(std::uint64_t next_id);
     void replace_reactive_sound_scheduler(
         std::uint64_t next_sequence, std::map<EntityId, int> attack_frames) {
         next_reactive_sound_sequence_ = next_sequence;
@@ -669,6 +673,7 @@ private:
     );
     void update_building_defenses();
     void update_projectiles();
+    void ensure_transient_effect_ids();
     void apply_commercial_effect(
         EntityOwner owner,
         CommercialEffectId effect
@@ -791,6 +796,7 @@ private:
     std::optional<EntityId> selected_unit_;
     std::vector<EntityId> selected_units_;
     std::uint64_t next_formation_group_id_{1};
+    std::uint64_t next_transient_effect_id_{1};
     std::optional<EntityId> selected_building_;
     EntityId next_id_{1};
     std::uint64_t tick_number_{};

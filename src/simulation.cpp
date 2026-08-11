@@ -8960,6 +8960,8 @@ void Simulation::update() {
         }
     }
 
+    ensure_transient_effect_ids();
+
     const auto emit_direct = [this](EntityId id, EntityOwner owner,
                                     TilePosition position, int sound) {
         if (sound < 0) return;
@@ -9294,24 +9296,61 @@ void Simulation::replace_projectiles(
     std::vector<Projectile> projectiles
 ) {
     projectiles_ = std::move(projectiles);
+    ensure_transient_effect_ids();
 }
 
 void Simulation::replace_impact_effects(
     std::vector<ImpactEffect> effects
 ) {
     impact_effects_ = std::move(effects);
+    ensure_transient_effect_ids();
 }
 
 void Simulation::replace_death_effects(
     std::vector<UnitDeathEffect> effects
 ) {
     death_effects_ = std::move(effects);
+    ensure_transient_effect_ids();
 }
 
 void Simulation::replace_rubble_effects(
     std::vector<BuildingRubbleEffect> effects
 ) {
     rubble_effects_ = std::move(effects);
+    ensure_transient_effect_ids();
+}
+
+void Simulation::replace_next_transient_effect_id(std::uint64_t next_id) {
+    next_transient_effect_id_ = std::max<std::uint64_t>(next_id, 1);
+    ensure_transient_effect_ids();
+}
+
+void Simulation::ensure_transient_effect_ids() {
+    std::set<std::uint64_t> used;
+    const auto reserve = [this, &used](auto& effects) {
+        for (auto& effect : effects) {
+            if (effect.effect_id == 0) {
+                while (used.contains(next_transient_effect_id_)) {
+                    ++next_transient_effect_id_;
+                }
+                effect.effect_id = next_transient_effect_id_++;
+            } else {
+                if (!used.insert(effect.effect_id).second) {
+                    throw std::runtime_error(
+                        "duplicate transient effect identity"
+                    );
+                }
+                next_transient_effect_id_ = std::max(
+                    next_transient_effect_id_, effect.effect_id + 1
+                );
+            }
+            used.insert(effect.effect_id);
+        }
+    };
+    reserve(projectiles_);
+    reserve(impact_effects_);
+    reserve(death_effects_);
+    reserve(rubble_effects_);
 }
 
 void Simulation::replace_ages(Age blue, Age red) {
@@ -10436,7 +10475,8 @@ void Simulation::perform_attack(Unit& attacker, Unit& defender) {
          attacker.kind == UnitKind::elite_cataphract) &&
         has_technology(attacker.owner, Technology::logistica)) {
         impact_effects_.push_back({
-            defender.position, true, 5, 5, attacker.kind
+            defender.position, true, 5, 5, attacker.kind,
+            false, BuildingKind::town_center, 0, 0, std::nullopt
         });
         impact_effects_.back().source_entity_id = attacker.id;
         for (Unit& candidate : units_) {
@@ -10653,7 +10693,8 @@ void Simulation::detonate_petard(
 ) {
     const UnitRules& rules = rules_for(UnitKind::petard);
     impact_effects_.push_back({
-        center, true, 5, 5, UnitKind::petard
+        center, true, 5, 5, UnitKind::petard,
+        false, BuildingKind::town_center, 0, 0, std::nullopt
     });
     impact_effects_.back().source_entity_id = attacker.id;
     for (Unit& target : units_) {
@@ -11286,6 +11327,8 @@ void Simulation::update_projectiles() {
             projectile.source_is_building,
             projectile.source_building_kind,
             projectile.source_entity_id,
+            projectile.effect_id,
+            projectile.commercial_projectile_identity,
         });
         if (splash) {
             for (Unit& target : units_) {

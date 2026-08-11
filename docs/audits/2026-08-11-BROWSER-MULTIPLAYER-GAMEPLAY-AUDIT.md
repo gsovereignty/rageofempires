@@ -141,14 +141,22 @@ equal authoritative tick and hash. Screenshot evidence is retained only when
 post-capture telemetry still identifies that same frame and tick. It rejects
 unmapped assets, unexpected sprite resources, peer layer/frame or animation
 state divergence, animation reversal/skips, frozen moving animation,
-teleport-sized displacement, and missing entities when cameras match. Live
-units, buildings, and resources have direct expected-asset mappings. Death,
-rubble, and projectile/effect provenance remains an explicit blocking scope
-gap: unsupported captures fail instead of silently passing, and projectiles
-are not yet isolated by the renderer capture.
+teleport-sized displacement, duplicate transient identities, and missing
+entities when cameras match. Live units, buildings, resources, unit deaths,
+building rubble, native projectiles, and native impacts now have direct
+expected-asset mappings. Death, rubble, projectile, and impact scopes use
+stable simulation-owned effect IDs; projectile identity survives its
+transition into an impact. IDs and the monotonic sequence persist in save
+version 131 and participate in deterministic multiplayer hashes. Version 130
+saves receive deterministic IDs on load, while duplicate version 131 IDs are
+rejected.
 
-Native `make`, packaged WebAssembly build, and 13 focused render-oracle tests
-pass.
+Intentional procedural fallback geometry and commercial projectile/impact
+asset contracts remain explicit blocking cells. Those paths emit unsupported
+or unproved provenance and cannot silently pass the production visual oracle.
+
+Native `make`, packaged WebAssembly build, native persistence regression, and
+17 focused render-oracle tests pass.
 A packaged single-browser production probe observed six visible entities, all
 with direct legacy sprite provenance. Two fresh public-relay multiplayer runs
 could not verify the new two-client journey: nos.lol returned HTTP 502, Damus

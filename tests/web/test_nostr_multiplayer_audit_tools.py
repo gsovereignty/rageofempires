@@ -61,6 +61,44 @@ class RenderOracleTests(unittest.TestCase):
         with self.assertRaisesRegex(Failure, "unproved production"):
             analyze_render_samples([sample(1, 10.0, "procedural_or_unproven")])
 
+    def test_accepts_contractual_procedural_effect(self):
+        value = sample(1, 10.0, "intentional_procedural")
+        for peer in ("host", "join"):
+            entity = value[peer]["entities"][0]
+            entity["expectedAssetStatus"] = "intentional_procedural"
+            entity["expectedSourceMapping"] = "generic-impact-contract"
+            entity["expectedResourceIds"] = []
+            entity["primitives"] = [{
+                "operation": "line",
+                "rgba": [225, 190, 105, 255],
+                "x1": -5.0, "y1": -5.0, "x2": 5.0, "y2": 5.0,
+            }]
+        result = analyze_render_samples([value])
+        self.assertEqual(result["intentionalProcedural"], 2)
+
+    def test_rejects_procedural_without_geometry(self):
+        value = sample(1, 10.0, "intentional_procedural")
+        for peer in ("host", "join"):
+            entity = value[peer]["entities"][0]
+            entity["expectedAssetStatus"] = "intentional_procedural"
+            entity["expectedSourceMapping"] = "generic-impact-contract"
+        with self.assertRaisesRegex(Failure, "lacks provenance"):
+            analyze_render_samples([value])
+
+    def test_rejects_peer_primitive_divergence(self):
+        value = sample(1, 10.0, "intentional_procedural")
+        for peer in ("host", "join"):
+            entity = value[peer]["entities"][0]
+            entity["expectedAssetStatus"] = "intentional_procedural"
+            entity["expectedSourceMapping"] = "generic-impact-contract"
+            entity["primitives"] = [{
+                "operation": "fill_rect", "rgba": [1, 2, 3, 255],
+                "x": 0.0, "y": 0.0, "width": 4.0, "height": 4.0,
+            }]
+        value["join"]["entities"][0]["primitives"][0]["width"] = 5.0
+        with self.assertRaisesRegex(Failure, "primitive divergence"):
+            analyze_render_samples([value])
+
     def test_normalizes_different_client_cameras(self):
         result = analyze_render_samples([
             sample(1, 10.0, host_camera=100.0, join_camera=40.0),
@@ -85,6 +123,14 @@ class RenderOracleTests(unittest.TestCase):
         value = sample(1, 10.0)
         value["join"]["entities"] = []
         with self.assertRaisesRegex(Failure, "entity-set divergence"):
+            analyze_render_samples([value])
+
+    def test_rejects_duplicate_transient_identity(self):
+        value = sample(1, 10.0)
+        value["host"]["entities"].append(
+            copy.deepcopy(value["host"]["entities"][0])
+        )
+        with self.assertRaisesRegex(Failure, "duplicate host"):
             analyze_render_samples([value])
 
     def test_rejects_animation_state_divergence(self):

@@ -928,7 +928,8 @@ void save_game(const Simulation& simulation, const std::filesystem::path& path) 
                        ? static_cast<int>(projectile.commercial_projectile_identity
                              ->object_id) : -1) << ' '
                << projectile.precomputed_damage << ' '
-               << projectile.tracks_target << '\n';
+               << projectile.tracks_target << ' '
+               << projectile.effect_id << '\n';
     }
     for (const ImpactEffect& effect : simulation.impact_effects()) {
         output << "impact " << effect.position.x << ' '
@@ -937,7 +938,14 @@ void save_game(const Simulation& simulation, const std::filesystem::path& path) 
                << encode(effect.source_kind) << ' '
                << effect.source_is_building << ' '
                << encode(effect.source_building_kind) << ' '
-               << effect.source_entity_id
+               << effect.source_entity_id << ' '
+               << (effect.commercial_projectile_identity
+                       ? effect.commercial_projectile_identity
+                             ->civilization_id : -1) << ' '
+               << (effect.commercial_projectile_identity
+                       ? static_cast<int>(effect.commercial_projectile_identity
+                             ->object_id) : -1) << ' '
+               << effect.effect_id
                << '\n';
     }
     for (const UnitDeathEffect& effect : simulation.death_effects()) {
@@ -949,7 +957,8 @@ void save_game(const Simulation& simulation, const std::filesystem::path& path) 
                << effect.entity_id << ' '
                << effect.previous_position.x << ' '
                << effect.previous_position.y << ' '
-               << static_cast<unsigned>(effect.facing) << '\n';
+               << static_cast<unsigned>(effect.facing) << ' '
+               << effect.effect_id << '\n';
     }
     for (const BuildingRubbleEffect& effect : simulation.rubble_effects()) {
         output << "rubble " << effect.position.x << ' '
@@ -957,8 +966,10 @@ void save_game(const Simulation& simulation, const std::filesystem::path& path) 
                << static_cast<int>(effect.owner.stable_id()) << ' '
                << effect.ticks_remaining
                << ' ' << effect.total_ticks << ' '
-               << effect.entity_id << '\n';
+               << effect.entity_id << ' ' << effect.effect_id << '\n';
     }
+    output << "transient-effect-sequence "
+           << simulation.next_transient_effect_id() << '\n';
     output << "reactive-sound-sequence "
            << simulation.next_reactive_sound_sequence() << '\n';
     for (const auto& [entity, frames] :
@@ -1022,6 +1033,7 @@ Simulation load_game(const std::filesystem::path& path) {
     std::vector<ImpactEffect> impact_effects;
     std::vector<UnitDeathEffect> death_effects;
     std::vector<BuildingRubbleEffect> rubble_effects;
+    std::uint64_t next_transient_effect_id{1};
     std::uint64_t reactive_sound_sequence{1};
     std::map<EntityId, int> reactive_attack_frames;
     std::vector<TilePosition> blue_explored;
@@ -2760,6 +2772,7 @@ Simulation load_game(const std::filesystem::path& path) {
                 }
             }
             if (version >= 124) input >> projectile.tracks_target;
+            if (version >= 131) input >> projectile.effect_id;
             if (version >= 109) {
                 const auto decoded = EntityOwner::from_stable_id(owner);
                 if (!decoded) {
@@ -2801,6 +2814,33 @@ Simulation load_game(const std::filesystem::path& path) {
             }
             if (version >= 111) {
                 input >> effect.source_entity_id;
+            }
+            if (version >= 131) {
+                int commercial_civilization{-1};
+                int commercial_object{-1};
+                input >> commercial_civilization >> commercial_object
+                      >> effect.effect_id;
+                if ((commercial_civilization < 0) !=
+                    (commercial_object < 0)) {
+                    throw std::runtime_error(
+                        "invalid impact commercial projectile identity"
+                    );
+                }
+                if (commercial_civilization >= 0) {
+                    if (commercial_civilization > 255 ||
+                        commercial_object > 65535) {
+                        throw std::runtime_error(
+                            "impact commercial projectile identity out of range"
+                        );
+                    }
+                    effect.commercial_projectile_identity =
+                        CommercialObjectIdentity{
+                            static_cast<CommercialCivilizationId>(
+                                commercial_civilization
+                            ),
+                            static_cast<CommercialObjectId>(commercial_object),
+                        };
+                }
             }
             impact_effects.push_back(effect);
         } else if (record == "death" && version >= 45) {
@@ -2894,6 +2934,7 @@ Simulation load_game(const std::filesystem::path& path) {
                            effect.kind == UnitKind::trade_cog ? 16 : 8)) {
                 effect.facing = *facing;
             }
+            if (version >= 131) input >> effect.effect_id;
             death_effects.push_back(effect);
         } else if (record == "rubble" && version >= 46) {
             BuildingRubbleEffect effect;
@@ -2916,7 +2957,13 @@ Simulation load_game(const std::filesystem::path& path) {
             if (version >= 111) {
                 input >> effect.entity_id;
             }
+            if (version >= 131) input >> effect.effect_id;
             rubble_effects.push_back(effect);
+        } else if (record == "transient-effect-sequence" && version >= 131) {
+            input >> next_transient_effect_id;
+            if (next_transient_effect_id == 0) {
+                throw std::runtime_error("invalid transient effect sequence");
+            }
         } else {
             throw std::runtime_error("unknown save record: " + record);
         }
@@ -3283,6 +3330,7 @@ Simulation load_game(const std::filesystem::path& path) {
     simulation.replace_impact_effects(std::move(impact_effects));
     simulation.replace_death_effects(std::move(death_effects));
     simulation.replace_rubble_effects(std::move(rubble_effects));
+    simulation.replace_next_transient_effect_id(next_transient_effect_id);
     simulation.replace_reactive_sound_scheduler(
         reactive_sound_sequence, std::move(reactive_attack_frames));
     simulation.replace_ages(blue_age, red_age);

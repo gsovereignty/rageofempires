@@ -161,7 +161,7 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
     if not samples:
         raise Failure("render oracle captured no correlated frames")
     counts = {"frames": len(samples), "entities": 0, "legacy": 0,
-              "proceduralOrUnproven": 0}
+              "intentionalProcedural": 0, "proceduralOrUnproven": 0}
     last_frame = {"host": -1, "join": -1}
     previous_positions: dict[
         tuple[str, str, int], tuple[float, float, int, tuple[int, int] | None]
@@ -213,6 +213,27 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
                             int(entity.get("expectedRequiredFrameCount", 0)),
                             int(state.get("presentationTimeMs", 0)),
                         ))
+                elif source == "intentional_procedural":
+                    if (entity.get("expectedAssetStatus") !=
+                            "intentional_procedural" or
+                            not entity.get("expectedSourceMapping")):
+                        raise Failure(
+                            f"unresolved procedural contract: {entity}"
+                        )
+                    primitives = entity.get("primitives")
+                    if not isinstance(primitives, list) or not primitives:
+                        raise Failure(
+                            f"procedural entity lacks provenance: {entity}"
+                        )
+                    for primitive in primitives:
+                        if (not isinstance(primitive, dict) or
+                                not primitive.get("operation") or
+                                not isinstance(primitive.get("rgba"), list) or
+                                len(primitive["rgba"]) != 4):
+                            raise Failure(
+                                f"invalid procedural primitive: {entity}"
+                            )
+                    counts["intentionalProcedural"] += 1
                 else:
                     counts["proceduralOrUnproven"] += 1
                     raise Failure(f"unproved production render source: {entity}")
@@ -255,6 +276,15 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
                 )
         host_state = sample.get("host") or {}
         join_state = sample.get("join") or {}
+        for peer, state in (("host", host_state), ("join", join_state)):
+            entity_keys = [
+                (str(entity.get("category", "")),
+                 int(entity.get("id", -1)))
+                for entity in state.get("entities", [])
+                if isinstance(entity, dict)
+            ]
+            if len(entity_keys) != len(set(entity_keys)):
+                raise Failure(f"duplicate {peer} render entity identity")
         host_entities = {
             (str(entity.get("category", "")), int(entity.get("id", -1))): entity
             for entity in host_state.get("entities", [])
@@ -308,8 +338,11 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
             ]
             if host_assets != join_assets:
                 raise Failure(f"client asset divergence {key}")
-    if counts["legacy"] == 0:
-        raise Failure("render oracle observed no legacy sprite provenance")
+            if (host_entity.get("primitives", []) !=
+                    join_entity.get("primitives", [])):
+                raise Failure(f"client primitive divergence {key}")
+    if counts["legacy"] + counts["intentionalProcedural"] == 0:
+        raise Failure("render oracle observed no production provenance")
     for key, observations in animation_frames.items():
         for (previous_tick, previous_frame, _, previous_count, previous_time), \
                 (tick, frame, _, frame_count, presentation_time) in zip(

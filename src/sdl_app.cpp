@@ -1085,7 +1085,7 @@ struct OverlapCaptureDraw {
 struct OverlapCaptureCase {
     std::string id;
     std::string kind;
-    EntityId entity{};
+    std::uint64_t entity{};
     std::string state;
     int facing{};
     EntityOwner owner{Player::neutral};
@@ -6642,7 +6642,7 @@ bool save_overlap_pixels(
 
 void begin_overlap_case(
     std::string kind,
-    EntityId entity,
+    std::uint64_t entity,
     std::string state,
     int facing,
     EntityOwner owner = EntityOwner{Player::neutral}
@@ -6676,6 +6676,24 @@ void finish_overlap_case() {
     active_browser_render_capture.current = nullptr;
 }
 
+class ScopedOverlapCase {
+public:
+    ScopedOverlapCase(
+        std::string kind,
+        std::uint64_t entity,
+        std::string state,
+        int facing,
+        EntityOwner owner = EntityOwner{Player::neutral}
+    ) {
+        begin_overlap_case(
+            std::move(kind), entity, std::move(state), facing, owner
+        );
+    }
+    ~ScopedOverlapCase() { finish_overlap_case(); }
+    ScopedOverlapCase(const ScopedOverlapCase&) = delete;
+    ScopedOverlapCase& operator=(const ScopedOverlapCase&) = delete;
+};
+
 std::string overlap_json_escape(std::string_view value) {
     std::string escaped;
     for (const char character : value) {
@@ -6705,6 +6723,22 @@ std::string browser_render_telemetry_json(
     for (const Building& building : simulation.buildings()) {
         buildings_by_id.emplace(building.id, &building);
     }
+    std::map<std::uint64_t, const Projectile*> projectiles_by_id;
+    for (const Projectile& projectile : simulation.projectiles()) {
+        projectiles_by_id.emplace(projectile.effect_id, &projectile);
+    }
+    std::map<std::uint64_t, const ImpactEffect*> impacts_by_id;
+    for (const ImpactEffect& effect : simulation.impact_effects()) {
+        impacts_by_id.emplace(effect.effect_id, &effect);
+    }
+    std::map<std::uint64_t, const UnitDeathEffect*> deaths_by_id;
+    for (const UnitDeathEffect& effect : simulation.death_effects()) {
+        deaths_by_id.emplace(effect.effect_id, &effect);
+    }
+    std::map<std::uint64_t, const BuildingRubbleEffect*> rubble_by_id;
+    for (const BuildingRubbleEffect& effect : simulation.rubble_effects()) {
+        rubble_by_id.emplace(effect.effect_id, &effect);
+    }
     std::ostringstream output;
     output << "{\"schemaVersion\":1,\"frame\":"
            << active_browser_render_capture.frame
@@ -6730,11 +6764,103 @@ std::string browser_render_telemetry_json(
                << "\",\"owner\":"
                << static_cast<int>(capture.owner.stable_id())
                << ",\"facing\":" << capture.facing;
-        const auto unit_entry = units_by_id.find(capture.entity);
+        const auto unit_entry = units_by_id.find(
+            static_cast<EntityId>(capture.entity)
+        );
         const Unit* unit = unit_entry == units_by_id.end()
             ? nullptr : unit_entry->second;
         std::optional<AssetResolution> expected_asset;
-        if (unit != nullptr &&
+        if (capture.kind.starts_with("unit-death-")) {
+            const auto found = deaths_by_id.find(capture.entity);
+            if (found != deaths_by_id.end()) {
+                const UnitDeathEffect& effect = *found->second;
+                RenderStateKey state;
+                state.category = RenderObjectCategory::unit_death;
+                state.object_kind = render_unit_kind_name(effect.kind);
+                state.action = RenderAction::dying;
+                state.owner = effect.owner.stable_id();
+                state.civilization = simulation.civilization(effect.owner);
+                state.age = simulation.age(effect.owner);
+                state.architecture_family = render_architecture_family(
+                    state.civilization
+                );
+                state.direction = effect.facing;
+                state.animation_frame = std::max(
+                    effect.total_ticks - effect.ticks_remaining, 0
+                ) * 2;
+                expected_asset = resolve_unit_asset(state, effect.kind);
+                output << ",\"animationState\":\"dying\"";
+            }
+        } else if (capture.kind.starts_with("building-rubble-")) {
+            const auto found = rubble_by_id.find(capture.entity);
+            if (found != rubble_by_id.end()) {
+                const BuildingRubbleEffect& effect = *found->second;
+                RenderStateKey state;
+                state.category = RenderObjectCategory::building_rubble;
+                state.object_kind = render_building_kind_name(effect.kind);
+                state.action = RenderAction::dying;
+                state.building_state = RenderBuildingState::dying;
+                state.owner = effect.owner.stable_id();
+                state.civilization = simulation.civilization(effect.owner);
+                state.age = simulation.age(effect.owner);
+                state.architecture_family =
+                    render_building_architecture_family(
+                        effect.kind, state.civilization
+                    );
+                state.animation_frame = std::max(
+                    effect.total_ticks - effect.ticks_remaining, 0
+                );
+                expected_asset = resolve_building_asset(state, effect.kind);
+                output << ",\"animationState\":\"dying\"";
+            }
+        } else if (capture.kind.starts_with("projectile-")) {
+            const auto found = projectiles_by_id.find(capture.entity);
+            if (found != projectiles_by_id.end()) {
+                const Projectile& projectile = *found->second;
+                const auto kind = projectile_asset_kind_for(projectile);
+                RenderStateKey state;
+                state.category = RenderObjectCategory::projectile;
+                state.object_kind = kind
+                    ? std::string{projectile_asset_kind_name(*kind)}
+                    : std::string{"generic"};
+                state.direction = render_direction(
+                    projectile.origin, projectile.destination
+                );
+                state.animation_frame = std::max(
+                    projectile.total_ticks - projectile.ticks_remaining, 0
+                );
+                if (kind && !projectile.commercial_projectile_identity) {
+                    expected_asset = resolve_projectile_asset(state, *kind);
+                }
+                if (projectile.commercial_projectile_identity) {
+                    output << ",\"mappingBlocker\":"
+                           << "\"commercial projectile asset contract\"";
+                }
+                output << ",\"animationState\":\"flying\"";
+            }
+        } else if (capture.kind.starts_with("impact-")) {
+            const auto found = impacts_by_id.find(capture.entity);
+            if (found != impacts_by_id.end()) {
+                const ImpactEffect& effect = *found->second;
+                const auto kind = impact_asset_kind_for(effect);
+                if (kind && !effect.commercial_projectile_identity) {
+                    RenderStateKey state;
+                    state.category = RenderObjectCategory::impact;
+                    state.object_kind = std::string{
+                        projectile_asset_kind_name(*kind)
+                    };
+                    state.animation_frame = std::max(
+                        effect.total_ticks - effect.ticks_remaining, 0
+                    );
+                    expected_asset = resolve_projectile_asset(state, *kind);
+                }
+                if (effect.commercial_projectile_identity) {
+                    output << ",\"mappingBlocker\":"
+                           << "\"commercial impact asset contract\"";
+                }
+                output << ",\"animationState\":\"impact\"";
+            }
+        } else if (unit != nullptr &&
             capture.kind.starts_with("unit-")) {
             RenderStateKey expected_state;
             expected_state.category = RenderObjectCategory::unit;
@@ -6773,7 +6899,9 @@ std::string browser_render_telemetry_json(
                    << static_cast<int>(unit->animation_state)
                    << "";
         } else if (capture.kind.starts_with("building-")) {
-            const auto building_entry = buildings_by_id.find(capture.entity);
+            const auto building_entry = buildings_by_id.find(
+                static_cast<EntityId>(capture.entity)
+            );
             if (building_entry != buildings_by_id.end()) {
                 const Building& building = *building_entry->second;
                 RenderStateKey state;
@@ -16203,15 +16331,14 @@ std::size_t render(
                  !simulation.is_visible_to_controller(active_view_player, effect.position))) {
                 continue;
             }
-            begin_overlap_case(
-                "blocked-building-rubble-" +
+            const ScopedOverlapCase capture(
+                "building-rubble-" +
                     render_building_kind_name(effect.kind),
-                effect.entity_id,
-                "renderer effect isolation unsupported",
+                effect.effect_id,
+                "dying",
                 0,
                 effect.owner
             );
-            finish_overlap_case();
             const auto exact_building_death =
                 active_legacy_sprites.building_death_composites.find(
                     effect.kind
@@ -16361,9 +16488,9 @@ std::size_t render(
                 !simulation.is_visible_to_controller(active_view_player, effect.position)) {
                 continue;
             }
-            begin_overlap_case(
+            const ScopedOverlapCase capture(
                 "unit-death-" + render_unit_kind_name(effect.kind),
-                effect.entity_id,
+                effect.effect_id,
                 "dying",
                 effect.facing,
                 effect.owner
@@ -16410,7 +16537,6 @@ std::size_t render(
                             top.y + half_tile_height + flare * 0.5F
                         );
                     }
-                    finish_overlap_case();
                     continue;
                 }
             }
@@ -16468,7 +16594,6 @@ std::size_t render(
                 set_color(renderer, {212, 174, 126, 255});
                 SDL_RenderFillRect(renderer, &head);
             }
-            finish_overlap_case();
         }
 
         for (const Building& building : simulation.buildings()) {
@@ -16595,6 +16720,17 @@ std::size_t render(
              !simulation.is_visible_to_controller(active_view_player, projectile_tile))) {
             continue;
         }
+        const auto projectile_asset = projectile_asset_kind_for(projectile);
+        const ScopedOverlapCase capture(
+            "projectile-" +
+                (projectile_asset
+                    ? std::string{projectile_asset_kind_name(*projectile_asset)}
+                    : std::string{"generic"}),
+            projectile.effect_id,
+            "flying",
+            render_direction(projectile.origin, projectile.destination),
+            projectile.owner
+        );
         const SDL_FPoint position{
             origin.x + (destination.x - origin.x) * progress,
             origin.y + half_tile_height +
@@ -16627,8 +16763,6 @@ std::size_t render(
             }
         }
         const float lane = static_cast<float>(projectile.visual_lane);
-        const auto projectile_asset =
-            projectile_asset_kind_for(projectile);
         const bool fire_stream =
             projectile_asset == ProjectileAssetKind::fire_stream;
         const bool cannonball =
@@ -16824,6 +16958,15 @@ std::size_t render(
         if (!projectile_impact_is_visible(effect)) {
             continue;
         }
+        const auto impact_asset = impact_asset_kind_for(effect);
+        const ScopedOverlapCase capture(
+            "impact-" + (impact_asset
+                ? std::string{projectile_asset_kind_name(*impact_asset)}
+                : std::string{"generic"}),
+            effect.effect_id,
+            "impact",
+            0
+        );
         const SDL_FPoint top = tile_top(effect.position);
         const SDL_FPoint center{
             top.x,
@@ -16836,7 +16979,6 @@ std::size_t render(
             0.0F,
             1.0F
         );
-        const auto impact_asset = impact_asset_kind_for(effect);
         const bool siege_source =
             impact_asset == ProjectileAssetKind::cannonball;
         const bool gunpowder_explosion =

@@ -819,6 +819,7 @@ struct Projectile {
     std::optional<CommercialObjectIdentity> commercial_projectile_identity;
     bool precomputed_damage{};
     bool tracks_target{};
+    std::uint64_t effect_id{};
 };
 
 struct ImpactEffect {
@@ -830,6 +831,8 @@ struct ImpactEffect {
     bool source_is_building{};
     BuildingKind source_building_kind{BuildingKind::town_center};
     EntityId source_entity_id{};
+    std::uint64_t effect_id{};
+    std::optional<CommercialObjectIdentity> commercial_projectile_identity;
 };
 
 struct UnitDeathEffect {
@@ -841,6 +844,7 @@ struct UnitDeathEffect {
     EntityId entity_id{};
     TilePosition previous_position{};
     std::uint8_t facing{};
+    std::uint64_t effect_id{};
 };
 
 struct BuildingRubbleEffect {
@@ -850,6 +854,7 @@ struct BuildingRubbleEffect {
     int ticks_remaining{};
     int total_ticks{};
     EntityId entity_id{};
+    std::uint64_t effect_id{};
 };
 
 enum class ReactiveSoundKind {

@@ -33,10 +33,10 @@ from browser_risk_spike_test import (
 ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS = ROOT / "artifacts" / "nostr-multiplayer"
 DEFAULT_RELAYS = (
-    "wss://relay.damus.io,wss://nos.lol,wss://relay.primal.net,"
-    "wss://relay.nostr.band,wss://relay.snort.social,wss://nostr.mom,"
-    "wss://relay.nostr.bg,wss://nostr-pub.wellorder.net,"
-    "wss://nostr.oxtr.dev,wss://relay.orangepill.dev"
+    "wss://nostr-pub.wellorder.net,wss://nostr.oxtr.dev,wss://nostr.bond,"
+    "wss://relay.nostr.net,wss://yabu.me,wss://relay.nostr.wirednet.jp,"
+    "wss://relay.nostr.info,wss://nostr.sathoarder.com,"
+    "wss://relay.wavlake.com,wss://relay.noswhere.com"
 )
 WAIT_SECONDS = 180.0
 

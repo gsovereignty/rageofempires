@@ -524,16 +524,16 @@ public:
         config_.host_slot = *PlayerSlotId::from_index(0);
         if (relays_.empty() && hosting_) {
             relays_ = {
-                "wss://relay.damus.io/",
-                "wss://nos.lol/",
-                "wss://relay.primal.net/",
-                "wss://relay.nostr.band/",
-                "wss://relay.snort.social/",
-                "wss://nostr.mom/",
-                "wss://relay.nostr.bg/",
                 "wss://nostr-pub.wellorder.net/",
                 "wss://nostr.oxtr.dev/",
-                "wss://relay.orangepill.dev/",
+                "wss://nostr.bond/",
+                "wss://relay.nostr.net/",
+                "wss://yabu.me/",
+                "wss://relay.nostr.wirednet.jp/",
+                "wss://relay.nostr.info/",
+                "wss://nostr.sathoarder.com/",
+                "wss://relay.wavlake.com/",
+                "wss://relay.noswhere.com/",
             };
         }
         std::ostringstream initialize;

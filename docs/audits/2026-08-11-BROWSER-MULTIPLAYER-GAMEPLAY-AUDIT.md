@@ -257,3 +257,30 @@ evidence collection assumes `Module` exists and can mask the primary failure
 when a browser leaves the packaged game context. Root cause is the unguarded
 identifier access in `diagnostics()` combined with an unconditional diagnostics
 call in the failure handler. Overall verdict remains **BLOCKED**.
+
+## Public relay pool replacement
+
+Removed the six endpoints implicated by blocked runs: Damus, nos.lol, Primal,
+nostr.band, Snort, and nostr.mom. Also removed the unresolved `relay.nostr.bg`
+hostname and paid `relay.orangepill.dev` endpoint from defaults. Production
+runtime, browser launch UI, and audit harness now share this pool:
+
+- `wss://nostr-pub.wellorder.net`
+- `wss://nostr.oxtr.dev`
+- `wss://nostr.bond`
+- `wss://relay.nostr.net`
+- `wss://yabu.me`
+- `wss://relay.nostr.wirednet.jp`
+- `wss://relay.nostr.info`
+- `wss://nostr.sathoarder.com`
+- `wss://relay.wavlake.com`
+- `wss://relay.noswhere.com`
+
+All ten returned live NIP-11 documents and independently completed a WebSocket
+`REQ`/`EOSE` probe on 2026-08-11. Packaged run
+`20260811T200000Z-new-relay-pool` then passed relay establishment, deterministic
+lockstep, movement, and early full-gameplay gathering/construction. It stopped
+later at the existing host barracks-selection automation timeout. This proves
+the replacement pool reaches meaningful gameplay; it does not yet prove full
+match completion or relay-loss recovery. Overall audit verdict remains
+**BLOCKED** on later harness coverage, not relay establishment.

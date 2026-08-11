@@ -33,7 +33,8 @@ configured relay has a visible `Disconnect` or `Restore` button.
 
 - Disconnect stops that relay's match subscription and socket, excludes it
   from publication, and clears its EOSE state.
-- With two of three relays still active, quorum remains two and play continues.
+- Default matches configure ten public relays. Any two active relays satisfy
+  quorum; inactive relays do not fail or pause a match while two remain.
 - Below configured quorum, runtime suspends before scheduling more turns.
 - Restore opens a fresh stored-event subscription. Play remains blocked until
   required relay quorum is connected, ready, and has reached EOSE.

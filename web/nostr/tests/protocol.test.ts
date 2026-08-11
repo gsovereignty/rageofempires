@@ -46,7 +46,15 @@ test("public match reference round trips bounded relay hints", () => {
 
 test("relay and intent bounds reject unsupported inputs", () => {
   assert.throws(() => validateRelays(["ws://localhost"], true), /wss/);
-  assert.throws(() => validateRelays(["wss://one.example"], false), /2-4/);
+  assert.throws(() => validateRelays(["wss://one.example"], false), /2-10/);
+  assert.doesNotThrow(() => validateRelays(
+    Array.from({length: 10}, (_, index) => `wss://relay-${index}.example`),
+    false,
+  ));
+  assert.throws(() => validateRelays(
+    Array.from({length: 11}, (_, index) => `wss://relay-${index}.example`),
+    false,
+  ), /2-10/);
   assert.throws(() => validateIntent({
     intent_id: "x",
     kind: 9999,

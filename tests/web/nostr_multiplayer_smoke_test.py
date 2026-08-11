@@ -32,7 +32,10 @@ from browser_risk_spike_test import (
 ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS = ROOT / "artifacts" / "nostr-multiplayer"
 DEFAULT_RELAYS = (
-    "wss://relay.damus.io,wss://nos.lol,wss://relay.primal.net"
+    "wss://relay.damus.io,wss://nos.lol,wss://relay.primal.net,"
+    "wss://relay.nostr.band,wss://relay.snort.social,wss://nostr.mom,"
+    "wss://relay.nostr.bg,wss://nostr-pub.wellorder.net,"
+    "wss://nostr.oxtr.dev,wss://relay.orangepill.dev"
 )
 WAIT_SECONDS = 180.0
 
@@ -585,12 +588,15 @@ def run(relays: str, headed: bool, port: int = 8888,
                 "join": one_relay_loss[1],
             }
 
-            for driver in (host, join):
-                set_relay_enabled(driver, 1, False)
+            for relay_index in range(1, len(relays.split(","))):
+                for driver in (host, join):
+                    set_relay_enabled(driver, relay_index, False)
             quorum_loss = wait_until(
                 "quorum-loss suspension",
                 lambda: matching_relay_state(
-                    host, join, disabled=2, status=2, reason=5,
+                    host, join,
+                    disabled=len(relays.split(",")) - 1,
+                    status=2, reason=5,
                 ),
                 timeout=WAIT_SECONDS,
             )
@@ -615,7 +621,9 @@ def run(relays: str, headed: bool, port: int = 8888,
             recovered = wait_until(
                 "relay EOSE backfill and lockstep recovery",
                 lambda: matching_relay_state(
-                    host, join, disabled=1, status=0, eose=2,
+                    host, join,
+                    disabled=len(relays.split(",")) - 2,
+                    status=0, eose=2,
                     minimum_tick=max(stopped_ticks) + 1,
                 ),
                 timeout=WAIT_SECONDS,
@@ -624,8 +632,9 @@ def run(relays: str, headed: bool, port: int = 8888,
                 "host": recovered[0],
                 "join": recovered[1],
             }
-            for driver in (host, join):
-                set_relay_enabled(driver, 0, True)
+            for relay_index in range(len(relays.split(","))):
+                for driver in (host, join):
+                    set_relay_enabled(driver, relay_index, True)
             wait_until(
                 "all configured relays restored through EOSE",
                 lambda: (
@@ -633,7 +642,8 @@ def run(relays: str, headed: bool, port: int = 8888,
                     if all(
                         not (state := diagnostics(driver) or {}).get(
                             "disabledRelays"
-                        ) and len(state.get("eoseRelays", [])) >= 3
+                        ) and len(state.get("eoseRelays", [])) >=
+                        len(relays.split(","))
                         for driver in (host, join)
                     )
                     else None

@@ -8,7 +8,7 @@ JOBS ?= $(shell \
 	getconf _NPROCESSORS_ONLN 2>/dev/null || \
 	echo 1)
 CMAKE_ARGS ?=
-WEB_PORT ?= 8000
+WEB_PORT ?= 8888
 PYTHON ?= python3
 ifeq ($(shell uname -s),Darwin)
 PLATFORM_CMAKE_ARGS := -DAOE_BUILD_SDL3=ON

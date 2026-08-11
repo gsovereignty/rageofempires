@@ -3,9 +3,42 @@ set(AOE_WEB_ASSET_DIR "${CMAKE_BINARY_DIR}/web-assets")
 set(AOE_BROWSER_TEST_PYTHON "python3" CACHE STRING
     "Host Python command with Selenium for browser acceptance")
 
+find_program(AOE_NPM_EXECUTABLE npm REQUIRED)
+set(AOE_NOSTR_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/web/nostr")
+set(AOE_NOSTR_BUNDLE "${CMAKE_BINARY_DIR}/nostr/aoe_nostr.js")
+set(AOE_NOSTR_INPUTS
+    "${AOE_NOSTR_SOURCE_DIR}/package.json"
+    "${AOE_NOSTR_SOURCE_DIR}/package-lock.json"
+    "${AOE_NOSTR_SOURCE_DIR}/tsconfig.json"
+    "${AOE_NOSTR_SOURCE_DIR}/scripts/build.mjs"
+    "${AOE_NOSTR_SOURCE_DIR}/src/bridge.ts"
+    "${AOE_NOSTR_SOURCE_DIR}/src/protocol.ts"
+    "${AOE_NOSTR_SOURCE_DIR}/src/runtime.ts"
+)
+add_custom_command(
+    OUTPUT "${AOE_NOSTR_BUNDLE}"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory
+        "${CMAKE_BINARY_DIR}/nostr"
+    COMMAND "${AOE_NPM_EXECUTABLE}" ci --ignore-scripts
+    COMMAND "${AOE_NPM_EXECUTABLE}" run typecheck
+    COMMAND "${CMAKE_COMMAND}" -E env
+        "AOE_NOSTR_BUNDLE=${AOE_NOSTR_BUNDLE}"
+        "${AOE_NPM_EXECUTABLE}" run build
+    WORKING_DIRECTORY "${AOE_NOSTR_SOURCE_DIR}"
+    DEPENDS ${AOE_NOSTR_INPUTS}
+    COMMENT "Building pinned Applesauce browser runtime"
+    VERBATIM
+)
+add_custom_target(nostr_browser_bundle DEPENDS "${AOE_NOSTR_BUNDLE}")
+
 set(AOE_WEB_CORE_SOURCES ${AOE_CORE_SOURCES})
 list(REMOVE_ITEM AOE_WEB_CORE_SOURCES
     src/commercial_multiplayer_service.cpp
+    src/multiplayer_transport.cpp
+)
+list(APPEND AOE_WEB_CORE_SOURCES
+    src/nostr_browser_bridge.cpp
+    src/nostr_multiplayer_runtime.cpp
 )
 add_library(aoe_web_core STATIC ${AOE_WEB_CORE_SOURCES})
 target_include_directories(
@@ -43,7 +76,7 @@ target_compile_definitions(aoe_web PRIVATE
     AOE_HAVE_NATIVE_MP3=0
     AOE_HAVE_MPG123=0
 )
-add_dependencies(aoe_web web_asset_pack)
+add_dependencies(aoe_web web_asset_pack nostr_browser_bundle)
 target_compile_options(aoe_web PRIVATE
     -Wall
     -Wextra
@@ -61,6 +94,7 @@ target_link_options(aoe_web PRIVATE
     "SHELL:-s ENVIRONMENT=web"
     "SHELL:-s INVOKE_RUN=0"
     "SHELL:-s EXPORTED_RUNTIME_METHODS=['callMain']"
+    "SHELL:-s EXPORTED_FUNCTIONS=['_main','_malloc','_free','_aoe_nostr_enqueue_event','_aoe_nostr_enqueue_status','_aoe_nostr_publish_result']"
     "SHELL:--shell-file ${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html"
     "SHELL:--pre-js ${CMAKE_CURRENT_SOURCE_DIR}/web/browser_runtime.js"
     "SHELL:--preload-file ${AOE_WEB_ASSET_DIR}/resources@/resources"
@@ -73,7 +107,7 @@ set_target_properties(aoe_web PROPERTIES
     SUFFIX ".html"
     RUNTIME_OUTPUT_DIRECTORY "${AOE_WEB_DIST_DIR}"
     LINK_DEPENDS
-        "${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html;${CMAKE_CURRENT_SOURCE_DIR}/web/browser_runtime.js;${CMAKE_CURRENT_SOURCE_DIR}/web/styles.css"
+        "${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html;${CMAKE_CURRENT_SOURCE_DIR}/web/browser_runtime.js;${CMAKE_CURRENT_SOURCE_DIR}/web/styles.css;${AOE_NOSTR_BUNDLE}"
 )
 add_custom_command(TARGET aoe_web POST_BUILD
     COMMAND "${CMAKE_COMMAND}" -E make_directory
@@ -89,6 +123,9 @@ add_custom_command(TARGET aoe_web POST_BUILD
     COMMAND "${CMAKE_COMMAND}" -E copy_if_different
         "${CMAKE_CURRENT_SOURCE_DIR}/web/styles.css"
         "${AOE_WEB_DIST_DIR}/styles.css"
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+        "${AOE_NOSTR_BUNDLE}"
+        "${AOE_WEB_DIST_DIR}/aoe_nostr.js"
     VERBATIM
 )
 
@@ -107,6 +144,16 @@ add_custom_target(web_risk_spike
         "${CMAKE_CURRENT_SOURCE_DIR}/tests/web/browser_risk_spike_test.py"
         --browser chrome
         --persistence-checks
+    DEPENDS aoe_web
+    USES_TERMINAL
+    VERBATIM
+)
+
+add_custom_target(web_nostr_multiplayer_smoke
+    COMMAND "${AOE_BROWSER_TEST_PYTHON}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/web/nostr_multiplayer_smoke_test.py"
+        --evidence
+        "${CMAKE_CURRENT_SOURCE_DIR}/artifacts/nostr-multiplayer/production-smoke.json"
     DEPENDS aoe_web
     USES_TERMINAL
     VERBATIM

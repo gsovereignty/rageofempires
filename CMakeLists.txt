@@ -135,6 +135,7 @@ set(AOE_CORE_SOURCES
     src/localization.cpp
     src/multiplayer.cpp
     src/multiplayer_runtime.cpp
+    src/nostr_protocol.cpp
     src/multiplayer_checkpoint.cpp
     src/ui_assets.cpp
     src/ui_icon_contract.cpp
@@ -594,6 +595,13 @@ target_compile_options(
     multiplayer_signal_tests PRIVATE -Wall -Wextra -Wpedantic
 )
 add_test(NAME multiplayer_signal_tests COMMAND multiplayer_signal_tests)
+
+add_executable(nostr_protocol_tests tests/nostr_protocol_tests.cpp)
+target_link_libraries(nostr_protocol_tests PRIVATE aoe_core)
+target_compile_options(
+    nostr_protocol_tests PRIVATE -Wall -Wextra -Wpedantic
+)
+add_test(NAME nostr_protocol_tests COMMAND nostr_protocol_tests)
 add_test(
     NAME multiplayer_signal_sdl_smoke
     COMMAND bash

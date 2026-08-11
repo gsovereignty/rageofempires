@@ -13,11 +13,48 @@
       <h1>Loading</h1>
       <p id="status">Preparing browser runtime…</p>
     </section>
-    <button id="start" type="button" hidden>Start Skirmish</button>
+    <section id="launch" hidden>
+      <h1>AoE Archaeology</h1>
+      <label>Mode
+        <select id="launch-mode">
+          <option value="single">Single player</option>
+          <option value="host">Host public Nostr match</option>
+          <option value="join">Join public Nostr match</option>
+        </select>
+      </label>
+      <label id="relay-field" hidden>Public relays
+        <input id="relays" size="64"
+          value="wss://relay.damus.io,wss://nos.lol">
+      </label>
+      <label id="reference-field" hidden>Public match reference
+        <textarea id="match-reference" rows="3" cols="72"></textarea>
+      </label>
+      <label id="one-relay-field" hidden>
+        <input id="one-relay" type="checkbox"> One-relay development mode
+      </label>
+      <p id="public-warning" hidden>All lobby, identity, chat, commands,
+        synchronization, control, and result data is public and relay-retained.</p>
+    </section>
+    <section id="nostr-session" hidden aria-live="polite">
+      <strong>Public Nostr match</strong>
+      <span>Commands, chat, identities, and results are public.</span>
+      <label>Ephemeral public key
+        <input id="nostr-public-key" readonly>
+      </label>
+      <label>Public match reference
+        <textarea id="nostr-public-reference" rows="3" readonly></textarea>
+      </label>
+      <button id="copy-match-reference" type="button" disabled>
+        Copy match reference
+      </button>
+      <span id="copy-match-status"></span>
+    </section>
+    <button id="start" type="button" hidden>Start</button>
     <button id="fullscreen" type="button" hidden>Fullscreen</button>
     <button id="diagnostics" type="button">Download diagnostics</button>
     <canvas id="canvas" tabindex="0" hidden></canvas>
   </main>
+  <script src="aoe_nostr.js"></script>
   {{{ SCRIPT }}}
 </body>
 </html>

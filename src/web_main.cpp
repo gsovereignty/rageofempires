@@ -16,6 +16,23 @@ EM_JS(bool, browser_risk_fixture_requested, (), {
         'risk-spike';
 });
 
+EM_JS(char*, browser_query_parameter, (const char* name), {
+    const value = new URLSearchParams(window.location.search).get(
+        UTF8ToString(name)
+    );
+    return value === null ? 0 : stringToNewUTF8(value);
+});
+
+void set_environment_from_query(
+    const char* query_name,
+    const char* environment_name
+) {
+    char* value = browser_query_parameter(query_name);
+    if (value == nullptr) return;
+    setenv(environment_name, value, true);
+    std::free(value);
+}
+
 aoe::SdlApp application;
 
 EM_JS(void, report_browser_failure, (const char* message), {
@@ -72,7 +89,13 @@ int main() {
             : "/resources/browser-skirmish.scenario",
         true
     );
+    // The browser shell is the launch menu. Enter the selected skirmish mode
+    // directly once its Start button calls main().
     setenv("AOE_MAIN_MENU", "0", true);
+    set_environment_from_query("multiplayer", "AOE_MULTIPLAYER");
+    set_environment_from_query("relays", "AOE_NOSTR_RELAYS");
+    set_environment_from_query("match", "AOE_NOSTR_MATCH_REFERENCE");
+    set_environment_from_query("oneRelay", "AOE_NOSTR_ONE_RELAY");
     if (use_risk_fixture) {
         setenv("AOE_FOG", "0", true);
     }

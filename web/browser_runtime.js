@@ -1,4 +1,7 @@
 Module['browserUncaughtErrors'] = [];
+// The separately bundled Applesauce adapter resolves the Emscripten module
+// through globalThis when its asynchronous callbacks cross into WASM.
+globalThis.Module = Module;
 Module['browserDiagnostics'] = [];
 const diagnosticValue = function (value) {
   if (value instanceof Error) {
@@ -140,6 +143,7 @@ Module['setStatus'] = function (message) {
 };
 Module['onRuntimeInitialized'] = function () {
   document.getElementById('loading').hidden = true;
+  document.getElementById('launch').hidden = false;
   document.getElementById('start').hidden = false;
 };
 Module['reportFailure'] = function (reason) {
@@ -150,6 +154,37 @@ Module['reportFailure'] = function (reason) {
   Module['setStatus']('Browser startup failed: ' + reason);
 };
 Module['onAbort'] = Module['reportFailure'];
+
+const nostrSession = document.getElementById('nostr-session');
+const nostrPublicKey = document.getElementById('nostr-public-key');
+const nostrPublicReference = document.getElementById('nostr-public-reference');
+const copyMatchReference = document.getElementById('copy-match-reference');
+const copyMatchStatus = document.getElementById('copy-match-status');
+
+const refreshNostrSession = function () {
+  if (!Module.browserNostrMode) return;
+  nostrSession.hidden = false;
+  const value = Module.browserNostrDiagnostics
+    ? Module.browserNostrDiagnostics() : null;
+  nostrPublicKey.value = value?.publicKey || '';
+  nostrPublicReference.value = value?.matchReference ||
+    (Module.browserNostrMode === 'join'
+      ? document.getElementById('match-reference').value.trim() : '');
+  copyMatchReference.disabled = nostrPublicReference.value.length === 0;
+};
+setInterval(refreshNostrSession, 500);
+
+copyMatchReference.addEventListener('click', async function () {
+  if (!nostrPublicReference.value) return;
+  try {
+    await navigator.clipboard.writeText(nostrPublicReference.value);
+    copyMatchStatus.textContent = 'Copied';
+  } catch (_) {
+    nostrPublicReference.focus();
+    nostrPublicReference.select();
+    copyMatchStatus.textContent = 'Select and copy';
+  }
+});
 
 document.getElementById('diagnostics').addEventListener('click', function () {
   const canvas = Module['canvas'];
@@ -172,6 +207,8 @@ document.getElementById('diagnostics').addEventListener('click', function () {
     lifecycle: Module.browserLifecycle || null,
     telemetry: Module.browserTelemetry || null,
     audioTelemetry: Module.browserAudioTelemetry || null,
+    nostr: Module.browserNostrDiagnostics
+      ? Module.browserNostrDiagnostics() : null,
     resources: performance.getEntriesByType('resource').map(function (entry) {
       return {
         name: entry.name,
@@ -194,12 +231,42 @@ document.getElementById('diagnostics').addEventListener('click', function () {
 
 document.getElementById('start').addEventListener('pointerup', function () {
   if (!Module['storageReady']) return;
+  const mode = document.getElementById('launch-mode').value;
+  Module.browserNostrMode =
+    mode === 'host' || mode === 'join' ? mode : null;
+  const query = new URLSearchParams(location.search);
+  query.delete('multiplayer');
+  query.delete('relays');
+  query.delete('match');
+  query.delete('oneRelay');
+  if (mode === 'host' || mode === 'join') {
+    query.set('multiplayer', mode);
+    query.set('relays', document.getElementById('relays').value.trim());
+    if (mode === 'join') {
+      query.set('match', document.getElementById('match-reference').value.trim());
+    }
+    if (document.getElementById('one-relay').checked) {
+      query.set('oneRelay', '1');
+    }
+  }
+  history.replaceState(null, '', location.pathname +
+    (query.toString() ? '?' + query.toString() : ''));
   this.hidden = true;
+  document.getElementById('launch').hidden = true;
   Module['canvas'].hidden = false;
   document.getElementById('fullscreen').hidden = false;
   Module['canvas'].focus({preventScroll: true});
   Module['callMain']([]);
+  refreshNostrSession();
 }, {once: true});
+
+document.getElementById('launch-mode').addEventListener('change', function () {
+  const multiplayer = this.value === 'host' || this.value === 'join';
+  document.getElementById('relay-field').hidden = !multiplayer;
+  document.getElementById('one-relay-field').hidden = !multiplayer;
+  document.getElementById('public-warning').hidden = !multiplayer;
+  document.getElementById('reference-field').hidden = this.value !== 'join';
+});
 
 document.getElementById('fullscreen').addEventListener(
   'pointerup',

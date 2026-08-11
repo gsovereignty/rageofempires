@@ -56,7 +56,6 @@
 #include "aoe/localization.hpp"
 #include "aoe/multiplayer.hpp"
 #include "aoe/multiplayer_runtime.hpp"
-#include "aoe/multiplayer_transport.hpp"
 #include "aoe/minimap_contract.hpp"
 #include "aoe/ordinary_match_setup.hpp"
 #include "aoe/projectile_catalog.hpp"
@@ -182,6 +181,10 @@ struct MultiplayerPresentation {
     bool live_transport{};
     bool transport_connected{};
     std::uint16_t port{};
+    std::string transport_name{"LOCALHOST TCP"};
+    std::string transport_detail;
+    std::string public_match_reference;
+    std::string local_identity;
     LockstepStatus live_status{LockstepStatus::handshaking};
     std::uint64_t live_tick{};
     bool visible{true};
@@ -13865,7 +13868,7 @@ void render_multiplayer_presentation(
         set_color(renderer, {238, 214, 145, 255});
         render_ui_debug_text(
             renderer, lobby.x + 24.0F, lobby.y + 20.0F,
-            "LOCALHOST MULTIPLAYER LOBBY"
+            (presentation->transport_name + " MULTIPLAYER LOBBY").c_str()
         );
         set_color(renderer, {159, 133, 78, 255});
         SDL_RenderLine(
@@ -13934,12 +13937,12 @@ void render_multiplayer_presentation(
             std::to_string(config.deterministic_seed)
         );
         metadata.push_back(
-            "LINK: " +
-            std::string{
-                presentation->transport_connected
-                    ? "LOCALHOST PEER CONNECTED"
-                    : "CONNECTING TO LOCALHOST"
-            }
+            "LINK: " + (presentation->transport_detail.empty()
+                ? std::string{
+                    presentation->transport_connected
+                        ? "LOCALHOST PEER CONNECTED"
+                        : "CONNECTING TO LOCALHOST"}
+                : presentation->transport_detail)
         );
         metadata.push_back(
             "DELAY " + std::to_string(config.input_delay_ticks) +
@@ -14025,8 +14028,10 @@ void render_multiplayer_presentation(
     );
     lines.emplace_back(
         presentation->live_transport
-            ? "TRANSPORT: LOCALHOST TCP PORT " +
-                  std::to_string(presentation->port)
+            ? "TRANSPORT: " + presentation->transport_name + " " +
+                  (presentation->transport_detail.empty()
+                      ? "PORT " + std::to_string(presentation->port)
+                      : presentation->transport_detail)
             : "TRANSPORT: CAPTURE SIMULATION"
     );
     std::string digest = presentation->scenario_digest;
@@ -18022,6 +18027,22 @@ ApplicationLoop SdlApp::loop() {
             launch.hosting = hosting;
             launch.port = multiplayer_port;
             launch.session = multiplayer_presentation->config;
+#if defined(__EMSCRIPTEN__)
+            if (const char* reference =
+                    SDL_getenv("AOE_NOSTR_MATCH_REFERENCE")) {
+                launch.match_reference = reference;
+            }
+            if (const char* relays = SDL_getenv("AOE_NOSTR_RELAYS")) {
+                std::istringstream input(relays);
+                std::string relay;
+                while (std::getline(input, relay, ',')) {
+                    if (!relay.empty()) launch.relays.push_back(relay);
+                }
+            }
+            launch.one_relay_development =
+                SDL_getenv("AOE_NOSTR_ONE_RELAY") != nullptr &&
+                SDL_getenv("AOE_NOSTR_ONE_RELAY")[0] != '0';
+#endif
             multiplayer_runtime = create_multiplayer_runtime(
                 std::move(launch)
             );
@@ -24770,6 +24791,14 @@ ApplicationLoop SdlApp::loop() {
                 status != LockstepStatus::roster_mismatch;
             multiplayer_presentation->config =
                 multiplayer_runtime->session_config();
+            multiplayer_presentation->transport_name =
+                multiplayer_runtime->transport_name();
+            multiplayer_presentation->transport_detail =
+                multiplayer_runtime->transport_detail();
+            multiplayer_presentation->public_match_reference =
+                multiplayer_runtime->public_match_reference();
+            multiplayer_presentation->local_identity =
+                multiplayer_runtime->local_identity();
             multiplayer_presentation->blue_ready =
                 multiplayer_runtime->peer_ready(Player::blue);
             multiplayer_presentation->red_ready =

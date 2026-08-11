@@ -23,6 +23,61 @@ body,
   text-align: center;
 }
 
+#launch {
+  display: grid;
+  gap: 0.8rem;
+  width: min(42rem, calc(100vw - 3rem));
+  padding: 1.5rem;
+  border: 1px solid #8293a8;
+  background: rgb(18 27 39 / 96%);
+}
+
+#launch[hidden],
+#nostr-session[hidden] {
+  display: none;
+}
+
+#launch label,
+#nostr-session label {
+  display: grid;
+  gap: 0.3rem;
+}
+
+#launch input,
+#launch select,
+#launch textarea,
+#nostr-session input,
+#nostr-session textarea {
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid #8293a8;
+  background: #080c12;
+  color: #e6ecf2;
+}
+
+#public-warning,
+#nostr-session > span:first-of-type {
+  color: #ffca85;
+}
+
+#nostr-session {
+  position: fixed;
+  z-index: 2;
+  top: 0.75rem;
+  left: 0.75rem;
+  display: grid;
+  gap: 0.35rem;
+  width: min(31rem, calc(100vw - 8rem));
+  padding: 0.7rem;
+  border: 1px solid #d7b44b;
+  background: rgb(8 12 18 / 90%);
+  font-size: 0.75rem;
+}
+
+#copy-match-reference {
+  justify-self: start;
+}
+
 #start {
   padding: 0.9rem 1.4rem;
   border: 1px solid #d7b44b;

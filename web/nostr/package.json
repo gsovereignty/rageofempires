@@ -1,0 +1,27 @@
+{
+  "name": "aoe-nostr-browser-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "npm@12.0.1",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "tsx --test tests/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "applesauce-core": "6.2.0",
+    "applesauce-relay": "6.2.1",
+    "applesauce-signers": "6.2.2",
+    "rxjs": "7.8.2"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "esbuild": "0.25.12",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3"
+  }
+}

@@ -1,14 +1,16 @@
 ---
 name: audit-browser-multiplayer-gameplay
-description: Audit this reconstruction's packaged two-player browser multiplayer for deterministic gameplay defects and production visual defects, including desync, missing or duplicated commands, relay recovery failures, teleporting or jittering units, broken interpolation, wrong animation state or facing, procedural or placeholder fallbacks, missing or incorrect legacy sprites, layering, terrain overlap, HUD, minimap, and terminal presentation. Use for browser multiplayer gameplay fuzzing, long two-player browser sessions, frame-sequence motion review, sprite-provenance verification, synchronized cross-client captures, or combined gameplay-and-visual Nostr audits.
+description: Audit this reconstruction's packaged two-player browser multiplayer through full two-sided matches ending in natural victory, covering economy, construction, research, production, scouting, combat, destruction, deterministic gameplay, and production visuals. Find desync, missing or duplicated commands, relay recovery failures, motion or interpolation defects, wrong animation or facing, asset fallbacks, incorrect legacy sprites, layering, terrain overlap, HUD, minimap, and terminal defects. Use for complete browser multiplayer playthroughs, gameplay fuzzing, long sessions, frame-sequence motion review, sprite-provenance verification, synchronized cross-client captures, or combined gameplay-and-visual Nostr audits.
 ---
 
 # Audit browser multiplayer gameplay
 
-Audit one real packaged match through two independent browser instances and
-three independent oracles: lockstep state, temporal motion, and production
-render provenance. Never infer visual correctness from matching state hashes or
-gameplay correctness from matching screenshots.
+Audit one complete real packaged match through two independent browser
+instances and three independent oracles: lockstep state, temporal motion, and
+production render provenance. Play both sides through ordinary production UI
+until one side wins through a real victory condition. Never infer visual
+correctness from matching state hashes or gameplay correctness from matching
+screenshots.
 
 Read repository `AGENTS.md` files first. Preserve unrelated changes. Consult
 `../decompiled/` and original assets read-only when establishing fidelity.
@@ -81,9 +83,12 @@ needed to validate the two-client oracle, then run every phase relevant to the
 targets. Run all phases for broad, exhaustive, or unspecified audits. Do not
 silently expand a focused motion, sprite, or relay request into seeded long
 matches; record omitted phases as out of scope. Run selected phases in the
-order below. Preserve the first failing state before continuing.
+order below. Preserve the first failing state before continuing. For a broad
+gameplay audit, do not run relay chaos until stable gameplay, motion, and sprite
+phases have retained evidence; transport failure must not prevent core gameplay
+coverage.
 
-### 1. Stable-network baseline
+### 1. Full-gameplay stable-network baseline
 
 Host and join through visible launch UI, ready both players, start visibly, and
 wait for equal active ticks. Make both players issue distinct non-empty world
@@ -96,9 +101,14 @@ commands through real input. Cover at minimum:
 - attack-move, direct combat, damage, death, and destruction;
 - chat and signal from both relevant audiences;
 - host speed and pause/resume proposals;
-- terminal result and frozen post-terminal tick.
+- sustained economy and military decisions by both sides, with neither side
+  serving only as a passive target.
 
-Do not accept a run where only one player issues world commands.
+Do not accept a run where only one player issues world commands. Do not reduce
+this phase to scripted movement followed by transport checks or resignation.
+Before relay chaos, retain both clients' equal state plus direct evidence for
+economy, construction, production or research, and combat with damage or
+destruction.
 
 ### 2. Temporal motion cases
 
@@ -184,18 +194,27 @@ In controlled-transport runs also exercise deterministic duplication,
 reordering, delay, stale control stages, and page freeze/resume. Record exact
 fault schedule. Do not inject uncontrolled random faults that cannot replay.
 
-### 5. Seeded long matches
+### 5. Full-match completion and seeded long matches
 
-Run bounded state-driven browser players across recorded seeds. Derive actions
-from fresh observations but execute them through real UI. Reacquire targets
-after camera, viewport, selection, or panel changes; never retain stale screen
-coordinates.
+After relay recovery, continue the same match with state-driven browser players
+controlling both sides until the simulation declares a natural winner. Derive
+actions from fresh observations but execute them through real UI. Reacquire
+targets after camera, viewport, selection, or panel changes; never retain stale
+screen coordinates.
 
 Bias action generation toward concurrency and transitions rather than idle
 time. Include economy, construction, age/technology, army production,
 formations, scouting, combat, resource exhaustion, population cap, building
-destruction, and terminal flow. Stop on first invariant failure and preserve
-the exact action prefix.
+destruction, and terminal flow. Exercise both sides as active competitors;
+adapt production, gathering, targeting, and rebuilding decisions to current
+state. Stop on first invariant failure and preserve the exact action prefix.
+
+Do not use resignation, forced defeat, direct state mutation, debug victory,
+scenario shortening, or a test-only outcome hook as full-match completion.
+Require victory through ordinary rules, such as eliminating the opposing side
+or completing another configured production victory condition. After the
+result, require equal outcome and terminal hash on both clients and prove the
+post-terminal tick remains frozen.
 
 ## Apply three independent oracles
 

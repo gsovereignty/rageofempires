@@ -205,3 +205,30 @@ The verdict remains **BLOCKED**. The harness now expresses the complete
 two-sided natural-victory audit, but no clean public-relay run has yet completed
 that entire path. Runtime evidence is under
 `artifacts/browser-multiplayer-audits/`; it remains intentionally untracked.
+
+## Facing and gathering-presence oracles
+
+The temporal oracle now independently recomputes canonical logical facing from
+each unit's previous and current authoritative tile using the direction
+quantization proved by original `FUN_0058da80`. Production render diagnostics
+publish each resolved animation's direction count, so both 8-direction land
+units and 16-direction units are checked without a hardcoded asset assumption.
+A shared wrong facing now fails even when both clients agree.
+
+Gathering render diagnostics now retain target tile, target kind and existence,
+map membership, remaining amount, visibility, stable render entity ID,
+building/unit target IDs, return state, and carried resource. While a unit is
+actively gathering a map node, hunt/herd unit, or resource building, the oracle
+requires an existing in-map target with positive remaining amount and, when
+visible to that client, a matching rendered entity with production provenance.
+Host and join must also agree on deterministic gathering fields. Each player's
+full-gameplay preparation now retains and analyzes a correlated gather-frame
+burst in `motion.json`, state ledgers, and `sprite-provenance.jsonl`.
+
+Focused audit-tool validation passes 27 tests, covering all eight canonical
+land directions, a 16-direction case, wrong facing, valid visible gathering,
+depleted gathering, and missing visible resource presentation. Packaged
+WebAssembly build succeeded. Public-relay run
+`20260811T203000Z-facing-gather-oracle` timed out before gameplay at
+`deterministic lockstep tick exchange`; therefore live public-relay acceptance
+remains **BLOCKED**, not failed.

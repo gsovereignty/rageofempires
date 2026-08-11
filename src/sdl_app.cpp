@@ -6875,6 +6875,46 @@ std::string browser_render_telemetry_json(
             expected_state.moving = unit->moving ||
                 render_unit_is_interpolating(simulation, *unit);
             expected_asset = resolve_unit_asset(expected_state, unit->kind);
+            const bool target_in_map =
+                simulation.map().contains(unit->resource_target);
+            const char* target_kind = "tile";
+            bool target_exists = target_in_map &&
+                resource_render_kind_for(
+                    simulation.map().terrain_at(unit->resource_target)
+                ).has_value();
+            int target_amount = target_in_map
+                ? simulation.map().resource_amount_at(unit->resource_target)
+                : -1;
+            std::int64_t target_entity_id = target_in_map
+                ? unit->resource_target.y * simulation.map().width() +
+                      unit->resource_target.x
+                : -1;
+            TilePosition target_position = unit->resource_target;
+            if (unit->resource_building_id != 0) {
+                target_kind = "building";
+                const auto target = buildings_by_id.find(
+                    unit->resource_building_id
+                );
+                target_exists = target != buildings_by_id.end();
+                if (target_exists) {
+                    target_amount = target->second->resource_amount;
+                    target_entity_id = target->second->id;
+                    target_position = target->second->position;
+                }
+            } else if (unit->resource_unit_id != 0) {
+                target_kind = "unit";
+                const auto target = units_by_id.find(unit->resource_unit_id);
+                target_exists = target != units_by_id.end();
+                if (target_exists) {
+                    target_amount = target->second->food_remaining;
+                    target_entity_id = target->second->id;
+                    target_position = target->second->position;
+                }
+            }
+            const bool target_visible = target_exists &&
+                simulation.is_visible_to_controller(
+                    active_view_player, target_position
+                );
             output << ",\"simulationPosition\":{\"x\":"
                    << unit->position.x << ",\"y\":"
                    << unit->position.y << "}"
@@ -6889,6 +6929,28 @@ std::string browser_render_telemetry_json(
                    << ",\"interpolating\":"
                    << (render_unit_is_interpolating(simulation, *unit)
                            ? "true" : "false")
+                   << ",\"hasResourceTarget\":"
+                   << (unit->has_resource_target ? "true" : "false")
+                   << ",\"returningResource\":"
+                   << (unit->returning_resource ? "true" : "false")
+                   << ",\"resourceTarget\":{\"x\":"
+                   << unit->resource_target.x << ",\"y\":"
+                   << unit->resource_target.y << "}"
+                   << ",\"resourceTargetInMap\":"
+                   << (target_in_map ? "true" : "false")
+                   << ",\"resourceTargetKind\":\"" << target_kind << "\""
+                   << ",\"resourceTargetExists\":"
+                   << (target_exists ? "true" : "false")
+                   << ",\"resourceTargetAmount\":" << target_amount
+                   << ",\"resourceTargetVisible\":"
+                   << (target_visible ? "true" : "false")
+                   << ",\"resourceTargetEntityId\":" << target_entity_id
+                   << ",\"resourceBuildingId\":"
+                   << unit->resource_building_id
+                   << ",\"resourceUnitId\":" << unit->resource_unit_id
+                   << ",\"carriedResource\":\""
+                   << overlap_json_escape(name(unit->carried_resource))
+                   << "\",\"carriedAmount\":" << unit->carried_amount
                    << ",\"action\":\""
                    << render_action_name(render_action_for(simulation, *unit))
                    << "\",\"actionDetail\":\""
@@ -6960,6 +7022,8 @@ std::string browser_render_telemetry_json(
                       )
                    << "\",\"expectedRequiredFrameCount\":"
                    << expected_asset->request.required_frame_count
+                   << ",\"expectedDirectionCount\":"
+                   << expected_asset->request.required_direction_count
                    << ",\"expectedResourceIds\":[";
             bool wrote_expected_resource = false;
             const AssetRequest& request = expected_asset->request;
@@ -6985,6 +7049,7 @@ std::string browser_render_telemetry_json(
             output << ",\"expectedAssetStatus\":\"unsupported\""
                    << ",\"expectedSourceMapping\":null"
                    << ",\"expectedRequiredFrameCount\":0"
+                   << ",\"expectedDirectionCount\":0"
                    << ",\"expectedResourceIds\":[]";
         }
         if (!capture.draws.empty()) {

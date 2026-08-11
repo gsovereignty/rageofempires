@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import subprocess
 import time
 from datetime import datetime, timezone
@@ -234,6 +235,20 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
         list[tuple[int, int, bool, int, int]]
     ] = {}
     unmatched_entities: list[dict[str, object]] = []
+
+    def logical_direction(previous: dict[str, object],
+                          current: dict[str, object],
+                          angle_count: int) -> int | None:
+        dx = int(current["x"]) - int(previous["x"])
+        dy = int(current["y"]) - int(previous["y"])
+        if dx == 0 and dy == 0:
+            return None
+        radians = math.atan2(dy - dx, dx + dy)
+        if radians < 0.0:
+            radians += 2.0 * math.pi
+        step = 2.0 * math.pi / angle_count
+        return int(math.floor(radians / step + 0.5)) % angle_count
+
     for sample in samples:
         for peer in ("host", "join"):
             state = sample.get(peer) or {}
@@ -352,6 +367,24 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
                 previous_positions[key] = (
                     current[0], current[1], tick, authoritative
                 )
+                simulation_previous = entity.get("previousPosition")
+                if (isinstance(simulation_position, dict) and
+                        isinstance(simulation_previous, dict)):
+                    direction_count = int(
+                        entity.get("expectedDirectionCount", 8)
+                    )
+                    if direction_count <= 0:
+                        direction_count = 8
+                    expected_facing = logical_direction(
+                        simulation_previous, simulation_position,
+                        direction_count,
+                    )
+                    if (expected_facing is not None and
+                            int(entity.get("facing", -1)) != expected_facing):
+                        raise Failure(
+                            f"movement facing mismatch {key}: expected "
+                            f"{expected_facing}, got {entity.get('facing')}"
+                        )
         host_state = sample.get("host") or {}
         join_state = sample.get("join") or {}
         for peer, state in (("host", host_state), ("join", join_state)):
@@ -373,6 +406,45 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
             for entity in join_state.get("entities", [])
             if isinstance(entity, dict)
         }
+        for peer, entities in (("host", host_entities),
+                               ("join", join_entities)):
+            resource_entities = {
+                entity_id for (category, entity_id) in entities
+                if category.startswith("resource-")
+            }
+            for key, entity in entities.items():
+                if (not key[0].startswith("unit-") or
+                        entity.get("action") != "gathering" or
+                        bool(entity.get("returningResource", False))):
+                    continue
+                if not bool(entity.get("hasResourceTarget", False)):
+                    raise Failure(f"{peer} gathering unit lacks target: {key}")
+                if not bool(entity.get("resourceTargetInMap", False)):
+                    raise Failure(f"{peer} gathering target outside map: {key}")
+                if not bool(entity.get("resourceTargetExists", False)):
+                    raise Failure(f"{peer} gathering target does not exist: {key}")
+                amount = int(entity.get("resourceTargetAmount", -1))
+                if amount <= 0:
+                    raise Failure(
+                        f"{peer} gathering depleted resource: {key}"
+                    )
+                if bool(entity.get("resourceTargetVisible", False)):
+                    target_id = int(entity.get("resourceTargetEntityId", -1))
+                    target_kind = str(entity.get("resourceTargetKind", "tile"))
+                    matching_target = (
+                        target_id in resource_entities
+                        if target_kind == "tile" else
+                        any(
+                            entity_id == target_id and
+                            category.startswith(f"{target_kind}-")
+                            for category, entity_id in entities
+                        )
+                    )
+                    if not matching_target:
+                        raise Failure(
+                            f"{peer} gathering visible resource is not "
+                            f"rendered: {key} target={target_id}"
+                        )
         missing = host_entities.keys() ^ join_entities.keys()
         if missing:
             cameras = [state.get("camera") or {}
@@ -395,7 +467,13 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
             host_entity = host_entities[key]
             join_entity = join_entities[key]
             for field in ("source", "facing", "action", "actionDetail",
-                          "animationState"):
+                          "animationState", "hasResourceTarget",
+                          "returningResource", "resourceTarget",
+                          "resourceTargetInMap", "resourceTargetKind",
+                          "resourceTargetExists", "resourceTargetAmount",
+                          "resourceTargetEntityId", "resourceBuildingId",
+                          "resourceUnitId", "carriedResource",
+                          "carriedAmount"):
                 if host_entity.get(field) != join_entity.get(field):
                     raise Failure(f"client render divergence {key} {field}")
             host_layers = host_entity.get("layers", [])
@@ -501,6 +579,7 @@ def prepare_player_for_full_match(
     host,
     join,
     actions: list[dict[str, object]],
+    artifact_dir: Path | None = None,
 ) -> dict[str, object]:
     telemetry = journey.telemetry()
     initial_gold = int(telemetry["resources"]["gold"])
@@ -513,6 +592,12 @@ def prepare_player_for_full_match(
     audited_world_pointer(
         journey, driver, actions, actor, *resource_tile,
     )
+    gather_frames = capture_correlated_frames(
+        host, join, seconds=2.0,
+        artifact_dir=artifact_dir,
+        label=f"{actor}-gather",
+    )
+    gather_oracle = analyze_render_samples(gather_frames)
     gathered = wait_until(
         f"{actor} gathered gold",
         lambda: (
@@ -610,6 +695,8 @@ def prepare_player_for_full_match(
         "owner": owner,
         "initialGold": initial_gold,
         "gatheredGold": int(gathered["resources"]["gold"]),
+        "gatherFrames": gather_frames,
+        "gatherRenderOracle": gather_oracle,
         "constructedBuildingIds": sorted(constructed_ids),
         "militaryCount": int(trained["blueMilitaryCount"]),
         "researched": bool(researched["manAtArmsResearched"]),
@@ -1105,9 +1192,11 @@ def run(relays: str, headed: bool, port: int = 8888,
             evidence["fullGameplay"] = {
                 "host": prepare_player_for_full_match(
                     host_journey, host, "host", 0, host, join, actions,
+                    artifact_dir,
                 ),
                 "join": prepare_player_for_full_match(
                     join_journey, join, "join", 1, host, join, actions,
+                    artifact_dir,
                 ),
             }
             host_target_hit_points = order_town_center_attack(
@@ -1456,6 +1545,25 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
                 })
     full_gameplay = evidence.get("fullGameplay") or {}
     combat = full_gameplay.get("combat") or {}
+    gather_phases = {
+        f"fullGameplay{actor.title()}Gather":
+            (full_gameplay.get(actor) or {}).get("gatherFrames", [])
+        for actor in ("host", "join")
+    }
+    for phase, samples in gather_phases.items():
+        for sample in samples:
+            if isinstance(sample.get("authoritativeHost"), dict):
+                host_states.append({
+                    "phase": phase,
+                    "capturedMonotonic": sample.get("capturedMonotonic"),
+                    "state": sample["authoritativeHost"],
+                })
+            if isinstance(sample.get("authoritativeJoin"), dict):
+                join_states.append({
+                    "phase": phase,
+                    "capturedMonotonic": sample.get("capturedMonotonic"),
+                    "state": sample["authoritativeJoin"],
+                })
     for sample in combat.get("frames", []):
         if isinstance(sample.get("authoritativeHost"), dict):
             host_states.append({
@@ -1479,6 +1587,7 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
         "hostMovement": evidence.get("movement"),
         "joinMovement": evidence.get("joinMovement"),
         "simultaneousMovement": evidence.get("simultaneousMovement"),
+        "fullGameplayGather": gather_phases,
         "fullGameplayCombat": combat,
     }
     (root / "motion.json").write_text(
@@ -1508,6 +1617,17 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
                 "tick": render_state.get("tick"),
                 "entities": render_state.get("entities", []),
             })
+    for phase, samples in gather_phases.items():
+        for sample in samples:
+            for peer in ("host", "join"):
+                render_state = sample.get(peer) or {}
+                provenance.append({
+                    "phase": phase,
+                    "peer": peer,
+                    "frame": render_state.get("frame"),
+                    "tick": render_state.get("tick"),
+                    "entities": render_state.get("entities", []),
+                })
     write_jsonl(root / "sprite-provenance.jsonl", provenance)
     (root / "console-host.json").write_text(
         json.dumps(evidence.get("hostConsole", []), indent=2) + "\n",

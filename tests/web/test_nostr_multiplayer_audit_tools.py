@@ -43,6 +43,50 @@ def sample(frame: int, x: float, source: str = "legacy",
     return {"host": host_state, "join": join_state}
 
 
+def moving_sample(dx: int, dy: int, facing: int):
+    value = sample(1, 10.0)
+    for peer in ("host", "join"):
+        entity = value[peer]["entities"][0]
+        entity["moving"] = True
+        entity["previousPosition"] = {"x": 10, "y": 10}
+        entity["simulationPosition"] = {"x": 10 + dx, "y": 10 + dy}
+        entity["facing"] = facing
+    return value
+
+
+def gathering_sample(*, amount: int = 100, include_resource: bool = True):
+    value = sample(1, 10.0)
+    for peer in ("host", "join"):
+        unit = value[peer]["entities"][0]
+        unit.update({
+            "action": "gathering",
+            "hasResourceTarget": True,
+            "returningResource": False,
+            "resourceTarget": {"x": 4, "y": 3},
+            "resourceTargetInMap": True,
+            "resourceTargetKind": "tile",
+            "resourceTargetExists": True,
+            "resourceTargetAmount": amount,
+            "resourceTargetVisible": True,
+            "resourceTargetEntityId": 28,
+            "resourceBuildingId": 0,
+            "resourceUnitId": 0,
+        })
+        if include_resource:
+            value[peer]["entities"].append({
+                "id": 28,
+                "category": "resource-17",
+                "renderPosition": {"x": 30.0, "y": 40.0},
+                "source": "legacy",
+                "expectedAssetStatus": "renderable",
+                "expectedResourceIds": [1503],
+                "expectedRequiredFrameCount": 7,
+                "facing": 0,
+                "layers": [{"resourceId": 1503, "frame": 0}],
+            })
+    return value
+
+
 class AuditedInputTests(unittest.TestCase):
     def test_audited_key_preserves_selection_without_canvas_click(self):
         class Canvas:
@@ -80,6 +124,46 @@ class RenderOracleTests(unittest.TestCase):
     def test_rejects_teleport_candidate(self):
         with self.assertRaisesRegex(Failure, "teleport candidate"):
             analyze_render_samples([sample(1, 10.0), sample(2, 250.0)])
+
+    def test_accepts_all_canonical_movement_facings(self):
+        cases = (
+            (1, 1, 0), (0, 1, 1), (-1, 1, 2), (-1, 0, 3),
+            (-1, -1, 4), (0, -1, 5), (1, -1, 6), (1, 0, 7),
+        )
+        for dx, dy, facing in cases:
+            with self.subTest(dx=dx, dy=dy, facing=facing):
+                analyze_render_samples([moving_sample(dx, dy, facing)])
+
+    def test_rejects_movement_facing_mismatch(self):
+        with self.assertRaisesRegex(Failure, "movement facing mismatch"):
+            analyze_render_samples([moving_sample(1, 0, 3)])
+
+    def test_accepts_sixteen_direction_unit_facing(self):
+        value = moving_sample(1, 0, 14)
+        for peer in ("host", "join"):
+            value[peer]["entities"][0]["expectedDirectionCount"] = 16
+        analyze_render_samples([value])
+
+    def test_accepts_visible_gather_target_with_resource_sprite(self):
+        result = analyze_render_samples([gathering_sample()])
+        self.assertEqual(result["legacy"], 4)
+
+    def test_rejects_gathering_depleted_tile(self):
+        with self.assertRaisesRegex(Failure, "depleted resource"):
+            analyze_render_samples([gathering_sample(amount=0)])
+
+    def test_rejects_missing_resource_target(self):
+        value = gathering_sample()
+        for peer in ("host", "join"):
+            value[peer]["entities"][0]["resourceTargetExists"] = False
+        with self.assertRaisesRegex(Failure, "target does not exist"):
+            analyze_render_samples([value])
+
+    def test_rejects_unrendered_visible_gather_target(self):
+        with self.assertRaisesRegex(Failure, "resource is not rendered"):
+            analyze_render_samples([
+                gathering_sample(include_resource=False),
+            ])
 
     def test_rejects_unproved_render_source(self):
         with self.assertRaisesRegex(Failure, "unproved production"):

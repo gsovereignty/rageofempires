@@ -9,6 +9,9 @@ from nostr_multiplayer_smoke_test import (
     Failure,
     analyze_render_samples,
     audited_key,
+    capture_failure_value,
+    diagnostics,
+    render_diagnostics,
     write_audit_bundle,
 )
 
@@ -108,6 +111,37 @@ class AuditedInputTests(unittest.TestCase):
         audited_key(driver, actions, "host", "h")
         self.assertEqual(driver.canvas.keys, ["h"])
         self.assertEqual(actions[0]["key"], "h")
+
+
+class FailureEvidenceTests(unittest.TestCase):
+    def test_diagnostics_tolerates_missing_module(self):
+        class Driver:
+            def execute_script(self, source):
+                self.source = source
+                return None
+
+        driver = Driver()
+        self.assertIsNone(diagnostics(driver))
+        self.assertIn("typeof Module", driver.source)
+
+    def test_render_diagnostics_tolerates_missing_module(self):
+        class Driver:
+            def execute_script(self, source):
+                self.source = source
+                return None
+
+        driver = Driver()
+        self.assertIsNone(render_diagnostics(driver))
+        self.assertIn("typeof Module", driver.source)
+
+    def test_secondary_capture_error_becomes_evidence(self):
+        def fail():
+            raise RuntimeError("browser gone")
+
+        self.assertEqual(
+            capture_failure_value("join diagnostics", fail),
+            {"captureError": "join diagnostics: RuntimeError: browser gone"},
+        )
 
 
 class RenderOracleTests(unittest.TestCase):

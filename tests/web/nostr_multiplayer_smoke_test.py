@@ -43,7 +43,8 @@ WAIT_SECONDS = 180.0
 
 def diagnostics(driver) -> dict[str, object] | None:
     value = driver.execute_script(
-        "return Module.browserNostrDiagnostics "
+        "return typeof Module !== 'undefined' && "
+        "typeof Module.browserNostrDiagnostics === 'function' "
         "? Module.browserNostrDiagnostics() : null"
     )
     return value if isinstance(value, dict) else None
@@ -57,9 +58,20 @@ def game_diagnostics(driver) -> dict[str, object] | None:
 
 def render_diagnostics(driver) -> dict[str, object] | None:
     value = driver.execute_script(
-        "return Module.browserRenderTelemetry || null"
+        "return typeof Module !== 'undefined' "
+        "? (Module.browserRenderTelemetry || null) : null"
     )
     return value if isinstance(value, dict) else None
+
+
+def capture_failure_value(label: str, callback) -> object:
+    """Capture secondary diagnostics without masking the primary failure."""
+    try:
+        return callback()
+    except Exception as error:
+        return {
+            "captureError": f"{label}: {type(error).__name__}: {error}",
+        }
 
 
 def capture_correlated_frames(host, join, seconds: float = 1.0,
@@ -1165,11 +1177,6 @@ def run(relays: str, headed: bool, port: int = 8888,
                 "renderOracle": analyze_render_samples(simultaneous_frames),
             }
 
-            # The multiplayer diagnostics panel initially covers the game
-            # canvas. F4 is the production control that hides it before the
-            # two players use visible world and command-panel controls.
-            audited_key(host, actions, "host", Keys.F4)
-            audited_key(join, actions, "join", Keys.F4)
             evidence["fullGameplay"] = {
                 "host": prepare_player_for_full_match(
                     host_journey, host, "host", 0, host, join, actions,
@@ -1376,22 +1383,44 @@ def run(relays: str, headed: bool, port: int = 8888,
                 "error": f"{type(error).__name__}: {error}",
                 "completedEvidence": evidence,
                 "relays": relays.split(","),
-                "host": diagnostics(host),
-                "join": diagnostics(join),
-                "hostRender": render_diagnostics(host),
-                "joinRender": render_diagnostics(join),
+                "host": capture_failure_value(
+                    "host diagnostics", lambda: diagnostics(host)
+                ),
+                "join": capture_failure_value(
+                    "join diagnostics", lambda: diagnostics(join)
+                ),
+                "hostRender": capture_failure_value(
+                    "host render diagnostics", lambda: render_diagnostics(host)
+                ),
+                "joinRender": capture_failure_value(
+                    "join render diagnostics", lambda: render_diagnostics(join)
+                ),
                 "browser": evidence.get("browser"),
                 "requests": list(requests),
-                "hostConsole": host.get_log("browser"),
-                "joinConsole": join.get_log("browser"),
+                "hostConsole": capture_failure_value(
+                    "host console", lambda: host.get_log("browser")
+                ),
+                "joinConsole": capture_failure_value(
+                    "join console", lambda: join.get_log("browser")
+                ),
             }
             (artifact_dir / "first-failure.json").write_text(
                 json.dumps(failure, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
             )
             write_audit_bundle(artifact_dir, failure)
-            host.save_screenshot(str(artifact_dir / "last-failure-host.png"))
-            join.save_screenshot(str(artifact_dir / "last-failure-join.png"))
+            capture_failure_value(
+                "host screenshot",
+                lambda: host.save_screenshot(
+                    str(artifact_dir / "last-failure-host.png")
+                ),
+            )
+            capture_failure_value(
+                "join screenshot",
+                lambda: join.save_screenshot(
+                    str(artifact_dir / "last-failure-join.png")
+                ),
+            )
             raise
         finally:
             if host_journey is not None:

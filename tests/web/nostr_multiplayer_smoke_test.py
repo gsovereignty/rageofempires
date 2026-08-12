@@ -1470,7 +1470,18 @@ def order_enemy_attack(
         # trained unit can still be following the Barracks rally order, so
         # select each authoritative military tile through ordinary visible
         # world input rather than relying on one sprite hotspot.
-        for unit in military:
+        for _ in range(max(8, len(military_ids) * 4)):
+            current_military = [
+                unit for unit in
+                (diagnostics(driver) or {}).get("game", {}).get("units", [])
+                if int(unit.get("id", -1)) in military_ids and
+                int(unit.get("id", -1)) not in ordered_ids and
+                not bool(unit.get("moving", False))
+            ]
+            if not current_military:
+                time.sleep(0.25)
+                continue
+            unit = current_military[0]
             tile = (int(unit["x"]), int(unit["y"]))
             center_camera_for_tile(
                 journey, driver, actions, actor, tile[0], tile[1]
@@ -1478,7 +1489,16 @@ def order_enemy_attack(
             audited_world_pointer(
                 journey, driver, actions, actor, tile[0], tile[1], button=0
             )
-            unit_id = int(journey.telemetry().get("selectedUnit", 0))
+            try:
+                unit_id = wait_until(
+                    f"{actor} explicit military tile selection",
+                    lambda: selected if (selected := int(
+                        journey.telemetry().get("selectedUnit", 0)
+                    )) in military_ids else None,
+                    timeout=1.0,
+                )
+            except Failure:
+                continue
             if selectable_military_id(
                 unit_id, military_ids, ordered_ids
             ) is None:

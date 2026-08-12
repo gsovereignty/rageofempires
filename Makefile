@@ -110,11 +110,8 @@ audit-nostr-multiplayer:
 			$$relay_args $(NOSTR_AUDIT_ARGS)
 
 check-all:
-	$(MAKE) test
-	$(MAKE) web-build
-	$(MAKE) web-tests-only
-	$(MAKE) audit-browser-risk-spike-only
-	$(MAKE) audit-nostr-multiplayer
+	$(PYTHON) scripts/run_check_all.py --make "$(MAKE)" \
+		$(if $(filter 1,$(PROBLEMS_ONLY)),--problems-only,)
 
 clean:
 	$(CMAKE) -E remove_directory "$(BUILD_DIR)"
@@ -129,6 +126,7 @@ help:
 	@echo "make audit-browser-risk-spike  Run packaged browser acceptance matrix"
 	@echo "make audit-nostr-multiplayer  Run packaged two-browser public-relay audit"
 	@echo "make check-all       Run all native/web tests and browser audits"
+	@echo "make check-all PROBLEMS_ONLY=1  Print only failing-stage diagnostics"
 	@echo "make clean           Clean compiled outputs"
 	@echo "Variables: BUILD_DIR, WEB_PORT, BUILD_TYPE, JOBS, CMAKE, CTEST, PYTHON, CMAKE_ARGS"
-	@echo "Audit variables: NOSTR_AUDIT_PYTHON, NOSTR_AUDIT_RELAYS, NOSTR_AUDIT_PORT, NOSTR_AUDIT_ARGS"
+	@echo "Audit variables: NOSTR_AUDIT_PYTHON, NOSTR_AUDIT_RELAYS, NOSTR_AUDIT_PORT, NOSTR_AUDIT_ARGS, PROBLEMS_ONLY"

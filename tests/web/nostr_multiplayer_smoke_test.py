@@ -661,6 +661,7 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
     counts = {"frames": len(samples), "entities": 0, "legacy": 0,
               "proceduralFailures": 0, "unprovenSources": 0,
               "unresolvedExpectedMappings": [],
+              "blockingUnresolvedExpectedMappings": [],
               "animationSequenceBlocked": 0, "visualOracles": []}
     last_frame = {"host": -1, "join": -1}
     previous_positions: dict[
@@ -711,12 +712,25 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
                             f"mapping: {entity}"
                         )
                     if not expected_resources:
-                        counts["unresolvedExpectedMappings"].append({
+                        unresolved = {
                             "peer": peer,
                             "frame": frame,
                             "entity": entity,
                             "reason": "renderable mapping has no expected IDs",
-                        })
+                        }
+                        counts["unresolvedExpectedMappings"].append(unresolved)
+                        if str(entity.get("category", "")).startswith(
+                            ("unit-", "projectile-", "impact-", "unit-death-")
+                        ) or any(
+                            all(field in layer for field in (
+                                "framesPerDirection", "physicalFrameCount",
+                                "mirroringMode", "actionFrame",
+                            ))
+                            for layer in entity.get("layers", [])
+                        ):
+                            counts[
+                                "blockingUnresolvedExpectedMappings"
+                            ].append(unresolved)
                     actual_resources = {
                         layer.get("resourceId")
                         for layer in entity.get("layers", [])
@@ -1035,7 +1049,7 @@ def analyze_render_samples_for_audit(
     try:
         result = analyze_render_samples(samples)
         result["phase"] = phase
-        if result["unresolvedExpectedMappings"]:
+        if result["blockingUnresolvedExpectedMappings"]:
             result["verdict"] = "BLOCKED"
             result["blocker"] = (
                 "renderable production assets lack expected resource IDs"

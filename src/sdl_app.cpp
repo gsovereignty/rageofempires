@@ -1080,6 +1080,13 @@ struct OverlapCaptureDraw {
     SDL_FPoint ground{};
     bool flip{};
     bool visible{true};
+    int logical_direction{-1};
+    int stored_direction{-1};
+    int action_frame{-1};
+    int frames_per_direction{};
+    int direction_count{};
+    int mirroring_mode{-1};
+    std::size_t physical_frame_count{};
 };
 
 struct OverlapCaptureCase {
@@ -7103,7 +7110,23 @@ std::string browser_render_telemetry_json(
                    << draw.destination.x << ",\"y\":"
                    << draw.destination.y << ",\"w\":"
                    << draw.destination.w << ",\"h\":"
-                   << draw.destination.h << "}}";
+                   << draw.destination.h << "}";
+            if (draw.action_frame >= 0) {
+                output << ",\"logicalDirection\":"
+                       << draw.logical_direction
+                       << ",\"resolvedStoredDirection\":"
+                       << draw.stored_direction
+                       << ",\"actionFrame\":" << draw.action_frame
+                       << ",\"framesPerDirection\":"
+                       << draw.frames_per_direction
+                       << ",\"directionCount\":"
+                       << draw.direction_count
+                       << ",\"mirroringMode\":"
+                       << draw.mirroring_mode
+                       << ",\"physicalFrameCount\":"
+                       << draw.physical_frame_count;
+            }
+            output << '}';
         }
         output << "]}";
     }
@@ -7267,7 +7290,13 @@ bool render_legacy_sprite(
     const LegacySprite& sprite,
     SDL_FPoint ground,
     bool visible = true,
-    bool flip_horizontal = false
+    bool flip_horizontal = false,
+    int logical_direction = -1,
+    int action_frame = -1,
+    int frames_per_direction = 0,
+    int direction_count = 0,
+    int mirroring_mode = -1,
+    std::size_t physical_frame_count = 0
 ) {
     if (sprite.texture == nullptr) {
         return false;
@@ -7294,6 +7323,16 @@ bool render_legacy_sprite(
             ground,
             flip_horizontal,
             visible,
+            logical_direction,
+            action_frame >= 0 && frames_per_direction > 0
+                ? (static_cast<int>(sprite.frame_index) - action_frame) /
+                      frames_per_direction
+                : -1,
+            action_frame,
+            frames_per_direction,
+            direction_count,
+            mirroring_mode,
+            physical_frame_count,
         });
     }
     if (active_browser_render_capture.current != nullptr) {
@@ -7303,6 +7342,16 @@ bool render_legacy_sprite(
             ground,
             flip_horizontal,
             visible,
+            logical_direction,
+            action_frame >= 0 && frames_per_direction > 0
+                ? (static_cast<int>(sprite.frame_index) - action_frame) /
+                      frames_per_direction
+                : -1,
+            action_frame,
+            frames_per_direction,
+            direction_count,
+            mirroring_mode,
+            physical_frame_count,
         });
     }
     SDL_RenderTextureRotated(
@@ -7478,7 +7527,13 @@ bool render_legacy_animated_composite(
                     ground.y + static_cast<float>(part.offset_y),
                 },
                 true,
-                selection->flip_horizontal
+                selection->flip_horizontal,
+                angle,
+                static_cast<int>(*action_frame),
+                static_cast<int>(animation.frames_per_angle),
+                part.angle_count,
+                animation.mirroring_mode,
+                animation.frames.size()
             )) {
             return false;
         }
@@ -7611,7 +7666,13 @@ bool render_legacy_animation(
                 animation.shadow_display_angle != logical_angle) {
                 return render_legacy_sprite(
                     renderer, animation.frames[index], ground, true,
-                    selection->flip_horizontal
+                    selection->flip_horizontal,
+                    logical_angle,
+                    static_cast<int>(action_frame),
+                    static_cast<int>(animation.frames_per_angle),
+                    animation.angle_count,
+                    animation.mirroring_mode,
+                    animation.frames.size()
                 );
             }
             const int shadow_angle = animation::scale_logical_angle(
@@ -7653,7 +7714,13 @@ bool render_legacy_animation(
                                 animation.shadow_offset_y),
                     },
                     true,
-                    shadow_selection->flip_horizontal
+                    shadow_selection->flip_horizontal,
+                    shadow_angle,
+                    static_cast<int>(shadow_action),
+                    static_cast<int>(animation.shadow_frames_per_angle),
+                    animation.shadow_angle_count,
+                    animation.shadow_mirroring_mode,
+                    animation.shadow_frames.size()
                 );
                 if (shadow_texture != nullptr) {
                     SDL_SetTextureAlphaMod(shadow_texture, 255);
@@ -7666,7 +7733,13 @@ bool render_legacy_animation(
         animation.frames[index],
         ground,
         true,
-        selection->flip_horizontal
+        selection->flip_horizontal,
+        logical_angle,
+        static_cast<int>(action_frame),
+        static_cast<int>(animation.frames_per_angle),
+        animation.angle_count,
+        animation.mirroring_mode,
+        animation.frames.size()
     );
 }
 

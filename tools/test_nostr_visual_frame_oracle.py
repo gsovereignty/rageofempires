@@ -108,6 +108,10 @@ class FrameSelectionOracleTests(unittest.TestCase):
         ):
             self.assertEqual(evaluate_layer(**base, **mutation)["verdict"],
                              "FAIL")
+        self.assertEqual(evaluate_layer(
+            **base, actual_frame=12, actual_flip_horizontal=True,
+            actual_stored_direction=3,
+        )["verdict"], "FAIL")
         for offset in range(1, 8):
             wrong = expected_frame(
                 logical_direction_value=offset, action_frame=2,

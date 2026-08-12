@@ -464,7 +464,12 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
                                     current=(int(current["x"]),
                                              int(current["y"])),
                                     direction_count=int(
-                                        entity.get("expectedDirectionCount", 8)
+                                        layer.get(
+                                            "directionCount",
+                                            entity.get(
+                                                "expectedDirectionCount", 8
+                                            ),
+                                        )
                                     ),
                                     frames_per_direction=int(
                                         layer["framesPerDirection"]
@@ -478,6 +483,10 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
                                     actual_flip_horizontal=bool(
                                         layer.get("flipHorizontal", False)
                                     ),
+                                    actual_stored_direction=int(
+                                        layer["resolvedStoredDirection"]
+                                    ) if "resolvedStoredDirection" in layer
+                                    else None,
                                 )
                             except FrameOracleError as error:
                                 raise Failure(

@@ -127,6 +127,7 @@ def evaluate_layer(
     action_frame: int,
     actual_frame: int,
     actual_flip_horizontal: bool,
+    actual_stored_direction: int | None = None,
 ) -> dict[str, object]:
     direction = logical_direction(previous, current, direction_count)
     expected = expected_frame(
@@ -140,7 +141,10 @@ def evaluate_layer(
     return {
         "verdict": (
             "PASS" if actual_frame == expected.physical_frame and
-            actual_flip_horizontal == expected.flip_horizontal else "FAIL"
+            actual_flip_horizontal == expected.flip_horizontal and
+            (actual_stored_direction is None or
+             actual_stored_direction == expected.stored_direction)
+            else "FAIL"
         ),
         "movementVector": {
             "x": current[0] - previous[0],
@@ -148,6 +152,7 @@ def evaluate_layer(
         },
         "logicalDirection": expected.logical_direction,
         "storedDirection": expected.stored_direction,
+        "actualStoredDirection": actual_stored_direction,
         "firstPhysicalFrame": expected.first_physical_frame,
         "lastPhysicalFrame": expected.last_physical_frame,
         "expectedFrame": expected.physical_frame,

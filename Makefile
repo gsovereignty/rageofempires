@@ -68,18 +68,12 @@ audit-nostr-multiplayer:
 		echo "Missing isolated Selenium Python: $(NOSTR_AUDIT_PYTHON)" >&2; \
 		exit 1; \
 	}
-	@test -f build-web/dist/aoe_web.html || { \
-		echo "Missing packaged browser build; run a web package build first" >&2; \
-		exit 1; \
-	}
-	@run_id="$$(date -u +%Y%m%dT%H%M%SZ)-complete-audit"; \
-		evidence="artifacts/browser-multiplayer-audits/$$run_id/evidence.json"; \
-		relay_args=""; \
+	@relay_args=""; \
 		if [ -n "$(NOSTR_AUDIT_RELAYS)" ]; then \
 			relay_args="--relays $(NOSTR_AUDIT_RELAYS)"; \
 		fi; \
 		"$(NOSTR_AUDIT_PYTHON)" tests/web/nostr_multiplayer_smoke_test.py \
-			--port "$(NOSTR_AUDIT_PORT)" --evidence "$$evidence" \
+			--port "$(NOSTR_AUDIT_PORT)" \
 			$$relay_args $(NOSTR_AUDIT_ARGS)
 
 clean:

@@ -37,7 +37,7 @@ from audit_multiplayer_screenshots import audit as audit_screenshots
 
 
 ROOT = Path(__file__).resolve().parents[2]
-ARTIFACTS = ROOT / "artifacts" / "nostr-multiplayer"
+AUDIT_ROOT = ROOT / "audit"
 DEFAULT_RELAYS = (
     "wss://relay.nostr.wirednet.jp,wss://nostr.sathoarder.com,"
     "wss://relay.wavlake.com,"
@@ -45,6 +45,37 @@ DEFAULT_RELAYS = (
     "wss://relay.layer.systems"
 )
 WAIT_SECONDS = 180.0
+
+
+def allocate_audit_directory(root: Path = AUDIT_ROOT) -> Path:
+    """Atomically allocate audit/YYYYMMDD-XX using the next daily number."""
+    root.mkdir(parents=True, exist_ok=True)
+    day = datetime.now(timezone.utc).strftime("%Y%m%d")
+    numbers = []
+    for path in root.glob(f"{day}-*"):
+        suffix = path.name.removeprefix(f"{day}-")
+        if suffix.isdigit():
+            numbers.append(int(suffix))
+    number = max(numbers, default=0) + 1
+    while True:
+        path = root / f"{day}-{number:02d}"
+        try:
+            path.mkdir()
+            return path
+        except FileExistsError:
+            number += 1
+
+
+def write_report(root: Path, verdict: str, detail: str) -> None:
+    (root / "report.md").write_text(
+        "# Nostr multiplayer gameplay audit\n\n"
+        f"- Run: `{root.name}`\n"
+        f"- Started UTC: `{datetime.now(timezone.utc).isoformat()}`\n"
+        f"- Verdict: **{verdict}**\n\n"
+        "## Result\n\n"
+        f"{detail}\n",
+        encoding="utf-8",
+    )
 
 
 def diagnostics(driver) -> dict[str, object] | None:
@@ -1394,7 +1425,9 @@ def exercise_relay_chaos(host, join, relays: str) -> dict[str, object]:
 
 def run(relays: str, headed: bool, port: int = 8888,
         checkpoint: bool = False,
-        artifact_dir: Path = ARTIFACTS) -> dict[str, object]:
+        artifact_dir: Path | None = None) -> dict[str, object]:
+    if artifact_dir is None:
+        artifact_dir = allocate_audit_directory()
     if not (DIST / "aoe_web.html").exists():
         raise Failure("packaged browser distribution is missing")
     artifact_dir.mkdir(parents=True, exist_ok=True)
@@ -2206,29 +2239,70 @@ def main() -> int:
     parser.add_argument("--headed", action="store_true")
     parser.add_argument("--checkpoint", action="store_true")
     parser.add_argument(
-        "--evidence", type=Path,
-        default=ARTIFACTS / "production-smoke.json",
+        "--audit-root", type=Path, default=AUDIT_ROOT,
+        help="parent for monotonically numbered YYYYMMDD-XX run directories",
     )
     arguments = parser.parse_args()
-    evidence = run(
-        arguments.relays, arguments.headed, arguments.port,
-        checkpoint=arguments.checkpoint,
-        artifact_dir=arguments.evidence.parent,
+    audit_dir = allocate_audit_directory(arguments.audit_root)
+    evidence_path = audit_dir / "evidence.json"
+    write_report(
+        audit_dir, "RUNNING",
+        "Audit directory allocated before browser launch; run in progress.",
     )
-    arguments.evidence.parent.mkdir(parents=True, exist_ok=True)
-    arguments.evidence.write_text(
-        json.dumps(evidence, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    write_audit_bundle(arguments.evidence.parent, evidence)
+    try:
+        evidence = run(
+            arguments.relays, arguments.headed, arguments.port,
+            checkpoint=arguments.checkpoint,
+            artifact_dir=audit_dir,
+        )
+        evidence_path.write_text(
+            json.dumps(evidence, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        write_audit_bundle(audit_dir, evidence)
+    except Exception as error:
+        failure_path = audit_dir / "first-failure.json"
+        if failure_path.exists():
+            failure = json.loads(failure_path.read_text(encoding="utf-8"))
+        else:
+            failure = {
+                "error": f"{type(error).__name__}: {error}",
+                "relays": arguments.relays.split(","),
+            }
+            failure_path.write_text(
+                json.dumps(failure, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+        evidence_path.write_text(
+            json.dumps(failure, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        write_report(
+            audit_dir, "BLOCKED",
+            "Run stopped before acceptance completed. Infrastructure versus "
+            "product classification remains unproved pending evidence review.\n\n"
+            f"Primary failure: `{failure.get('error', str(error))}`",
+        )
+        print(f"Nostr multiplayer audit blocked: {audit_dir}", file=sys.stderr)
+        return 1
     failures = visual_failures(evidence)
     if failures:
+        write_report(
+            audit_dir, "PROBLEMS FOUND",
+            f"Automated oracles found {len(failures)} visual failure(s). "
+            "See `visual-failures.json` and retained evidence.",
+        )
         print(
             f"Nostr multiplayer audit found {len(failures)} visual "
-            f"failure(s): {arguments.evidence}"
+            f"failure(s): {audit_dir}"
         )
         return 1
-    print(f"Nostr multiplayer smoke passed: {arguments.evidence}")
+    write_report(
+        audit_dir, "PASS",
+        "Automated production-path gameplay, transport, lockstep, motion, and "
+        "visual assertions completed without a retained failure.",
+    )
+    print(f"Nostr multiplayer audit passed: {audit_dir}")
     return 0
 
 

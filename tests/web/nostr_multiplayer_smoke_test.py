@@ -557,6 +557,7 @@ def capture_until_arrival(
 
 def exercise_all_direction_route(
     journey: Journey, driver, actor: str, owner: int,
+    observer_journey: Journey, observer_driver, observer_actor: str,
     host, join, actions: list[dict[str, object]], artifact_dir: Path,
     center: tuple[int, int],
 ) -> dict[str, object]:
@@ -577,6 +578,10 @@ def exercise_all_direction_route(
     center_camera_for_tile(
         journey, driver, actions, actor, center[0], center[1]
     )
+    center_camera_for_tile(
+        observer_journey, observer_driver, actions, observer_actor,
+        center[0] + 1, center[1],
+    )
     audited_world_pointer(
         journey, driver, actions, actor,
         unit_position[0], unit_position[1], button=0,
@@ -594,13 +599,20 @@ def exercise_all_direction_route(
         host, join, owner=owner, unit_id=unit_id, destination=center,
         artifact_dir=artifact_dir, label=f"{actor}-route-approach",
     )
-    route = canonical_direction_route(center)
+    route = canonical_direction_route(center, radius=5)
     segments: list[dict[str, object]] = []
     all_frames: list[dict[str, object]] = []
     for direction, destination in enumerate(route[1:]):
         center_camera_for_tile(
             journey, driver, actions, actor,
             destination[0], destination[1]
+        )
+        # Observer follows same unit through normal camera controls. One-tile
+        # offset preserves distinct host/join camera positions while keeping
+        # sprite visible on both correlated screenshots.
+        center_camera_for_tile(
+            observer_journey, observer_driver, actions, observer_actor,
+            destination[0] + 1, destination[1],
         )
         current = route[direction]
         audited_world_pointer(
@@ -1410,6 +1422,13 @@ def order_enemy_attack(
         if selectable_military_id(
             unit_id, military_ids, ordered_ids
         ) is not None:
+            # Panning to select rallying military can move enemy target far
+            # outside canvas. Recenter target after selection, before issuing
+            # production right-click.
+            pan_world_target_clear(
+                journey, driver, actions, actor, target_name,
+                edge_margin=(8.0 if target_name == "enemyTarget" else 80.0),
+            )
             audited_pointer(journey, actions, actor, target_name, button=2)
             ordered_ids.add(unit_id)
     if not ordered_ids:
@@ -2088,12 +2107,14 @@ def run(relays: str | None, headed: bool, port: int = 8888,
 
             evidence["allDirections"] = {
                 "host": exercise_all_direction_route(
-                    host_journey, host, "host", 0, host, join, actions,
-                    artifact_dir, (20, 12),
+                    host_journey, host, "host", 0,
+                    join_journey, join, "join",
+                    host, join, actions, artifact_dir, (20, 12),
                 ),
                 "join": exercise_all_direction_route(
-                    join_journey, join, "join", 1, host, join, actions,
-                    artifact_dir, (28, 12),
+                    join_journey, join, "join", 1,
+                    host_journey, host, "host",
+                    host, join, actions, artifact_dir, (28, 12),
                 ),
             }
 

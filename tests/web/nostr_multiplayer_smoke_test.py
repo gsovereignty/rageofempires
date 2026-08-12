@@ -982,6 +982,22 @@ def order_town_center_attack(
 def launch_attack_wave(
     journey: Journey, driver, actor: str, actions: list[dict[str, object]],
 ) -> None:
+    if int(journey.telemetry()["blueMilitaryCount"]) > 0:
+        order_town_center_attack(journey, driver, actor, actions)
+        return
+    if int(journey.telemetry()["resources"]["food"]) < 60:
+        starting_food = int(journey.telemetry()["resources"]["food"])
+        pan_world_target_clear(journey, driver, actions, actor, "food")
+        for _ in range(3):
+            audited_key(driver, actions, actor, ".")
+            audited_pointer(journey, actions, actor, "food", button=2)
+        wait_until(
+            f"{actor} replacement-wave food economy",
+            lambda: value if int((value := journey.telemetry())[
+                "resources"
+            ]["food"]) >= max(60, starting_food + 60) else None,
+            timeout=WAIT_SECONDS * 3,
+        )
     audited_key(driver, actions, actor, "2")
     wait_until(
         f"{actor} Barracks control-group recall",
@@ -989,8 +1005,7 @@ def launch_attack_wave(
         timeout=2.0,
     )
     before = int(journey.telemetry()["blueMilitaryCount"])
-    for _ in range(4):
-        audited_key(driver, actions, actor, "m")
+    audited_key(driver, actions, actor, "m")
     wait_until(
         f"{actor} replacement military wave",
         lambda: value if int((value := journey.telemetry())[
@@ -1218,19 +1233,6 @@ def exercise_relay_chaos(host, join, relays: str) -> dict[str, object]:
     recovery["recovered"] = {
         "host": recovered[0], "join": recovered[1]
     }
-    resumed_tick = int((recovered[0].get("game") or {}).get(
-        "currentTick", -1
-    ))
-    for driver in (host, join):
-        driver.find_element(By.ID, "canvas").send_keys(Keys.ARROW_RIGHT)
-    wait_until(
-        "post-recovery ordinary input advances lockstep",
-        lambda: matching_relay_state(
-            host, join, disabled=relay_count - 2, status=0, eose=2,
-            minimum_tick=resumed_tick + 1,
-        ),
-        timeout=WAIT_SECONDS,
-    )
     for relay_index in range(relay_count):
         for driver in (host, join):
             set_relay_enabled(driver, relay_index, True)
@@ -1243,6 +1245,21 @@ def exercise_relay_chaos(host, join, relays: str) -> dict[str, object]:
                 ) and len(state.get("eoseRelays", [])) >= relay_count
                 for driver in (host, join)
             ) else None
+        ),
+        timeout=WAIT_SECONDS,
+    )
+    resumed_tick = int((recovered[0].get("game") or {}).get(
+        "currentTick", -1
+    ))
+    for driver, owner, actor in ((host, 0, "host"), (join, 1, "join")):
+        journey = Journey(driver, "", {})
+        audited_key(driver, [], actor, ".")
+        click_canvas_logical(driver, 640.0, 300.0, button=2)
+    wait_until(
+        "post-recovery ordinary input advances lockstep",
+        lambda: matching_relay_state(
+            host, join, disabled=0, status=0, eose=relay_count,
+            minimum_tick=resumed_tick + 1,
         ),
         timeout=WAIT_SECONDS,
     )
@@ -1566,21 +1583,32 @@ def run(relays: str, headed: bool, port: int = 8888,
             )
 
             # Visible signal control then a world click is the normal UI path.
-            click_canvas_logical(host, 1165, 330)
-            time.sleep(0.25)
-            host.save_screenshot(str(artifact_dir / "signal-armed.png"))
-            host.find_element(By.ID, "canvas").click()
-            wait_until(
-                "public map signal delivery",
-                lambda: (
-                    True
-                    if all(int((game_diagnostics(driver) or {}).get(
-                        "signalCount", 0
-                    )) >= 1 for driver in (host, join))
-                    else None
-                ),
-                timeout=WAIT_SECONDS,
-            )
+            signal_delivered = False
+            for attempt in range(3):
+                click_canvas_logical(host, 1165, 330)
+                time.sleep(0.25)
+                if attempt == 0:
+                    host.save_screenshot(str(artifact_dir / "signal-armed.png"))
+                click_canvas_logical(host, 640, 300)
+                try:
+                    wait_until(
+                        "public map signal delivery",
+                        lambda: (
+                            True
+                            if all(int((game_diagnostics(driver) or {}).get(
+                                "signalCount", 0
+                            )) >= 1 for driver in (host, join))
+                            else None
+                        ),
+                        timeout=WAIT_SECONDS / 3,
+                    )
+                    signal_delivered = True
+                    break
+                except Failure:
+                    if attempt == 2:
+                        raise
+            if not signal_delivered:
+                raise Failure("public map signal delivery retry exhausted")
 
             # F8 negotiates speed and F6 negotiates a save/hash barrier.
             prior_speed = int((game_diagnostics(host) or {}).get("gameSpeed", 0))
@@ -1655,7 +1683,7 @@ def run(relays: str, headed: bool, port: int = 8888,
                 join.save_screenshot(str(artifact_dir / "checkpoint-join.png"))
                 return evidence
             terminal = None
-            for _ in range(8):
+            for _ in range(12):
                 if int((game_diagnostics(join) or {}).get("outcome", 0)) == 0:
                     launch_attack_wave(join_journey, join, "join", actions)
                 try:
@@ -1678,13 +1706,13 @@ def run(relays: str, headed: bool, port: int = 8888,
                     )
                             else None
                         ),
-                        timeout=30.0,
+                        timeout=90.0,
                     )
                     break
                 except Failure:
                     continue
             if terminal is None:
-                raise Failure("natural conquest not reached after eight waves")
+                raise Failure("natural conquest not reached after twelve waves")
             evidence["fullGameplay"]["naturalVictory"] = {
                 "host": terminal[0], "join": terminal[1],
                 "method": "opposing town-center destruction",

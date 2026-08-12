@@ -6879,6 +6879,11 @@ std::string browser_render_telemetry_json(
             expected_state.category = RenderObjectCategory::unit;
             expected_state.object_kind = render_unit_kind_name(unit->kind);
             expected_state.action = render_action_for(simulation, *unit);
+            if (expected_state.action == RenderAction::idle &&
+                (unit->moving ||
+                 render_unit_is_interpolating(simulation, *unit))) {
+                expected_state.action = RenderAction::moving;
+            }
             expected_state.action_detail =
                 render_action_detail_for(simulation, *unit);
             expected_state.owner = unit->owner.stable_id();
@@ -6973,7 +6978,8 @@ std::string browser_render_telemetry_json(
                    << "\",\"animationState\":"
                    << static_cast<int>(unit->animation_state)
                    << "";
-        } else if (capture.kind.starts_with("building-")) {
+        } else if (capture.kind.starts_with("building-") ||
+                   capture.kind.starts_with("remembered-building-")) {
             const auto building_entry = buildings_by_id.find(
                 static_cast<EntityId>(capture.entity)
             );
@@ -25869,6 +25875,33 @@ ApplicationLoop SdlApp::loop() {
                 );
                 browser_targets.resource_x = center.x;
                 browser_targets.resource_y = center.y;
+            }
+            std::optional<TilePosition> nearest_food;
+            int nearest_food_distance = std::numeric_limits<int>::max();
+            for (int y = 0; y < simulation.map().height(); ++y) {
+                for (int x = 0; x < simulation.map().width(); ++x) {
+                    const TilePosition position{x, y};
+                    if (simulation.map().terrain_at(position) !=
+                            Terrain::berry_bush ||
+                        simulation.map().resource_amount_at(position) <= 0) {
+                        continue;
+                    }
+                    const int distance =
+                        std::abs(x - browser_worker_position->x) +
+                        std::abs(y - browser_worker_position->y);
+                    if (distance < nearest_food_distance) {
+                        nearest_food_distance = distance;
+                        nearest_food = position;
+                    }
+                }
+            }
+            if (nearest_food) {
+                const SDL_FPoint center = browser_tile_center(
+                    static_cast<float>(nearest_food->x),
+                    static_cast<float>(nearest_food->y)
+                );
+                browser_targets.food_x = center.x;
+                browser_targets.food_y = center.y;
             }
         }
         for (const Building& building : simulation.buildings()) {

@@ -11,6 +11,8 @@ struct BrowserTargetTelemetry {
     float villager_y{-1.0F};
     float resource_x{-1.0F};
     float resource_y{-1.0F};
+    float food_x{-1.0F};
+    float food_y{-1.0F};
     float military_x{-1.0F};
     float military_y{-1.0F};
     float barracks_x{-1.0F};

@@ -563,13 +563,29 @@ def exercise_all_direction_route(
         f"{actor} all-direction villager selection",
         lambda: matching_games(host, join), timeout=WAIT_SECONDS,
     )
+    candidates = owned_villager_positions(games[0], owner)
+    if not candidates:
+        raise Failure(f"{actor} has no owned route villager")
+    unit_id, unit_position = min(
+        candidates.items(),
+        key=lambda item: (
+            abs(item[1][0] - center[0]) + abs(item[1][1] - center[1]),
+            item[0],
+        ),
+    )
     center_camera_for_tile(
         journey, driver, actions, actor, center[0], center[1]
     )
-    audited_key(driver, actions, actor, ".")
-    unit_id = int(journey.telemetry().get("selectedUnit", 0))
-    if unit_id not in owned_villager_positions(games[0], owner):
-        raise Failure(f"{actor} did not select owned route unit")
+    audited_world_pointer(
+        journey, driver, actions, actor,
+        unit_position[0], unit_position[1], button=0,
+    )
+    wait_until(
+        f"{actor} explicit route villager {unit_id} selection",
+        lambda: unit_id if int(
+            journey.telemetry().get("selectedUnit", 0)
+        ) == unit_id else None,
+    )
     audited_world_pointer(
         journey, driver, actions, actor, center[0], center[1]
     )

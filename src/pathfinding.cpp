@@ -21,7 +21,9 @@ struct CheapestFirst {
 };
 
 int distance(TilePosition left, TilePosition right) {
-    return std::abs(left.x - right.x) + std::abs(left.y - right.y);
+    const int dx = std::abs(left.x - right.x);
+    const int dy = std::abs(left.y - right.y);
+    return 10 * std::max(dx, dy) + 4 * std::min(dx, dy);
 }
 
 std::size_t index(const GameMap& map, TilePosition position) {
@@ -58,11 +60,15 @@ std::vector<TilePosition> find_path(
     cost[index(map, start)] = 0;
     frontier.push({start, distance(start, goal)});
 
-    constexpr std::array<TilePosition, 4> directions{
+    constexpr std::array<TilePosition, 8> directions{
         TilePosition{1, 0},
         TilePosition{-1, 0},
         TilePosition{0, 1},
         TilePosition{0, -1},
+        TilePosition{1, 1},
+        TilePosition{-1, 1},
+        TilePosition{-1, -1},
+        TilePosition{1, -1},
     };
 
     while (!frontier.empty()) {
@@ -78,13 +84,31 @@ std::vector<TilePosition> find_path(
                 current.x + direction.x,
                 current.y + direction.y,
             };
+            const bool diagonal = direction.x != 0 && direction.y != 0;
+            const TilePosition horizontal{
+                current.x + direction.x, current.y,
+            };
+            const TilePosition vertical{
+                current.x, current.y + direction.y,
+            };
+            const auto blocked_before_goal = [&](TilePosition position) {
+                return position != goal && blocked(position);
+            };
             if (!can_traverse(next) ||
                 (!traversable && !map.traversable(current, next)) ||
-                (next != goal && blocked(next))) {
+                blocked_before_goal(next) ||
+                (diagonal &&
+                 (!can_traverse(horizontal) || !can_traverse(vertical) ||
+                  (!traversable &&
+                   (!map.traversable(current, horizontal) ||
+                    !map.traversable(current, vertical))) ||
+                  blocked_before_goal(horizontal) ||
+                  blocked_before_goal(vertical)))) {
                 continue;
             }
 
-            const int next_cost = cost[index(map, current)] + 1;
+            const int next_cost = cost[index(map, current)] +
+                (diagonal ? 14 : 10);
             if (next_cost >= cost[index(map, next)]) {
                 continue;
             }

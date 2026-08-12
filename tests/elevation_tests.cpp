@@ -16,6 +16,29 @@ void require(bool condition, const char* message) {
 }  // namespace
 
 int main() {
+    {
+        aoe::GameMap open(3, 3);
+        const auto diagonal = aoe::find_path(
+            open, {0, 0}, {2, 2}, [](aoe::TilePosition) { return false; }
+        );
+        require(
+            diagonal == std::vector<aoe::TilePosition>{{1, 1}, {2, 2}},
+            "open path uses diagonal steps"
+        );
+
+        const auto no_corner_cut = aoe::find_path(
+            open, {0, 0}, {1, 1}, [](aoe::TilePosition position) {
+                return position == aoe::TilePosition{1, 0};
+            }
+        );
+        require(
+            no_corner_cut == std::vector<aoe::TilePosition>{
+                {0, 1}, {1, 1}
+            },
+            "diagonal path does not cut blocked corner"
+        );
+    }
+
     aoe::GameMap map(3, 1);
     map.set_elevation({0, 0}, 0);
     map.set_elevation({1, 0}, 1);

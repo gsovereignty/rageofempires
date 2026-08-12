@@ -107,7 +107,7 @@ set_target_properties(aoe_web PROPERTIES
     SUFFIX ".html"
     RUNTIME_OUTPUT_DIRECTORY "${AOE_WEB_DIST_DIR}"
     LINK_DEPENDS
-        "${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html;${CMAKE_CURRENT_SOURCE_DIR}/web/browser_runtime.js;${CMAKE_CURRENT_SOURCE_DIR}/web/styles.css;${AOE_NOSTR_BUNDLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html;${CMAKE_CURRENT_SOURCE_DIR}/web/browser_runtime.js;${CMAKE_CURRENT_SOURCE_DIR}/web/styles.css;${AOE_NOSTR_BUNDLE};${AOE_WEB_ASSET_DIR}/web_asset_manifest.json"
 )
 add_custom_command(TARGET aoe_web POST_BUILD
     COMMAND "${CMAKE_COMMAND}" -E make_directory

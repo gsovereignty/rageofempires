@@ -54,7 +54,7 @@
     "risk-scenario": {
       "reason": "fixed scenario root",
       "source": "resources/browser-risk-spike.scenario",
-      "dependencies": ["scenario-record", "skirmish-scenario", "civilizations", "entities", "technology", "terrain", "ui", "audio"]
+      "dependencies": ["scenario-record", "skirmish-scenario", "nostr-visual-scenario", "civilizations", "entities", "technology", "terrain", "ui", "audio"]
     },
     "scenario-record": {
       "reason": "fixed IDs, positions, budgets, and dependency graph",
@@ -64,6 +64,11 @@
     "skirmish-scenario": {
       "reason": "default browser single-player skirmish",
       "source": "resources/browser-skirmish.scenario",
+      "dependencies": []
+    },
+    "nostr-visual-scenario": {
+      "reason": "deterministic two-player visual direction arena",
+      "source": "resources/browser-nostr-visual.scenario",
       "dependencies": []
     },
     "civilizations": {

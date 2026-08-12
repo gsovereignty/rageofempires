@@ -599,47 +599,48 @@ def exercise_all_direction_route(
         host, join, owner=owner, unit_id=unit_id, destination=center,
         artifact_dir=artifact_dir, label=f"{actor}-route-approach",
     )
-    route = canonical_direction_route(center, radius=5)
+    route = canonical_direction_route(center)
     segments: list[dict[str, object]] = []
     all_frames: list[dict[str, object]] = []
-    for direction, destination in enumerate(route[1:]):
-        center_camera_for_tile(
-            journey, driver, actions, actor,
-            destination[0], destination[1]
-        )
-        # Observer follows same unit through normal camera controls. One-tile
-        # offset preserves distinct host/join camera positions while keeping
-        # sprite visible on both correlated screenshots.
-        center_camera_for_tile(
-            observer_journey, observer_driver, actions, observer_actor,
-            destination[0] + 1, destination[1],
-        )
-        current = route[direction]
-        audited_world_pointer(
-            journey, driver, actions, actor,
-            current[0], current[1], button=0,
-        )
-        wait_until(
-            f"{actor} route unit {unit_id} selection",
-            lambda: unit_id if int(
-                journey.telemetry().get("selectedUnit", 0)
-            ) == unit_id else None,
-        )
-        audited_world_pointer(
-            journey, driver, actions, actor,
-            destination[0], destination[1]
-        )
-        frames = capture_until_arrival(
-            host, join, owner=owner, unit_id=unit_id,
-            destination=destination, artifact_dir=artifact_dir,
-            label=f"{actor}-direction-{direction}",
-        )
-        all_frames.extend(frames)
-        segments.append({
-            "logicalDirection": direction,
-            "destination": {"x": destination[0], "y": destination[1]},
-            "frameCount": len(frames),
-        })
+    for lap in range(2):
+        for direction, destination in enumerate(route[1:]):
+            center_camera_for_tile(
+                journey, driver, actions, actor,
+                destination[0], destination[1]
+            )
+            # Observer follows same unit through normal camera controls.
+            # One-tile offset preserves distinct cameras while keeping sprite
+            # visible on both correlated screenshots.
+            center_camera_for_tile(
+                observer_journey, observer_driver, actions, observer_actor,
+                destination[0] + 1, destination[1],
+            )
+            current = route[direction]
+            audited_world_pointer(
+                journey, driver, actions, actor,
+                current[0], current[1], button=0,
+            )
+            wait_until(
+                f"{actor} route unit {unit_id} selection",
+                lambda: unit_id if int(
+                    journey.telemetry().get("selectedUnit", 0)
+                ) == unit_id else None,
+            )
+            audited_world_pointer(
+                journey, driver, actions, actor,
+                destination[0], destination[1]
+            )
+            frames = capture_until_arrival(
+                host, join, owner=owner, unit_id=unit_id,
+                destination=destination, artifact_dir=artifact_dir,
+                label=f"{actor}-lap-{lap}-direction-{direction}",
+            )
+            all_frames.extend(frames)
+            segments.append({
+                "lap": lap, "logicalDirection": direction,
+                "destination": {"x": destination[0], "y": destination[1]},
+                "frameCount": len(frames),
+            })
     return {
         "actor": actor, "owner": owner, "unitId": unit_id,
         "center": {"x": center[0], "y": center[1]},

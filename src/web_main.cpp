@@ -97,6 +97,10 @@ int main() {
     set_environment_from_query("match", "AOE_NOSTR_MATCH_REFERENCE");
     set_environment_from_query("oneRelay", "AOE_NOSTR_ONE_RELAY");
     set_environment_from_query("allied", "AOE_MULTIPLAYER_ALLIED");
+    set_environment_from_query(
+        "overlapCapture", "AOE_OVERLAP_CAPTURE_DIR"
+    );
+    set_environment_from_query("overlapTick", "AOE_OVERLAP_CAPTURE_TICK");
     if (use_risk_fixture) {
         setenv("AOE_FOG", "0", true);
     }

@@ -9,6 +9,10 @@ import struct
 import zlib
 from pathlib import Path
 
+from PIL import Image
+
+from visual_overlap_audit import audit_images
+
 
 FAIL_SOURCES = {
     "intentional_procedural", "procedural", "procedural_or_unproven",
@@ -146,6 +150,75 @@ def provenance_findings(root: Path) -> list[dict[str, object]]:
     return findings
 
 
+def overlap_findings(root: Path) -> tuple[list[dict[str, object]], int]:
+    """Recompute every matched overlap case; never trust a stored verdict."""
+    manifest_path = root / "overlap" / "manifest.json"
+    if not manifest_path.is_file():
+        return ([{"status": "BLOCKED", "kind": "overlap_evidence",
+                  "reason": "missing overlap/manifest.json"}], 0)
+    try:
+        manifest = json.loads(manifest_path.read_text())
+    except (OSError, json.JSONDecodeError) as error:
+        return ([{"status": "BLOCKED", "kind": "overlap_evidence",
+                  "reason": f"invalid manifest: {error}"}], 0)
+    cases = manifest.get("cases")
+    if not isinstance(cases, list) or not cases:
+        return ([{"status": "BLOCKED", "kind": "overlap_evidence",
+                  "reason": "manifest contains no cases"}], 0)
+    findings: list[dict[str, object]] = []
+    audited = 0
+    overlap_root = manifest_path.parent
+    for index, case in enumerate(cases):
+        case_id = str(case.get("id") or f"case-{index + 1}")
+        common = {"case": case_id, "manifest": "overlap/manifest.json"}
+        try:
+            paths = {
+                key: overlap_root / str(case[key])
+                for key in ("actual", "terrain", "sprite")
+            }
+            placement = (int(case["x"]), int(case["y"]))
+            if any(not path.is_file() for path in paths.values()):
+                missing = [key for key, path in paths.items()
+                           if not path.is_file()]
+                raise ValueError("missing matched input(s): " + ", ".join(missing))
+            with Image.open(paths["actual"]) as actual, \
+                    Image.open(paths["terrain"]) as terrain, \
+                    Image.open(paths["sprite"]) as sprite:
+                if sprite.mode != "RGBA":
+                    raise ValueError("isolated sprite must be RGBA")
+                report, annotated = audit_images(
+                    actual, terrain, sprite, placement,
+                    alpha_threshold=int(case.get("alpha_threshold", 96)),
+                    terrain_threshold=int(case.get("terrain_threshold", 12)),
+                    composite_threshold=int(case.get("composite_threshold", 24)),
+                    minimum_area=int(case.get("minimum_area", 4)),
+                )
+            output = overlap_root / "reports" / case_id
+            output.mkdir(parents=True, exist_ok=True)
+            report.update({
+                "case": case_id,
+                "evidence": {
+                    key: str(path.relative_to(root))
+                    for key, path in paths.items()
+                },
+            })
+            (output / "report.json").write_text(
+                json.dumps(report, indent=2, sort_keys=True) + "\n"
+            )
+            annotated.save(output / "annotated.png", format="PNG")
+            audited += 1
+            if report["status"] == "overlap_detected":
+                findings.append({
+                    **common, "status": "FAIL", "kind": "sprite_overlap",
+                    "report": str((output / "report.json").relative_to(root)),
+                    "overlapPixels": report["overlap_pixels"],
+                })
+        except (KeyError, TypeError, ValueError, OSError) as error:
+            findings.append({**common, "status": "BLOCKED",
+                             "kind": "overlap_evidence", "reason": str(error)})
+    return findings, audited
+
+
 def audit(root: Path) -> dict[str, object]:
     findings = provenance_findings(root)
     screenshots = sorted((root / "frames").glob("**/*.png"))
@@ -153,24 +226,14 @@ def audit(root: Path) -> dict[str, object]:
     for path in screenshots:
         for finding in pixel_findings(path):
             findings.append({**finding, "path": str(path.relative_to(root))})
-    # Terrain-over-sprite overlap cannot be inferred from one composited PNG.
-    # Require matched terrain-only and isolated RGBA inputs; absent inputs are
-    # explicit blocked evidence, never a clean verdict.
-    overlap_reports = sorted(root.glob("overlap/**/report.json"))
-    if not overlap_reports:
-        findings.append({"status": "BLOCKED", "kind": "overlap_evidence"})
-    else:
-        for path in overlap_reports:
-            report = json.loads(path.read_text())
-            if report.get("status") == "overlap_detected":
-                findings.append({"status": "FAIL", "kind": "sprite_overlap",
-                                 "path": str(path.relative_to(root)),
-                                 "overlapPixels": report.get("overlap_pixels")})
+    overlap, overlap_cases = overlap_findings(root)
+    findings.extend(overlap)
     status = "FAIL" if any(item["status"] == "FAIL" for item in findings) \
         else "BLOCKED" if findings else "PASS"
     return {
         "schemaVersion": 1, "status": status,
-        "screenshotsAudited": len(screenshots), "findings": findings,
+        "screenshotsAudited": len(screenshots),
+        "overlapCasesAudited": overlap_cases, "findings": findings,
     }
 
 

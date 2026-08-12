@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
 import math
@@ -20,6 +21,7 @@ from selenium.webdriver.common.by import By
 from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import Select
+from PIL import Image
 
 from browser_risk_spike_test import (
     DIST,
@@ -1071,7 +1073,9 @@ def launch_attack_wave(
 
 def launch(driver, base_url: str, mode: str, relays: str,
            match_reference: str = "", allied: bool = True) -> Journey:
-    driver.get(f"{base_url}/aoe_web.html")
+    driver.get(
+        f"{base_url}/aoe_web.html?overlapCapture=/audit-overlap&overlapTick=0"
+    )
     wait_until(
         f"{mode} browser storage",
         lambda: driver.execute_script(
@@ -1097,6 +1101,67 @@ def launch(driver, base_url: str, mode: str, relays: str,
     )
     driver.execute_script("Module.browserRenderTelemetryEnabled = true")
     return Journey(driver, base_url, {})
+
+
+def capture_browser_overlap(driver, root: Path, peer: str) -> int:
+    """Export renderer-produced matched pixels from browser virtual FS."""
+    virtual_root = "/audit-overlap"
+    manifest_text = wait_until(
+        f"{peer} overlap manifest",
+        lambda: driver.execute_script(
+            "if (!FS.analyzePath(arguments[0]).exists) return null;"
+            "return FS.readFile(arguments[0], {encoding: 'utf8'});",
+            virtual_root + "/manifest.json",
+        ),
+        timeout=WAIT_SECONDS,
+    )
+    source_manifest = json.loads(manifest_text)
+    output_root = root / "overlap"
+    output_root.mkdir(parents=True, exist_ok=True)
+    aggregate_path = output_root / "manifest.json"
+    aggregate = ({"schema_version": 1, "cases": []}
+                 if not aggregate_path.is_file()
+                 else json.loads(aggregate_path.read_text()))
+
+    def export_image(source: str, destination: Path) -> None:
+        encoded = driver.execute_script(
+            "const bytes=FS.readFile(arguments[0]); let value='';"
+            "const size=0x8000; for(let i=0;i<bytes.length;i+=size){"
+            "value+=String.fromCharCode(...bytes.subarray(i,i+size));}"
+            "return btoa(value);",
+            virtual_root + "/" + source,
+        )
+        temporary = output_root / (destination.stem + ".source" +
+                                   Path(source).suffix)
+        temporary.write_bytes(base64.b64decode(encoded))
+        with Image.open(temporary) as image:
+            image.save(output_root / destination, format="PNG")
+        temporary.unlink()
+
+    actual_name = f"{peer}-gameplay.png"
+    terrain_name = f"{peer}-terrain.png"
+    export_image("actual.bmp", Path(actual_name))
+    export_image("terrain.bmp", Path(terrain_name))
+    count = 0
+    for case in source_manifest.get("cases", []):
+        if case.get("blocked_reason"):
+            continue
+        case_id = f"{peer}-{case['id']}"
+        sprite_name = f"{case_id}-sprite.png"
+        export_image(str(case["sprite"]), Path(sprite_name))
+        aggregate["cases"].append({
+            "id": case_id,
+            "actual": actual_name,
+            "terrain": terrain_name,
+            "sprite": sprite_name,
+            "x": int(case["x"]), "y": int(case["y"]),
+            "metadata": case.get("metadata", {}),
+        })
+        count += 1
+    aggregate_path.write_text(
+        json.dumps(aggregate, indent=2, sort_keys=True) + "\n"
+    )
+    return count
 
 
 def key_chord(driver, key: str, modifier: str | None = None) -> None:
@@ -1349,12 +1414,16 @@ def run(relays: str, headed: bool, port: int = 8888,
         try:
             host_journey = launch(host, base_url, "host", relays)
             host_state = require_quorum(host, "host")
+            evidence.setdefault("overlapEvidence", {})["host"] = \
+                capture_browser_overlap(host, artifact_dir, "host")
             reference = str(host_state.get("matchReference", ""))
             if not reference.startswith("aoe-nostr:1:"):
                 raise Failure(f"invalid host match reference: {reference!r}")
 
             join_journey = launch(join, base_url, "join", relays, reference)
             require_quorum(join, "join")
+            evidence.setdefault("overlapEvidence", {})["join"] = \
+                capture_browser_overlap(join, artifact_dir, "join")
             wait_until(
                 "canonical lobby revision 2",
                 lambda: (

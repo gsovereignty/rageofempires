@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 
 import copy
+import base64
+import io
+import json
 import tempfile
 import unittest
 from pathlib import Path
+
+from PIL import Image
 
 from nostr_multiplayer_smoke_test import (
     Failure,
@@ -12,6 +17,7 @@ from nostr_multiplayer_smoke_test import (
     audited_key,
     banked_resource_increased,
     capture_failure_value,
+    capture_browser_overlap,
     collapse_match_details,
     diagnostics,
     render_diagnostics,
@@ -20,6 +26,24 @@ from nostr_multiplayer_smoke_test import (
     visual_findings,
     write_audit_bundle,
 )
+
+
+class VirtualFsDriver:
+    def __init__(self, files):
+        self.files = files
+
+    def execute_script(self, script, path):
+        value = self.files[path]
+        if "encoding: 'utf8'" in script:
+            return value.decode()
+        return base64.b64encode(value).decode()
+
+
+def encoded_image(format_name, mode="RGB"):
+    output = io.BytesIO()
+    Image.new(mode, (4, 4), ((20, 50, 10, 255) if mode == "RGBA"
+                             else (20, 50, 10))).save(output, format=format_name)
+    return output.getvalue()
 
 
 def sample(frame: int, x: float, source: str = "legacy",
@@ -97,6 +121,31 @@ def gathering_sample(*, amount: int = 100, include_resource: bool = True):
 
 
 class AuditedInputTests(unittest.TestCase):
+    def test_exports_live_renderer_overlap_inputs_as_png_manifest(self):
+        manifest = {"cases": [{
+            "id": "unit-7", "actual": "actual.bmp", "terrain": "terrain.bmp",
+            "sprite": "unit-7.tga", "x": 12, "y": 23,
+            "metadata": {"entity_id": 7},
+        }]}
+        driver = VirtualFsDriver({
+            "/audit-overlap/manifest.json": json.dumps(manifest).encode(),
+            "/audit-overlap/actual.bmp": encoded_image("BMP"),
+            "/audit-overlap/terrain.bmp": encoded_image("BMP"),
+            "/audit-overlap/unit-7.tga": encoded_image("TGA", "RGBA"),
+        })
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+
+            count = capture_browser_overlap(driver, root, "host")
+
+            self.assertEqual(count, 1)
+            case = json.loads(
+                (root / "overlap" / "manifest.json").read_text()
+            )["cases"][0]
+            self.assertEqual((case["x"], case["y"]), (12, 23))
+            self.assertEqual(Image.open(root / "overlap" /
+                                        case["sprite"]).mode, "RGBA")
+
     def test_gold_deposit_oracle_waits_for_banked_resource(self):
         carrying = {"resources": {"gold": 200}}
         deposited = {"resources": {"gold": 209}}

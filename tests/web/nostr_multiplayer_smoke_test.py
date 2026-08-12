@@ -508,7 +508,9 @@ def center_camera_for_tile(
                      float(camera["x"])) * zoom
         logical_y = (32 + (tile_x + tile_y) * 16 -
                      float(camera["y"])) * zoom
-        if 100.0 < logical_x < 1180.0 and 80.0 < logical_y < 500.0:
+        # The production Nostr session controls occupy the right side of the
+        # canvas. Keep world commands left of that overlay so they reach SDL.
+        if 100.0 < logical_x < 900.0 and 80.0 < logical_y < 500.0:
             return
         if logical_y >= 500.0:
             key = Keys.ARROW_DOWN

@@ -8,9 +8,11 @@ import base64
 import hashlib
 import json
 import math
+import secrets
 import subprocess
 import sys
 import time
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -38,39 +40,145 @@ from nostr_visual_frame_oracle import FrameOracleError, evaluate_layer
 
 
 ROOT = Path(__file__).resolve().parents[2]
-AUDIT_ROOT = ROOT / "audit"
+AUDIT_ROOT = ROOT / "artifacts" / "nostr-e2e-visual"
+AUDIT_REPORT_ROOT = ROOT / "docs" / "audits"
 WAIT_SECONDS = 180.0
 
 
-def allocate_audit_directory(root: Path = AUDIT_ROOT) -> Path:
-    """Atomically allocate audit/YYYYMMDD-XX using the next daily number."""
-    root.mkdir(parents=True, exist_ok=True)
-    day = datetime.now(timezone.utc).strftime("%Y%m%d")
-    numbers = []
-    for path in root.glob(f"{day}-*"):
-        suffix = path.name.removeprefix(f"{day}-")
-        if suffix.isdigit():
-            numbers.append(int(suffix))
-    number = max(numbers, default=0) + 1
+@dataclass(frozen=True)
+class AuditDestination:
+    artifacts: Path
+    report: Path
+    run_id: str
+
+
+def atomic_write_json(path: Path, value: object) -> None:
+    temporary = path.with_name(f".{path.name}.{secrets.token_hex(6)}.tmp")
+    temporary.write_text(
+        json.dumps(value, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    temporary.replace(path)
+
+
+def allocate_audit_destination(
+    artifact_root: Path = AUDIT_ROOT,
+    report_root: Path = AUDIT_REPORT_ROOT,
+) -> AuditDestination:
+    """Atomically reserve durable report and artifact destinations."""
+    artifact_root.mkdir(parents=True, exist_ok=True)
+    report_root.mkdir(parents=True, exist_ok=True)
+    now = datetime.now(timezone.utc)
+    stamp = now.strftime("%Y%m%dT%H%M%SZ")
+    report_day = now.strftime("%Y-%m-%d")
     while True:
-        path = root / f"{day}-{number:02d}"
+        run_id = secrets.token_hex(6)
+        artifacts = artifact_root / f"{stamp}-{run_id}"
         try:
-            path.mkdir()
-            return path
+            artifacts.mkdir()
+            break
         except FileExistsError:
-            number += 1
+            continue
+    report = report_root / f"{report_day}-NOSTR-E2E-VISUAL-GAMEPLAY.md"
+    if report.exists():
+        report = report_root / (
+            f"{report_day}-NOSTR-E2E-VISUAL-GAMEPLAY-{run_id}.md"
+        )
+    report.touch(exist_ok=False)
+    return AuditDestination(artifacts, report, run_id)
 
 
-def write_report(root: Path, verdict: str, detail: str) -> None:
-    (root / "report.md").write_text(
+def allocate_audit_directory(root: Path = AUDIT_ROOT) -> Path:
+    """Compatibility helper for direct test runs."""
+    return allocate_audit_destination(root).artifacts
+
+
+def initialize_run_ledger(
+    destination: AuditDestination,
+    *,
+    relays: str | None,
+    headed: bool,
+    port: int,
+    seed: int,
+    retry_budget: int,
+) -> None:
+    def ledger_path(path: Path) -> str:
+        try:
+            return str(path.relative_to(ROOT))
+        except ValueError:
+            return str(path)
+
+    package_files = sorted({
+        *DIST.glob("aoe_web.*"), DIST / "aoe_nostr.js",
+    })
+    package_digests = {
+        str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in package_files if path.is_file()
+    }
+    commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=ROOT, check=True,
+        capture_output=True, text=True,
+    ).stdout.strip()
+    ledger = {
+        "schemaVersion": 2,
+        "status": "RUNNING",
+        "startedUtc": datetime.now(timezone.utc).isoformat(),
+        "runId": destination.run_id,
+        "reportPath": ledger_path(destination.report),
+        "artifactPath": ledger_path(destination.artifacts),
+        "sourceCommit": commit,
+        "packageSha256": package_digests,
+        "browser": {"name": "chrome", "headed": headed,
+                    "versions": "captured after driver creation"},
+        "scenario": "packaged Nostr multiplayer production scenario",
+        "seed": seed,
+        "hostPublicKey": "pending product identity initialization",
+        "joinPublicKey": "pending product identity initialization",
+        "relayPool": relays.split(",") if relays else
+            "packaged production defaults",
+        "selectedQuorum": [],
+        "retryBudget": retry_budget,
+        "serverPort": port,
+        "viewport": {"width": 1280, "height": 720},
+        "dpr": [1, 2],
+        "capture": {
+            "renderTelemetry": True,
+            "correlatedScreenshots": True,
+            "frameFlipOracle": "aok-fun-00510160-v1",
+        },
+        "privateKeysRetained": False,
+    }
+    atomic_write_json(destination.artifacts / "run.json", ledger)
+    write_jsonl(destination.artifacts / "actions.jsonl", [])
+    write_jsonl(destination.artifacts / "correlated-frames.jsonl", [])
+    write_jsonl(destination.artifacts / "visual-oracles.jsonl", [])
+    atomic_write_json(destination.artifacts / "coverage.json", {
+        "schemaVersion": 1, "requiredCells": [], "cells": {},
+        "status": "RUNNING",
+    })
+    atomic_write_json(destination.artifacts / "verdict.json", {
+        "schemaVersion": 1, "status": "RUNNING",
+    })
+    write_report(
+        destination.artifacts, "RUNNING",
+        "Durable destinations allocated before browser launch.",
+        report_path=destination.report,
+    )
+
+
+def write_report(root: Path, verdict: str, detail: str,
+                 report_path: Path | None = None) -> None:
+    report = (
         "# Nostr multiplayer gameplay audit\n\n"
         f"- Run: `{root.name}`\n"
         f"- Started UTC: `{datetime.now(timezone.utc).isoformat()}`\n"
         f"- Verdict: **{verdict}**\n\n"
         "## Result\n\n"
-        f"{detail}\n",
-        encoding="utf-8",
+        f"{detail}\n"
     )
+    (root / "report.md").write_text(report, encoding="utf-8")
+    if report_path is not None:
+        report_path.write_text(report, encoding="utf-8")
 
 
 def diagnostics(driver) -> dict[str, object] | None:
@@ -375,7 +483,7 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
     counts = {"frames": len(samples), "entities": 0, "legacy": 0,
               "proceduralFailures": 0, "unprovenSources": 0,
               "unresolvedExpectedMappings": [],
-              "animationSequenceBlocked": 0}
+              "animationSequenceBlocked": 0, "visualOracles": []}
     last_frame = {"host": -1, "join": -1}
     previous_positions: dict[
         tuple[str, str, int], tuple[float, float, int, tuple[int, int] | None]
@@ -457,6 +565,10 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
                                 raise Failure(
                                     f"frame oracle lacks positions: {entity}"
                                 )
+                            if (int(previous["x"]), int(previous["y"])) == (
+                                int(current["x"]), int(current["y"])
+                            ):
+                                continue
                             try:
                                 oracle = evaluate_layer(
                                     previous=(int(previous["x"]),
@@ -501,6 +613,24 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
                                     f"resource={layer.get('resourceId')} "
                                     f"oracle={json.dumps(oracle, sort_keys=True)}"
                                 )
+                            counts["visualOracles"].append({
+                                **oracle,
+                                "peer": peer,
+                                "owner": entity.get("owner"),
+                                "entity": entity.get("id"),
+                                "unitKind": entity.get("category"),
+                                "action": entity.get("action"),
+                                "tick": state.get("tick"),
+                                "renderFrame": state.get("frame"),
+                                "layer": layer_index,
+                                "resourceId": layer.get("resourceId"),
+                                "directionCount": layer.get("directionCount"),
+                                "framesPerDirection":
+                                    layer.get("framesPerDirection"),
+                                "mirroringMode": layer.get("mirroringMode"),
+                                "screenshot": (sample.get("screenshots") or {})
+                                    .get(peer),
+                            })
                         animation_frames.setdefault(
                             (peer, str(entity.get("category", "")),
                              int(entity.get("id", -1)), layer_index,
@@ -2101,6 +2231,7 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
         ROOT / "src/sdl_app.cpp",
         ROOT / "tests/web/nostr_multiplayer_smoke_test.py",
         ROOT / "tests/web/test_nostr_multiplayer_audit_tools.py",
+        ROOT / "tools/nostr_visual_frame_oracle.py",
     ]
     source_digests = {
         str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
@@ -2108,8 +2239,14 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
     }
     host = evidence.get("host", {})
     join = evidence.get("join", {})
+    existing_ledger = (
+        json.loads((root / "run.json").read_text(encoding="utf-8"))
+        if (root / "run.json").is_file() else {}
+    )
     run_ledger = {
-        "schemaVersion": 1,
+        **existing_ledger,
+        "schemaVersion": 2,
+        "status": "COMPLETE",
         "completedUtc": datetime.now(timezone.utc).isoformat(),
         "sourceCommit": commit,
         "package": str(package.relative_to(ROOT)),
@@ -2118,8 +2255,10 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
         "browser": evidence.get("browser"),
         "relays": evidence.get("relays", []),
         "relaySource": evidence.get("relaySource"),
-        "hostPublicKey": host.get("publicKey") if isinstance(host, dict) else None,
-        "joinPublicKey": join.get("publicKey") if isinstance(join, dict) else None,
+        "hostPublicKey": (host.get("publicKey") if isinstance(host, dict)
+                          else existing_ledger.get("hostPublicKey")),
+        "joinPublicKey": (join.get("publicKey") if isinstance(join, dict)
+                          else existing_ledger.get("joinPublicKey")),
         "matchReference": host.get("matchReference") if isinstance(host, dict) else None,
         "lobbyRevision": ((host.get("game") or {}).get("lobbyRevision")
                           if isinstance(host, dict) else None),
@@ -2144,10 +2283,7 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
             "terminal result agrees and tick freezes",
         ],
     }
-    (root / "run.json").write_text(
-        json.dumps(run_ledger, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    atomic_write_json(root / "run.json", run_ledger)
     actions = evidence.get("actions") or [
         {"phase": "movement", "actor": "host", "kind": "move",
          "unitId": (evidence.get("movement") or {}).get("unitId")},
@@ -2279,6 +2415,75 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
                     "entities": render_state.get("entities", []),
                 })
     write_jsonl(root / "sprite-provenance.jsonl", provenance)
+    correlated_records: list[dict[str, object]] = []
+    for phase in ("movement", "joinMovement", "simultaneousMovement"):
+        for sample in (evidence.get(phase) or {}).get("frames", []):
+            correlated_records.append({"phase": phase, **sample})
+    for phase, samples in gather_phases.items():
+        for sample in samples:
+            correlated_records.append({"phase": phase, **sample})
+    for sample in combat.get("frames", []):
+        correlated_records.append({
+            "phase": "fullGameplayCombat", **sample,
+        })
+    write_jsonl(root / "correlated-frames.jsonl", correlated_records)
+
+    visual_oracles: list[dict[str, object]] = []
+
+    def collect_oracles(value: object) -> None:
+        if isinstance(value, dict):
+            records = value.get("visualOracles")
+            if isinstance(records, list):
+                visual_oracles.extend(
+                    record for record in records if isinstance(record, dict)
+                )
+            for child in value.values():
+                collect_oracles(child)
+        elif isinstance(value, list):
+            for child in value:
+                collect_oracles(child)
+
+    collect_oracles(evidence)
+    write_jsonl(root / "visual-oracles.jsonl", visual_oracles)
+
+    cells: dict[str, dict[str, object]] = {}
+    for index, oracle in enumerate(visual_oracles):
+        key = "|".join(str(oracle.get(field, "")) for field in (
+            "peer", "owner", "unitKind", "action", "directionCount",
+            "logicalDirection", "mirroringMode",
+        )) + "|authoritative-step"
+        cell = cells.setdefault(key, {
+            "sampleCount": 0,
+            "firstTick": oracle.get("tick"),
+            "lastTick": oracle.get("tick"),
+            "entityIds": [],
+            "oracleRecordIndexes": [],
+            "screenshots": [],
+        })
+        cell["sampleCount"] = int(cell["sampleCount"]) + 1
+        cell["lastTick"] = oracle.get("tick")
+        if oracle.get("entity") not in cell["entityIds"]:
+            cell["entityIds"].append(oracle.get("entity"))
+        cell["oracleRecordIndexes"].append(index)
+        screenshot = oracle.get("screenshot")
+        if screenshot and screenshot not in cell["screenshots"]:
+            cell["screenshots"].append(screenshot)
+    coverage = {
+        "schemaVersion": 1,
+        "keyFields": [
+            "peer", "owner", "unit-kind", "action", "direction-count",
+            "logical-direction", "mirrored", "transition-kind",
+        ],
+        "minimumSamplesPerRequiredCell": 3,
+        "cells": cells,
+        "requiredCells": [],
+        "missingRequiredCells": [
+            "tracked unit/action coverage specification not yet implemented",
+            "all 8-direction and applicable 16-direction journey not complete",
+        ],
+        "status": "BLOCKED",
+    }
+    atomic_write_json(root / "coverage.json", coverage)
     (root / "console-host.json").write_text(
         json.dumps(evidence.get("hostConsole", []), indent=2) + "\n",
         encoding="utf-8",
@@ -2300,6 +2505,16 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
         json.dumps(screenshot_report, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    failures = visual_failures(evidence)
+    status = "FAIL" if failures else "BLOCKED"
+    atomic_write_json(root / "verdict.json", {
+        "schemaVersion": 1,
+        "status": status,
+        "visualFailureCount": len(failures),
+        "visualOracleCount": len(visual_oracles),
+        "coverageStatus": coverage["status"],
+        "missingRequiredCells": coverage["missingRequiredCells"],
+    })
 
 
 def main() -> int:
@@ -2313,14 +2528,25 @@ def main() -> int:
     parser.add_argument("--checkpoint", action="store_true")
     parser.add_argument(
         "--audit-root", type=Path, default=AUDIT_ROOT,
-        help="parent for monotonically numbered YYYYMMDD-XX run directories",
+        help="parent for durable timestamped run artifact directories",
     )
+    parser.add_argument("--report-root", type=Path,
+                        default=AUDIT_REPORT_ROOT)
+    parser.add_argument("--seed", type=int, default=0xA0E20260812)
+    parser.add_argument("--retry-budget", type=int, default=3)
     arguments = parser.parse_args()
-    audit_dir = allocate_audit_directory(arguments.audit_root)
+    destination = allocate_audit_destination(
+        arguments.audit_root, arguments.report_root
+    )
+    audit_dir = destination.artifacts
     evidence_path = audit_dir / "evidence.json"
-    write_report(
-        audit_dir, "RUNNING",
-        "Audit directory allocated before browser launch; run in progress.",
+    initialize_run_ledger(
+        destination,
+        relays=arguments.relays,
+        headed=arguments.headed,
+        port=arguments.port,
+        seed=arguments.seed,
+        retry_budget=arguments.retry_budget,
     )
     try:
         evidence = run(
@@ -2356,7 +2582,18 @@ def main() -> int:
             "Run stopped before acceptance completed. Infrastructure versus "
             "product classification remains unproved pending evidence review.\n\n"
             f"Primary failure: `{failure.get('error', str(error))}`",
+            report_path=destination.report,
         )
+        verdict_path = audit_dir / "verdict.json"
+        current_verdict = (
+            json.loads(verdict_path.read_text(encoding="utf-8"))
+            if verdict_path.is_file() else {}
+        )
+        if current_verdict.get("status") == "RUNNING":
+            atomic_write_json(verdict_path, {
+                "schemaVersion": 1, "status": "BLOCKED",
+                "failure": failure.get("error", str(error)),
+            })
         print(f"Nostr multiplayer audit blocked: {audit_dir}", file=sys.stderr)
         return 1
     failures = visual_failures(evidence)
@@ -2365,16 +2602,30 @@ def main() -> int:
             audit_dir, "PROBLEMS FOUND",
             f"Automated oracles found {len(failures)} visual failure(s). "
             "See `visual-failures.json` and retained evidence.",
+            report_path=destination.report,
         )
         print(
             f"Nostr multiplayer audit found {len(failures)} visual "
             f"failure(s): {audit_dir}"
         )
         return 1
+    verdict = json.loads(
+        (audit_dir / "verdict.json").read_text(encoding="utf-8")
+    )
+    status = str(verdict.get("status", "BLOCKED"))
+    if status != "PASS":
+        write_report(
+            audit_dir, status,
+            "Mandatory visual coverage remains incomplete. See "
+            "`coverage.json` and `verdict.json`.",
+            report_path=destination.report,
+        )
+        print(f"Nostr multiplayer audit {status.lower()}: {audit_dir}",
+              file=sys.stderr)
+        return 1
     write_report(
-        audit_dir, "PASS",
-        "Automated production-path gameplay, transport, lockstep, motion, and "
-        "visual assertions completed without a retained failure.",
+        audit_dir, "PASS", "Every mandatory coverage cell and oracle passed.",
+        report_path=destination.report,
     )
     print(f"Nostr multiplayer audit passed: {audit_dir}")
     return 0

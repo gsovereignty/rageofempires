@@ -12,6 +12,7 @@ from PIL import Image
 
 from nostr_multiplayer_smoke_test import (
     Failure,
+    allocate_audit_destination,
     analyze_render_samples,
     analyze_render_samples_for_audit,
     audited_key,
@@ -20,6 +21,7 @@ from nostr_multiplayer_smoke_test import (
     capture_browser_overlap,
     collapse_match_details,
     diagnostics,
+    initialize_run_ledger,
     render_diagnostics,
     selectable_military_id,
     visual_failures,
@@ -226,6 +228,32 @@ class AuditedInputTests(unittest.TestCase):
 
 
 class FailureEvidenceTests(unittest.TestCase):
+    def test_allocates_durable_contract_before_browser_launch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            destination = allocate_audit_destination(
+                root / "artifacts", root / "reports"
+            )
+            initialize_run_ledger(
+                destination, relays="wss://one.example,wss://two.example",
+                headed=False, port=8888, seed=42, retry_budget=3,
+            )
+            self.assertRegex(
+                destination.artifacts.name,
+                r"^\d{8}T\d{6}Z-[0-9a-f]{12}$",
+            )
+            self.assertTrue(destination.report.is_file())
+            for name in (
+                "run.json", "actions.jsonl", "correlated-frames.jsonl",
+                "visual-oracles.jsonl", "coverage.json", "verdict.json",
+            ):
+                self.assertTrue((destination.artifacts / name).is_file(), name)
+            ledger = json.loads(
+                (destination.artifacts / "run.json").read_text()
+            )
+            self.assertEqual(ledger["status"], "RUNNING")
+            self.assertFalse(ledger["privateKeysRetained"])
+
     def test_diagnostics_tolerates_missing_module(self):
         class Driver:
             def execute_script(self, source):
@@ -526,6 +554,8 @@ class RenderOracleTests(unittest.TestCase):
             write_audit_bundle(root, evidence)
             for relative in (
                 "run.json", "actions.jsonl", "transport.jsonl",
+                "correlated-frames.jsonl", "visual-oracles.jsonl",
+                "coverage.json", "verdict.json",
                 "states/host.jsonl", "states/join.jsonl", "motion.json",
                 "sprite-provenance.jsonl", "console-host.json",
                 "console-join.json", "visual-failures.json",

@@ -5,6 +5,8 @@ app_path=$1
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 smoke_dir=$(mktemp -d "${TMPDIR:-/tmp}/aoe-tower-damage.XXXXXX")
 trap 'rm -rf "$smoke_dir"' EXIT
+. "$script_dir/damage_state_sdl_smoke_helpers.sh"
+trap 'cleanup_damage_audit_children; rm -rf "$smoke_dir"' EXIT
 
 civilizations=${AOE_TOWER_DAMAGE_AUDIT_CIVILIZATIONS:-"britons franks celts spanish goths teutons vikings huns japanese chinese mongols koreans byzantines persians saracens turks aztecs mayans"}
 for civilization in $civilizations; do
@@ -25,7 +27,8 @@ for civilization in $civilizations; do
             "$script_dir/../resources/tower-damage-state-audit.scenario" \
             >"$scenario"
         for damage in 0 25 26 50 51 75 76; do
-            env -u AOE_DISABLE_LEGACY_ASSETS \
+            queue_damage_audit_sample "$civilization/$tier/$damage" \
+                env -u AOE_DISABLE_LEGACY_ASSETS \
                 SDL_VIDEODRIVER=dummy \
                 SDL_AUDIODRIVER=dummy \
                 SDL_RENDER_DRIVER=software \
@@ -43,6 +46,7 @@ for civilization in $civilizations; do
         done
     done
 done
+wait_for_damage_audit_batch
 
 python3 - "$smoke_dir" "$civilizations" <<'PY'
 import hashlib

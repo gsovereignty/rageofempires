@@ -453,12 +453,14 @@ add_test(
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/wall_damage_state_sdl_smoke.sh
         $<TARGET_FILE:aoe_reconstruction>
 )
+set_tests_properties(wall_damage_state_sdl_smoke PROPERTIES TIMEOUT 900)
 add_test(
     NAME tower_damage_state_sdl_smoke
     COMMAND bash
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/tower_damage_state_sdl_smoke.sh
         $<TARGET_FILE:aoe_reconstruction>
 )
+set_tests_properties(tower_damage_state_sdl_smoke PROPERTIES TIMEOUT 1200)
 
 add_executable(minimap_contract_tests tests/minimap_contract_tests.cpp)
 target_link_libraries(minimap_contract_tests PRIVATE aoe_core)

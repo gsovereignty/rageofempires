@@ -1144,12 +1144,15 @@ def prepare_player_for_full_match(
 ) -> dict[str, object]:
     telemetry = journey.telemetry()
     initial_gold = int(telemetry["resources"]["gold"])
+    resource_tile = (7, 10) if owner == 0 else (40, 10)
+    center_camera_for_tile(
+        journey, driver, actions, actor, *resource_tile
+    )
     audited_key(driver, actions, actor, ".")
     wait_until(
         f"{actor} idle villager selection for gathering",
         lambda: int(journey.telemetry().get("selectedUnit", 0)) or None,
     )
-    resource_tile = (12, 20) if owner == 0 else (35, 10)
     audited_world_pointer(
         journey, driver, actions, actor, *resource_tile,
     )

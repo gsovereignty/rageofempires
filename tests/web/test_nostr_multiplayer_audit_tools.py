@@ -538,6 +538,8 @@ class RenderOracleTests(unittest.TestCase):
         value = sample(1, 10.0)
         value["host"]["movementAlpha"] = 0.2
         value["join"]["movementAlpha"] = 0.7
+        value["host"]["entities"][0]["layers"][0]["actionFrame"] = 1
+        value["join"]["entities"][0]["layers"][0]["actionFrame"] = 2
         value["join"]["entities"][0]["layers"][0]["frame"] = 2
         result = analyze_render_samples([value])
         self.assertEqual(result["frames"], 1)

@@ -400,7 +400,9 @@ def select_barracks_through_footprint(
     actions: list[dict[str, object]],
     actor: str,
 ) -> int:
-    pan_world_target_clear(journey, driver, actions, actor, "barracks")
+    pan_world_target_clear(
+        journey, driver, actions, actor, "barracks", edge_margin=120.0
+    )
     zoom = float(journey.telemetry()["camera"]["zoom"])
     # Telemetry reports the Barracks footprint center. Try every tile in its
     # 3x3 footprint so units drawn over one tile cannot intercept every
@@ -979,27 +981,31 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
             join_layers = join_entity.get("layers", [])
             host_assets = [
                 (layer.get("resourceId"), layer.get("palettePlayer"),
-                 layer.get("flipHorizontal"), layer.get("hotspotX"),
-                 layer.get("hotspotY"), layer.get("width"),
-                 layer.get("height")) for layer in host_layers
+                 layer.get("flipHorizontal"),
+                 layer.get("resolvedStoredDirection"))
+                for layer in host_layers
             ]
             join_assets = [
                 (layer.get("resourceId"), layer.get("palettePlayer"),
-                 layer.get("flipHorizontal"), layer.get("hotspotX"),
-                 layer.get("hotspotY"), layer.get("width"),
-                 layer.get("height")) for layer in join_layers
+                 layer.get("flipHorizontal"),
+                 layer.get("resolvedStoredDirection"))
+                for layer in join_layers
             ]
             if host_assets != join_assets:
                 raise Failure(f"client asset divergence {key}")
-            # Frame phase includes sub-tick interpolation. Compare exact
-            # physical frame only when both render samples represent same
-            # interpolation point; independent frame/flip oracle still checks
-            # every peer against its own observed action frame.
-            if abs(float(host_state.get("movementAlpha", 0.0)) -
-                   float(join_state.get("movementAlpha", 0.0))) < 0.01:
-                host_frames = [layer.get("frame") for layer in host_layers]
-                join_frames = [layer.get("frame") for layer in join_layers]
-                if host_frames != join_frames:
+            # Frame phase includes sub-tick interpolation. Compare physical
+            # frame geometry only where both peers selected same action-frame
+            # input. Independent oracle checks every peer/frame separately.
+            for host_layer, join_layer in zip(
+                host_layers, join_layers, strict=True
+            ):
+                if (host_layer.get("actionFrame") ==
+                        join_layer.get("actionFrame")) and any(
+                    host_layer.get(field) != join_layer.get(field)
+                    for field in (
+                        "frame", "hotspotX", "hotspotY", "width", "height"
+                    )
+                ):
                     raise Failure(f"client asset divergence {key}")
     if counts["legacy"] == 0:
         raise Failure("render oracle observed no production provenance")

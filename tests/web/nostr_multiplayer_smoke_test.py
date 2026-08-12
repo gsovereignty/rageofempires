@@ -217,12 +217,13 @@ def capture_failure_value(label: str, callback) -> object:
 
 def capture_correlated_frames(host, join, seconds: float = 1.0,
                               artifact_dir: Path | None = None,
-                              label: str = "motion") \
+                              label: str = "motion",
+                              maximum_samples: int = 24) \
         -> list[dict[str, object]]:
     deadline = time.monotonic() + seconds
     samples: list[dict[str, object]] = []
     last_frames: tuple[int, int] | None = None
-    while time.monotonic() < deadline and len(samples) < 24:
+    while time.monotonic() < deadline and len(samples) < maximum_samples:
         games = [game_diagnostics(driver) or {}
                  for driver in (host, join)]
         if (int(games[0].get("currentTick", -1)) !=
@@ -530,7 +531,8 @@ def capture_until_arrival(
     seen: set[tuple[int, int]] = set()
     while time.monotonic() < deadline:
         for sample in capture_correlated_frames(
-            host, join, seconds=0.35, artifact_dir=artifact_dir, label=label
+            host, join, seconds=0.12, artifact_dir=artifact_dir,
+            label=label, maximum_samples=3,
         ):
             identity = (
                 int((sample.get("host") or {}).get("frame", -1)),
@@ -1439,7 +1441,8 @@ def launch_attack_wave(
 def launch(driver, base_url: str, mode: str, relays: str | None,
            match_reference: str = "", allied: bool = True) -> Journey:
     driver.get(
-        f"{base_url}/aoe_web.html?overlapCapture=/audit-overlap&overlapTick=0"
+        f"{base_url}/aoe_web.html?scenario=nostr-visual&"
+        "overlapCapture=/audit-overlap&overlapTick=0"
     )
     wait_until(
         f"{mode} browser storage",
@@ -2034,11 +2037,11 @@ def run(relays: str | None, headed: bool, port: int = 8888,
             evidence["allDirections"] = {
                 "host": exercise_all_direction_route(
                     host_journey, host, "host", 0, host, join, actions,
-                    artifact_dir, (20, 24),
+                    artifact_dir, (16, 16),
                 ),
                 "join": exercise_all_direction_route(
                     join_journey, join, "join", 1, host, join, actions,
-                    artifact_dir, (27, 8),
+                    artifact_dir, (32, 16),
                 ),
             }
 
@@ -2408,7 +2411,7 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
     run_ledger = {
         **existing_ledger,
         "schemaVersion": 2,
-        "status": "COMPLETE",
+        "status": "FINALIZING",
         "completedUtc": datetime.now(timezone.utc).isoformat(),
         "sourceCommit": commit,
         "package": str(package.relative_to(ROOT)),
@@ -2676,6 +2679,9 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
         "coverageStatus": coverage["status"],
         "missingRequiredCells": coverage["missingRequiredCells"],
     })
+    run_ledger["status"] = status
+    run_ledger["finalizedUtc"] = datetime.now(timezone.utc).isoformat()
+    atomic_write_json(root / "run.json", run_ledger)
 
 
 def main() -> int:

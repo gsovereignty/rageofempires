@@ -16,6 +16,11 @@ EM_JS(bool, browser_risk_fixture_requested, (), {
         'risk-spike';
 });
 
+EM_JS(bool, browser_nostr_visual_fixture_requested, (), {
+    return new URLSearchParams(window.location.search).get('scenario') ===
+        'nostr-visual';
+});
+
 EM_JS(char*, browser_query_parameter, (const char* name), {
     const value = new URLSearchParams(window.location.search).get(
         UTF8ToString(name)
@@ -82,11 +87,15 @@ void browser_frame() {
 
 int main() {
     const bool use_risk_fixture = browser_risk_fixture_requested();
+    const bool use_nostr_visual_fixture =
+        browser_nostr_visual_fixture_requested();
     setenv(
         "AOE_SCENARIO_PATH",
         use_risk_fixture
             ? "/resources/browser-risk-spike.scenario"
-            : "/resources/browser-skirmish.scenario",
+            : use_nostr_visual_fixture
+                ? "/resources/browser-nostr-visual.scenario"
+                : "/resources/browser-skirmish.scenario",
         true
     );
     // The browser shell is the launch menu. Enter the selected skirmish mode

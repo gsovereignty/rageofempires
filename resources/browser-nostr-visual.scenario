@@ -1,0 +1,45 @@
+# Packaged two-player Nostr visual audit scenario with clear direction arenas.
+AOE-ARCHAEOLOGY-SCENARIO 69
+map 48 32
+trigger_syntax strict
+match 1 0 0 0 0 0 0 0 0 0 0
+player-slot 0 human "browser-player" 500 500 200 200 feudal britons 0 0
+team 0 0
+player-slot 1 computer "computer-ai" 500 500 200 200 feudal franks 0 0
+team 1 0
+diplomacy 0 1 enemy
+diplomacy 1 0 enemy
+objective 1 blue 1 0 "Destroy the enemy Town Center."
+objective 2 red 1 0 "Destroy the human Town Center."
+trigger 1 100 1 0 1 "building_destroyed 21" 2 "complete_objective 1" "victory blue"
+trigger 2 90 1 0 1 "building_destroyed 17" 2 "complete_objective 2" "defeat blue"
+terrain gold 7 10
+terrain gold 8 10
+terrain gold 7 11
+terrain gold 40 10
+terrain gold 41 10
+terrain gold 40 11
+unit villager 0 16 16 stance passive
+unit villager 0 15 15 stance passive
+unit villager 0 14 16 stance passive
+unit militia 0 8 25 stance aggressive
+unit villager 1 32 16 stance passive
+unit villager 1 33 15 stance passive
+unit villager 1 34 16 stance passive
+unit militia 1 40 6 stance aggressive
+unit sheep 0 6 12 stance passive
+unit sheep 0 8 12 stance passive
+unit sheep 0 6 14 stance passive
+unit sheep 0 8 14 stance passive
+unit sheep 1 40 12 stance passive
+unit sheep 1 42 12 stance passive
+unit sheep 1 40 14 stance passive
+unit sheep 1 42 14 stance passive
+building town_center 0 5 25
+building barracks 0 10 25
+building house 0 4 20
+building house 0 9 20
+building town_center 1 40 4
+building barracks 1 34 4
+building house 1 43 9
+building house 1 38 9

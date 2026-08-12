@@ -1148,9 +1148,12 @@ def prepare_player_for_full_match(
     center_camera_for_tile(
         journey, driver, actions, actor, *resource_tile
     )
-    audited_key(driver, actions, actor, ".")
+    route_unit_tile = (20, 12) if owner == 0 else (28, 12)
+    audited_world_pointer(
+        journey, driver, actions, actor, *route_unit_tile, button=0,
+    )
     wait_until(
-        f"{actor} idle villager selection for gathering",
+        f"{actor} route villager selection for gathering",
         lambda: int(journey.telemetry().get("selectedUnit", 0)) or None,
     )
     audited_world_pointer(

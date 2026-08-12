@@ -37,8 +37,13 @@ from browser_risk_spike_test import (
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
 from audit_multiplayer_screenshots import audit as audit_screenshots
-from nostr_visual_frame_oracle import FrameOracleError, evaluate_layer
+from nostr_visual_frame_oracle import (
+    FrameOracleError,
+    evaluate_layer,
+    logical_direction as oracle_logical_direction,
+)
 from nostr_visual_coverage import evaluate_coverage, load_specification
+from nostr_packaged_pixel_oracle import evaluate_packaged_capture
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -632,6 +637,40 @@ def exercise_all_direction_route(
                 journey, driver, actions, actor,
                 destination[0], destination[1]
             )
+            wait_for_drawable_direction(
+                host, join, owner=owner, entity_id=unit_id,
+                direction=direction,
+            )
+            pixel_capture = request_correlated_pixel_capture(
+                host, join, artifact_dir,
+                f"{actor}-lap-{lap}-direction-{direction}", unit_id,
+            )
+            pixel_oracles = []
+            for peer in ("host", "join"):
+                manifest_path = artifact_dir / pixel_capture["peers"][peer][
+                    "manifest"
+                ]
+                retained = evaluate_packaged_capture(
+                    manifest_path=manifest_path,
+                    graphics_drs=ROOT / "game_data/Data/graphics.drs",
+                    interface_drs=ROOT / "game_data/Data/interfac.drs",
+                    expected_logical_direction=direction,
+                    evidence_directory=(
+                        manifest_path.parent / "semantic-direction"
+                    ),
+                )
+                pixel_oracles.append({
+                    **retained,
+                    "oracleKind": "semantic-pixel-direction",
+                    "phase": f"{actor}-all-directions",
+                    "peer": peer,
+                    "owner": owner,
+                    "unitKind": "unit-villager",
+                    "action": "moving",
+                    "logicalDirection": direction,
+                    "transitionKind": "authoritative-step",
+                })
+            pixel_capture["visualOracles"] = pixel_oracles
             frames = capture_until_arrival(
                 host, join, owner=owner, unit_id=unit_id,
                 destination=destination, artifact_dir=artifact_dir,
@@ -642,6 +681,7 @@ def exercise_all_direction_route(
                 "lap": lap, "logicalDirection": direction,
                 "destination": {"x": destination[0], "y": destination[1]},
                 "frameCount": len(frames),
+                "pixelCapture": pixel_capture,
             })
     return {
         "actor": actor, "owner": owner, "unitId": unit_id,
@@ -1097,7 +1137,7 @@ def visual_failures(evidence: dict[str, object]) -> list[dict[str, object]]:
 
     def visit(value: object) -> None:
         if isinstance(value, dict):
-            if value.get("verdict") == "FAIL" and value.get("failure"):
+            if value.get("verdict") == "FAIL":
                 failures.append(value)
             for child in value.values():
                 visit(child)
@@ -1609,9 +1649,13 @@ def launch(driver, base_url: str, mode: str, relays: str | None,
     return Journey(driver, base_url, {})
 
 
-def capture_browser_overlap(driver, root: Path, peer: str) -> int:
+def capture_browser_overlap(
+    driver, root: Path, peer: str, *,
+    virtual_root: str = "/audit-overlap",
+    output_name: str = "overlap",
+    entity_id: int | None = None,
+) -> int:
     """Export renderer-produced matched pixels from browser virtual FS."""
-    virtual_root = "/audit-overlap"
     manifest_text = wait_until(
         f"{peer} overlap manifest",
         lambda: driver.execute_script(
@@ -1622,7 +1666,7 @@ def capture_browser_overlap(driver, root: Path, peer: str) -> int:
         timeout=WAIT_SECONDS,
     )
     source_manifest = json.loads(manifest_text)
-    output_root = root / "overlap"
+    output_root = root / output_name
     output_root.mkdir(parents=True, exist_ok=True)
     aggregate_path = output_root / "manifest.json"
     aggregate = ({"schema_version": 1, "cases": []}
@@ -1652,6 +1696,11 @@ def capture_browser_overlap(driver, root: Path, peer: str) -> int:
     for case in source_manifest.get("cases", []):
         if case.get("blocked_reason"):
             continue
+        metadata = case.get("metadata", {})
+        if entity_id is not None and int(
+            metadata.get("entity_id", -1)
+        ) != entity_id:
+            continue
         case_id = f"{peer}-{case['id']}"
         sprite_name = f"{case_id}-sprite.png"
         export_image(str(case["sprite"]), Path(sprite_name))
@@ -1661,13 +1710,91 @@ def capture_browser_overlap(driver, root: Path, peer: str) -> int:
             "terrain": terrain_name,
             "sprite": sprite_name,
             "x": int(case["x"]), "y": int(case["y"]),
-            "metadata": case.get("metadata", {}),
+            "metadata": metadata,
         })
         count += 1
     aggregate_path.write_text(
         json.dumps(aggregate, indent=2, sort_keys=True) + "\n"
     )
     return count
+
+
+def request_correlated_pixel_capture(
+    host, join, root: Path, label: str, entity_id: int,
+) -> dict[str, object]:
+    """Capture each peer's next real production frame after same command."""
+    safe_label = "".join(
+        character if character.isalnum() or character in "-_" else "-"
+        for character in label
+    )
+    virtual_root = f"/audit-pixels/{safe_label}"
+    for driver in (host, join):
+        driver.execute_script(
+            "Module.browserPixelCaptureComplete = null;"
+            "Module.browserPixelCaptureRequest = arguments[0];",
+            virtual_root,
+        )
+    captures: dict[str, object] = {}
+    for peer, driver in (("host", host), ("join", join)):
+        wait_until(
+            f"{peer} exact pixel capture {safe_label}",
+            lambda: True if driver.execute_script(
+                "return Module.browserPixelCaptureComplete === arguments[0];",
+                virtual_root,
+            ) else None,
+            timeout=WAIT_SECONDS,
+        )
+        output_name = f"pixel-oracle/{safe_label}/{peer}"
+        count = capture_browser_overlap(
+            driver, root, peer, virtual_root=virtual_root,
+            output_name=output_name, entity_id=entity_id,
+        )
+        if count != 1:
+            raise Failure(
+                f"{peer} exact pixel capture found {count} layers for "
+                f"entity {entity_id}"
+            )
+        captures[peer] = {
+            "manifest": f"{output_name}/manifest.json",
+            "entityId": entity_id,
+        }
+    return {
+        "virtualRoot": virtual_root,
+        "entityId": entity_id,
+        "peers": captures,
+    }
+
+
+def wait_for_drawable_direction(
+    host, join, *, owner: int, entity_id: int, direction: int,
+) -> None:
+    def matched() -> bool | None:
+        for driver in (host, join):
+            state = render_diagnostics(driver) or {}
+            entity = next((
+                candidate for candidate in state.get("entities", [])
+                if isinstance(candidate, dict) and
+                int(candidate.get("id", -1)) == entity_id and
+                int(candidate.get("owner", -1)) == owner
+            ), None)
+            if not entity or not bool(entity.get("moving", False)):
+                return None
+            previous = entity.get("previousPosition")
+            current = entity.get("simulationPosition")
+            if not isinstance(previous, dict) or not isinstance(current, dict):
+                return None
+            resolved = oracle_logical_direction(
+                (int(previous["x"]), int(previous["y"])),
+                (int(current["x"]), int(current["y"])), 8,
+            )
+            if resolved != direction:
+                return None
+        return True
+
+    wait_until(
+        f"entity {entity_id} drawable direction {direction}", matched,
+        timeout=WAIT_SECONDS,
+    )
 
 
 def key_chord(driver, key: str, modifier: str | None = None) -> None:
@@ -2581,6 +2708,9 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
         ROOT / "tests/web/nostr_multiplayer_smoke_test.py",
         ROOT / "tests/web/test_nostr_multiplayer_audit_tools.py",
         ROOT / "tools/nostr_visual_frame_oracle.py",
+        ROOT / "tools/nostr_visual_pixel_oracle.py",
+        ROOT / "tools/nostr_packaged_pixel_oracle.py",
+        ROOT / "tools/nostr_slp_decoder.py",
         ROOT / "tools/nostr_visual_coverage.py",
         ROOT / "resources/nostr-visual-gameplay-coverage.json",
     ]

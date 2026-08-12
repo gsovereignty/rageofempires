@@ -61,9 +61,12 @@ def evaluate_coverage(
     minimum = int(specification["minimumSamplesPerCell"])
     observed: dict[str, dict[str, object]] = {}
     failures: list[int] = []
+    blockers: list[int] = []
     for index, record in enumerate(oracle_records):
-        if record.get("verdict") != "PASS":
+        if record.get("verdict") == "FAIL":
             failures.append(index)
+        elif record.get("verdict") == "BLOCKED":
+            blockers.append(index)
         normalized = {
             "peer": record.get("peer"),
             "owner": record.get("owner"),
@@ -99,7 +102,9 @@ def evaluate_coverage(
         if sample_count < minimum:
             missing.append({**cell, "sampleCount": sample_count,
                             "requiredSampleCount": minimum})
-    status = "FAIL" if failures else "BLOCKED" if missing else "PASS"
+    status = (
+        "FAIL" if failures else "BLOCKED" if blockers or missing else "PASS"
+    )
     return {
         "schemaVersion": 1,
         "keyFields": list(KEY_FIELDS),
@@ -109,5 +114,6 @@ def evaluate_coverage(
         "cells": observed,
         "missingRequiredCells": missing,
         "failedOracleRecordIndexes": failures,
+        "blockedOracleRecordIndexes": blockers,
         "exclusions": specification.get("exclusions", []),
     }

@@ -7286,11 +7286,37 @@ void write_overlap_manifest(const Simulation& simulation) {
         for (std::size_t draw_index = 0;
              draw_index < capture.draws.size(); ++draw_index) {
             const LegacySprite& sprite = *capture.draws[draw_index].sprite;
+            const OverlapCaptureDraw& draw = capture.draws[draw_index];
             output << "{\"resource_id\":" << sprite.resource_id
                    << ",\"frame\":" << sprite.frame_index
                    << ",\"palette_player\":" << sprite.palette_player
                    << ",\"flip_horizontal\":"
-                   << capture.draws[draw_index].flip
+                   << draw.flip
+                   << ",\"visible\":" << draw.visible
+                   << ",\"source\":[" << draw.source.x << ','
+                   << draw.source.y << ',' << draw.source.w << ','
+                   << draw.source.h << ']'
+                   << ",\"destination\":[" << draw.destination.x << ','
+                   << draw.destination.y << ',' << draw.destination.w << ','
+                   << draw.destination.h << ']'
+                   << ",\"clipped_destination\":["
+                   << draw.clipped_destination.x << ','
+                   << draw.clipped_destination.y << ','
+                   << draw.clipped_destination.w << ','
+                   << draw.clipped_destination.h << ']'
+                   << ",\"ground\":[" << draw.ground.x << ','
+                   << draw.ground.y << ']'
+                   << ",\"draw_order\":" << draw.draw_order
+                   << ",\"logical_direction\":"
+                   << draw.logical_direction
+                   << ",\"stored_direction\":" << draw.stored_direction
+                   << ",\"action_frame\":" << draw.action_frame
+                   << ",\"frames_per_direction\":"
+                   << draw.frames_per_direction
+                   << ",\"direction_count\":" << draw.direction_count
+                   << ",\"mirroring_mode\":" << draw.mirroring_mode
+                   << ",\"physical_frame_count\":"
+                   << draw.physical_frame_count
                    << '}';
             if (draw_index + 1 != capture.draws.size()) output << ',';
         }

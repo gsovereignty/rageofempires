@@ -24,6 +24,7 @@ from nostr_multiplayer_smoke_test import (
     diagnostics,
     initialize_run_ledger,
     render_diagnostics,
+    request_correlated_pixel_capture,
     selectable_military_id,
     visual_failures,
     visual_findings,
@@ -40,6 +41,21 @@ class VirtualFsDriver:
         if "encoding: 'utf8'" in script:
             return value.decode()
         return base64.b64encode(value).decode()
+
+
+class PixelCaptureDriver(VirtualFsDriver):
+    def __init__(self, files):
+        super().__init__(files)
+        self.complete = None
+
+    def execute_script(self, script, *arguments):
+        path = arguments[0]
+        if "browserPixelCaptureRequest =" in script:
+            self.complete = path
+            return None
+        if "browserPixelCaptureComplete ===" in script:
+            return self.complete == path
+        return super().execute_script(script, path)
 
 
 def encoded_image(format_name, mode="RGB"):
@@ -148,6 +164,39 @@ class AuditedInputTests(unittest.TestCase):
             self.assertEqual((case["x"], case["y"]), (12, 23))
             self.assertEqual(Image.open(root / "overlap" /
                                         case["sprite"]).mode, "RGBA")
+
+    def test_requests_correlated_exact_capture_and_filters_entity(self):
+        manifest = {"cases": [
+            {
+                "id": "unit-7", "sprite": "unit-7.tga", "x": 12,
+                "y": 23, "metadata": {"entity_id": 7},
+            },
+            {
+                "id": "unit-8", "sprite": "unit-8.tga", "x": 20,
+                "y": 30, "metadata": {"entity_id": 8},
+            },
+        ]}
+        root_path = "/audit-pixels/host-lap-0-direction-1"
+        files = {
+            f"{root_path}/manifest.json": json.dumps(manifest).encode(),
+            f"{root_path}/actual.bmp": encoded_image("BMP"),
+            f"{root_path}/terrain.bmp": encoded_image("BMP"),
+            f"{root_path}/unit-7.tga": encoded_image("TGA", "RGBA"),
+            f"{root_path}/unit-8.tga": encoded_image("TGA", "RGBA"),
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            result = request_correlated_pixel_capture(
+                PixelCaptureDriver(files), PixelCaptureDriver(files),
+                Path(directory), "host-lap-0-direction-1", 7,
+            )
+            self.assertEqual(result["entityId"], 7)
+            for peer in ("host", "join"):
+                manifest_path = Path(directory) / result["peers"][peer][
+                    "manifest"
+                ]
+                cases = json.loads(manifest_path.read_text())["cases"]
+                self.assertEqual(len(cases), 1)
+                self.assertEqual(cases[0]["metadata"]["entity_id"], 7)
 
     def test_gold_deposit_oracle_waits_for_banked_resource(self):
         carrying = {"resources": {"gold": 200}}

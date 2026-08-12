@@ -16243,6 +16243,19 @@ std::size_t render(
     active_browser_render_capture.active = false;
 #endif
     active_overlap_capture.active = false;
+#ifdef __EMSCRIPTEN__
+    const std::string browser_pixel_capture =
+        consume_browser_pixel_capture_request();
+    if (!browser_pixel_capture.empty()) {
+        active_overlap_capture.active = true;
+        active_overlap_capture.directory = browser_pixel_capture;
+        active_overlap_capture.tick = simulation.tick_number();
+        active_overlap_capture.zoom = camera.zoom;
+        active_overlap_capture.cases.clear();
+        active_overlap_capture.current = nullptr;
+        std::filesystem::create_directories(active_overlap_capture.directory);
+    } else
+#endif
     if (!active_overlap_capture.complete) {
         const char* capture_directory = SDL_getenv("AOE_OVERLAP_CAPTURE_DIR");
         const char* capture_tick = SDL_getenv("AOE_OVERLAP_CAPTURE_TICK");
@@ -17495,6 +17508,9 @@ std::size_t render(
             write_overlap_sprite(renderer, capture);
         }
         write_overlap_manifest(simulation);
+        publish_browser_pixel_capture_complete(
+            active_overlap_capture.directory.string()
+        );
         active_overlap_capture.active = false;
         active_overlap_capture.complete = true;
         if (const char* exit_after = SDL_getenv("AOE_OVERLAP_CAPTURE_EXIT")) {

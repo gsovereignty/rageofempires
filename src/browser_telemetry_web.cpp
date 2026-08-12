@@ -1,6 +1,7 @@
 #include "aoe/browser_telemetry.hpp"
 
 #include <emscripten/emscripten.h>
+#include <cstdlib>
 #include <string>
 
 namespace aoe {
@@ -16,6 +17,21 @@ EM_JS(void, publish_browser_render_telemetry_js, (const char* json), {
     telemetry.wallTime = performance.now();
     Module.browserRenderTelemetry = telemetry;
 });
+
+EM_JS(char*, consume_browser_pixel_capture_request_js, (), {
+    const request = Module.browserPixelCaptureRequest;
+    if (typeof request !== 'string' || request.length === 0) return 0;
+    Module.browserPixelCaptureRequest = null;
+    const size = lengthBytesUTF8(request) + 1;
+    const result = _malloc(size);
+    stringToUTF8(request, result, size);
+    return result;
+});
+
+EM_JS(void, publish_browser_pixel_capture_complete_js,
+    (const char* directory), {
+      Module.browserPixelCaptureComplete = UTF8ToString(directory);
+    });
 
 EM_JS(void, publish_browser_telemetry_js,
     (std::uint64_t tick,
@@ -151,6 +167,19 @@ bool browser_render_telemetry_enabled() {
 void publish_browser_render_telemetry(std::string_view json) {
     const std::string owned{json};
     publish_browser_render_telemetry_js(owned.c_str());
+}
+
+std::string consume_browser_pixel_capture_request() {
+    char* request = consume_browser_pixel_capture_request_js();
+    if (request == nullptr) return {};
+    std::string result{request};
+    std::free(request);
+    return result;
+}
+
+void publish_browser_pixel_capture_complete(std::string_view directory) {
+    const std::string owned{directory};
+    publish_browser_pixel_capture_complete_js(owned.c_str());
 }
 
 }  // namespace aoe

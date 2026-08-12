@@ -89,6 +89,17 @@ EM_JS(int, js_nostr_republish, (const char* id), {
     }
 });
 
+EM_JS(int, js_nostr_refresh_subscriptions, (), {
+    try {
+        if (!globalThis.AoeNostrRuntime) return 0;
+        globalThis.AoeNostrRuntime.refreshSubscriptions();
+        return 1;
+    } catch (error) {
+        console.error('Nostr subscription refresh failed', error);
+        return 0;
+    }
+});
+
 EM_JS(int, js_nostr_update_diagnostics, (const char* json), {
     try {
         Module.browserNostrGameDiagnostics = JSON.parse(UTF8ToString(json));
@@ -153,6 +164,10 @@ bool nostr_bridge_subscribe(const std::string& filter_json) {
 bool nostr_bridge_republish(const std::string& event_id) {
     return !event_id.empty() && event_id.size() <= 64 &&
         js_nostr_republish(event_id.c_str()) != 0;
+}
+
+bool nostr_bridge_refresh_subscriptions() {
+    return js_nostr_refresh_subscriptions() != 0;
 }
 
 bool nostr_bridge_update_diagnostics(const std::string& diagnostics_json) {

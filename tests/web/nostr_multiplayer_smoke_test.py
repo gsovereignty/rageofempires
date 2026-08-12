@@ -473,7 +473,8 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
                         simulation_previous, simulation_position,
                         direction_count,
                     )
-                    if (expected_facing is not None and
+                    if (bool(entity.get("moving", False)) and
+                            expected_facing is not None and
                             int(entity.get("facing", -1)) != expected_facing):
                         raise Failure(
                             f"movement facing mismatch {key}: expected "
@@ -762,12 +763,14 @@ def prepare_player_for_full_match(
         journey, driver, actions, actor
     )
     initial_military = int(journey.telemetry()["blueMilitaryCount"])
-    audited_key(driver, actions, actor, "m")
+    for _ in range(4):
+        audited_key(driver, actions, actor, "m")
+        time.sleep(0.05)
     trained = wait_until(
-        f"{actor} militia training",
+        f"{actor} militia production group",
         lambda: (
             value if int((value := journey.telemetry())["blueMilitaryCount"])
-            > initial_military else None
+            >= initial_military + 4 else None
         ),
         timeout=WAIT_SECONDS,
     )
@@ -787,11 +790,50 @@ def prepare_player_for_full_match(
         timeout=WAIT_SECONDS,
     )
     initial_building_count = len(owner_buildings(before_games[0], owner))
-    audited_pointer(journey, actions, actor, "villager")
-    wait_until(
-        f"{actor} villager selection for construction",
-        lambda: int(journey.telemetry().get("selectedUnit", 0)) or None,
-    )
+    villagers = [
+        unit
+        for unit in (diagnostics(driver) or {}).get("game", {}).get("units", [])
+        if int(unit["owner"]) == owner and int(unit["kind"]) == 0
+    ]
+    villager_ids = {int(unit["id"]) for unit in villagers}
+    selected_villager = None
+    for villager in villagers:
+        try:
+            audited_world_pointer(
+                journey, driver, actions, actor,
+                int(villager["x"]), int(villager["y"]), button=0,
+            )
+            selected_villager = wait_until(
+                f"{actor} visible villager selection for construction",
+                lambda villager=villager: (
+                    selected if (selected := int(journey.telemetry().get(
+                        "selectedUnit", 0
+                    ))) == int(villager["id"]) else None
+                ),
+                timeout=1.0,
+            )
+            break
+        except Exception:
+            continue
+    for _ in range(max(4, len(villager_ids) + 1)):
+        if selected_villager is not None:
+            break
+        audited_key(driver, actions, actor, ".")
+        try:
+            selected_villager = wait_until(
+                f"{actor} villager selection for construction",
+                lambda: (
+                    selected if (selected := int(journey.telemetry().get(
+                        "selectedUnit", 0
+                    ))) in villager_ids else None
+                ),
+                timeout=1.0,
+            )
+            break
+        except Failure:
+            continue
+    if selected_villager is None:
+        raise Failure(f"{actor} could not cycle to construction villager")
     # Root slot 0 opens economic buildings; economic slot 0 is House.
     # The root-page H hotkey is Garrison, so ordinary visible buttons are
     # required to exercise the actual construction UI without ambiguity.
@@ -858,29 +900,85 @@ def order_town_center_attack(
     actor: str,
     actions: list[dict[str, object]],
 ) -> int:
-    audited_key(driver, actions, actor, ",")
     owner = 0 if actor == "host" else 1
-    game = diagnostics(driver)["game"]
-    trained = next(
-        unit for unit in game["units"]
+    military = [
+        unit
+        for unit in (diagnostics(driver) or {}).get("game", {}).get("units", [])
         if int(unit["owner"]) == owner and int(unit["kind"]) == 9
-    )
-    audited_world_pointer(
-        journey, driver, actions, actor,
-        int(trained["x"]), int(trained["y"]), button=0,
-    )
-    wait_until(
-        f"{actor} trained military selection",
-        lambda: (
-            selected if (selected := int(journey.telemetry().get(
-                "selectedUnit", 0
-            ))) == int(trained["id"]) else None
-        ),
-    )
+    ]
+    if not military:
+        raise Failure(f"{actor} lacks trained military for attack")
+    if bool(journey.telemetry().get("pendingBuilding", False)):
+        audited_key(driver, actions, actor, Keys.ESCAPE)
+        wait_until(
+            f"{actor} build placement cancelled",
+            lambda: True if not bool(
+                journey.telemetry().get("pendingBuilding", False)
+            ) else None,
+            timeout=2.0,
+        )
+    bound_ids: list[int] = []
+    for unit in military[:5]:
+        selected = None
+        for _ in range(len(military) + 1):
+            audited_key(driver, actions, actor, ",")
+            try:
+                selected = wait_until(
+                    f"{actor} military {unit['id']} selection",
+                    lambda unit=unit: (
+                        value if (value := int(journey.telemetry().get(
+                            "selectedUnit", 0
+                        ))) == int(unit["id"]) else None
+                    ),
+                    timeout=0.75,
+                )
+                break
+            except Failure:
+                continue
+        if selected is None:
+            continue
+        actions.append({
+            "monotonic": time.monotonic(), "actor": actor,
+            "kind": "control-group-assign", "group": 1,
+            "unitId": int(unit["id"]),
+        })
+        key_chord(
+            driver, "1", Keys.CONTROL if not bound_ids else Keys.SHIFT
+        )
+        bound_ids.append(int(unit["id"]))
+    if len(bound_ids) < 3:
+        raise Failure(f"{actor} could not bind three military units")
     pan_world_target_clear(
         journey, driver, actions, actor, "enemyTownCenter"
     )
+    if bool(journey.telemetry().get("pendingBuilding", False)):
+        audited_key(driver, actions, actor, Keys.ESCAPE)
+        wait_until(
+            f"{actor} post-pan build placement cancelled",
+            lambda: True if not bool(
+                journey.telemetry().get("pendingBuilding", False)
+            ) else None,
+            timeout=2.0,
+        )
     initial_hit_points = int(journey.telemetry()["enemyTownCenterHitPoints"])
+    audited_key(driver, actions, actor, "1")
+    wait_until(
+        f"{actor} military group recall",
+        lambda: int(journey.telemetry().get("selectedUnit", 0))
+        if int(journey.telemetry().get("selectedUnit", 0)) in bound_ids
+        else None,
+        timeout=2.0,
+    )
+    if bool(journey.telemetry().get("pendingBuilding", False)):
+        audited_key(driver, actions, actor, Keys.ESCAPE)
+        wait_until(
+            f"{actor} attack build placement cancelled",
+            lambda: True if not bool(
+                journey.telemetry().get("pendingBuilding", False)
+            ) else None,
+            timeout=2.0,
+        )
+    audited_key(driver, actions, actor, "a")
     audited_pointer(journey, actions, actor, "enemyTownCenter", button=2)
     wait_until(
         f"{actor} town-center combat start",

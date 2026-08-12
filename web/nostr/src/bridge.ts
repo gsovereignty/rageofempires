@@ -18,6 +18,7 @@ type AoeNostrFacade = {
   subscribe(): void;
   republish(eventId: string): void;
   setRelayEnabled(relay: string, enabled: boolean): void;
+  refreshSubscriptions(): void;
   shutdown(): void;
   diagnostics(): unknown;
 };
@@ -74,6 +75,9 @@ const facade = {
   },
   setRelayEnabled(relay: string, enabled: boolean): void {
     client?.setRelayEnabled(relay, enabled);
+  },
+  refreshSubscriptions(): void {
+    client?.refreshSubscriptions();
   },
   shutdown(): void {
     client?.shutdown();

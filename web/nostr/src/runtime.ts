@@ -207,6 +207,16 @@ export class AoeNostrClient {
     this.status("relay_disabled", {relay, reason});
   }
 
+  refreshSubscriptions(): void {
+    if (!this.running) return;
+    for (const relay of this.relays) {
+      if (this.disabledRelays.has(relay)) continue;
+      this.eoseRelays.delete(relay);
+      this.status("backfill_open", {relay});
+      this.openRelaySubscription(relay);
+    }
+  }
+
   private receivePoolMessage(message: GroupReqMessage): void {
     if (!this.running) return;
     const detail = message.type === "CLOSED" ? message.reason :

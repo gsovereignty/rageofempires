@@ -519,7 +519,8 @@ public:
           local_slot_(launch.hosting ? Player::blue : Player::red),
           one_relay_development_(launch.one_relay_development),
           relays_(std::move(launch.relays)),
-          last_peer_traffic_(std::chrono::steady_clock::now()) {
+          last_peer_traffic_(std::chrono::steady_clock::now()),
+          last_peer_probe_at_(last_peer_traffic_) {
         if (config_.input_delay_ticks < 3) config_.input_delay_ticks = 3;
         config_.host_slot = *PlayerSlotId::from_index(0);
         if (relays_.empty() && hosting_) {
@@ -1737,8 +1738,8 @@ private:
         }
     }
 
-    void publish_receipt() {
-        if (++received_since_receipt_ < 4) return;
+    void publish_receipt(bool force = false) {
+        if (!force && ++received_since_receipt_ < 4) return;
         received_since_receipt_ = 0;
         std::ostringstream content;
         content << base_content("receipt")
@@ -1782,6 +1783,7 @@ private:
     ) {
         const Player sender = validated_sender(event, content);
         if (sender == local_slot_) return;
+        last_peer_traffic_ = std::chrono::steady_clock::now();
         (void)number_field(content, "blue_contiguous");
         (void)number_field(content, "red_contiguous");
         const auto missing = range_array_field(
@@ -2204,7 +2206,20 @@ private:
             return;
         }
         if (session_ && session_->status() == LockstepStatus::running) {
-            const auto silence = std::chrono::steady_clock::now() - last_peer_traffic_;
+            const auto now = std::chrono::steady_clock::now();
+            const auto silence = now - last_peer_traffic_;
+            if (silence >= std::chrono::seconds(5) &&
+                now - last_peer_probe_at_ >= std::chrono::seconds(5) &&
+                session_) {
+                // Both peers can cross the silence threshold together. If
+                // waiting then stops all turn publication, neither side can
+                // generate traffic that recovers the session. Refreshing each
+                // tagged subscription backfills unseen turns; a fresh receipt
+                // is a bounded heartbeat and carries exact missing ranges.
+                (void)nostr_bridge_refresh_subscriptions();
+                publish_receipt(true);
+                last_peer_probe_at_ = now;
+            }
             if (silence >= std::chrono::seconds(30)) {
                 reliability_status_ = MultiplayerReliabilityStatus::suspended;
                 reliability_reason_ = MultiplayerReliabilityReason::peer_silent;
@@ -2286,6 +2301,7 @@ private:
     std::optional<PendingControl> pending_control_;
     std::uint64_t last_completed_control_id_{};
     std::chrono::steady_clock::time_point last_peer_traffic_;
+    std::chrono::steady_clock::time_point last_peer_probe_at_;
     std::chrono::steady_clock::time_point last_advanced_at_{};
     std::string failure_;
 };

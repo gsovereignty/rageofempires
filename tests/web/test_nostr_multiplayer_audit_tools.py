@@ -209,6 +209,12 @@ class RenderOracleTests(unittest.TestCase):
         with self.assertRaisesRegex(Failure, "movement facing mismatch"):
             analyze_render_samples([moving_sample(1, 0, 3)])
 
+    def test_stationary_action_may_face_away_from_previous_movement(self):
+        value = moving_sample(1, 0, 3)
+        for peer in ("host", "join"):
+            value[peer]["entities"][0]["moving"] = False
+        analyze_render_samples([value])
+
     def test_accepts_sixteen_direction_unit_facing(self):
         value = moving_sample(1, 0, 14)
         for peer in ("host", "join"):

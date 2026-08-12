@@ -25906,6 +25906,7 @@ ApplicationLoop SdlApp::loop() {
             simulation.has_technology(
                 browser_player, Technology::man_at_arms
             ),
+            pending_building.has_value(),
             browser_enemy_building_hit_points,
             browser_enemy_town_center_hit_points,
             runtime_fallback_telemetry().events().size(),

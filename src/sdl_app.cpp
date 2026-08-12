@@ -1076,8 +1076,11 @@ struct LegacySprites {
 LegacySprites active_legacy_sprites;
 struct OverlapCaptureDraw {
     const LegacySprite* sprite{};
+    SDL_FRect source{};
     SDL_FRect destination{};
+    SDL_FRect clipped_destination{};
     SDL_FPoint ground{};
+    std::uint64_t draw_order{};
     bool flip{};
     bool visible{true};
     int logical_direction{-1};
@@ -1115,6 +1118,7 @@ OverlapCaptureState active_overlap_capture;
 struct BrowserRenderCaptureState {
     bool active{};
     std::uint64_t frame{};
+    std::uint64_t draw_order{};
     std::vector<OverlapCaptureCase> cases;
     OverlapCaptureCase* current{};
 };
@@ -7094,6 +7098,7 @@ std::string browser_render_telemetry_json(
             const OverlapCaptureDraw& draw = capture.draws[draw_index];
             if (draw_index != 0) output << ',';
             output << "{\"layer\":" << draw_index
+                   << ",\"drawOrder\":" << draw.draw_order
                    << ",\"resourceId\":" << draw.sprite->resource_id
                    << ",\"frame\":" << draw.sprite->frame_index
                    << ",\"palettePlayer\":"
@@ -7110,7 +7115,17 @@ std::string browser_render_telemetry_json(
                    << draw.destination.x << ",\"y\":"
                    << draw.destination.y << ",\"w\":"
                    << draw.destination.w << ",\"h\":"
-                   << draw.destination.h << "}";
+                   << draw.destination.h << "}"
+                   << ",\"clippedDestination\":{\"x\":"
+                   << draw.clipped_destination.x << ",\"y\":"
+                   << draw.clipped_destination.y << ",\"w\":"
+                   << draw.clipped_destination.w << ",\"h\":"
+                   << draw.clipped_destination.h << "}"
+                   << ",\"sourceRectangle\":{\"x\":"
+                   << draw.source.x << ",\"y\":"
+                   << draw.source.y << ",\"w\":"
+                   << draw.source.w << ",\"h\":"
+                   << draw.source.h << "}";
             if (draw.action_frame >= 0) {
                 output << ",\"logicalDirection\":"
                        << draw.logical_direction
@@ -7316,11 +7331,54 @@ bool render_legacy_sprite(
         static_cast<float>(sprite.width),
         static_cast<float>(sprite.height),
     };
+    float render_scale_x = 1.0F;
+    float render_scale_y = 1.0F;
+    SDL_GetRenderScale(renderer, &render_scale_x, &render_scale_y);
+    SDL_Rect render_viewport{};
+    SDL_GetRenderViewport(renderer, &render_viewport);
+    const SDL_FRect logical_viewport{
+        0.0F,
+        0.0F,
+        static_cast<float>(render_viewport.w) /
+            std::max(render_scale_x, 0.0001F),
+        static_cast<float>(render_viewport.h) /
+            std::max(render_scale_y, 0.0001F),
+    };
+    const float clipped_left = std::max(
+        destination.x, logical_viewport.x
+    );
+    const float clipped_top = std::max(
+        destination.y, logical_viewport.y
+    );
+    const float clipped_right = std::min(
+        destination.x + destination.w,
+        logical_viewport.x + logical_viewport.w
+    );
+    const float clipped_bottom = std::min(
+        destination.y + destination.h,
+        logical_viewport.y + logical_viewport.h
+    );
+    const SDL_FRect clipped_destination{
+        clipped_left,
+        clipped_top,
+        std::max(0.0F, clipped_right - clipped_left),
+        std::max(0.0F, clipped_bottom - clipped_top),
+    };
+    const SDL_FRect source{
+        0.0F, 0.0F,
+        static_cast<float>(sprite.width),
+        static_cast<float>(sprite.height),
+    };
+    const std::uint64_t draw_order =
+        active_browser_render_capture.draw_order++;
     if (active_overlap_capture.current != nullptr) {
         active_overlap_capture.current->draws.push_back({
             &sprite,
+            source,
             destination,
+            clipped_destination,
             ground,
+            draw_order,
             flip_horizontal,
             visible,
             logical_direction,
@@ -7338,8 +7396,11 @@ bool render_legacy_sprite(
     if (active_browser_render_capture.current != nullptr) {
         active_browser_render_capture.current->draws.push_back({
             &sprite,
+            source,
             destination,
+            clipped_destination,
             ground,
+            draw_order,
             flip_horizontal,
             visible,
             logical_direction,
@@ -16174,6 +16235,7 @@ std::size_t render(
         browser_render_telemetry_enabled();
     if (active_browser_render_capture.active) {
         ++active_browser_render_capture.frame;
+        active_browser_render_capture.draw_order = 0;
         active_browser_render_capture.cases.clear();
         active_browser_render_capture.current = nullptr;
     }

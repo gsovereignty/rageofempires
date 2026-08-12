@@ -745,6 +745,32 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
                             peer, str(entity.get("category", "")),
                             int(entity.get("id", -1)), layer_index,
                         )
+                        if int(state.get("schemaVersion", 0)) >= 1:
+                            source_rectangle = layer.get("sourceRectangle")
+                            destination = layer.get("destination")
+                            clipped = layer.get("clippedDestination")
+                            if (not isinstance(layer.get("drawOrder"), int) or
+                                    not all(isinstance(value, dict) for value in (
+                                        source_rectangle, destination, clipped
+                                    ))):
+                                raise Failure(
+                                    f"draw submission telemetry incomplete "
+                                    f"{entity_key}"
+                                )
+                            if (float(source_rectangle.get("w", -1)) !=
+                                    float(layer.get("width", -2)) or
+                                    float(source_rectangle.get("h", -1)) !=
+                                    float(layer.get("height", -2)) or
+                                    float(clipped.get("w", -1)) < 0 or
+                                    float(clipped.get("h", -1)) < 0 or
+                                    float(clipped.get("w", 0)) >
+                                    float(destination.get("w", -1)) or
+                                    float(clipped.get("h", 0)) >
+                                    float(destination.get("h", -1))):
+                                raise Failure(
+                                    f"draw submission telemetry contradicts "
+                                    f"actual layer {entity_key}"
+                                )
                         oracle_fields = (
                             "framesPerDirection", "physicalFrameCount",
                             "mirroringMode", "actionFrame",

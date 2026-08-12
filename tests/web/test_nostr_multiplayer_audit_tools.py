@@ -534,6 +534,28 @@ class RenderOracleTests(unittest.TestCase):
         with self.assertRaisesRegex(Failure, "client asset divergence"):
             analyze_render_samples([value])
 
+    def test_requires_actual_draw_submission_rectangles(self):
+        value = sample(1, 10.0)
+        for peer in ("host", "join"):
+            value[peer]["schemaVersion"] = 1
+            layer = value[peer]["entities"][0]["layers"][0]
+            layer.update({
+                "drawOrder": 3,
+                "width": 12,
+                "height": 18,
+                "sourceRectangle": {"x": 0, "y": 0, "w": 12, "h": 18},
+                "destination": {"x": 4, "y": 5, "w": 12, "h": 18},
+                "clippedDestination": {
+                    "x": 4, "y": 5, "w": 10, "h": 16,
+                },
+            })
+        self.assertEqual(analyze_render_samples([value])["frames"], 1)
+        value["join"]["entities"][0]["layers"][0][
+            "clippedDestination"
+        ]["w"] = 13
+        with self.assertRaisesRegex(Failure, "draw submission telemetry"):
+            analyze_render_samples([value])
+
     def test_allows_frame_phase_difference_at_distinct_interpolation_points(self):
         value = sample(1, 10.0)
         value["host"]["movementAlpha"] = 0.2

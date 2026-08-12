@@ -34,6 +34,7 @@ from browser_risk_spike_test import (
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
 from audit_multiplayer_screenshots import audit as audit_screenshots
+from nostr_visual_frame_oracle import FrameOracleError, evaluate_layer
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -440,6 +441,57 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
                             f"rendered asset violates mapping: {entity}"
                         )
                     for layer_index, layer in enumerate(entity.get("layers", [])):
+                        entity_key = (
+                            peer, str(entity.get("category", "")),
+                            int(entity.get("id", -1)), layer_index,
+                        )
+                        oracle_fields = (
+                            "framesPerDirection", "physicalFrameCount",
+                            "mirroringMode", "actionFrame",
+                        )
+                        if all(field in layer for field in oracle_fields):
+                            previous = entity.get("previousPosition")
+                            current = entity.get("simulationPosition")
+                            if not (isinstance(previous, dict) and
+                                    isinstance(current, dict)):
+                                raise Failure(
+                                    f"frame oracle lacks positions: {entity}"
+                                )
+                            try:
+                                oracle = evaluate_layer(
+                                    previous=(int(previous["x"]),
+                                              int(previous["y"])),
+                                    current=(int(current["x"]),
+                                             int(current["y"])),
+                                    direction_count=int(
+                                        entity.get("expectedDirectionCount", 8)
+                                    ),
+                                    frames_per_direction=int(
+                                        layer["framesPerDirection"]
+                                    ),
+                                    physical_frame_count=int(
+                                        layer["physicalFrameCount"]
+                                    ),
+                                    mirroring_mode=int(layer["mirroringMode"]),
+                                    action_frame=int(layer["actionFrame"]),
+                                    actual_frame=int(layer.get("frame", -1)),
+                                    actual_flip_horizontal=bool(
+                                        layer.get("flipHorizontal", False)
+                                    ),
+                                )
+                            except FrameOracleError as error:
+                                raise Failure(
+                                    "invalid frame oracle input "
+                                    f"{entity_key}: {error}"
+                                ) from error
+                            if oracle["verdict"] != "PASS":
+                                raise Failure(
+                                    "physical frame/flip mismatch "
+                                    f"{entity_key} "
+                                    f"tick={state.get('tick')} "
+                                    f"resource={layer.get('resourceId')} "
+                                    f"oracle={json.dumps(oracle, sort_keys=True)}"
+                                )
                         animation_frames.setdefault(
                             (peer, str(entity.get("category", "")),
                              int(entity.get("id", -1)), layer_index,

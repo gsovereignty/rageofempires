@@ -284,6 +284,36 @@ class RenderOracleTests(unittest.TestCase):
         with self.assertRaisesRegex(Failure, "movement facing mismatch"):
             analyze_render_samples([moving_sample(1, 0, 3)])
 
+    def test_rejects_correct_facing_with_wrong_physical_frame(self):
+        value = moving_sample(1, 1, 0)
+        for peer in ("host", "join"):
+            layer = value[peer]["entities"][0]["layers"][0]
+            layer.update({
+                "framesPerDirection": 2,
+                "physicalFrameCount": 10,
+                "mirroringMode": 6,
+                "actionFrame": 1,
+                "frame": 7,
+                "flipHorizontal": True,
+            })
+        with self.assertRaisesRegex(Failure, "physical frame/flip mismatch"):
+            analyze_render_samples([value])
+
+    def test_rejects_correct_facing_with_wrong_horizontal_flip(self):
+        value = moving_sample(1, 1, 0)
+        for peer in ("host", "join"):
+            layer = value[peer]["entities"][0]["layers"][0]
+            layer.update({
+                "framesPerDirection": 2,
+                "physicalFrameCount": 10,
+                "mirroringMode": 6,
+                "actionFrame": 1,
+                "frame": 5,
+                "flipHorizontal": False,
+            })
+        with self.assertRaisesRegex(Failure, "physical frame/flip mismatch"):
+            analyze_render_samples([value])
+
     def test_stationary_action_may_face_away_from_previous_movement(self):
         value = moving_sample(1, 0, 3)
         for peer in ("host", "join"):

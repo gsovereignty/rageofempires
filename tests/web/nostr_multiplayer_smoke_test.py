@@ -12,6 +12,7 @@ import secrets
 import subprocess
 import sys
 import time
+import traceback
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -1318,7 +1319,7 @@ def prepare_player_for_full_match(
     return {
         "owner": owner,
         "initialGold": initial_gold,
-        "gatheredGold": int(gathered["resources"]["gold"]),
+        "gatheredGold": int(gathered),
         "gatherFrames": gather_frames,
         "gatherRenderOracle": gather_oracle,
         "constructedBuildingIds": sorted(constructed_ids),
@@ -2362,6 +2363,7 @@ def run(relays: str | None, headed: bool, port: int = 8888,
         except Exception as error:
             failure = {
                 "error": f"{type(error).__name__}: {error}",
+                "traceback": traceback.format_exc(),
                 "completedEvidence": evidence,
                 "relays": evidence.get("relays", []),
                 "host": capture_failure_value(

@@ -9,7 +9,7 @@ import struct
 import zlib
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageChops
 
 from visual_overlap_audit import audit_images
 
@@ -84,33 +84,30 @@ def read_png(path: Path) -> tuple[int, int, int, bytes]:
 
 
 def pixel_findings(path: Path) -> list[dict[str, object]]:
-    width, height, channels, pixels = read_png(path)
+    with Image.open(path) as source:
+        image = source.convert("RGB")
+    width, height = image.size
     pixel_count = width * height
-    near_black = 0
-    minimum_luminance = 255
-    maximum_luminance = 0
+    luminance = image.convert("L")
+    luminance_histogram = luminance.histogram()
+    near_black = sum(luminance_histogram[:9])
+    minimum_luminance, maximum_luminance = luminance.getextrema()
     hud_top = min(565, max(0, height * 3 // 4))
-    hud_bright = 0
-    hud_colors: set[tuple[int, int, int]] = set()
-    for pixel_index, index in enumerate(range(0, len(pixels), channels)):
-        red, green, blue = pixels[index:index + 3]
-        luminance = (red * 3 + green * 6 + blue) // 10
-        near_black += luminance <= 8
-        minimum_luminance = min(minimum_luminance, luminance)
-        maximum_luminance = max(maximum_luminance, luminance)
-        if pixel_index // width >= hud_top:
-            hud_bright += max(red, green, blue) >= 150
-            if len(hud_colors) < 12:
-                hud_colors.add((red, green, blue))
+    hud = image.crop((0, hud_top, width, height))
+    red, green, blue = hud.split()
+    brightest_channel = ImageChops.lighter(ImageChops.lighter(red, green), blue)
+    hud_bright = sum(brightest_channel.histogram()[150:])
+    hud_color_count = hud.getcolors(maxcolors=12)
+    hud_unique_colors = 12 if hud_color_count is None else len(hud_color_count)
     findings: list[dict[str, object]] = []
     if near_black >= pixel_count * 0.985 or (
         maximum_luminance - minimum_luminance < 12
     ):
         findings.append({"status": "FAIL", "kind": "black_frame"})
-    if height >= 700 and (len(hud_colors) < 12 or hud_bright < 100):
+    if height >= 700 and (hud_unique_colors < 12 or hud_bright < 100):
         findings.append({
             "status": "FAIL", "kind": "hud_corruption",
-            "hudUniqueColors": len(hud_colors), "hudBrightPixels": hud_bright,
+            "hudUniqueColors": hud_unique_colors, "hudBrightPixels": hud_bright,
         })
     return findings
 

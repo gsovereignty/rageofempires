@@ -96,7 +96,7 @@ test: build
 	$(CTEST) --test-dir "$(BUILD_DIR)" --parallel "$(JOBS)" \
 		--output-on-failure
 
-audit-nostr-multiplayer:
+audit-nostr-multiplayer: web-build
 	@test -x "$(NOSTR_AUDIT_PYTHON)" || { \
 		echo "Missing isolated Selenium Python: $(NOSTR_AUDIT_PYTHON)" >&2; \
 		exit 1; \

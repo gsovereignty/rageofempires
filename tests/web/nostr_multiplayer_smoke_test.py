@@ -1468,24 +1468,29 @@ def order_enemy_attack(
     if not ordered_ids:
         # The comma hotkey intentionally visits idle military only.  A newly
         # trained unit can still be following the Barracks rally order, so
-        # select the telemetry-published military target directly.
-        pan_world_target_clear(
-            journey, driver, actions, actor, "military", edge_margin=80.0,
-        )
-        audited_pointer(journey, actions, actor, "military", button=0)
-        unit_id = int(journey.telemetry().get("selectedUnit", 0))
-        if selectable_military_id(
-            unit_id, military_ids, ordered_ids
-        ) is not None:
-            # Panning to select rallying military can move enemy target far
-            # outside canvas. Recenter target after selection, before issuing
-            # production right-click.
+        # select each authoritative military tile through ordinary visible
+        # world input rather than relying on one sprite hotspot.
+        for unit in military:
+            tile = (int(unit["x"]), int(unit["y"]))
+            center_camera_for_tile(
+                journey, driver, actions, actor, tile[0], tile[1]
+            )
+            audited_world_pointer(
+                journey, driver, actions, actor, tile[0], tile[1], button=0
+            )
+            unit_id = int(journey.telemetry().get("selectedUnit", 0))
+            if selectable_military_id(
+                unit_id, military_ids, ordered_ids
+            ) is None:
+                continue
             pan_world_target_clear(
                 journey, driver, actions, actor, target_name,
                 edge_margin=(8.0 if target_name == "enemyTarget" else 80.0),
             )
             audited_pointer(journey, actions, actor, target_name, button=2)
             ordered_ids.add(unit_id)
+            if len(ordered_ids) == len(military):
+                break
     if not ordered_ids:
         raise Failure(f"{actor} ordered only {len(ordered_ids)} military units")
     wait_until(

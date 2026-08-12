@@ -8,6 +8,7 @@ import hashlib
 import json
 import math
 import subprocess
+import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,6 +29,9 @@ from browser_risk_spike_test import (
     static_server,
     wait_until,
 )
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
+from audit_multiplayer_screenshots import audit as audit_screenshots
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -2117,6 +2121,11 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
     )
     (root / "visual-findings.json").write_text(
         json.dumps(visual_findings(evidence), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    screenshot_report = audit_screenshots(root)
+    (root / "screenshot-audit.json").write_text(
+        json.dumps(screenshot_report, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
 

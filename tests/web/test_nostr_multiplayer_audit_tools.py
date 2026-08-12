@@ -450,7 +450,7 @@ class RenderOracleTests(unittest.TestCase):
                 "states/host.jsonl", "states/join.jsonl", "motion.json",
                 "sprite-provenance.jsonl", "console-host.json",
                 "console-join.json", "visual-failures.json",
-                "visual-findings.json",
+                "visual-findings.json", "screenshot-audit.json",
             ):
                 self.assertTrue((root / relative).exists(), relative)
             self.assertFalse((root / "first-failure.json").exists())

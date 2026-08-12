@@ -11,8 +11,8 @@ diplomacy 0 1 enemy
 diplomacy 1 0 enemy
 objective 1 blue 1 0 "Destroy the enemy Town Center."
 objective 2 red 1 0 "Destroy the human Town Center."
-trigger 1 100 1 0 1 "building_destroyed 21" 2 "complete_objective 1" "victory blue"
-trigger 2 90 1 0 1 "building_destroyed 17" 2 "complete_objective 2" "defeat blue"
+trigger 1 100 1 0 1 "building_destroyed 37" 2 "complete_objective 1" "victory blue"
+trigger 2 90 1 0 1 "building_destroyed 33" 2 "complete_objective 2" "defeat blue"
 terrain gold 7 10
 terrain gold 8 10
 terrain gold 7 11
@@ -57,7 +57,7 @@ unit sheep 1 23 12 stance passive
 unit sheep 1 27 18 stance passive
 unit sheep 1 24 23 stance passive
 unit sheep 1 18 27 stance passive
-unit sheep 1 13 24 stance passive
-unit sheep 1 9 18 stance passive
+unit sheep 1 12 23 stance passive
+unit sheep 1 8 17 stance passive
 unit sheep 1 12 13 stance passive
 unit sheep 1 18 9 stance passive

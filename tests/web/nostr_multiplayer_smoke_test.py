@@ -1744,21 +1744,23 @@ def exercise_relay_chaos(host, join, relays: str) -> dict[str, object]:
         "stableTicks": stopped_ticks,
     }
 
-    for driver in (host, join):
-        set_relay_enabled(driver, 1, True)
+    # Restore the full production relay pool before requiring active status.
+    # Two EOSE relays satisfy transport quorum, but failed turn publications
+    # can still require observations from the original pool before the
+    # runtime can leave backfill_incomplete.
+    for relay_index in range(relay_count):
+        for driver in (host, join):
+            set_relay_enabled(driver, relay_index, True)
     recovered = wait_until(
         "relay EOSE backfill and lockstep recovery",
         lambda: matching_relay_state(
-            host, join, disabled=relay_count - 2, status=0, eose=2,
+            host, join, disabled=0, status=0, eose=relay_count,
         ),
         timeout=WAIT_SECONDS,
     )
     recovery["recovered"] = {
         "host": recovered[0], "join": recovered[1]
     }
-    for relay_index in range(relay_count):
-        for driver in (host, join):
-            set_relay_enabled(driver, relay_index, True)
     wait_until(
         "all configured relays restored through EOSE",
         lambda: (

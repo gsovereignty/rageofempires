@@ -10,10 +10,12 @@ from nostr_multiplayer_smoke_test import (
     analyze_render_samples,
     analyze_render_samples_for_audit,
     audited_key,
+    banked_resource_increased,
     capture_failure_value,
     collapse_match_details,
     diagnostics,
     render_diagnostics,
+    selectable_military_id,
     visual_failures,
     visual_findings,
     write_audit_bundle,
@@ -95,6 +97,30 @@ def gathering_sample(*, amount: int = 100, include_resource: bool = True):
 
 
 class AuditedInputTests(unittest.TestCase):
+    def test_gold_deposit_oracle_waits_for_banked_resource(self):
+        carrying = {"resources": {"gold": 200}}
+        deposited = {"resources": {"gold": 209}}
+
+        self.assertIsNone(
+            banked_resource_increased(carrying, "gold", 200)
+        )
+        self.assertEqual(
+            banked_resource_increased(deposited, "gold", 200), 209
+        )
+
+    def test_commanded_military_can_be_selected_by_direct_fallback(self):
+        military_ids = {8, 27}
+
+        self.assertEqual(
+            selectable_military_id(27, military_ids, set()), 27
+        )
+        self.assertIsNone(
+            selectable_military_id(27, military_ids, {27})
+        )
+        self.assertIsNone(
+            selectable_military_id(5, military_ids, set())
+        )
+
     def test_audited_key_preserves_selection_without_canvas_click(self):
         class Canvas:
             def __init__(self):

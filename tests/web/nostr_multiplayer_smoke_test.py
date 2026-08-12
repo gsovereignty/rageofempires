@@ -33,9 +33,10 @@ from browser_risk_spike_test import (
 ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS = ROOT / "artifacts" / "nostr-multiplayer"
 DEFAULT_RELAYS = (
-    "wss://relay.nostr.net,wss://relay.nostr.wirednet.jp,"
-    "wss://nostr.sathoarder.com,wss://relay.wavlake.com,"
-    "wss://relay.noswhere.com"
+    "wss://relay.nostr.wirednet.jp,wss://nostr.sathoarder.com,"
+    "wss://relay.wavlake.com,"
+    "wss://relay.noswhere.com,wss://relay.damus.io,"
+    "wss://relay.layer.systems"
 )
 WAIT_SECONDS = 180.0
 
@@ -226,19 +227,21 @@ def pan_world_target_clear(
     actions: list[dict[str, object]],
     actor: str,
     target_name: str,
+    edge_margin: float = 80.0,
 ) -> None:
     """Move a world target above in-canvas multiplayer panels before click."""
     for _ in range(64):
         target = journey.telemetry()["targets"][target_name]
         x = float(target["x"])
         y = float(target["y"])
-        if 80.0 < x < 1200.0 and 90.0 < y < 520.0:
+        if edge_margin < x < 1280.0 - edge_margin and \
+                10.0 < y < 520.0:
             return
         if y >= 520.0:
             key = Keys.ARROW_DOWN
-        elif y <= 90.0:
+        elif y <= 10.0:
             key = Keys.ARROW_UP
-        elif x <= 80.0:
+        elif x <= edge_margin:
             key = Keys.ARROW_LEFT
         else:
             key = Keys.ARROW_RIGHT
@@ -724,6 +727,25 @@ def matching_games(host, join):
     return games
 
 
+def banked_resource_increased(
+    telemetry: dict[str, object], resource: str, initial: int,
+) -> int | None:
+    value = int(telemetry["resources"][resource])
+    return value if value > initial else None
+
+
+def selectable_military_id(
+    selected_unit: int,
+    military_ids: set[int],
+    ordered_ids: set[int],
+) -> int | None:
+    return (
+        selected_unit
+        if selected_unit in military_ids and selected_unit not in ordered_ids
+        else None
+    )
+
+
 def prepare_player_for_full_match(
     journey: Journey,
     driver,
@@ -755,27 +777,26 @@ def prepare_player_for_full_match(
     )
     gathered = wait_until(
         f"{actor} gathered gold",
-        lambda: (
-            value if int((value := journey.telemetry())["resources"]["gold"])
-            > initial_gold else None
+        lambda: banked_resource_increased(
+            journey.telemetry(), "gold", initial_gold
         ),
-        timeout=WAIT_SECONDS,
+        # Preserve gathering target until simulation naturally fills carry
+        # capacity, returns to an eligible drop-off, and banks the resource.
+        timeout=WAIT_SECONDS * 3,
     )
 
     select_barracks_through_footprint(
         journey, driver, actions, actor
     )
     initial_military = int(journey.telemetry()["blueMilitaryCount"])
-    for _ in range(4):
-        audited_key(driver, actions, actor, "m")
-        time.sleep(0.05)
+    audited_key(driver, actions, actor, "m")
     trained = wait_until(
         f"{actor} militia production group",
         lambda: (
             value if int((value := journey.telemetry())["blueMilitaryCount"])
-            >= initial_military + 4 else None
+            >= initial_military + 1 else None
         ),
-        timeout=WAIT_SECONDS,
+        timeout=WAIT_SECONDS * 3,
     )
     audited_key(driver, actions, actor, "9")
     researched = wait_until(
@@ -785,7 +806,7 @@ def prepare_player_for_full_match(
                 "manAtArmsResearched"
             ]) else None
         ),
-        timeout=WAIT_SECONDS,
+        timeout=WAIT_SECONDS * 3,
     )
     native_modified_digit(driver, "2", Keys.CONTROL)
 
@@ -898,12 +919,13 @@ def prepare_player_for_full_match(
     }
 
 
-def order_town_center_attack(
+def order_enemy_attack(
     journey: Journey,
     driver,
     actor: str,
     actions: list[dict[str, object]],
     maximum_units: int | None = None,
+    target_name: str = "enemyTarget",
 ) -> int:
     owner = 0 if actor == "host" else 1
     military = [
@@ -925,7 +947,8 @@ def order_town_center_attack(
             timeout=2.0,
         )
     pan_world_target_clear(
-        journey, driver, actions, actor, "enemyTownCenter"
+        journey, driver, actions, actor, target_name,
+        edge_margin=8.0 if target_name == "enemyTarget" else 80.0,
     )
     if bool(journey.telemetry().get("pendingBuilding", False)):
         audited_key(driver, actions, actor, Keys.ESCAPE)
@@ -936,7 +959,7 @@ def order_town_center_attack(
             ) else None,
             timeout=2.0,
         )
-    initial_hit_points = int(journey.telemetry()["enemyBuildingHitPoints"])
+    initial_hit_points = int(journey.telemetry()["enemyTotalHitPoints"])
     if bool(journey.telemetry().get("pendingBuilding", False)):
         audited_key(driver, actions, actor, Keys.ESCAPE)
         wait_until(
@@ -947,6 +970,7 @@ def order_town_center_attack(
             timeout=2.0,
         )
     ordered_ids: set[int] = set()
+    military_ids = {int(unit["id"]) for unit in military}
     owned_unit_count = sum(
         1 for unit in (diagnostics(driver) or {}).get("game", {}).get(
             "units", []
@@ -955,23 +979,37 @@ def order_town_center_attack(
     for _ in range(max(owned_unit_count * 2, len(military) * 2)):
         audited_key(driver, actions, actor, ",")
         unit_id = int(journey.telemetry().get("selectedUnit", 0))
-        if unit_id not in {int(unit["id"]) for unit in military} or \
-                unit_id in ordered_ids:
+        if selectable_military_id(
+            unit_id, military_ids, ordered_ids
+        ) is None:
             continue
         if bool(journey.telemetry().get("pendingBuilding", False)):
             audited_key(driver, actions, actor, Keys.ESCAPE)
-        audited_key(driver, actions, actor, "a")
-        audited_pointer(journey, actions, actor, "enemyTownCenter", button=2)
+        audited_pointer(journey, actions, actor, target_name, button=2)
         ordered_ids.add(unit_id)
         if len(ordered_ids) == len(military):
             break
+    if not ordered_ids:
+        # The comma hotkey intentionally visits idle military only.  A newly
+        # trained unit can still be following the Barracks rally order, so
+        # select the telemetry-published military target directly.
+        pan_world_target_clear(
+            journey, driver, actions, actor, "military", edge_margin=80.0,
+        )
+        audited_pointer(journey, actions, actor, "military", button=0)
+        unit_id = int(journey.telemetry().get("selectedUnit", 0))
+        if selectable_military_id(
+            unit_id, military_ids, ordered_ids
+        ) is not None:
+            audited_pointer(journey, actions, actor, target_name, button=2)
+            ordered_ids.add(unit_id)
     if not ordered_ids:
         raise Failure(f"{actor} ordered only {len(ordered_ids)} military units")
     wait_until(
         f"{actor} enemy-building combat start",
         lambda: (
             hit_points if 0 <= (hit_points := int(journey.telemetry()[
-                "enemyBuildingHitPoints"
+                "enemyTotalHitPoints"
             ])) < initial_hit_points else None
         ),
         timeout=WAIT_SECONDS,
@@ -982,9 +1020,7 @@ def order_town_center_attack(
 def launch_attack_wave(
     journey: Journey, driver, actor: str, actions: list[dict[str, object]],
 ) -> None:
-    if int(journey.telemetry()["blueMilitaryCount"]) > 0:
-        order_town_center_attack(journey, driver, actor, actions)
-        return
+    # Keep survivors fighting, but add affordable reinforcements first.
     if int(journey.telemetry()["resources"]["food"]) < 60:
         starting_food = int(journey.telemetry()["resources"]["food"])
         pan_world_target_clear(journey, driver, actions, actor, "food")
@@ -998,22 +1034,35 @@ def launch_attack_wave(
             ]["food"]) >= max(60, starting_food + 60) else None,
             timeout=WAIT_SECONDS * 3,
         )
-    audited_key(driver, actions, actor, "2")
-    wait_until(
-        f"{actor} Barracks control-group recall",
-        lambda: int(journey.telemetry().get("selectedBuilding", 0)) or None,
-        timeout=2.0,
-    )
     before = int(journey.telemetry()["blueMilitaryCount"])
-    audited_key(driver, actions, actor, "m")
-    wait_until(
-        f"{actor} replacement military wave",
-        lambda: value if int((value := journey.telemetry())[
-            "blueMilitaryCount"
-        ]) > before else None,
-        timeout=WAIT_SECONDS,
-    )
-    order_town_center_attack(journey, driver, actor, actions)
+    resources = journey.telemetry()["resources"]
+    affordable = min(int(resources["food"]) // 60,
+                     int(resources["gold"]) // 20, 3)
+    if affordable > 0:
+        audited_key(driver, actions, actor, "2")
+        try:
+            selected = wait_until(
+                f"{actor} Barracks control-group recall",
+                lambda: int(journey.telemetry().get(
+                    "selectedBuilding", 0
+                )) or None,
+                timeout=2.0,
+            )
+        except Failure:
+            if before == 0:
+                raise
+            selected = None
+        if selected:
+            for _ in range(affordable):
+                audited_key(driver, actions, actor, "m")
+            wait_until(
+                f"{actor} replacement military wave",
+                lambda: value if int((value := journey.telemetry())[
+                    "blueMilitaryCount"
+                ]) > before else None,
+                timeout=WAIT_SECONDS,
+            )
+    order_enemy_attack(journey, driver, actor, actions)
 
 
 def launch(driver, base_url: str, mode: str, relays: str,
@@ -1540,11 +1589,13 @@ def run(relays: str, headed: bool, port: int = 8888,
                     artifact_dir,
                 ),
             }
-            host_target_hit_points = order_town_center_attack(
+            host_target_hit_points = order_enemy_attack(
                 host_journey, host, "host", actions, maximum_units=3,
+                target_name="enemyTownCenter",
             )
-            join_target_hit_points = order_town_center_attack(
+            join_target_hit_points = order_enemy_attack(
                 join_journey, join, "join", actions, maximum_units=3,
+                target_name="enemyTownCenter",
             )
             combat_frames = capture_correlated_frames(
                 host, join, seconds=2.0, artifact_dir=artifact_dir,
@@ -1583,13 +1634,49 @@ def run(relays: str, headed: bool, port: int = 8888,
             )
 
             # Visible signal control then a world click is the normal UI path.
+            # Earlier gameplay deliberately hid this overlay with F4.
+            audited_key(host, actions, "host", Keys.F4)
             signal_delivered = False
             for attempt in range(3):
-                click_canvas_logical(host, 1165, 330)
+                pan_world_target_clear(
+                    host_journey, host, actions, "host", "townCenter"
+                )
+                for _ in range(32):
+                    town_center = host_journey.telemetry()["targets"][
+                        "townCenter"
+                    ]
+                    if float(town_center["y"]) < 285.0:
+                        break
+                    audited_held_key(
+                        host, actions, "host", Keys.ARROW_DOWN
+                    )
+                else:
+                    raise Failure(
+                        "host Town Center remained behind signal overlay"
+                    )
+                for signal_y in (326.0, 338.0, 346.0):
+                    click_canvas_logical(host, 1165.0, signal_y)
+                    try:
+                        wait_until(
+                            "public map signal armed",
+                            lambda: True if bool(
+                                host_journey.telemetry().get(
+                                    "pendingMapSignal", False
+                                )
+                            ) else None,
+                            timeout=1.0,
+                        )
+                        break
+                    except Failure:
+                        continue
+                else:
+                    raise Failure("visible public map signal button missed")
                 time.sleep(0.25)
                 if attempt == 0:
                     host.save_screenshot(str(artifact_dir / "signal-armed.png"))
-                click_canvas_logical(host, 640, 300)
+                audited_pointer(
+                    host_journey, actions, "host", "townCenter", button=0
+                )
                 try:
                     wait_until(
                         "public map signal delivery",
@@ -1682,6 +1769,7 @@ def run(relays: str, headed: bool, port: int = 8888,
                 host.save_screenshot(str(artifact_dir / "checkpoint-host.png"))
                 join.save_screenshot(str(artifact_dir / "checkpoint-join.png"))
                 return evidence
+            audited_key(host, actions, "host", Keys.F4)
             terminal = None
             for _ in range(12):
                 if int((game_diagnostics(join) or {}).get("outcome", 0)) == 0:

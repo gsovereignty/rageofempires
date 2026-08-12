@@ -14594,7 +14594,7 @@ void render_multiplayer_presentation(
     set_color(renderer, {240, 224, 173, 255});
     render_ui_debug_text(
         renderer, signal_button.x + 38.0F, signal_button.y + 18.0F,
-        "ALLY SIGNAL"
+        "MAP SIGNAL"
     );
     const SDL_FRect resign_button{
         signal_button.x, signal_button.y + 58.0F,
@@ -20135,6 +20135,11 @@ ApplicationLoop SdlApp::loop() {
                 }
                 if (event.button.button == SDL_BUTTON_LEFT &&
                     active_command_hover >= 0 &&
+                    hud_layout::command_button_at(
+                        view_pixel_height,
+                        static_cast<int>(event.button.x),
+                        static_cast<int>(event.button.y)
+                    ) == active_command_hover &&
                     (simulation.selected_unit() ||
                      simulation.selected_building())) {
                     const SelectionPanelModel panel =
@@ -20837,7 +20842,7 @@ ApplicationLoop SdlApp::loop() {
                         bool accepted = true;
                         if (multiplayer_runtime) {
                             accepted = multiplayer_runtime->send_signal(
-                                tile, ChatAudience::allies
+                                tile, ChatAudience::all
                             );
                         } else {
                             const Uint64 now = SDL_GetTicks();
@@ -20860,7 +20865,7 @@ ApplicationLoop SdlApp::loop() {
                             }
                         }
                         control_group_status = accepted
-                            ? "ALLY SIGNAL SENT"
+                            ? "MAP SIGNAL SENT"
                             : "SIGNAL RATE LIMITED";
                     }
                     pending_map_signal = false;
@@ -25815,6 +25820,8 @@ ApplicationLoop SdlApp::loop() {
         BrowserTargetTelemetry browser_targets;
         int browser_enemy_building_hit_points = -1;
         int browser_enemy_town_center_hit_points = -1;
+        int browser_enemy_total_hit_points = 0;
+        std::optional<TilePosition> browser_military_position;
         std::optional<TilePosition> browser_worker_position;
         for (const Unit& unit : simulation.units()) {
             const SDL_FPoint center = browser_tile_center(
@@ -25829,6 +25836,10 @@ ApplicationLoop SdlApp::loop() {
             } else if (unit.owner == browser_player) {
                 browser_targets.military_x = center.x;
                 browser_targets.military_y = center.y;
+                browser_military_position = unit.position;
+            } else if (unit.owner == browser_opponent &&
+                       !is_animal(unit.kind) && !is_relic(unit.kind)) {
+                browser_enemy_total_hit_points += unit.hit_points;
             }
         }
         if (browser_worker_position) {
@@ -25931,6 +25942,36 @@ ApplicationLoop SdlApp::loop() {
                 browser_targets.enemy_town_center_y = center.y;
                 browser_enemy_town_center_hit_points = building.hit_points;
             }
+            if (building.owner == browser_opponent) {
+                browser_enemy_total_hit_points += building.hit_points;
+            }
+        }
+        if (browser_military_position) {
+            int nearest_distance = std::numeric_limits<int>::max();
+            const auto consider_enemy = [&](TilePosition position) {
+                const int distance =
+                    std::abs(position.x - browser_military_position->x) +
+                    std::abs(position.y - browser_military_position->y);
+                if (distance >= nearest_distance) return;
+                nearest_distance = distance;
+                const SDL_FPoint center = browser_tile_center(
+                    static_cast<float>(position.x),
+                    static_cast<float>(position.y)
+                );
+                browser_targets.enemy_target_x = center.x;
+                browser_targets.enemy_target_y = center.y;
+            };
+            for (const Unit& unit : simulation.units()) {
+                if (unit.owner == browser_opponent &&
+                    !is_animal(unit.kind) && !is_relic(unit.kind)) {
+                    consider_enemy(unit.position);
+                }
+            }
+            for (const Building& building : simulation.buildings()) {
+                if (building.owner == browser_opponent) {
+                    consider_enemy(building.position);
+                }
+            }
         }
         publish_browser_telemetry({
             simulation.tick_number(),
@@ -25954,8 +25995,10 @@ ApplicationLoop SdlApp::loop() {
                 browser_player, Technology::man_at_arms
             ),
             pending_building.has_value(),
+            pending_map_signal,
             browser_enemy_building_hit_points,
             browser_enemy_town_center_hit_points,
+            browser_enemy_total_hit_points,
             runtime_fallback_telemetry().events().size(),
             browser_targets,
         });

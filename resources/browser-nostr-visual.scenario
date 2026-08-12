@@ -39,17 +39,25 @@ building town_center 0 6 24
 building barracks 0 13 23
 building house 0 5 19
 building house 0 10 17
-# Blue scouting towers expose Red's movement arena to host rendering.
-building watch_tower 0 28 6
-building watch_tower 0 34 12
-building watch_tower 0 28 22
-building watch_tower 0 18 12
+# Passive Blue scouts expose Red's route without attacking its subject.
+unit sheep 0 31 12 stance passive
+unit sheep 0 35 18 stance passive
+unit sheep 0 32 23 stance passive
+unit sheep 0 26 27 stance passive
+unit sheep 0 21 24 stance passive
+unit sheep 0 17 18 stance passive
+unit sheep 0 20 13 stance passive
+unit sheep 0 26 9 stance passive
 building town_center 1 38 4
 building barracks 1 31 5
 building house 1 42 10
 building house 1 37 13
-# Red scouting towers expose Blue's movement arena to join rendering.
-building watch_tower 1 20 6
-building watch_tower 1 26 12
-building watch_tower 1 20 22
-building watch_tower 1 10 12
+# Passive Red scouts expose Blue's route without attacking its subject.
+unit sheep 1 23 12 stance passive
+unit sheep 1 27 18 stance passive
+unit sheep 1 24 23 stance passive
+unit sheep 1 18 27 stance passive
+unit sheep 1 13 24 stance passive
+unit sheep 1 9 18 stance passive
+unit sheep 1 12 13 stance passive
+unit sheep 1 18 9 stance passive

@@ -560,7 +560,9 @@ def exercise_all_direction_route(
     center: tuple[int, int],
 ) -> dict[str, object]:
     audited_key(driver, actions, actor, ".")
-    pan_world_target_clear(journey, driver, actions, actor, "villager")
+    pan_world_target_clear(
+        journey, driver, actions, actor, "villager", edge_margin=400.0
+    )
     audited_pointer(journey, actions, actor, "villager")
     games = wait_until(
         f"{actor} all-direction villager selection",
@@ -1874,7 +1876,8 @@ def run(relays: str | None, headed: bool, port: int = 8888,
                 )
             audited_key(host, actions, "host", ".")
             pan_world_target_clear(
-                host_journey, host, actions, "host", "villager"
+                host_journey, host, actions, "host", "villager",
+                edge_margin=400.0,
             )
             audited_pointer(host_journey, actions, "host", "villager")
             selected_id = wait_until(
@@ -1932,7 +1935,8 @@ def run(relays: str | None, headed: bool, port: int = 8888,
                 raise Failure(f"peers lack matching red unit: {red_before}")
             audited_key(join, actions, "join", ".")
             pan_world_target_clear(
-                join_journey, join, actions, "join", "villager"
+                join_journey, join, actions, "join", "villager",
+                edge_margin=400.0,
             )
             audited_pointer(join_journey, actions, "join", "villager")
             red_selected_id = wait_until(

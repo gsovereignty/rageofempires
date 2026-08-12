@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "minimumSamplesPerCell": 3,
+  "requiredMatrices": [
+    {
+      "name": "two-peer-two-owner-villager-movement",
+      "peers": ["host", "join"],
+      "owners": [0, 1],
+      "unitKinds": ["unit-villager"],
+      "actions": ["moving"],
+      "directionCounts": [8],
+      "logicalDirections": [0, 1, 2, 3, 4, 5, 6, 7],
+      "mirrored": [true],
+      "transitionKinds": ["authoritative-step"]
+    }
+  ],
+  "exclusions": [
+    {
+      "unitKind": "unit-galley",
+      "action": "moving",
+      "directionCount": 16,
+      "reason": "Packaged movement SLP 2263 is absent; DAT binding remains ambiguous.",
+      "evidence": "generated/animation_evidence.json#unit:galley/walking_graphic"
+    },
+    {
+      "unitKind": "unit-war_galley",
+      "action": "moving",
+      "directionCount": 16,
+      "reason": "Packaged movement SLP 2263 is absent; DAT binding remains ambiguous.",
+      "evidence": "generated/animation_evidence.json#unit:war_galley/walking_graphic"
+    },
+    {
+      "unitKind": "unit-transport_ship",
+      "action": "moving",
+      "directionCount": 16,
+      "reason": "Packaged movement SLP 2263 is absent; DAT binding remains ambiguous.",
+      "evidence": "generated/animation_evidence.json#unit:transport_ship/walking_graphic"
+    }
+  ]
+}

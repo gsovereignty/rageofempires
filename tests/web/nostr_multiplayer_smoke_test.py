@@ -37,6 +37,7 @@ from browser_risk_spike_test import (
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
 from audit_multiplayer_screenshots import audit as audit_screenshots
 from nostr_visual_frame_oracle import FrameOracleError, evaluate_layer
+from nostr_visual_coverage import evaluate_coverage, load_specification
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -2232,6 +2233,8 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
         ROOT / "tests/web/nostr_multiplayer_smoke_test.py",
         ROOT / "tests/web/test_nostr_multiplayer_audit_tools.py",
         ROOT / "tools/nostr_visual_frame_oracle.py",
+        ROOT / "tools/nostr_visual_coverage.py",
+        ROOT / "resources/nostr-visual-gameplay-coverage.json",
     ]
     source_digests = {
         str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
@@ -2446,43 +2449,10 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
     collect_oracles(evidence)
     write_jsonl(root / "visual-oracles.jsonl", visual_oracles)
 
-    cells: dict[str, dict[str, object]] = {}
-    for index, oracle in enumerate(visual_oracles):
-        key = "|".join(str(oracle.get(field, "")) for field in (
-            "peer", "owner", "unitKind", "action", "directionCount",
-            "logicalDirection", "mirroringMode",
-        )) + "|authoritative-step"
-        cell = cells.setdefault(key, {
-            "sampleCount": 0,
-            "firstTick": oracle.get("tick"),
-            "lastTick": oracle.get("tick"),
-            "entityIds": [],
-            "oracleRecordIndexes": [],
-            "screenshots": [],
-        })
-        cell["sampleCount"] = int(cell["sampleCount"]) + 1
-        cell["lastTick"] = oracle.get("tick")
-        if oracle.get("entity") not in cell["entityIds"]:
-            cell["entityIds"].append(oracle.get("entity"))
-        cell["oracleRecordIndexes"].append(index)
-        screenshot = oracle.get("screenshot")
-        if screenshot and screenshot not in cell["screenshots"]:
-            cell["screenshots"].append(screenshot)
-    coverage = {
-        "schemaVersion": 1,
-        "keyFields": [
-            "peer", "owner", "unit-kind", "action", "direction-count",
-            "logical-direction", "mirrored", "transition-kind",
-        ],
-        "minimumSamplesPerRequiredCell": 3,
-        "cells": cells,
-        "requiredCells": [],
-        "missingRequiredCells": [
-            "tracked unit/action coverage specification not yet implemented",
-            "all 8-direction and applicable 16-direction journey not complete",
-        ],
-        "status": "BLOCKED",
-    }
+    coverage_specification = load_specification(
+        ROOT / "resources" / "nostr-visual-gameplay-coverage.json"
+    )
+    coverage = evaluate_coverage(coverage_specification, visual_oracles)
     atomic_write_json(root / "coverage.json", coverage)
     (root / "console-host.json").write_text(
         json.dumps(evidence.get("hostConsole", []), indent=2) + "\n",

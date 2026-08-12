@@ -7,6 +7,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from PIL import Image
 
@@ -28,6 +29,7 @@ from nostr_multiplayer_smoke_test import (
     selectable_military_id,
     visual_failures,
     visual_findings,
+    wait_for_drawable_direction,
     write_audit_bundle,
 )
 
@@ -140,6 +142,24 @@ def gathering_sample(*, amount: int = 100, include_resource: bool = True):
 
 
 class AuditedInputTests(unittest.TestCase):
+    def test_drawable_direction_uses_interpolation_after_new_step(self):
+        host = object()
+        join = object()
+
+        def state(_driver):
+            return {"entities": [{
+                "id": 7, "owner": 0, "moving": False,
+                "interpolating": True,
+                "previousPosition": {"x": 10, "y": 10},
+                "simulationPosition": {"x": 11, "y": 11},
+            }]}
+
+        with patch("nostr_multiplayer_smoke_test.render_diagnostics", state):
+            wait_for_drawable_direction(
+                host, join, owner=0, entity_id=7, direction=0,
+                baseline_position=(10, 10),
+            )
+
     def test_exports_live_renderer_overlap_inputs_as_png_manifest(self):
         manifest = {"cases": [{
             "id": "unit-7", "actual": "actual.bmp", "terrain": "terrain.bmp",

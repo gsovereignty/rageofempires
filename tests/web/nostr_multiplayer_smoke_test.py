@@ -639,7 +639,7 @@ def exercise_all_direction_route(
             )
             wait_for_drawable_direction(
                 host, join, owner=owner, entity_id=unit_id,
-                direction=direction,
+                direction=direction, baseline_position=current,
             )
             pixel_capture = request_correlated_pixel_capture(
                 host, join, artifact_dir,
@@ -1767,6 +1767,7 @@ def request_correlated_pixel_capture(
 
 def wait_for_drawable_direction(
     host, join, *, owner: int, entity_id: int, direction: int,
+    baseline_position: tuple[int, int],
 ) -> None:
     def matched() -> bool | None:
         for driver in (host, join):
@@ -1777,15 +1778,18 @@ def wait_for_drawable_direction(
                 int(candidate.get("id", -1)) == entity_id and
                 int(candidate.get("owner", -1)) == owner
             ), None)
-            if not entity or not bool(entity.get("moving", False)):
+            if not entity or not bool(entity.get("interpolating", False)):
                 return None
             previous = entity.get("previousPosition")
             current = entity.get("simulationPosition")
             if not isinstance(previous, dict) or not isinstance(current, dict):
                 return None
+            current_position = (int(current["x"]), int(current["y"]))
+            if current_position == baseline_position:
+                return None
             resolved = oracle_logical_direction(
                 (int(previous["x"]), int(previous["y"])),
-                (int(current["x"]), int(current["y"])), 8,
+                current_position, 8,
             )
             if resolved != direction:
                 return None

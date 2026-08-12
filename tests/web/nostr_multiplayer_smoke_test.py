@@ -1879,6 +1879,9 @@ def run(relays: str | None, headed: bool, port: int = 8888,
                     else None
                 ),
             )
+            pan_world_target_clear(
+                host_journey, host, actions, "host", "villager"
+            )
             audited_pointer(
                 host_journey, actions, "host", "villager",
                 button=2, logical_dx=50,
@@ -1928,6 +1931,9 @@ def run(relays: str | None, headed: bool, port: int = 8888,
                     ))) in red_before[0]
                     else None
                 ),
+            )
+            pan_world_target_clear(
+                join_journey, join, actions, "join", "villager"
             )
             audited_pointer(
                 join_journey, actions, "join", "villager",

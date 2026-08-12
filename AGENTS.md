@@ -57,6 +57,22 @@ When logging bugs in `../todo/`, record only known facts and never speculation.
 Include relevant function names, file names, and line numbers. Do not log a bug
 in `../todo/` until direct evidence establishes its precise root cause.
 
+## Audit findings destination gate
+
+Never start or run an audit until its findings destination is declared and
+known to persist after the audit process exits. Before launch, record the exact
+repository report path and durable artifact directory where findings, inputs,
+per-case evidence, and aggregate verdicts will be written. Temporary
+directories, process-local filesystems, browser virtual filesystems, and
+unreported console output are not valid final destinations.
+
+Do not report case counts, findings, passes, failures, or blocked results until
+the corresponding files exist at those declared paths and can be named in the
+handoff. If an audit discovers evidence outside the declared destination,
+preserve or export it there before continuing or making any completion claim.
+If no suitable destination is known, do not run the audit; establish the
+destination first.
+
 ## Production-fix completion gate
 
 Never classify, describe, count, or report a bug as fixed until all of these

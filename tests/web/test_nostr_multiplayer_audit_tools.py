@@ -534,6 +534,14 @@ class RenderOracleTests(unittest.TestCase):
         with self.assertRaisesRegex(Failure, "client asset divergence"):
             analyze_render_samples([value])
 
+    def test_allows_frame_phase_difference_at_distinct_interpolation_points(self):
+        value = sample(1, 10.0)
+        value["host"]["movementAlpha"] = 0.2
+        value["join"]["movementAlpha"] = 0.7
+        value["join"]["entities"][0]["layers"][0]["frame"] = 2
+        result = analyze_render_samples([value])
+        self.assertEqual(result["frames"], 1)
+
     def test_marks_raw_animation_sequence_order_blocked(self):
         first = sample(3, 10.0)
         second = sample(4, 11.0)

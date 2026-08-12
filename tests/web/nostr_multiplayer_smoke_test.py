@@ -978,21 +978,29 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
             host_layers = host_entity.get("layers", [])
             join_layers = join_entity.get("layers", [])
             host_assets = [
-                (layer.get("resourceId"), layer.get("frame"),
-                 layer.get("palettePlayer"),
+                (layer.get("resourceId"), layer.get("palettePlayer"),
                  layer.get("flipHorizontal"), layer.get("hotspotX"),
                  layer.get("hotspotY"), layer.get("width"),
                  layer.get("height")) for layer in host_layers
             ]
             join_assets = [
-                (layer.get("resourceId"), layer.get("frame"),
-                 layer.get("palettePlayer"),
+                (layer.get("resourceId"), layer.get("palettePlayer"),
                  layer.get("flipHorizontal"), layer.get("hotspotX"),
                  layer.get("hotspotY"), layer.get("width"),
                  layer.get("height")) for layer in join_layers
             ]
             if host_assets != join_assets:
                 raise Failure(f"client asset divergence {key}")
+            # Frame phase includes sub-tick interpolation. Compare exact
+            # physical frame only when both render samples represent same
+            # interpolation point; independent frame/flip oracle still checks
+            # every peer against its own observed action frame.
+            if abs(float(host_state.get("movementAlpha", 0.0)) -
+                   float(join_state.get("movementAlpha", 0.0))) < 0.01:
+                host_frames = [layer.get("frame") for layer in host_layers]
+                join_frames = [layer.get("frame") for layer in join_layers]
+                if host_frames != join_frames:
+                    raise Failure(f"client asset divergence {key}")
     if counts["legacy"] == 0:
         raise Failure("render oracle observed no production provenance")
     for key, observations in animation_frames.items():
@@ -1491,7 +1499,9 @@ def launch_attack_wave(
                 ]) > before else None,
                 timeout=WAIT_SECONDS,
             )
-    order_enemy_attack(journey, driver, actor, actions)
+    order_enemy_attack(
+        journey, driver, actor, actions, target_name="enemyTownCenter"
+    )
 
 
 def launch(driver, base_url: str, mode: str, relays: str | None,
@@ -2106,6 +2116,27 @@ def run(relays: str | None, headed: bool, port: int = 8888,
                 ),
             }
 
+            # Slow speed is ordinary negotiated multiplayer control. It keeps
+            # four-tile route segments drawable long enough for three exact
+            # correlated captures per required direction cell.
+            key_chord(host, Keys.F8)
+            wait_until(
+                "negotiated fast speed before slow direction capture",
+                lambda: True if all(
+                    int((game_diagnostics(driver) or {}).get("gameSpeed", -1))
+                    == 2 for driver in (host, join)
+                ) else None,
+                timeout=WAIT_SECONDS,
+            )
+            key_chord(host, Keys.F8)
+            wait_until(
+                "negotiated slow speed for direction capture",
+                lambda: True if all(
+                    int((game_diagnostics(driver) or {}).get("gameSpeed", -1))
+                    == 0 for driver in (host, join)
+                ) else None,
+                timeout=WAIT_SECONDS,
+            )
             evidence["allDirections"] = {
                 "host": exercise_all_direction_route(
                     host_journey, host, "host", 0,
@@ -2118,6 +2149,15 @@ def run(relays: str | None, headed: bool, port: int = 8888,
                     host, join, actions, artifact_dir, (28, 12),
                 ),
             }
+            key_chord(host, Keys.F8)
+            wait_until(
+                "restored normal speed after direction capture",
+                lambda: True if all(
+                    int((game_diagnostics(driver) or {}).get("gameSpeed", -1))
+                    == 1 for driver in (host, join)
+                ) else None,
+                timeout=WAIT_SECONDS,
+            )
 
             evidence["fullGameplay"] = {
                 "host": prepare_player_for_full_match(

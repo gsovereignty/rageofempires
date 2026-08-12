@@ -2053,11 +2053,11 @@ def run(relays: str | None, headed: bool, port: int = 8888,
             evidence["allDirections"] = {
                 "host": exercise_all_direction_route(
                     host_journey, host, "host", 0, host, join, actions,
-                    artifact_dir, (20, 16),
+                    artifact_dir, (20, 12),
                 ),
                 "join": exercise_all_direction_route(
                     join_journey, join, "join", 1, host, join, actions,
-                    artifact_dir, (28, 16),
+                    artifact_dir, (28, 12),
                 ),
             }
 

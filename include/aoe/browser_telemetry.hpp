@@ -26,6 +26,7 @@ struct BrowserTargetTelemetry {
 struct BrowserTelemetry {
     std::uint64_t tick{};
     std::uint64_t selected_unit{};
+    std::size_t selected_unit_count{};
     std::uint64_t selected_building{};
     int wood{};
     int food{};

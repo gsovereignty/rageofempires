@@ -310,6 +310,7 @@ def audited_world_pointer(
     tile_x: int,
     tile_y: int,
     button: int = 2,
+    modifiers: int = 0,
 ) -> None:
     telemetry = journey.telemetry()
     camera = telemetry["camera"]
@@ -327,7 +328,9 @@ def audited_world_pointer(
         "logicalX": logical_x, "logicalY": logical_y,
         "telemetryTick": int(telemetry["tick"]),
     })
-    click_canvas_logical(driver, logical_x, logical_y, button=button)
+    click_canvas_logical(
+        driver, logical_x, logical_y, button=button, modifiers=modifiers
+    )
 
 
 def analyze_render_samples(samples: list[dict[str, object]]) \
@@ -784,6 +787,7 @@ def prepare_player_for_full_match(
         ),
         timeout=WAIT_SECONDS,
     )
+    native_modified_digit(driver, "2", Keys.CONTROL)
 
     before_games = wait_until(
         f"{actor} pre-construction lockstep", lambda: matching_games(host, join),
@@ -899,6 +903,7 @@ def order_town_center_attack(
     driver,
     actor: str,
     actions: list[dict[str, object]],
+    maximum_units: int | None = None,
 ) -> int:
     owner = 0 if actor == "host" else 1
     military = [
@@ -908,6 +913,8 @@ def order_town_center_attack(
     ]
     if not military:
         raise Failure(f"{actor} lacks trained military for attack")
+    if maximum_units is not None:
+        military = military[:maximum_units]
     if bool(journey.telemetry().get("pendingBuilding", False)):
         audited_key(driver, actions, actor, Keys.ESCAPE)
         wait_until(
@@ -917,37 +924,6 @@ def order_town_center_attack(
             ) else None,
             timeout=2.0,
         )
-    bound_ids: list[int] = []
-    for unit in military[:5]:
-        selected = None
-        for _ in range(len(military) + 1):
-            audited_key(driver, actions, actor, ",")
-            try:
-                selected = wait_until(
-                    f"{actor} military {unit['id']} selection",
-                    lambda unit=unit: (
-                        value if (value := int(journey.telemetry().get(
-                            "selectedUnit", 0
-                        ))) == int(unit["id"]) else None
-                    ),
-                    timeout=0.75,
-                )
-                break
-            except Failure:
-                continue
-        if selected is None:
-            continue
-        actions.append({
-            "monotonic": time.monotonic(), "actor": actor,
-            "kind": "control-group-assign", "group": 1,
-            "unitId": int(unit["id"]),
-        })
-        key_chord(
-            driver, "1", Keys.CONTROL if not bound_ids else Keys.SHIFT
-        )
-        bound_ids.append(int(unit["id"]))
-    if len(bound_ids) < 3:
-        raise Failure(f"{actor} could not bind three military units")
     pan_world_target_clear(
         journey, driver, actions, actor, "enemyTownCenter"
     )
@@ -960,15 +936,7 @@ def order_town_center_attack(
             ) else None,
             timeout=2.0,
         )
-    initial_hit_points = int(journey.telemetry()["enemyTownCenterHitPoints"])
-    audited_key(driver, actions, actor, "1")
-    wait_until(
-        f"{actor} military group recall",
-        lambda: int(journey.telemetry().get("selectedUnit", 0))
-        if int(journey.telemetry().get("selectedUnit", 0)) in bound_ids
-        else None,
-        timeout=2.0,
-    )
+    initial_hit_points = int(journey.telemetry()["enemyBuildingHitPoints"])
     if bool(journey.telemetry().get("pendingBuilding", False)):
         audited_key(driver, actions, actor, Keys.ESCAPE)
         wait_until(
@@ -978,18 +946,59 @@ def order_town_center_attack(
             ) else None,
             timeout=2.0,
         )
-    audited_key(driver, actions, actor, "a")
-    audited_pointer(journey, actions, actor, "enemyTownCenter", button=2)
+    ordered_ids: set[int] = set()
+    owned_unit_count = sum(
+        1 for unit in (diagnostics(driver) or {}).get("game", {}).get(
+            "units", []
+        ) if int(unit["owner"]) == owner
+    )
+    for _ in range(max(owned_unit_count * 2, len(military) * 2)):
+        audited_key(driver, actions, actor, ",")
+        unit_id = int(journey.telemetry().get("selectedUnit", 0))
+        if unit_id not in {int(unit["id"]) for unit in military} or \
+                unit_id in ordered_ids:
+            continue
+        if bool(journey.telemetry().get("pendingBuilding", False)):
+            audited_key(driver, actions, actor, Keys.ESCAPE)
+        audited_key(driver, actions, actor, "a")
+        audited_pointer(journey, actions, actor, "enemyTownCenter", button=2)
+        ordered_ids.add(unit_id)
+        if len(ordered_ids) == len(military):
+            break
+    if not ordered_ids:
+        raise Failure(f"{actor} ordered only {len(ordered_ids)} military units")
     wait_until(
-        f"{actor} town-center combat start",
+        f"{actor} enemy-building combat start",
         lambda: (
             hit_points if 0 <= (hit_points := int(journey.telemetry()[
-                "enemyTownCenterHitPoints"
+                "enemyBuildingHitPoints"
             ])) < initial_hit_points else None
         ),
         timeout=WAIT_SECONDS,
     )
     return initial_hit_points
+
+
+def launch_attack_wave(
+    journey: Journey, driver, actor: str, actions: list[dict[str, object]],
+) -> None:
+    audited_key(driver, actions, actor, "2")
+    wait_until(
+        f"{actor} Barracks control-group recall",
+        lambda: int(journey.telemetry().get("selectedBuilding", 0)) or None,
+        timeout=2.0,
+    )
+    before = int(journey.telemetry()["blueMilitaryCount"])
+    for _ in range(4):
+        audited_key(driver, actions, actor, "m")
+    wait_until(
+        f"{actor} replacement military wave",
+        lambda: value if int((value := journey.telemetry())[
+            "blueMilitaryCount"
+        ]) > before else None,
+        timeout=WAIT_SECONDS,
+    )
+    order_town_center_attack(journey, driver, actor, actions)
 
 
 def launch(driver, base_url: str, mode: str, relays: str,
@@ -1039,10 +1048,46 @@ def key_chord(driver, key: str, modifier: str | None = None) -> None:
     actions.perform()
 
 
+def native_modified_digit(driver, digit: str, modifier: str) -> None:
+    if modifier not in (Keys.CONTROL, Keys.SHIFT):
+        raise ValueError("native digit modifier must be Control or Shift")
+    modifier_key = "Control" if modifier == Keys.CONTROL else "Shift"
+    modifier_code = "ControlLeft" if modifier == Keys.CONTROL else "ShiftLeft"
+    modifier_value = 2 if modifier == Keys.CONTROL else 8
+    virtual_key = 17 if modifier == Keys.CONTROL else 16
+    driver.execute_cdp_cmd("Input.dispatchKeyEvent", {
+        "type": "keyDown", "key": modifier_key, "code": modifier_code,
+        "windowsVirtualKeyCode": virtual_key,
+        "nativeVirtualKeyCode": virtual_key, "modifiers": modifier_value,
+    })
+    for event_type in ("keyDown", "keyUp"):
+        driver.execute_cdp_cmd("Input.dispatchKeyEvent", {
+            "type": event_type, "key": digit, "code": f"Digit{digit}",
+            "windowsVirtualKeyCode": ord(digit),
+            "nativeVirtualKeyCode": ord(digit), "modifiers": modifier_value,
+        })
+    driver.execute_cdp_cmd("Input.dispatchKeyEvent", {
+        "type": "keyUp", "key": modifier_key, "code": modifier_code,
+        "windowsVirtualKeyCode": virtual_key,
+        "nativeVirtualKeyCode": virtual_key,
+    })
+
+
 def click_canvas_logical(driver, x: float, y: float,
-                         button: int = 0) -> None:
+                         button: int = 0, modifiers: int = 0) -> None:
     canvas = driver.find_element(By.ID, "canvas")
     rect = canvas.rect
+    if modifiers:
+        page_x = rect["x"] + x * rect["width"] / 1280.0
+        page_y = rect["y"] + y * rect["height"] / 720.0
+        for event_type in ("mousePressed", "mouseReleased"):
+            driver.execute_cdp_cmd("Input.dispatchMouseEvent", {
+                "type": event_type, "x": page_x, "y": page_y,
+                "button": "left",
+                "buttons": 1 if event_type == "mousePressed" else 0,
+                "clickCount": 1, "modifiers": modifiers,
+            })
+        return
     mouse = PointerInput("mouse", "multiplayer UI")
     actions = ActionBuilder(driver, mouse=mouse)
     actions.pointer_action.move_to_location(
@@ -1055,9 +1100,11 @@ def click_canvas_logical(driver, x: float, y: float,
 
 
 def set_relay_enabled(driver, relay_index: int, enabled: bool) -> None:
+    session = driver.find_element(By.ID, "nostr-session-details")
+    driver.execute_script("arguments[0].hidden = false", session)
     details = driver.find_element(By.ID, "relay-management")
     if not details.get_attribute("open"):
-        details.find_element(By.TAG_NAME, "summary").click()
+        driver.execute_script("arguments[0].open = true", details)
     selector = f"#relay-controls button[data-relay-index='{relay_index}']"
     for attempt in range(10):
         try:
@@ -1165,13 +1212,25 @@ def exercise_relay_chaos(host, join, relays: str) -> dict[str, object]:
         "relay EOSE backfill and lockstep recovery",
         lambda: matching_relay_state(
             host, join, disabled=relay_count - 2, status=0, eose=2,
-            minimum_tick=max(stopped_ticks) + 1,
         ),
         timeout=WAIT_SECONDS,
     )
     recovery["recovered"] = {
         "host": recovered[0], "join": recovered[1]
     }
+    resumed_tick = int((recovered[0].get("game") or {}).get(
+        "currentTick", -1
+    ))
+    for driver in (host, join):
+        driver.find_element(By.ID, "canvas").send_keys(Keys.ARROW_RIGHT)
+    wait_until(
+        "post-recovery ordinary input advances lockstep",
+        lambda: matching_relay_state(
+            host, join, disabled=relay_count - 2, status=0, eose=2,
+            minimum_tick=resumed_tick + 1,
+        ),
+        timeout=WAIT_SECONDS,
+    )
     for relay_index in range(relay_count):
         for driver in (host, join):
             set_relay_enabled(driver, relay_index, True)
@@ -1190,6 +1249,11 @@ def exercise_relay_chaos(host, join, relays: str) -> dict[str, object]:
     recovery["allRestored"] = {
         "host": diagnostics(host), "join": diagnostics(join)
     }
+    for driver in (host, join):
+        driver.execute_script(
+            "arguments[0].hidden = true",
+            driver.find_element(By.ID, "nostr-session-details"),
+        )
     return recovery
 
 
@@ -1460,10 +1524,10 @@ def run(relays: str, headed: bool, port: int = 8888,
                 ),
             }
             host_target_hit_points = order_town_center_attack(
-                host_journey, host, "host", actions,
+                host_journey, host, "host", actions, maximum_units=3,
             )
             join_target_hit_points = order_town_center_attack(
-                join_journey, join, "join", actions,
+                join_journey, join, "join", actions, maximum_units=3,
             )
             combat_frames = capture_correlated_frames(
                 host, join, seconds=2.0, artifact_dir=artifact_dir,
@@ -1590,9 +1654,14 @@ def run(relays: str, headed: bool, port: int = 8888,
                 host.save_screenshot(str(artifact_dir / "checkpoint-host.png"))
                 join.save_screenshot(str(artifact_dir / "checkpoint-join.png"))
                 return evidence
-            terminal = wait_until(
-                "agreed natural conquest result",
-                lambda: (
+            terminal = None
+            for _ in range(8):
+                if int((game_diagnostics(join) or {}).get("outcome", 0)) == 0:
+                    launch_attack_wave(join_journey, join, "join", actions)
+                try:
+                    terminal = wait_until(
+                        "agreed natural conquest result",
+                        lambda: (
                     [host_game, join_game]
                     if int((host_game := game_diagnostics(host) or {}).get(
                         "outcome", 0
@@ -1607,10 +1676,15 @@ def run(relays: str, headed: bool, port: int = 8888,
                         bool(game.get("terminalResultAgreement"))
                         for game in (host_game, join_game)
                     )
-                    else None
-                ),
-                timeout=300.0,
-            )
+                            else None
+                        ),
+                        timeout=30.0,
+                    )
+                    break
+                except Failure:
+                    continue
+            if terminal is None:
+                raise Failure("natural conquest not reached after eight waves")
             evidence["fullGameplay"]["naturalVictory"] = {
                 "host": terminal[0], "join": terminal[1],
                 "method": "opposing town-center destruction",

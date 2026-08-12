@@ -20,6 +20,7 @@ EM_JS(void, publish_browser_render_telemetry_js, (const char* json), {
 EM_JS(void, publish_browser_telemetry_js,
     (std::uint64_t tick,
      std::uint64_t selected_unit,
+     std::size_t selected_unit_count,
      std::uint64_t selected_building,
      int wood,
      int food,
@@ -56,6 +57,7 @@ EM_JS(void, publish_browser_telemetry_js,
       Module.browserTelemetry = {
         tick: Number(tick),
         selectedUnit: Number(selected_unit),
+        selectedUnitCount: Number(selected_unit_count),
         selectedBuilding: Number(selected_building),
         resources: {wood, food, gold, stone},
         outcome,
@@ -89,6 +91,7 @@ void publish_browser_telemetry(const BrowserTelemetry& telemetry) {
     publish_browser_telemetry_js(
         telemetry.tick,
         telemetry.selected_unit,
+        telemetry.selected_unit_count,
         telemetry.selected_building,
         telemetry.wood,
         telemetry.food,

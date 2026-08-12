@@ -2192,6 +2192,19 @@ std::optional<std::size_t> control_group_index(SDL_Keycode key) {
     if (key >= SDLK_1 && key <= SDLK_9) {
         return static_cast<std::size_t>(key - SDLK_1 + 1);
     }
+    // Browser keyboard events may expose Shift+digit as its printable symbol
+    // instead of the physical digit keycode. Preserve additive group recall
+    // and assignment across native and Emscripten SDL backends.
+    constexpr std::array<SDL_Keycode, 9> shifted_digits{
+        SDLK_EXCLAIM, SDLK_AT, SDLK_HASH, SDLK_DOLLAR, SDLK_PERCENT,
+        SDLK_CARET, SDLK_AMPERSAND, SDLK_ASTERISK, SDLK_LEFTPAREN,
+    };
+    const auto shifted = std::ranges::find(shifted_digits, key);
+    if (shifted != shifted_digits.end()) {
+        return static_cast<std::size_t>(
+            std::distance(shifted_digits.begin(), shifted) + 1
+        );
+    }
     return std::nullopt;
 }
 
@@ -25889,6 +25902,7 @@ ApplicationLoop SdlApp::loop() {
         publish_browser_telemetry({
             simulation.tick_number(),
             simulation.selected_unit().value_or(0),
+            simulation.selected_units().size(),
             simulation.selected_building().value_or(0),
             browser_economy.wood,
             browser_economy.food,

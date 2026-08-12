@@ -1879,12 +1879,13 @@ def run(relays: str | None, headed: bool, port: int = 8888,
                     else None
                 ),
             )
-            pan_world_target_clear(
-                host_journey, host, actions, "host", "villager"
+            host_start = before_positions[0][selected_id]
+            host_destination = (host_start[0] + 1, host_start[1])
+            center_camera_for_tile(
+                host_journey, host, actions, "host", *host_destination
             )
-            audited_pointer(
-                host_journey, actions, "host", "villager",
-                button=2, logical_dx=50,
+            audited_world_pointer(
+                host_journey, host, actions, "host", *host_destination
             )
             host_motion_frames = capture_correlated_frames(
                 host, join, artifact_dir=artifact_dir, label="host-move"
@@ -1932,12 +1933,13 @@ def run(relays: str | None, headed: bool, port: int = 8888,
                     else None
                 ),
             )
-            pan_world_target_clear(
-                join_journey, join, actions, "join", "villager"
+            join_start = red_before[0][red_selected_id]
+            join_destination = (join_start[0] - 1, join_start[1])
+            center_camera_for_tile(
+                join_journey, join, actions, "join", *join_destination
             )
-            audited_pointer(
-                join_journey, actions, "join", "villager",
-                button=2, logical_dx=-50,
+            audited_world_pointer(
+                join_journey, join, actions, "join", *join_destination
             )
             join_motion_frames = capture_correlated_frames(
                 host, join, artifact_dir=artifact_dir, label="join-move"

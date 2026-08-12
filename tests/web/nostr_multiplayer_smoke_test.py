@@ -38,12 +38,6 @@ from audit_multiplayer_screenshots import audit as audit_screenshots
 
 ROOT = Path(__file__).resolve().parents[2]
 AUDIT_ROOT = ROOT / "audit"
-DEFAULT_RELAYS = (
-    "wss://relay.nostr.wirednet.jp,wss://nostr.sathoarder.com,"
-    "wss://relay.wavlake.com,"
-    "wss://relay.noswhere.com,wss://relay.damus.io,"
-    "wss://relay.layer.systems"
-)
 WAIT_SECONDS = 180.0
 
 
@@ -1102,7 +1096,7 @@ def launch_attack_wave(
     order_enemy_attack(journey, driver, actor, actions)
 
 
-def launch(driver, base_url: str, mode: str, relays: str,
+def launch(driver, base_url: str, mode: str, relays: str | None,
            match_reference: str = "", allied: bool = True) -> Journey:
     driver.get(
         f"{base_url}/aoe_web.html?overlapCapture=/audit-overlap&overlapTick=0"
@@ -1116,9 +1110,10 @@ def launch(driver, base_url: str, mode: str, relays: str,
         ),
     )
     Select(driver.find_element(By.ID, "launch-mode")).select_by_value(mode)
-    relay_input = driver.find_element(By.ID, "relays")
-    relay_input.send_keys(Keys.COMMAND, "a")
-    relay_input.send_keys(relays)
+    if relays is not None:
+        relay_input = driver.find_element(By.ID, "relays")
+        relay_input.send_keys(Keys.COMMAND, "a")
+        relay_input.send_keys(relays)
     if mode == "join":
         reference_input = driver.find_element(By.ID, "match-reference")
         reference_input.send_keys(match_reference)
@@ -1423,7 +1418,7 @@ def exercise_relay_chaos(host, join, relays: str) -> dict[str, object]:
     return recovery
 
 
-def run(relays: str, headed: bool, port: int = 8888,
+def run(relays: str | None, headed: bool, port: int = 8888,
         checkpoint: bool = False,
         artifact_dir: Path | None = None) -> dict[str, object]:
     if artifact_dir is None:
@@ -1432,7 +1427,10 @@ def run(relays: str, headed: bool, port: int = 8888,
         raise Failure("packaged browser distribution is missing")
     artifact_dir.mkdir(parents=True, exist_ok=True)
     evidence: dict[str, object] = {
-        "relays": relays.split(","), "actions": []
+        "relays": [],
+        "relaySource": ("explicit-override" if relays is not None
+                        else "packaged-production-default"),
+        "actions": [],
     }
     actions = evidence["actions"]
     host = make_driver("chrome", headed)
@@ -1446,6 +1444,12 @@ def run(relays: str, headed: bool, port: int = 8888,
         join_journey: Journey | None = None
         try:
             host_journey = launch(host, base_url, "host", relays)
+            active_relays = str(
+                host.find_element(By.ID, "relays").get_attribute("value") or ""
+            )
+            if not active_relays:
+                raise Failure("production launch form has no relays")
+            evidence["relays"] = active_relays.split(",")
             host_state = require_quorum(host, "host")
             evidence.setdefault("overlapEvidence", {})["host"] = \
                 capture_browser_overlap(host, artifact_dir, "host")
@@ -1453,7 +1457,9 @@ def run(relays: str, headed: bool, port: int = 8888,
             if not reference.startswith("aoe-nostr:1:"):
                 raise Failure(f"invalid host match reference: {reference!r}")
 
-            join_journey = launch(join, base_url, "join", relays, reference)
+            join_journey = launch(
+                join, base_url, "join", active_relays, reference
+            )
             require_quorum(join, "join")
             evidence.setdefault("overlapEvidence", {})["join"] = \
                 capture_browser_overlap(join, artifact_dir, "join")
@@ -1721,7 +1727,9 @@ def run(relays: str, headed: bool, port: int = 8888,
             # Transport chaos comes only after retained two-sided economy,
             # construction, production, research, motion, provenance, and
             # active combat evidence.
-            evidence["recovery"] = exercise_relay_chaos(host, join, relays)
+            evidence["recovery"] = exercise_relay_chaos(
+                host, join, active_relays
+            )
 
             # Normal chat input becomes public side-channel state on both peers.
             key_chord(join, Keys.ENTER)
@@ -1952,7 +1960,7 @@ def run(relays: str, headed: bool, port: int = 8888,
             failure = {
                 "error": f"{type(error).__name__}: {error}",
                 "completedEvidence": evidence,
-                "relays": relays.split(","),
+                "relays": evidence.get("relays", []),
                 "host": capture_failure_value(
                     "host diagnostics", lambda: diagnostics(host)
                 ),
@@ -2048,6 +2056,7 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
         "sourceFilesSha256": source_digests,
         "browser": evidence.get("browser"),
         "relays": evidence.get("relays", []),
+        "relaySource": evidence.get("relaySource"),
         "hostPublicKey": host.get("publicKey") if isinstance(host, dict) else None,
         "joinPublicKey": join.get("publicKey") if isinstance(join, dict) else None,
         "matchReference": host.get("matchReference") if isinstance(host, dict) else None,
@@ -2234,7 +2243,10 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--relays", default=DEFAULT_RELAYS)
+    parser.add_argument(
+        "--relays",
+        help="explicit override; default uses packaged production relay list",
+    )
     parser.add_argument("--port", type=int, default=8888)
     parser.add_argument("--headed", action="store_true")
     parser.add_argument("--checkpoint", action="store_true")
@@ -2267,7 +2279,8 @@ def main() -> int:
         else:
             failure = {
                 "error": f"{type(error).__name__}: {error}",
-                "relays": arguments.relays.split(","),
+                "relays": (arguments.relays.split(",")
+                           if arguments.relays else []),
             }
             failure_path.write_text(
                 json.dumps(failure, indent=2, sort_keys=True) + "\n",

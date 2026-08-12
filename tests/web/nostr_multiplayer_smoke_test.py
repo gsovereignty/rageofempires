@@ -477,6 +477,136 @@ def audited_world_pointer(
     )
 
 
+def canonical_direction_route(
+    center: tuple[int, int], radius: int = 4
+) -> list[tuple[int, int]]:
+    """Return closed octagonal route whose segments cover directions 0..7."""
+    if radius < 1:
+        raise ValueError("route radius must be positive")
+    vectors = (
+        (1, 1), (0, 1), (-1, 1), (-1, 0),
+        (-1, -1), (0, -1), (1, -1), (1, 0),
+    )
+    points = [center]
+    x, y = center
+    for dx, dy in vectors:
+        x += dx * radius
+        y += dy * radius
+        points.append((x, y))
+    return points
+
+
+def center_camera_for_tile(
+    journey: Journey, driver, actions: list[dict[str, object]],
+    actor: str, tile_x: int, tile_y: int,
+) -> None:
+    for _ in range(64):
+        camera = journey.telemetry()["camera"]
+        zoom = float(camera["zoom"])
+        logical_x = (32 * 32 + (tile_x - tile_y) * 32 -
+                     float(camera["x"])) * zoom
+        logical_y = (32 + (tile_x + tile_y) * 16 -
+                     float(camera["y"])) * zoom
+        if 100.0 < logical_x < 1180.0 and 80.0 < logical_y < 500.0:
+            return
+        if logical_y >= 500.0:
+            key = Keys.ARROW_DOWN
+        elif logical_y <= 80.0:
+            key = Keys.ARROW_UP
+        elif logical_x <= 100.0:
+            key = Keys.ARROW_LEFT
+        else:
+            key = Keys.ARROW_RIGHT
+        audited_held_key(driver, actions, actor, key)
+    raise Failure(f"{actor} route tile never entered visible world area")
+
+
+def capture_until_arrival(
+    host, join, *, owner: int, unit_id: int,
+    destination: tuple[int, int], artifact_dir: Path, label: str,
+) -> list[dict[str, object]]:
+    deadline = time.monotonic() + WAIT_SECONDS
+    samples: list[dict[str, object]] = []
+    seen: set[tuple[int, int]] = set()
+    while time.monotonic() < deadline:
+        for sample in capture_correlated_frames(
+            host, join, seconds=0.35, artifact_dir=artifact_dir, label=label
+        ):
+            identity = (
+                int((sample.get("host") or {}).get("frame", -1)),
+                int((sample.get("join") or {}).get("frame", -1)),
+            )
+            if identity not in seen:
+                seen.add(identity)
+                samples.append(sample)
+        games = matching_games(host, join)
+        if games is not None:
+            positions = [owned_unit_positions(game, owner) for game in games]
+            if (positions[0] == positions[1] and
+                    positions[0].get(unit_id) == destination):
+                return samples
+    raise Failure(
+        f"unit {unit_id} did not arrive at route destination {destination}"
+    )
+
+
+def exercise_all_direction_route(
+    journey: Journey, driver, actor: str, owner: int,
+    host, join, actions: list[dict[str, object]], artifact_dir: Path,
+    center: tuple[int, int],
+) -> dict[str, object]:
+    audited_key(driver, actions, actor, ".")
+    games = wait_until(
+        f"{actor} all-direction villager selection",
+        lambda: matching_games(host, join), timeout=WAIT_SECONDS,
+    )
+    unit_id = int(journey.telemetry().get("selectedUnit", 0))
+    if unit_id not in owned_villager_positions(games[0], owner):
+        raise Failure(f"{actor} did not select owned route unit")
+    center_camera_for_tile(
+        journey, driver, actions, actor, center[0], center[1]
+    )
+    audited_world_pointer(
+        journey, driver, actions, actor, center[0], center[1]
+    )
+    approach = capture_until_arrival(
+        host, join, owner=owner, unit_id=unit_id, destination=center,
+        artifact_dir=artifact_dir, label=f"{actor}-route-approach",
+    )
+    route = canonical_direction_route(center)
+    segments: list[dict[str, object]] = []
+    all_frames: list[dict[str, object]] = []
+    for direction, destination in enumerate(route[1:]):
+        center_camera_for_tile(
+            journey, driver, actions, actor,
+            destination[0], destination[1]
+        )
+        audited_world_pointer(
+            journey, driver, actions, actor,
+            destination[0], destination[1]
+        )
+        frames = capture_until_arrival(
+            host, join, owner=owner, unit_id=unit_id,
+            destination=destination, artifact_dir=artifact_dir,
+            label=f"{actor}-direction-{direction}",
+        )
+        all_frames.extend(frames)
+        segments.append({
+            "logicalDirection": direction,
+            "destination": {"x": destination[0], "y": destination[1]},
+            "frameCount": len(frames),
+        })
+    return {
+        "actor": actor, "owner": owner, "unitId": unit_id,
+        "center": {"x": center[0], "y": center[1]},
+        "approachFrameCount": len(approach),
+        "segments": segments, "frames": all_frames,
+        "renderOracle": analyze_render_samples_for_audit(
+            all_frames, f"{actor}-all-directions"
+        ),
+    }
+
+
 def analyze_render_samples(samples: list[dict[str, object]]) \
         -> dict[str, object]:
     if not samples:
@@ -920,6 +1050,24 @@ def owned_unit_positions(game: dict[str, object], owner: int) \
         int(unit["id"]): (int(unit["x"]), int(unit["y"]))
         for unit in game.get("units", [])
         if isinstance(unit, dict) and int(unit.get("owner", -1)) == owner
+    }
+
+
+def owned_villager_positions(game: dict[str, object], owner: int) \
+        -> dict[int, tuple[int, int]]:
+    blue_ids = set(blue_villager_positions(game))
+    villager_kinds = {
+        int(unit["kind"]) for unit in game.get("units", [])
+        if isinstance(unit, dict) and int(unit.get("id", -1)) in blue_ids
+    }
+    if len(villager_kinds) != 1:
+        return {}
+    villager_kind = next(iter(villager_kinds))
+    return {
+        int(unit["id"]): (int(unit["x"]), int(unit["y"]))
+        for unit in game.get("units", [])
+        if isinstance(unit, dict) and int(unit.get("owner", -1)) == owner and
+        int(unit.get("kind", -1)) == villager_kind
     }
 
 
@@ -1883,6 +2031,17 @@ def run(relays: str | None, headed: bool, port: int = 8888,
                 ),
             }
 
+            evidence["allDirections"] = {
+                "host": exercise_all_direction_route(
+                    host_journey, host, "host", 0, host, join, actions,
+                    artifact_dir, (20, 24),
+                ),
+                "join": exercise_all_direction_route(
+                    join_journey, join, "join", 1, host, join, actions,
+                    artifact_dir, (27, 8),
+                ),
+            }
+
             evidence["fullGameplay"] = {
                 "host": prepare_player_for_full_match(
                     host_journey, host, "host", 0, host, join, actions,
@@ -2332,6 +2491,22 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
                     "capturedMonotonic": sample.get("capturedMonotonic"),
                     "state": sample["authoritativeJoin"],
                 })
+    all_directions = evidence.get("allDirections") or {}
+    for actor in ("host", "join"):
+        phase = f"allDirections{actor.title()}"
+        for sample in (all_directions.get(actor) or {}).get("frames", []):
+            if isinstance(sample.get("authoritativeHost"), dict):
+                host_states.append({
+                    "phase": phase,
+                    "capturedMonotonic": sample.get("capturedMonotonic"),
+                    "state": sample["authoritativeHost"],
+                })
+            if isinstance(sample.get("authoritativeJoin"), dict):
+                join_states.append({
+                    "phase": phase,
+                    "capturedMonotonic": sample.get("capturedMonotonic"),
+                    "state": sample["authoritativeJoin"],
+                })
     full_gameplay = evidence.get("fullGameplay") or {}
     combat = full_gameplay.get("combat") or {}
     gather_phases = {
@@ -2396,6 +2571,18 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
                     "tick": render_state.get("tick"),
                     "entities": render_state.get("entities", []),
                 })
+    for actor in ("host", "join"):
+        phase = f"allDirections{actor.title()}"
+        for sample in (all_directions.get(actor) or {}).get("frames", []):
+            for peer in ("host", "join"):
+                render_state = sample.get(peer) or {}
+                provenance.append({
+                    "phase": phase,
+                    "peer": peer,
+                    "frame": render_state.get("frame"),
+                    "tick": render_state.get("tick"),
+                    "entities": render_state.get("entities", []),
+                })
     for sample in combat.get("frames", []):
         for peer in ("host", "join"):
             render_state = sample.get(peer) or {}
@@ -2421,6 +2608,10 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
     correlated_records: list[dict[str, object]] = []
     for phase in ("movement", "joinMovement", "simultaneousMovement"):
         for sample in (evidence.get(phase) or {}).get("frames", []):
+            correlated_records.append({"phase": phase, **sample})
+    for actor in ("host", "join"):
+        phase = f"allDirections{actor.title()}"
+        for sample in (all_directions.get(actor) or {}).get("frames", []):
             correlated_records.append({"phase": phase, **sample})
     for phase, samples in gather_phases.items():
         for sample in samples:

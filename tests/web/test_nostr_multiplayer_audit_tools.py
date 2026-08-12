@@ -19,6 +19,7 @@ from nostr_multiplayer_smoke_test import (
     banked_resource_increased,
     capture_failure_value,
     capture_browser_overlap,
+    canonical_direction_route,
     collapse_match_details,
     diagnostics,
     initialize_run_ledger,
@@ -285,6 +286,19 @@ class FailureEvidenceTests(unittest.TestCase):
 
 
 class RenderOracleTests(unittest.TestCase):
+    def test_canonical_route_covers_all_directions_and_closes(self):
+        route = canonical_direction_route((20, 16), radius=4)
+        self.assertEqual(route[0], route[-1])
+        self.assertEqual(len(route), 9)
+        vectors = [
+            (current[0] - previous[0], current[1] - previous[1])
+            for previous, current in zip(route, route[1:])
+        ]
+        self.assertEqual(vectors, [
+            (4, 4), (0, 4), (-4, 4), (-4, 0),
+            (-4, -4), (0, -4), (4, -4), (4, 0),
+        ])
+
     def test_accepts_monotonic_legacy_motion(self):
         result = analyze_render_samples([sample(1, 10.0), sample(2, 14.0)])
         self.assertEqual(result["frames"], 2)

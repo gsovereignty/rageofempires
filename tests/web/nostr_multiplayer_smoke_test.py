@@ -559,17 +559,17 @@ def exercise_all_direction_route(
     host, join, actions: list[dict[str, object]], artifact_dir: Path,
     center: tuple[int, int],
 ) -> dict[str, object]:
-    audited_key(driver, actions, actor, ".")
     games = wait_until(
         f"{actor} all-direction villager selection",
         lambda: matching_games(host, join), timeout=WAIT_SECONDS,
     )
-    unit_id = int(journey.telemetry().get("selectedUnit", 0))
-    if unit_id not in owned_villager_positions(games[0], owner):
-        raise Failure(f"{actor} did not select owned route unit")
     center_camera_for_tile(
         journey, driver, actions, actor, center[0], center[1]
     )
+    audited_key(driver, actions, actor, ".")
+    unit_id = int(journey.telemetry().get("selectedUnit", 0))
+    if unit_id not in owned_villager_positions(games[0], owner):
+        raise Failure(f"{actor} did not select owned route unit")
     audited_world_pointer(
         journey, driver, actions, actor, center[0], center[1]
     )
@@ -1870,6 +1870,12 @@ def run(relays: str | None, headed: bool, port: int = 8888,
                 raise Failure(
                     f"peers lack matching blue villager: {before_positions}"
                 )
+            host_candidate = min(before_positions[0])
+            host_candidate_start = before_positions[0][host_candidate]
+            center_camera_for_tile(
+                host_journey, host, actions, "host",
+                host_candidate_start[0] + 1, host_candidate_start[1],
+            )
             audited_key(host, actions, "host", ".")
             selected_id = wait_until(
                 "host selected observed blue villager",
@@ -1883,9 +1889,6 @@ def run(relays: str | None, headed: bool, port: int = 8888,
             )
             host_start = before_positions[0][selected_id]
             host_destination = (host_start[0] + 1, host_start[1])
-            center_camera_for_tile(
-                host_journey, host, actions, "host", *host_destination
-            )
             audited_world_pointer(
                 host_journey, host, actions, "host", *host_destination
             )
@@ -1924,6 +1927,12 @@ def run(relays: str | None, headed: bool, port: int = 8888,
                           for game in red_before_games]
             if red_before[0] != red_before[1] or not red_before[0]:
                 raise Failure(f"peers lack matching red unit: {red_before}")
+            join_candidate = min(red_before[0])
+            join_candidate_start = red_before[0][join_candidate]
+            center_camera_for_tile(
+                join_journey, join, actions, "join",
+                join_candidate_start[0] - 1, join_candidate_start[1],
+            )
             audited_key(join, actions, "join", ".")
             red_selected_id = wait_until(
                 "join selected observed red villager",
@@ -1937,9 +1946,6 @@ def run(relays: str | None, headed: bool, port: int = 8888,
             )
             join_start = red_before[0][red_selected_id]
             join_destination = (join_start[0] - 1, join_start[1])
-            center_camera_for_tile(
-                join_journey, join, actions, "join", *join_destination
-            )
             audited_world_pointer(
                 join_journey, join, actions, "join", *join_destination
             )

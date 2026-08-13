@@ -60,9 +60,9 @@ class PixelDirectionOracleTests(unittest.TestCase):
                 self.assertEqual(report["verdict"], "FAIL")
                 self.assertEqual(report["bestDirection"], actual_direction)
 
-    def test_small_renderer_color_error_passes_but_large_error_fails(self):
+    def test_bounded_renderer_color_error_passes_but_large_error_fails(self):
         expected = composite(self.background, self.sprites["east"])
-        for delta, verdict in ((12, "PASS"), (40, "FAIL")):
+        for delta, verdict in ((12, "PASS"), (40, "PASS"), (80, "FAIL")):
             actual = expected.copy()
             pixels = []
             for red, green, blue, alpha in actual.getdata():

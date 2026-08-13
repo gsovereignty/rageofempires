@@ -259,3 +259,25 @@ Evidence:
 `artifacts/browser-multiplayer-audits/20260813T192000Z-harness-restart-5/`.
 Cleanup completed: port 8902 is free, owned runtime exited, and descriptors
 returned to baseline 5.
+
+## All-direction selection restart — `20260813T210000Z-harness-restart-6`
+
+**FAIL with no confirmed product bug.** Attempt 1 reached join all-direction
+movement, then timed out after one left click for unit 10 at `(28,16)`.
+Host and join retained equal state hashes and identical stopped unit state.
+Failure capture later rendered unit 10's `selectionOverlay` at the exact
+clicked tile, so the visible selection eventually took effect. Minimization
+did not reproduce this identity.
+
+Direct source inspection proves CBMB-20260813-R7-01: the all-direction inner
+loop still used its route's assumed prior tile followed by one click and one
+wait, bypassing `select_route_unit_at_current_position()`. That helper exists
+to synchronize, reacquire the authoritative current tile after camera motion,
+and retry delayed visible selection. The inner loop now uses it and takes its
+returned current tile as the movement baseline. Fresh production verification
+is required.
+
+Reset and queued-command retry branches from CBMB-20260813-R6-01 were not
+reached and remain production-unverified. Evidence:
+`artifacts/browser-multiplayer-audits/20260813T210000Z-harness-restart-6/`.
+Cleanup completed: port 8903 is free and all owned runtime exited.

@@ -1140,16 +1140,9 @@ def exercise_all_direction_route(
                 observer_journey, observer_driver, actions, observer_actor,
                 destination[0] + 1, destination[1],
             )
-            current = route[segment_index]
-            audited_world_pointer(
-                journey, driver, actions, actor,
-                current[0], current[1], button=0,
-            )
-            wait_until(
-                f"{actor} route unit {unit_id} selection",
-                lambda: unit_id if int(
-                    journey.telemetry().get("selectedUnit", 0)
-                ) == unit_id else None,
+            current = select_route_unit_at_current_position(
+                journey, driver, actor, owner, unit_id,
+                host, join, actions,
             )
             audited_world_pointer(
                 journey, driver, actions, actor,

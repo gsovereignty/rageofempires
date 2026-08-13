@@ -24,6 +24,7 @@ endif
 	web-tests-only audit-browser-risk-spike audit-browser-risk-spike-only \
 	audit-nostr-oracles audit-nostr-multiplayer \
 	ci-nostr-visual-per-change ci-nostr-visual-display-matrix \
+	ci-nostr-visual-seeds \
 	ci-nostr-visual-scheduled \
 	check-all clean help
 
@@ -124,6 +125,7 @@ audit-nostr-oracles:
 		tools/test_nostr_visual_pixel_oracle.py \
 		tools/test_nostr_visual_coverage.py \
 		tools/test_nostr_visual_transition_oracle.py \
+		tools/test_nostr_seeded_action_generator.py \
 		tools/test_audit_multiplayer_screenshots.py \
 		tools/test_run_nostr_visual_audit.py \
 		tests/web/test_nostr_multiplayer_audit_tools.py; do \
@@ -143,8 +145,20 @@ ci-nostr-visual-display-matrix: web-build
 			$(NOSTR_AUDIT_ARGS) || exit $$?; \
 	done
 
+ci-nostr-visual-seeds: web-build
+	@rotating_seed="$$($(NOSTR_AUDIT_PYTHON) \
+		tools/nostr_seeded_action_generator.py \
+		--commit "$$(git rev-parse HEAD)")"; \
+	for seed in 11055785183250 11055785183251 11055785183252 \
+		"$$rotating_seed"; do \
+		"$(NOSTR_AUDIT_PYTHON)" tools/run_nostr_visual_audit.py \
+			--port "$(NOSTR_AUDIT_PORT)" --seed "$$seed" \
+			$(if $(NOSTR_AUDIT_RELAYS),--relays "$(NOSTR_AUDIT_RELAYS)",) \
+			$(NOSTR_AUDIT_ARGS) || exit $$?; \
+	done
+
 ci-nostr-visual-scheduled: ci-nostr-visual-per-change \
-	ci-nostr-visual-display-matrix
+	ci-nostr-visual-display-matrix ci-nostr-visual-seeds
 
 check-all:
 	$(PYTHON) scripts/run_check_all.py --make "$(MAKE)" \
@@ -165,6 +179,7 @@ help:
 	@echo "make audit-nostr-oracles      Run independent visual oracle tests"
 	@echo "make ci-nostr-visual-per-change  Run required build and oracle tier"
 	@echo "make ci-nostr-visual-display-matrix  Run aspect-ratio and DPR matrix"
+	@echo "make ci-nostr-visual-seeds    Run fixed and source-derived seeds"
 	@echo "make ci-nostr-visual-scheduled   Run full public-relay scheduled tier"
 	@echo "make check-all       Run all native/web tests and browser audits"
 	@echo "make check-all PROBLEMS_ONLY=1  Print only failing-stage diagnostics"

@@ -47,6 +47,10 @@ from nostr_visual_frame_oracle import (
 from nostr_visual_coverage import evaluate_coverage, load_specification
 from nostr_packaged_pixel_oracle import evaluate_packaged_capture
 from nostr_visual_transition_oracle import evaluate_transitions
+from nostr_seeded_action_generator import (
+    causal_replay_prefix,
+    coverage_priority_plan,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -2359,6 +2363,12 @@ def run(relays: str | None, headed: bool, port: int = 8888,
         "actions": [],
         "actionSeed": seed,
     }
+    coverage_specification = load_specification(
+        ROOT / "resources" / "nostr-visual-gameplay-coverage.json"
+    )
+    evidence["actionPlan"] = coverage_priority_plan(
+        coverage_specification, [], seed
+    )
     actions = evidence["actions"]
     host = make_driver("chrome", headed)
     join = make_driver("chrome", headed)
@@ -2665,34 +2675,32 @@ def run(relays: str | None, headed: bool, port: int = 8888,
                 ) else None,
                 timeout=WAIT_SECONDS,
             )
-            evidence["allDirections"] = {
-                "host": exercise_all_direction_route(
-                    host_journey, host, "host", 0,
-                    join_journey, join, "join",
-                    host, join, actions, artifact_dir, (20, 12),
-                    seed,
-                ),
-                "join": exercise_all_direction_route(
-                    join_journey, join, "join", 1,
-                    host_journey, host, "host",
-                    host, join, actions, artifact_dir, (28, 12),
-                    seed,
-                ),
+            actor_specs = {
+                0: ("host", host_journey, host, "join", join_journey, join,
+                    (20, 12)),
+                1: ("join", join_journey, join, "host", host_journey, host,
+                    (28, 12)),
             }
-            evidence["transitionRoutes"] = {
-                "host": exercise_transition_routes(
-                    host_journey, host, "host", 0,
-                    int(evidence["allDirections"]["host"]["unitId"]),
-                    join_journey, join, "join", host, join, actions,
-                    artifact_dir, (20, 12),
-                ),
-                "join": exercise_transition_routes(
-                    join_journey, join, "join", 1,
-                    int(evidence["allDirections"]["join"]["unitId"]),
-                    host_journey, host, "host", host, join, actions,
-                    artifact_dir, (28, 12),
-                ),
-            }
+            owner_order = list(evidence["actionPlan"]["ownerOrder"])
+            evidence["allDirections"] = {}
+            for owner in owner_order:
+                actor, journey, driver, observer_actor, observer_journey, \
+                    observer_driver, center = actor_specs[int(owner)]
+                evidence["allDirections"][actor] = exercise_all_direction_route(
+                    journey, driver, actor, int(owner),
+                    observer_journey, observer_driver, observer_actor,
+                    host, join, actions, artifact_dir, center, seed,
+                )
+            evidence["transitionRoutes"] = {}
+            for owner in owner_order:
+                actor, journey, driver, observer_actor, observer_journey, \
+                    observer_driver, center = actor_specs[int(owner)]
+                evidence["transitionRoutes"][actor] = exercise_transition_routes(
+                    journey, driver, actor, int(owner),
+                    int(evidence["allDirections"][actor]["unitId"]),
+                    observer_journey, observer_driver, observer_actor,
+                    host, join, actions, artifact_dir, center,
+                )
             key_chord(host, Keys.F8)
             wait_until(
                 "restored normal speed after direction capture",
@@ -3463,10 +3471,20 @@ def main() -> int:
                 "relays": (arguments.relays.split(",")
                            if arguments.relays else []),
             }
-            failure_path.write_text(
-                json.dumps(failure, indent=2, sort_keys=True) + "\n",
-                encoding="utf-8",
-            )
+        replay_path = audit_dir / "minimized-replay.json"
+        replay = causal_replay_prefix(
+            list((failure.get("completedEvidence") or {}).get("actions", [])),
+            failure,
+        )
+        atomic_write_json(replay_path, replay)
+        try:
+            failure["minimizedReplayPath"] = str(replay_path.relative_to(ROOT))
+        except ValueError:
+            failure["minimizedReplayPath"] = str(replay_path)
+        failure_path.write_text(
+            json.dumps(failure, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
         evidence_path.write_text(
             json.dumps(failure, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",

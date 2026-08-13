@@ -1305,9 +1305,10 @@ def exercise_catalog_movement(
     observer_journey: Journey, observer_driver, observer_actor: str,
     host, join, actions: list[dict[str, object]], artifact_dir: Path,
     start: tuple[int, int], destination: tuple[int, int],
-    unit_kind: str, catalog_id: str,
+    unit_kind: str, catalog_ids: list[str], command_key: str | None = None,
 ) -> dict[str, object]:
     """Move exact packaged fixture and retain class-specific pixel evidence."""
+    catalog_id = catalog_ids[0]
     games = wait_until(
         f"{actor} {catalog_id} synchronized fixture",
         lambda: matching_games(host, join), timeout=WAIT_SECONDS,
@@ -1336,6 +1337,8 @@ def exercise_catalog_movement(
             "selectedUnit", 0
         )) == unit_id else None,
     )
+    if command_key is not None:
+        audited_key(driver, actions, actor, command_key)
     audited_world_pointer(
         journey, driver, actions, actor, *destination,
     )
@@ -1367,7 +1370,7 @@ def exercise_catalog_movement(
             pixel_capture = capture_catalog_semantic_pixels(
                 host, join, artifact_dir, f"{actor}-{catalog_id}-semantic",
                 unit_id, owner=owner, unit_kind=unit_kind, action="moving",
-                catalog_ids=[catalog_id], phase=f"{actor}-{catalog_id}",
+                catalog_ids=catalog_ids, phase=f"{actor}-{catalog_id}",
             )
     else:
         raise Failure(f"{actor} {catalog_id} fixture did not arrive")
@@ -1376,6 +1379,7 @@ def exercise_catalog_movement(
     return {
         "actor": actor, "owner": owner, "unitId": unit_id,
         "unitKind": unit_kind, "catalogId": catalog_id,
+        "catalogIds": catalog_ids,
         "start": {"x": start[0], "y": start[1]},
         "destination": {"x": destination[0], "y": destination[1]},
         "pixelCapture": pixel_capture,
@@ -3766,23 +3770,23 @@ def run(relays: str | None, headed: bool, port: int = 8888,
             catalog_specs = {
                 0: [
                     ((3, 3), (3, 6), "unit-archer",
-                     "archer-ranged-transition"),
+                     ["archer-ranged-transition", "attack-movement"], "a"),
                     ((5, 3), (5, 6), "unit-battering_ram",
-                     "siege-composite"),
+                     ["siege-composite"], None),
                     ((7, 3), (7, 6), "unit-man_at_arms",
-                     "infantry-after-upgrade"),
+                     ["infantry-after-upgrade"], None),
                     ((7, 19), (7, 21), "unit-sheep",
-                     "huntable-herdable-animals"),
+                     ["huntable-herdable-animals"], None),
                 ],
                 1: [
                     ((44, 28), (44, 25), "unit-archer",
-                     "archer-ranged-transition"),
+                     ["archer-ranged-transition", "attack-movement"], "a"),
                     ((42, 28), (42, 25), "unit-battering_ram",
-                     "siege-composite"),
+                     ["siege-composite"], None),
                     ((40, 28), (40, 25), "unit-man_at_arms",
-                     "infantry-after-upgrade"),
+                     ["infantry-after-upgrade"], None),
                     ((35, 12), (35, 14), "unit-sheep",
-                     "huntable-herdable-animals"),
+                     ["huntable-herdable-animals"], None),
                 ],
             }
             evidence["catalogMovement"] = {"host": [], "join": []}
@@ -3790,14 +3794,14 @@ def run(relays: str | None, headed: bool, port: int = 8888,
             for owner in owner_order:
                 actor, journey, driver, observer_actor, observer_journey, \
                     observer_driver, _ = actor_specs[int(owner)]
-                for start, destination, unit_kind, catalog_id in \
+                for start, destination, unit_kind, catalog_ids, command_key in \
                         catalog_specs[int(owner)]:
                     evidence["catalogMovement"][actor].append(
                         exercise_catalog_movement(
                             journey, driver, actor, int(owner),
                             observer_journey, observer_driver, observer_actor,
                             host, join, actions, artifact_dir, start,
-                            destination, unit_kind, catalog_id,
+                            destination, unit_kind, catalog_ids, command_key,
                         )
                     )
             negotiate_game_speed(host, join, 0)

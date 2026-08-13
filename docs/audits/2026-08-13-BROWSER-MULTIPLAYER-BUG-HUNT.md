@@ -232,3 +232,30 @@ Evidence:
 `artifacts/browser-multiplayer-audits/20260813T180000Z-harness-restart-4/`.
 Cleanup completed: port 8901 is free, owned runtime exited, and descriptors
 returned to baseline 5.
+
+## Transition-route restart — `20260813T192000Z-harness-restart-5`
+
+**BLOCKED with no confirmed product bug.** Attempt 1 completed 23 transition
+route records with empty `commandMisses` arrays and reached join
+`quantization-boundary-vectors` step 7. This verifies synchronized selection
+and first-attempt transition commands in the packaged production path. The
+retry-after-miss branches added for CBMB-20260813-R5-01 were not exercised, so
+that correction remains only partially production-verified.
+
+Three later stops exposed CBMB-20260813-R6-01. Attempt 1's queued-waypoint
+route stopped after unit 1 reached `(22,12)` but did not reach `(20,12)`.
+Attempts 2 and 3 stopped while resetting unit 10 from `(30,12)` to `(28,12)`.
+Tracebacks prove both paths bypassed the bounded retry logic used by ordinary
+transition steps and propagated their first `BLOCKED_COMMAND_ABSENT`. Exact
+product command-construction or publication boundaries remain undetermined;
+none is classified as a product bug.
+
+Queued recovery now synchronizes and reselects the unit, resumes only from a
+reached canonical waypoint, and retains each miss. Route resets now use the
+same synchronized selection and three-attempt bound. Persistent third misses
+still block for diagnosis. Fresh production verification is required.
+
+Evidence:
+`artifacts/browser-multiplayer-audits/20260813T192000Z-harness-restart-5/`.
+Cleanup completed: port 8902 is free, owned runtime exited, and descriptors
+returned to baseline 5.

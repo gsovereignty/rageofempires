@@ -1347,65 +1347,105 @@ def exercise_transition_routes(
     """Capture complete command lifetimes for deterministic turn shapes."""
     routes: dict[str, object] = {}
     for route_name, points in canonical_transition_routes(center).items():
+        reset_command_misses: list[dict[str, object]] = []
         games = wait_until(
             f"{actor} transition route synchronized state",
             lambda: matching_games(host, join), timeout=WAIT_SECONDS,
         )
         current = owned_unit_positions(games[0], owner).get(unit_id)
         if current != center:
-            center_camera_for_tile(
-                journey, driver, actions, actor, center[0], center[1]
-            )
-            audited_world_pointer(
-                journey, driver, actions, actor, current[0], current[1],
-                button=0,
-            )
-            audited_world_pointer(
-                journey, driver, actions, actor, center[0], center[1]
-            )
-            capture_until_arrival(
-                host, join, owner=owner, unit_id=unit_id,
-                destination=center, artifact_dir=artifact_dir,
-                label=f"{actor}-{route_name}-reset",
-            )
+            for reset_attempt in range(3):
+                current = select_route_unit_at_current_position(
+                    journey, driver, actor, owner, unit_id,
+                    host, join, actions,
+                )
+                center_camera_for_tile(
+                    journey, driver, actions, actor, center[0], center[1]
+                )
+                audited_world_pointer(
+                    journey, driver, actions, actor, center[0], center[1]
+                )
+                try:
+                    capture_until_arrival(
+                        host, join, owner=owner, unit_id=unit_id,
+                        destination=center, artifact_dir=artifact_dir,
+                        label=(
+                            f"{actor}-{route_name}-reset"
+                            f"-attempt-{reset_attempt + 1}"
+                        ),
+                    )
+                    break
+                except InfrastructureBlocked as error:
+                    if "BLOCKED_COMMAND_ABSENT" not in str(error):
+                        raise
+                    reset_command_misses.append({
+                        "attempt": reset_attempt + 1,
+                        "current": {"x": current[0], "y": current[1]},
+                        "destination": {"x": center[0], "y": center[1]},
+                        "error": str(error),
+                    })
+                    if reset_attempt == 2:
+                        raise
         route_frames: list[dict[str, object]] = []
         step_records: list[dict[str, object]] = []
         if route_name == "queued-waypoints":
-            current = points[0]
-            center_camera_for_tile(
-                journey, driver, actions, actor, *current
-            )
-            audited_world_pointer(
-                journey, driver, actions, actor, *current, button=0,
-            )
-            wait_until(
-                f"{actor} queued route unit {unit_id} selection",
-                lambda: unit_id if int(
-                    journey.telemetry().get("selectedUnit", 0)
-                ) == unit_id else None,
-            )
-            for step_index, destination in enumerate(points[1:], 1):
-                center_camera_for_tile(
-                    journey, driver, actions, actor, *destination
+            command_misses: list[dict[str, object]] = []
+            for command_attempt in range(3):
+                current = select_route_unit_at_current_position(
+                    journey, driver, actor, owner, unit_id,
+                    host, join, actions,
                 )
-                audited_world_pointer(
-                    journey, driver, actions, actor, *destination,
-                    modifiers=(
-                        0 if step_index == 1 else CDP_SHIFT_MODIFIER
-                    ),
-                )
-                step_records.append({
-                    "step": step_index,
-                    "destination": {
-                        "x": destination[0], "y": destination[1]
-                    },
-                    "queued": True,
-                })
-            route_frames.extend(capture_until_arrival(
-                host, join, owner=owner, unit_id=unit_id,
-                destination=points[-1], artifact_dir=artifact_dir,
-                label=f"{actor}-{route_name}",
-            ))
+                if current not in points:
+                    raise Failure(
+                        f"{actor} queued route unit {unit_id} left canonical "
+                        f"route at {current}"
+                    )
+                current_index = points.index(current)
+                remaining = points[current_index + 1:]
+                if not remaining:
+                    break
+                for step_offset, destination in enumerate(remaining, 1):
+                    center_camera_for_tile(
+                        journey, driver, actions, actor, *destination
+                    )
+                    audited_world_pointer(
+                        journey, driver, actions, actor, *destination,
+                        modifiers=(
+                            0 if step_offset == 1 else CDP_SHIFT_MODIFIER
+                        ),
+                    )
+                    step_records.append({
+                        "attempt": command_attempt + 1,
+                        "step": current_index + step_offset,
+                        "destination": {
+                            "x": destination[0], "y": destination[1]
+                        },
+                        "queued": True,
+                    })
+                try:
+                    frames = capture_until_arrival(
+                        host, join, owner=owner, unit_id=unit_id,
+                        destination=points[-1], artifact_dir=artifact_dir,
+                        label=(
+                            f"{actor}-{route_name}"
+                            f"-attempt-{command_attempt + 1}"
+                        ),
+                    )
+                    route_frames.extend(frames)
+                    break
+                except InfrastructureBlocked as error:
+                    if "BLOCKED_COMMAND_ABSENT" not in str(error):
+                        raise
+                    command_misses.append({
+                        "attempt": command_attempt + 1,
+                        "current": {"x": current[0], "y": current[1]},
+                        "destination": {
+                            "x": points[-1][0], "y": points[-1][1]
+                        },
+                        "error": str(error),
+                    })
+                    if command_attempt == 2:
+                        raise
             for record in step_records:
                 record["frameCount"] = len(route_frames)
         else:
@@ -1471,6 +1511,10 @@ def exercise_transition_routes(
                 })
         routes[route_name] = {
             "steps": step_records,
+            "resetCommandMisses": reset_command_misses,
+            "commandMisses": command_misses if (
+                route_name == "queued-waypoints"
+            ) else [],
             "frameCount": len(route_frames),
             "renderOracle": analyze_render_samples_for_audit(
                 route_frames, f"{actor}-{route_name}"

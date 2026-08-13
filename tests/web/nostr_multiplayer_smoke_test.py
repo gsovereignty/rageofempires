@@ -505,6 +505,29 @@ def canonical_direction_route(
     return points
 
 
+def canonical_transition_routes(
+    center: tuple[int, int], radius: int = 2,
+) -> dict[str, list[tuple[int, int]]]:
+    """Deterministic turn routes kept inside each clear scenario arena."""
+    x, y = center
+    return {
+        "right-angle": [(x, y), (x + radius, y), (x + radius, y + radius)],
+        "u-turn": [(x, y), (x + radius, y), (x, y)],
+        "zigzag": [
+            (x, y), (x + radius, y + radius),
+            (x + radius * 2, y), (x + radius * 3, y + radius),
+        ],
+        "clockwise-loop": [
+            (x, y), (x + radius, y), (x + radius, y + radius),
+            (x, y + radius), (x, y),
+        ],
+        "counter-clockwise-loop": [
+            (x, y), (x, y + radius), (x + radius, y + radius),
+            (x + radius, y), (x, y),
+        ],
+    }
+
+
 def center_camera_for_tile(
     journey: Journey, driver, actions: list[dict[str, object]],
     actor: str, tile_x: int, tile_y: int,
@@ -720,6 +743,74 @@ def exercise_all_direction_route(
         "renderOracle": analyze_render_samples_for_audit(
             all_frames, f"{actor}-all-directions"
         ),
+    }
+
+
+def exercise_transition_routes(
+    journey: Journey, driver, actor: str, owner: int, unit_id: int,
+    observer_journey: Journey, observer_driver, observer_actor: str,
+    host, join, actions: list[dict[str, object]], artifact_dir: Path,
+    center: tuple[int, int],
+) -> dict[str, object]:
+    """Capture complete command lifetimes for deterministic turn shapes."""
+    routes: dict[str, object] = {}
+    for route_name, points in canonical_transition_routes(center).items():
+        games = wait_until(
+            f"{actor} transition route synchronized state",
+            lambda: matching_games(host, join), timeout=WAIT_SECONDS,
+        )
+        current = owned_unit_positions(games[0], owner).get(unit_id)
+        if current != center:
+            center_camera_for_tile(
+                journey, driver, actions, actor, center[0], center[1]
+            )
+            audited_world_pointer(
+                journey, driver, actions, actor, current[0], current[1],
+                button=0,
+            )
+            audited_world_pointer(
+                journey, driver, actions, actor, center[0], center[1]
+            )
+            capture_until_arrival(
+                host, join, owner=owner, unit_id=unit_id,
+                destination=center, artifact_dir=artifact_dir,
+                label=f"{actor}-{route_name}-reset",
+            )
+        route_frames: list[dict[str, object]] = []
+        step_records: list[dict[str, object]] = []
+        for step_index, destination in enumerate(points[1:], 1):
+            center_camera_for_tile(
+                journey, driver, actions, actor, *destination
+            )
+            center_camera_for_tile(
+                observer_journey, observer_driver, actions, observer_actor,
+                destination[0] + 1, destination[1],
+            )
+            audited_world_pointer(
+                journey, driver, actions, actor, *destination
+            )
+            frames = capture_until_arrival(
+                host, join, owner=owner, unit_id=unit_id,
+                destination=destination, artifact_dir=artifact_dir,
+                label=f"{actor}-{route_name}-step-{step_index}",
+            )
+            route_frames.extend(frames)
+            step_records.append({
+                "step": step_index,
+                "destination": {"x": destination[0], "y": destination[1]},
+                "frameCount": len(frames),
+            })
+        routes[route_name] = {
+            "steps": step_records,
+            "frameCount": len(route_frames),
+            "renderOracle": analyze_render_samples_for_audit(
+                route_frames, f"{actor}-{route_name}"
+            ),
+            "frames": route_frames,
+        }
+    return {
+        "actor": actor, "owner": owner, "unitId": unit_id,
+        "routes": routes,
     }
 
 
@@ -2409,6 +2500,20 @@ def run(relays: str | None, headed: bool, port: int = 8888,
                     seed,
                 ),
             }
+            evidence["transitionRoutes"] = {
+                "host": exercise_transition_routes(
+                    host_journey, host, "host", 0,
+                    int(evidence["allDirections"]["host"]["unitId"]),
+                    join_journey, join, "join", host, join, actions,
+                    artifact_dir, (20, 12),
+                ),
+                "join": exercise_transition_routes(
+                    join_journey, join, "join", 1,
+                    int(evidence["allDirections"]["join"]["unitId"]),
+                    host_journey, host, "host", host, join, actions,
+                    artifact_dir, (28, 12),
+                ),
+            }
             key_chord(host, Keys.F8)
             wait_until(
                 "restored normal speed after direction capture",
@@ -2952,6 +3057,22 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
                     "tick": render_state.get("tick"),
                     "entities": render_state.get("entities", []),
                 })
+    transition_routes = evidence.get("transitionRoutes") or {}
+    for actor in ("host", "join"):
+        for route_name, route in (
+            (transition_routes.get(actor) or {}).get("routes", {})
+        ).items():
+            phase = f"transition-{actor}-{route_name}"
+            for sample in route.get("frames", []):
+                for peer in ("host", "join"):
+                    render_state = sample.get(peer) or {}
+                    provenance.append({
+                        "phase": phase,
+                        "peer": peer,
+                        "frame": render_state.get("frame"),
+                        "tick": render_state.get("tick"),
+                        "entities": render_state.get("entities", []),
+                    })
     for actor in ("host", "join"):
         phase = f"allDirections{actor.title()}"
         for sample in (all_directions.get(actor) or {}).get("frames", []):
@@ -2990,6 +3111,14 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
     for phase in ("movement", "joinMovement", "simultaneousMovement"):
         for sample in (evidence.get(phase) or {}).get("frames", []):
             correlated_records.append({"phase": phase, **sample})
+    for actor in ("host", "join"):
+        for route_name, route in (
+            (transition_routes.get(actor) or {}).get("routes", {})
+        ).items():
+            for sample in route.get("frames", []):
+                correlated_records.append({
+                    "phase": f"transition-{actor}-{route_name}", **sample,
+                })
     for actor in ("host", "join"):
         phase = f"allDirections{actor.title()}"
         for sample in (all_directions.get(actor) or {}).get("frames", []):

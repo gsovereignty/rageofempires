@@ -21,6 +21,7 @@ from nostr_multiplayer_smoke_test import (
     capture_failure_value,
     capture_browser_overlap,
     canonical_direction_route,
+    canonical_transition_routes,
     collapse_match_details,
     diagnostics,
     initialize_run_ledger,
@@ -381,6 +382,29 @@ class RenderOracleTests(unittest.TestCase):
             (4, 4), (0, 4), (-4, 4), (-4, 0),
             (-4, -4), (0, -4), (4, -4), (4, 0),
         ])
+
+    def test_transition_routes_cover_turn_shapes_and_close_loops(self):
+        routes = canonical_transition_routes((20, 16), radius=2)
+        self.assertEqual(set(routes), {
+            "right-angle", "u-turn", "zigzag",
+            "clockwise-loop", "counter-clockwise-loop",
+        })
+        self.assertEqual(routes["u-turn"][0], routes["u-turn"][-1])
+        self.assertEqual(
+            routes["clockwise-loop"][0],
+            routes["clockwise-loop"][-1],
+        )
+        self.assertEqual(
+            routes["counter-clockwise-loop"][0],
+            routes["counter-clockwise-loop"][-1],
+        )
+        zigzag_vectors = [
+            (right[0] - left[0], right[1] - left[1])
+            for left, right in zip(
+                routes["zigzag"], routes["zigzag"][1:]
+            )
+        ]
+        self.assertEqual(zigzag_vectors, [(2, 2), (2, -2), (2, 2)])
 
     def test_accepts_monotonic_legacy_motion(self):
         result = analyze_render_samples([sample(1, 10.0), sample(2, 14.0)])

@@ -1300,6 +1300,92 @@ def exercise_formation_route(
     }
 
 
+def exercise_catalog_movement(
+    journey: Journey, driver, actor: str, owner: int,
+    observer_journey: Journey, observer_driver, observer_actor: str,
+    host, join, actions: list[dict[str, object]], artifact_dir: Path,
+    start: tuple[int, int], destination: tuple[int, int],
+    unit_kind: str, catalog_id: str,
+) -> dict[str, object]:
+    """Move exact packaged fixture and retain class-specific pixel evidence."""
+    games = wait_until(
+        f"{actor} {catalog_id} synchronized fixture",
+        lambda: matching_games(host, join), timeout=WAIT_SECONDS,
+    )
+    candidates = [
+        int(unit["id"])
+        for unit in games[0].get("units", [])
+        if isinstance(unit, dict) and int(unit.get("owner", -1)) == owner and
+        (int(unit.get("x", -1)), int(unit.get("y", -1))) == start
+    ]
+    if len(candidates) != 1:
+        raise Failure(
+            f"{actor} {catalog_id} fixture mismatch at {start}: {candidates}"
+        )
+    unit_id = candidates[0]
+    center_camera_for_tile(journey, driver, actions, actor, *start)
+    center_camera_for_tile(
+        observer_journey, observer_driver, actions, observer_actor, *start
+    )
+    audited_world_pointer(
+        journey, driver, actions, actor, *start, button=0,
+    )
+    wait_until(
+        f"{actor} {catalog_id} fixture selection",
+        lambda: unit_id if int(journey.telemetry().get(
+            "selectedUnit", 0
+        )) == unit_id else None,
+    )
+    audited_world_pointer(
+        journey, driver, actions, actor, *destination,
+    )
+    pixel_capture: dict[str, object] | None = None
+    frames: list[dict[str, object]] = []
+    deadline = time.monotonic() + WAIT_SECONDS
+    while time.monotonic() < deadline:
+        frames.extend(capture_correlated_frames(
+            host, join, seconds=0.15, artifact_dir=artifact_dir,
+            label=f"{actor}-{catalog_id}", maximum_samples=4,
+        ))
+        games = matching_games(host, join)
+        if games is None:
+            continue
+        positions = [owned_unit_positions(game, owner) for game in games]
+        if positions[0] != positions[1]:
+            raise Failure(f"{actor} {catalog_id} peer position divergence")
+        if positions[0].get(unit_id) == destination:
+            break
+        units = [
+            next((unit for unit in game.get("units", [])
+                  if int(unit.get("id", -1)) == unit_id), None)
+            for game in games
+        ]
+        if not all(isinstance(unit, dict) for unit in units):
+            raise Failure(f"{actor} {catalog_id} fixture disappeared")
+        if (pixel_capture is None and
+                all(bool(unit.get("moving")) for unit in units)):
+            pixel_capture = capture_catalog_semantic_pixels(
+                host, join, artifact_dir, f"{actor}-{catalog_id}-semantic",
+                unit_id, owner=owner, unit_kind=unit_kind, action="moving",
+                catalog_ids=[catalog_id], phase=f"{actor}-{catalog_id}",
+            )
+    else:
+        raise Failure(f"{actor} {catalog_id} fixture did not arrive")
+    if pixel_capture is None:
+        raise Failure(f"{actor} {catalog_id} lacked drawable pixel proof")
+    return {
+        "actor": actor, "owner": owner, "unitId": unit_id,
+        "unitKind": unit_kind, "catalogId": catalog_id,
+        "start": {"x": start[0], "y": start[1]},
+        "destination": {"x": destination[0], "y": destination[1]},
+        "pixelCapture": pixel_capture,
+        "frameCount": len(frames), "frames": frames,
+        "renderOracle": analyze_render_samples_for_audit(
+            frames, f"{actor}-{catalog_id}"
+        ),
+    }
+
+
 def exercise_patrol_route(
     journey: Journey, driver, actor: str, owner: int,
     host, join, actions: list[dict[str, object]], artifact_dir: Path,
@@ -3677,6 +3763,44 @@ def run(relays: str | None, headed: bool, port: int = 8888,
                         journey, driver, actor, int(owner), host, join,
                         actions, artifact_dir, center,
                     )
+            catalog_specs = {
+                0: [
+                    ((3, 3), (3, 6), "unit-archer",
+                     "archer-ranged-transition"),
+                    ((5, 3), (5, 6), "unit-battering_ram",
+                     "siege-composite"),
+                    ((7, 3), (7, 6), "unit-man_at_arms",
+                     "infantry-after-upgrade"),
+                    ((7, 19), (7, 21), "unit-sheep",
+                     "huntable-herdable-animals"),
+                ],
+                1: [
+                    ((44, 28), (44, 25), "unit-archer",
+                     "archer-ranged-transition"),
+                    ((42, 28), (42, 25), "unit-battering_ram",
+                     "siege-composite"),
+                    ((40, 28), (40, 25), "unit-man_at_arms",
+                     "infantry-after-upgrade"),
+                    ((35, 12), (35, 14), "unit-sheep",
+                     "huntable-herdable-animals"),
+                ],
+            }
+            evidence["catalogMovement"] = {"host": [], "join": []}
+            negotiate_game_speed(host, join, 1)
+            for owner in owner_order:
+                actor, journey, driver, observer_actor, observer_journey, \
+                    observer_driver, _ = actor_specs[int(owner)]
+                for start, destination, unit_kind, catalog_id in \
+                        catalog_specs[int(owner)]:
+                    evidence["catalogMovement"][actor].append(
+                        exercise_catalog_movement(
+                            journey, driver, actor, int(owner),
+                            observer_journey, observer_driver, observer_actor,
+                            host, join, actions, artifact_dir, start,
+                            destination, unit_kind, catalog_id,
+                        )
+                    )
+            negotiate_game_speed(host, join, 0)
             patrol_specs = {
                 0: ((12, 25), (8, 27)),
                 1: ((35, 6), (39, 8)),
@@ -4350,6 +4474,7 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
                 })
     patrol_routes = evidence.get("patrolRoutes") or {}
     chase_routes = evidence.get("chaseRoutes") or {}
+    catalog_movement = evidence.get("catalogMovement") or {}
     for actor in ("host", "join"):
         for sample in (patrol_routes.get(actor) or {}).get("frames", []):
             for peer in ("host", "join"):
@@ -4369,6 +4494,17 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
                     "tick": render_state.get("tick"),
                     "entities": render_state.get("entities", []),
                 })
+        for journey in catalog_movement.get(actor, []):
+            for sample in journey.get("frames", []):
+                for peer in ("host", "join"):
+                    render_state = sample.get(peer) or {}
+                    provenance.append({
+                        "phase": f"catalog-{actor}-{journey.get('catalogId')}",
+                        "peer": peer,
+                        "frame": render_state.get("frame"),
+                        "tick": render_state.get("tick"),
+                        "entities": render_state.get("entities", []),
+                    })
     for actor in ("host", "join"):
         phase = f"allDirections{actor.title()}"
         for sample in (all_directions.get(actor) or {}).get("frames", []):
@@ -4435,6 +4571,12 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
             correlated_records.append({
                 "phase": f"narrow-passage-{actor}", **sample,
             })
+        for journey in catalog_movement.get(actor, []):
+            for sample in journey.get("frames", []):
+                correlated_records.append({
+                    "phase": f"catalog-{actor}-{journey.get('catalogId')}",
+                    **sample,
+                })
     for actor in ("host", "join"):
         phase = f"allDirections{actor.title()}"
         for sample in (all_directions.get(actor) or {}).get("frames", []):

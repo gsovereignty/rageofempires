@@ -27,8 +27,10 @@ terrain berries 45 2
 terrain forest 42 2
 terrain stone 37 2
 unit villager 0 20 16 stance passive
-unit villager 0 19 15 stance passive
-unit villager 0 18 16 stance passive
+# Formation companions stay outside canonical route destinations. Keeping one
+# at (18,16) blocks Blue's quantization-boundary return destination.
+unit villager 0 19 22 stance passive
+unit villager 0 21 22 stance passive
 # Patrol/combat fixture stays passive until its later explicit visible command;
 # autonomous aggression otherwise crosses and destroys route-audit villagers.
 unit militia 0 12 25 stance passive
@@ -39,8 +41,10 @@ unit man_at_arms 0 7 3 stance passive
 # Passive opposing targets support moving-death and projectile lifetime proof.
 unit militia 1 3 12 stance passive
 unit villager 1 28 16 stance passive
-unit villager 1 29 15 stance passive
-unit villager 1 30 16 stance passive
+# Formation companions stay outside canonical route destinations. Keeping one
+# at (30,16) blocks Red's quantization-boundary return destination.
+unit villager 1 27 22 stance passive
+unit villager 1 29 22 stance passive
 unit militia 1 35 6 stance passive
 unit archer 1 44 28 stance passive
 unit battering_ram 1 42 28 stance passive

@@ -13,6 +13,18 @@ KEY_FIELDS = (
     "logicalDirection", "mirrored", "transitionKind",
 )
 
+REQUIRED_CATALOG_IDS = {
+    "villager-empty-moving", "villager-carrying-food",
+    "villager-carrying-wood", "villager-carrying-gold",
+    "villager-carrying-stone", "villager-gathering",
+    "villager-returning", "villager-constructing", "villager-repairing",
+    "infantry-before-upgrade", "infantry-after-upgrade",
+    "archer-ranged-transition", "cavalry", "siege-composite",
+    "ships-16-direction", "huntable-herdable-animals", "patrol", "chase",
+    "flee", "formation", "attack-movement", "death-decay-direction",
+    "projectile-impact-orientation",
+}
+
 
 def cell_key(cell: dict[str, object]) -> str:
     return "|".join(str(cell[field]).lower() for field in KEY_FIELDS)
@@ -26,6 +38,26 @@ def load_specification(path: Path) -> dict[str, object]:
         raise ValueError("coverage minimum must be positive")
     if not value.get("requiredMatrices"):
         raise ValueError("coverage specification has no required matrices")
+    catalog = value.get("unitActionCatalog")
+    if not isinstance(catalog, list):
+        raise ValueError("coverage specification has no unit/action catalog")
+    identifiers = [entry.get("id") for entry in catalog
+                   if isinstance(entry, dict)]
+    missing = REQUIRED_CATALOG_IDS - set(identifiers)
+    if missing:
+        raise ValueError(
+            "coverage catalog silently omits: " + ", ".join(sorted(missing))
+        )
+    if len(identifiers) != len(set(identifiers)):
+        raise ValueError("coverage catalog contains duplicate entries")
+    for entry in catalog:
+        status = entry.get("status")
+        if status not in {"required", "excluded"}:
+            raise ValueError(f"invalid coverage catalog status: {status}")
+        if not entry.get("evidence"):
+            raise ValueError(f"coverage catalog lacks evidence: {entry.get('id')}")
+        if status == "excluded" and not entry.get("reason"):
+            raise ValueError(f"coverage exclusion lacks reason: {entry.get('id')}")
     return value
 
 

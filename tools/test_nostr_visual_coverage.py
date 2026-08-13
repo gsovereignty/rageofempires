@@ -1,8 +1,16 @@
 #!/usr/bin/env python3
 
+import json
+import tempfile
 import unittest
+from pathlib import Path
 
-from nostr_visual_coverage import evaluate_coverage, required_cells
+from nostr_visual_coverage import (
+    REQUIRED_CATALOG_IDS,
+    evaluate_coverage,
+    load_specification,
+    required_cells,
+)
 
 
 def specification():
@@ -30,6 +38,28 @@ def record(peer, direction, tick, verdict="PASS"):
 
 
 class VisualCoverageTests(unittest.TestCase):
+    def test_real_catalog_covers_every_required_unit_action_category(self):
+        value = load_specification(
+            Path(__file__).resolve().parents[1] / "resources" /
+            "nostr-visual-gameplay-coverage.json"
+        )
+        self.assertEqual(
+            {entry["id"] for entry in value["unitActionCatalog"]},
+            REQUIRED_CATALOG_IDS,
+        )
+
+    def test_catalog_omission_fails_closed(self):
+        value = json.loads((
+            Path(__file__).resolve().parents[1] / "resources" /
+            "nostr-visual-gameplay-coverage.json"
+        ).read_text())
+        value["unitActionCatalog"].pop()
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "coverage.json"
+            path.write_text(json.dumps(value))
+            with self.assertRaisesRegex(ValueError, "silently omits"):
+                load_specification(path)
+
     def test_expands_every_matrix_dimension(self):
         self.assertEqual(len(required_cells(specification())), 16)
 

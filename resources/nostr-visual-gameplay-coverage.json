@@ -14,6 +14,31 @@
       "transitionKinds": ["authoritative-step"]
     }
   ],
+  "unitActionCatalog": [
+    {"id":"villager-empty-moving","status":"required","matrix":"two-peer-two-owner-villager-movement","evidence":"resources/browser-nostr-visual.scenario"},
+    {"id":"villager-carrying-food","status":"required","evidence":"docs/contracts/PRODUCTION_VISUAL_ASSETS.md"},
+    {"id":"villager-carrying-wood","status":"required","evidence":"docs/contracts/PRODUCTION_VISUAL_ASSETS.md"},
+    {"id":"villager-carrying-gold","status":"required","evidence":"docs/contracts/PRODUCTION_VISUAL_ASSETS.md"},
+    {"id":"villager-carrying-stone","status":"required","evidence":"docs/contracts/PRODUCTION_VISUAL_ASSETS.md"},
+    {"id":"villager-gathering","status":"required","evidence":"docs/contracts/PRODUCTION_VISUAL_ASSETS.md"},
+    {"id":"villager-returning","status":"required","evidence":"docs/contracts/PRODUCTION_VISUAL_ASSETS.md"},
+    {"id":"villager-constructing","status":"required","evidence":"docs/contracts/PRODUCTION_VISUAL_ASSETS.md"},
+    {"id":"villager-repairing","status":"required","evidence":"docs/contracts/PRODUCTION_VISUAL_ASSETS.md"},
+    {"id":"infantry-before-upgrade","status":"required","evidence":"resources/browser-nostr-visual.scenario"},
+    {"id":"infantry-after-upgrade","status":"required","evidence":"resources/browser-nostr-visual.scenario"},
+    {"id":"archer-ranged-transition","status":"required","evidence":"resources/combat-pose-audit.scenario"},
+    {"id":"cavalry","status":"required","evidence":"resources/browser-nostr-visual.scenario"},
+    {"id":"siege-composite","status":"required","evidence":"resources/visual-audit.scenario"},
+    {"id":"ships-16-direction","status":"excluded","reason":"Packaged movement SLP 2263 is absent and DAT binding remains ambiguous.","evidence":"generated/animation_evidence.json#unit:galley/walking_graphic"},
+    {"id":"huntable-herdable-animals","status":"required","evidence":"resources/browser-nostr-visual.scenario"},
+    {"id":"patrol","status":"required","evidence":"docs/contracts/PRODUCTION_VISUAL_ASSETS.md"},
+    {"id":"chase","status":"required","evidence":"docs/contracts/PRODUCTION_VISUAL_ASSETS.md"},
+    {"id":"flee","status":"required","evidence":"docs/contracts/PRODUCTION_VISUAL_ASSETS.md"},
+    {"id":"formation","status":"required","evidence":"docs/contracts/PRODUCTION_VISUAL_ASSETS.md"},
+    {"id":"attack-movement","status":"required","evidence":"docs/contracts/PRODUCTION_VISUAL_ASSETS.md"},
+    {"id":"death-decay-direction","status":"required","evidence":"docs/contracts/PRODUCTION_VISUAL_ASSETS.md"},
+    {"id":"projectile-impact-orientation","status":"required","evidence":"docs/contracts/PRODUCTION_VISUAL_ASSETS.md"}
+  ],
   "exclusions": [
     {
       "unitKind": "unit-galley",

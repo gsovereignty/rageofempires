@@ -8,6 +8,7 @@ import hashlib
 import json
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -59,17 +60,66 @@ def newest_new_attempt(root: Path, before: set[Path]) -> Path | None:
         if candidates else None
 
 
+def progress_signature(root: Path) -> tuple[tuple[str, int, int], ...]:
+    """Describe durable child evidence without trusting console output."""
+    values = []
+    for path in root.rglob("*"):
+        if not path.is_file():
+            continue
+        stat = path.stat()
+        values.append((str(path.relative_to(root)), stat.st_size,
+                       stat.st_mtime_ns))
+    return tuple(sorted(values))
+
+
+def run_with_progress_deadline(
+    command: list[str], *, cwd: Path, progress_root: Path,
+    hard_timeout_seconds: float, progress_timeout_seconds: float,
+    poll_seconds: float = 1.0,
+) -> tuple[int, str | None]:
+    """Run with finite total and inactivity deadlines backed by artifacts."""
+    process = subprocess.Popen(command, cwd=cwd)
+    started = time.monotonic()
+    last_progress = started
+    signature = progress_signature(progress_root)
+    timeout_kind = None
+    while process.poll() is None:
+        now = time.monotonic()
+        current = progress_signature(progress_root)
+        if current != signature:
+            signature = current
+            last_progress = now
+        if now - started >= hard_timeout_seconds:
+            timeout_kind = "hard"
+            break
+        if now - last_progress >= progress_timeout_seconds:
+            timeout_kind = "progress"
+            break
+        time.sleep(poll_seconds)
+    if timeout_kind is None:
+        return int(process.returncode), None
+    process.terminate()
+    try:
+        process.wait(timeout=10.0)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+    return 124, timeout_kind
+
+
 def retain_attempt_timeout(
     attempt_root: Path, attempt_index: int, quorum: list[str],
     timeout_seconds: float, attempt_path: Path | None,
+    *, timeout_kind: str = "hard", progress_timeout_seconds: float | None = None,
 ) -> Path:
     """Close a killed child attempt with durable truthful BLOCKED evidence."""
     if attempt_path is None:
         attempt_path = attempt_root / f"timeout-attempt-{attempt_index + 1}"
         attempt_path.mkdir()
-    error = (
-        f"attempt exceeded deterministic deadline of {timeout_seconds:g} seconds"
-    )
+    deadline_seconds = progress_timeout_seconds \
+        if timeout_kind == "progress" else timeout_seconds
+    error = (f"attempt exceeded deterministic {timeout_kind} deadline of "
+             f"{deadline_seconds:g} seconds")
     for name in ("actions.jsonl", "correlated-frames.jsonl",
                  "visual-oracles.jsonl"):
         path = attempt_path / name
@@ -83,7 +133,8 @@ def retain_attempt_timeout(
         "error": f"TimeoutExpired: {error}",
         "classification": "attempt-deadline",
         "quorum": quorum,
-        "timeoutSeconds": timeout_seconds,
+        "timeoutKind": timeout_kind,
+        "timeoutSeconds": deadline_seconds,
     })
     atomic_write_json(attempt_path / "verdict.json", {
         "schemaVersion": 1, "status": "BLOCKED", "failure": error,
@@ -243,7 +294,12 @@ def main() -> int:
     parser.add_argument("--seed", type=int, default=0xA0E20260812)
     parser.add_argument("--retry-budget", type=int, default=3)
     parser.add_argument(
-        "--attempt-timeout-seconds", type=float, default=7200.0
+        "--attempt-timeout-seconds", type=float, default=14400.0,
+        help="hard wall-clock cap for one attempt",
+    )
+    parser.add_argument(
+        "--progress-timeout-seconds", type=float, default=600.0,
+        help="cap between durable audit artifact updates",
     )
     parser.add_argument("--viewport", type=parse_viewport, default=(1280, 900))
     parser.add_argument("--dpr", type=float, choices=(1.0, 2.0), default=1.0)
@@ -315,21 +371,19 @@ def main() -> int:
         for browser_argument in arguments.browser_argument:
             command.append(f"--browser-argument={browser_argument}")
         before_attempts = set(attempt_root.iterdir())
-        timed_out = False
-        try:
-            completed = subprocess.run(
-                command, cwd=ROOT, check=False,
-                timeout=arguments.attempt_timeout_seconds,
-            )
-            return_code = completed.returncode
-        except subprocess.TimeoutExpired:
-            timed_out = True
-            return_code = 124
+        return_code, timeout_kind = run_with_progress_deadline(
+            command, cwd=ROOT, progress_root=attempt_root,
+            hard_timeout_seconds=arguments.attempt_timeout_seconds,
+            progress_timeout_seconds=arguments.progress_timeout_seconds,
+        )
+        timed_out = timeout_kind is not None
         attempt_path = newest_new_attempt(attempt_root, before_attempts)
         if timed_out:
             attempt_path = retain_attempt_timeout(
                 attempt_root, attempt_index, quorum,
                 arguments.attempt_timeout_seconds, attempt_path,
+                timeout_kind=str(timeout_kind),
+                progress_timeout_seconds=arguments.progress_timeout_seconds,
             )
         final_attempt_path = attempt_path
         verdict_path = attempt_path / "verdict.json" if attempt_path else None
@@ -401,16 +455,12 @@ def main() -> int:
                 command.append("--headed")
             for browser_argument in arguments.browser_argument:
                 command.append(f"--browser-argument={browser_argument}")
-            timed_out = False
-            try:
-                completed = subprocess.run(
-                    command, cwd=ROOT, check=False,
-                    timeout=arguments.attempt_timeout_seconds,
-                )
-                return_code = completed.returncode
-            except subprocess.TimeoutExpired:
-                timed_out = True
-                return_code = 124
+            return_code, timeout_kind = run_with_progress_deadline(
+                command, cwd=ROOT, progress_root=minimization_root,
+                hard_timeout_seconds=arguments.attempt_timeout_seconds,
+                progress_timeout_seconds=arguments.progress_timeout_seconds,
+            )
+            timed_out = timeout_kind is not None
             new_paths = [path for path in minimization_root.iterdir()
                          if path.is_dir() and path not in before]
             candidate_path = max(

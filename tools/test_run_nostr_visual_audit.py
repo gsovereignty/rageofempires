@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -14,6 +15,30 @@ SPEC.loader.exec_module(MODULE)
 
 
 class RelayRotationTests(unittest.TestCase):
+    def test_active_artifact_progress_extends_inactivity_deadline(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            script = (
+                "import pathlib,time; p=pathlib.Path(r'%s'); "
+                "[(p.write_text(str(i)), time.sleep(0.08)) for i in range(3)]"
+            ) % (root / "progress.txt")
+            return_code, timeout_kind = MODULE.run_with_progress_deadline(
+                [sys.executable, "-c", script], cwd=root,
+                progress_root=root, hard_timeout_seconds=2.0,
+                progress_timeout_seconds=0.15, poll_seconds=0.02,
+            )
+            self.assertEqual((return_code, timeout_kind), (0, None))
+
+    def test_inactive_child_hits_progress_deadline_before_hard_cap(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            return_code, timeout_kind = MODULE.run_with_progress_deadline(
+                [sys.executable, "-c", "import time; time.sleep(2)"],
+                cwd=root, progress_root=root, hard_timeout_seconds=1.0,
+                progress_timeout_seconds=0.1, poll_seconds=0.02,
+            )
+            self.assertEqual((return_code, timeout_kind), (124, "progress"))
+
     def test_timeout_retains_complete_blocked_attempt_contract(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

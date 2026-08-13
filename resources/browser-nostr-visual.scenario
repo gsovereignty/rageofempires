@@ -9,15 +9,10 @@ player-slot 1 computer "computer-ai" 500 500 200 200 feudal franks 0 0
 team 1 0
 diplomacy 0 1 enemy
 diplomacy 1 0 enemy
-# Both real player views must retain the opposing route subject for correlated
-# pixel evidence across the full arena. Scenario-granted Spies uses the normal
-# production visibility contract while preserving enemy diplomacy and combat.
-technology blue spy_technology
-technology red spy_technology
 objective 1 blue 1 0 "Destroy the enemy Town Center."
 objective 2 red 1 0 "Destroy the human Town Center."
-trigger 1 100 1 0 1 "building_destroyed 47" 2 "complete_objective 1" "victory blue"
-trigger 2 90 1 0 1 "building_destroyed 41" 2 "complete_objective 2" "defeat blue"
+trigger 1 100 1 0 1 "building_destroyed 49" 2 "complete_objective 1" "victory blue"
+trigger 2 90 1 0 1 "building_destroyed 43" 2 "complete_objective 2" "defeat blue"
 terrain gold 7 10
 terrain gold 8 10
 terrain gold 7 11
@@ -73,6 +68,9 @@ unit scout_cavalry 0 17 20 stance passive
 unit scout_cavalry 0 17 16 stance passive
 unit scout_cavalry 0 24 9 stance passive
 unit scout_cavalry 0 28 9 stance passive
+# Covers Red route edge (24,20); nearest original Blue scouts are seven tiles
+# away while Scout Cavalry production vision is four tiles.
+unit scout_cavalry 0 24 23 stance passive
 building town_center 1 38 4
 building barracks 1 31 5
 building house 1 42 10 hit_points 40
@@ -86,3 +84,5 @@ unit scout_cavalry 1 9 20 stance passive
 unit scout_cavalry 1 9 16 stance passive
 unit scout_cavalry 1 16 9 stance passive
 unit scout_cavalry 1 20 9 stance passive
+# Symmetric sight source for Blue route edge (16,20).
+unit scout_cavalry 1 16 23 stance passive

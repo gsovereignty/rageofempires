@@ -48,6 +48,7 @@ from nostr_visual_coverage import evaluate_coverage, load_specification
 from nostr_packaged_pixel_oracle import (
     evaluate_packaged_capture,
     write_wrong_direction_mutation,
+    write_wrong_position_mutation,
 )
 from nostr_visual_transition_oracle import evaluate_transitions
 from nostr_seeded_action_generator import (
@@ -956,6 +957,31 @@ def exercise_all_direction_route(
                                 for value in mutations.values()
                             ),
                             "peers": mutations,
+                        }
+                        position_mutations = {}
+                        for peer, oracle in zip(("host", "join"), pixel_oracles):
+                            peer_manifest = Path(str(oracle["manifestPath"]))
+                            position_mutations[peer] = \
+                                write_wrong_position_mutation(
+                                    manifest_path=peer_manifest,
+                                    graphics_drs=(
+                                        ROOT / "game_data/Data/graphics.drs"
+                                    ),
+                                    interface_drs=(
+                                        ROOT / "game_data/Data/interfac.drs"
+                                    ),
+                                    expected_logical_direction=direction,
+                                    evidence_directory=(
+                                        peer_manifest.parent /
+                                        "wrong-position-mutation"
+                                    ),
+                                )
+                        pixel_capture["mutationProof"]["wrongPosition"] = {
+                            "bothPeersFail": all(
+                                value["verdict"] == "FAIL"
+                                for value in position_mutations.values()
+                            ),
+                            "peers": position_mutations,
                         }
                     break
                 recapture_attempts.append({

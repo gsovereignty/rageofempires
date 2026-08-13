@@ -103,6 +103,20 @@ def observable_mask(
     return Image.frombytes("L", actual.size, bytes(output))
 
 
+def translated_sprite(
+    sprite: Image.Image, offset_x: int, offset_y: int,
+) -> Image.Image:
+    output = Image.new("RGBA", sprite.size, (0, 0, 0, 0))
+    output.alpha_composite(sprite.convert("RGBA"), (offset_x, offset_y))
+    return output
+
+
+def alpha_mask(sprite: Image.Image, alpha_threshold: int) -> Image.Image:
+    return sprite.convert("RGBA").getchannel("A").point(
+        lambda value: 255 if value >= alpha_threshold else 0
+    )
+
+
 def evaluate_direction_pixels(
     *,
     actual: Image.Image,
@@ -145,9 +159,34 @@ def evaluate_direction_pixels(
         if direction != expected_direction
     )
     margin = runner_up_score - expected_score
+    spatial_scores: dict[str, float] = {}
+    spatial_counts: dict[str, int] = {}
+    expected_sprite = sprites[expected_direction]
+    for offset_y in range(-4, 5):
+        for offset_x in range(-4, 5):
+            shifted = translated_sprite(expected_sprite, offset_x, offset_y)
+            shifted_composite = composite(background, shifted)
+            score, count = masked_mean_absolute_error(
+                actual, shifted_composite, alpha_mask(shifted, alpha_threshold)
+            )
+            key = f"{offset_x},{offset_y}"
+            spatial_scores[key] = score
+            spatial_counts[key] = count
+    best_spatial_offset, best_spatial_score = min(
+        spatial_scores.items(), key=lambda item: (item[1], item[0])
+    )
+    displaced_match = (
+        best_spatial_offset != "0,0" and
+        best_spatial_score <= maximum_expected_score and
+        spatial_counts[best_spatial_offset] >= minimum_discriminating_pixels
+    )
     if discriminating_pixels < minimum_discriminating_pixels:
-        verdict = "BLOCKED"
-        blocker = "insufficient discriminating pixels"
+        if displaced_match:
+            verdict = "FAIL"
+            blocker = None
+        else:
+            verdict = "BLOCKED"
+            blocker = "insufficient discriminating pixels"
     elif (best_direction != expected_direction or
           margin < confidence_margin or
           expected_score > maximum_expected_score):
@@ -178,6 +217,9 @@ def evaluate_direction_pixels(
         "alphaThreshold": alpha_threshold,
         "visibilityColorTolerance": visibility_color_tolerance,
         "alternativeDirectionScores": scores,
+        "bestSpatialOffset": best_spatial_offset,
+        "bestSpatialScore": best_spatial_score,
+        "spatialOffsetScores": spatial_scores,
         "actualDigest": image_digest(actual),
         "backgroundDigest": image_digest(background),
         "spriteDigests": {

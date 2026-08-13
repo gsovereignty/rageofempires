@@ -12,6 +12,7 @@ from nostr_packaged_pixel_oracle import (
     evaluate_packaged_capture,
     render_decoded_draw,
     write_wrong_direction_mutation,
+    write_wrong_position_mutation,
 )
 from nostr_slp_decoder import decode_slp_frame
 
@@ -218,6 +219,13 @@ class PackagedPixelOracleTests(unittest.TestCase):
             )
             self.assertEqual(mutation["verdict"], "FAIL")
             self.assertEqual(mutation["mutatedLayer"], 0)
+            position = write_wrong_position_mutation(
+                manifest_path=manifest_path, graphics_drs=graphics,
+                interface_drs=interface, expected_logical_direction=0,
+                evidence_directory=root / "position-mutation",
+            )
+            self.assertEqual(position["verdict"], "FAIL")
+            self.assertGreater(position["selectedPixelOffsetX"], 0)
 
 
 if __name__ == "__main__":

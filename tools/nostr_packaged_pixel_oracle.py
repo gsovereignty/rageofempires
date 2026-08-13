@@ -336,3 +336,95 @@ def write_wrong_direction_mutation(
             "wrong-direction packaged mutation did not fail"
         )
     return report
+
+
+def write_wrong_position_mutation(
+    *, manifest_path: Path, graphics_drs: Path, interface_drs: Path,
+    expected_logical_direction: int, evidence_directory: Path,
+) -> dict[str, object]:
+    """Retain correct sprite pixels shifted from unchanged draw metadata."""
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    case = manifest["cases"][0]
+    metadata = case["metadata"]
+    draws = metadata["sprite_frames"]
+    root = manifest_path.parent
+    with Image.open(root / case["terrain"]) as source:
+        background = source.convert("RGBA")
+    evidence_directory.mkdir(parents=True, exist_ok=True)
+    attempts: list[dict[str, object]] = []
+    final_verdict = None
+    selected_offset = None
+    for pixel_offset in (1, 2, 3, 4):
+        mutated_actual = background.copy()
+        for layer in draws:
+            resource_id = int(layer["resource_id"])
+            payload, palette, _, _, _ = packaged_asset_inputs(
+                graphics_drs, interface_drs, resource_id
+            )
+            layer_direction = (
+                expected_logical_direction
+                if int(layer["direction_count"]) > 1 else 0
+            )
+            resolved = expected_frame(
+                logical_direction_value=layer_direction,
+                action_frame=int(layer["action_frame"]),
+                frames_per_direction=int(layer["frames_per_direction"]),
+                direction_count=int(layer["direction_count"]),
+                mirroring_mode=int(layer["mirroring_mode"]),
+                physical_frame_count=int(layer["physical_frame_count"]),
+            )
+            zoom = float(metadata["zoom"])
+            mutated_actual.alpha_composite(render_decoded_draw(
+                canvas_size=background.size, payload=payload,
+                palette=palette, frame_index=resolved.physical_frame,
+                legacy_player=int(layer["palette_player"]),
+                ground=(float(layer["ground"][0]) + pixel_offset / zoom,
+                        float(layer["ground"][1])),
+                zoom=zoom, flip_horizontal=resolved.flip_horizontal,
+                visible=bool(layer["visible"]),
+            ))
+        attempt_directory = evidence_directory / f"offset-{pixel_offset}"
+        attempt_directory.mkdir()
+        mutated_actual_path = attempt_directory / "mutated-actual.png"
+        mutated_actual.save(mutated_actual_path)
+        mutated_manifest = json.loads(json.dumps(manifest))
+        mutated_manifest["cases"][0]["actual"] = mutated_actual_path.name
+        mutated_manifest["cases"][0]["terrain"] = str(
+            (root / case["terrain"]).resolve()
+        )
+        mutation_manifest_path = attempt_directory / "mutation-manifest.json"
+        mutation_manifest_path.write_text(
+            json.dumps(mutated_manifest, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        verdict = evaluate_packaged_capture(
+            manifest_path=mutation_manifest_path,
+            graphics_drs=graphics_drs, interface_drs=interface_drs,
+            expected_logical_direction=expected_logical_direction,
+            evidence_directory=attempt_directory / "oracle",
+        )
+        attempts.append({
+            "pixelOffsetX": pixel_offset, "verdict": verdict["verdict"],
+            "oracleReport": f"offset-{pixel_offset}/oracle/report.json",
+        })
+        if verdict["verdict"] == "FAIL":
+            final_verdict = verdict
+            selected_offset = pixel_offset
+            break
+    report = {
+        "schemaVersion": 1,
+        "mutation": "correct-pixels-wrong-position-metadata-unchanged",
+        "expectedLogicalDirection": expected_logical_direction,
+        "selectedPixelOffsetX": selected_offset,
+        "verdict": final_verdict["verdict"] if final_verdict else "BLOCKED",
+        "attempts": attempts,
+    }
+    (evidence_directory / "mutation.json").write_text(
+        json.dumps(report, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    if final_verdict is None:
+        raise PackagedPixelOracleError(
+            "wrong-position packaged mutation did not fail"
+        )
+    return report

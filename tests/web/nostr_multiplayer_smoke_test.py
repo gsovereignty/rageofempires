@@ -948,23 +948,21 @@ def command_acceptance_status(
         if unit is None:
             return None
         units.append(unit)
-    fields = (
-        "x", "y", "destinationX", "destinationY", "moving",
-        "waypointCount",
-    )
-    if any(
-        units[0].get(field) != units[1].get(field) for field in fields
-    ):
-        return None
-    position = (int(units[0]["x"]), int(units[0]["y"]))
-    if position == destination:
+    positions = [
+        (int(unit["x"]), int(unit["y"])) for unit in units
+    ]
+    if all(position == destination for position in positions):
         return "arrived"
-    accepted_destination = (
-        int(units[0].get("destinationX", -1)),
-        int(units[0].get("destinationY", -1)),
-    )
-    if (accepted_destination == destination or
-            int(units[0].get("waypointCount", 0)) > 0):
+    accepted = [
+        position == destination or
+        (
+            int(unit.get("destinationX", -1)),
+            int(unit.get("destinationY", -1)),
+        ) == destination or
+        int(unit.get("waypointCount", 0)) > 0
+        for unit, position in zip(units, positions)
+    ]
+    if all(accepted):
         return "accepted"
     return None
 
@@ -990,16 +988,15 @@ def capture_until_arrival(
             if identity not in seen:
                 seen.add(identity)
                 samples.append(sample)
-        games = matching_games(host, join)
-        if games is not None:
-            status = command_acceptance_status(
-                games, owner=owner, unit_id=unit_id,
-                destination=destination,
-            )
-            if status == "arrived":
-                return samples
-            if status == "accepted" and arrival_deadline is None:
-                arrival_deadline = time.monotonic() + WAIT_SECONDS
+        games = [game_diagnostics(driver) or {} for driver in (host, join)]
+        status = command_acceptance_status(
+            games, owner=owner, unit_id=unit_id,
+            destination=destination,
+        )
+        if status == "arrived":
+            return samples
+        if status == "accepted" and arrival_deadline is None:
+            arrival_deadline = time.monotonic() + WAIT_SECONDS
     if arrival_deadline is None:
         raise InfrastructureBlocked(
             "BLOCKED_COMMAND_ABSENT: "

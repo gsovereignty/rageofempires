@@ -557,6 +557,44 @@ class FailureEvidenceTests(unittest.TestCase):
             games, owner=1, unit_id=9, destination=(28, 12)
         ))
 
+    def test_command_acceptance_tolerates_tick_and_position_skew(self):
+        games = [
+            {"currentTick": 1363, "units": [{
+                "id": 9, "owner": 1, "x": 27, "y": 11,
+                "destinationX": 28, "destinationY": 12,
+                "moving": True, "waypointCount": 0,
+            }]},
+            {"currentTick": 1360, "units": [{
+                "id": 9, "owner": 1, "x": 26, "y": 10,
+                "destinationX": 28, "destinationY": 12,
+                "moving": True, "waypointCount": 0,
+            }]},
+        ]
+        self.assertEqual(command_acceptance_status(
+            games, owner=1, unit_id=9, destination=(28, 12)
+        ), "accepted")
+        for game in games:
+            game["units"][0].update({
+                "x": 28, "y": 12, "moving": False,
+            })
+        self.assertEqual(command_acceptance_status(
+            games, owner=1, unit_id=9, destination=(28, 12)
+        ), "arrived")
+
+    def test_command_acceptance_rejects_different_destinations(self):
+        games = [
+            {"units": [{
+                "id": 9, "owner": 1, "x": 34, "y": 8,
+                "destinationX": destination_x,
+                "destinationY": destination_y,
+                "moving": True, "waypointCount": 0,
+            }]}
+            for destination_x, destination_y in ((28, 12), (29, 12))
+        ]
+        self.assertIsNone(command_acceptance_status(
+            games, owner=1, unit_id=9, destination=(28, 12)
+        ))
+
     def test_absent_command_blocks_before_pathfinding_failure(self):
         game = {"units": [{
             "id": 9, "owner": 1, "x": 34, "y": 8,
@@ -567,8 +605,8 @@ class FailureEvidenceTests(unittest.TestCase):
             "nostr_multiplayer_smoke_test.capture_correlated_frames",
             return_value=[],
         ), patch(
-            "nostr_multiplayer_smoke_test.matching_games",
-            return_value=[game, copy.deepcopy(game)],
+            "nostr_multiplayer_smoke_test.game_diagnostics",
+            side_effect=[game, copy.deepcopy(game)],
         ), patch(
             "nostr_multiplayer_smoke_test.time.monotonic",
             side_effect=[0.0, 1.0, 11.0],

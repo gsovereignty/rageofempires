@@ -1245,6 +1245,121 @@ def exercise_formation_route(
     }
 
 
+def exercise_patrol_route(
+    journey: Journey, driver, actor: str, owner: int,
+    host, join, actions: list[dict[str, object]], artifact_dir: Path,
+    start_hint: tuple[int, int], destination: tuple[int, int],
+) -> dict[str, object]:
+    """Prove outbound/return patrol and final stop through visible controls."""
+    games = wait_until(
+        f"{actor} patrol synchronized state",
+        lambda: matching_games(host, join), timeout=WAIT_SECONDS,
+    )
+    candidates = owned_unit_positions(games[0], owner)
+    unit_id, start = min(
+        candidates.items(), key=lambda item: (
+            abs(item[1][0] - start_hint[0]) +
+            abs(item[1][1] - start_hint[1]), item[0],
+        )
+    )
+    if start != start_hint:
+        raise Failure(
+            f"{actor} packaged patrol unit missing at {start_hint}: {start}"
+        )
+    center_camera_for_tile(journey, driver, actions, actor, *start)
+    audited_world_pointer(
+        journey, driver, actions, actor, *start, button=0
+    )
+    wait_until(
+        f"{actor} patrol unit selection",
+        lambda: unit_id if int(journey.telemetry().get(
+            "selectedUnit", 0
+        )) == unit_id else None,
+    )
+    audited_key(driver, actions, actor, "p")
+    center_camera_for_tile(journey, driver, actions, actor, *destination)
+    audited_world_pointer(journey, driver, actions, actor, *destination)
+
+    frames: list[dict[str, object]] = []
+    authoritative_positions: list[tuple[int, int]] = []
+    patrolling_seen = False
+    returned = False
+    deadline = time.monotonic() + WAIT_SECONDS
+    while time.monotonic() < deadline:
+        frames.extend(capture_correlated_frames(
+            host, join, seconds=0.15, artifact_dir=artifact_dir,
+            label=f"{actor}-patrol", maximum_samples=4,
+        ))
+        games = matching_games(host, join)
+        if games is None:
+            continue
+        peer_units = []
+        for game in games:
+            unit = next((value for value in game.get("units", [])
+                         if int(value.get("id", -1)) == unit_id), None)
+            if not isinstance(unit, dict):
+                raise Failure(f"{actor} patrol unit disappeared")
+            peer_units.append(unit)
+        fields = ("x", "y", "moving", "patrolling")
+        if any(peer_units[0].get(field) != peer_units[1].get(field)
+               for field in fields):
+            raise Failure(f"{actor} patrol peer divergence")
+        unit = peer_units[0]
+        if "patrolling" not in unit:
+            raise Failure("patrol diagnostics missing production field")
+        patrolling_seen = patrolling_seen or bool(unit["patrolling"])
+        position = (int(unit["x"]), int(unit["y"]))
+        if not authoritative_positions or position != authoritative_positions[-1]:
+            authoritative_positions.append(position)
+        reached_destination = any(
+            abs(value[0] - destination[0]) <= 1 and
+            abs(value[1] - destination[1]) <= 1
+            for value in authoritative_positions
+        )
+        if reached_destination and len(authoritative_positions) > 2:
+            returned = (
+                abs(position[0] - start[0]) <
+                abs(destination[0] - start[0]) or
+                abs(position[1] - start[1]) <
+                abs(destination[1] - start[1])
+            )
+        if patrolling_seen and reached_destination and returned:
+            break
+    if not patrolling_seen:
+        raise Failure(f"{actor} patrol state never became authoritative")
+    if not returned:
+        raise Failure(f"{actor} patrol never began return leg")
+    audited_key(driver, actions, actor, "s")
+    wait_until(
+        f"{actor} patrol stop",
+        lambda: True if (
+            (unit := next((value for value in (
+                game_diagnostics(driver) or {}
+            ).get("units", []) if int(value.get("id", -1)) == unit_id), None))
+            and not bool(unit.get("moving")) and
+            not bool(unit.get("patrolling"))
+        ) else None,
+    )
+    frames.extend(capture_correlated_frames(
+        host, join, seconds=0.5, artifact_dir=artifact_dir,
+        label=f"{actor}-patrol-stop", maximum_samples=8,
+    ))
+    return {
+        "actor": actor, "owner": owner, "unitId": unit_id,
+        "start": {"x": start[0], "y": start[1]},
+        "destination": {"x": destination[0], "y": destination[1]},
+        "authoritativePositions": [
+            {"x": value[0], "y": value[1]}
+            for value in authoritative_positions
+        ],
+        "patrollingSeen": patrolling_seen, "returnLegSeen": returned,
+        "frameCount": len(frames), "frames": frames,
+        "renderOracle": analyze_render_samples_for_audit(
+            frames, f"{actor}-patrol"
+        ),
+    }
+
+
 def analyze_render_samples(samples: list[dict[str, object]]) \
         -> dict[str, object]:
     if not samples:
@@ -3046,6 +3161,18 @@ def run(relays: str | None, headed: bool, port: int = 8888,
                         journey, driver, actor, int(owner), host, join,
                         actions, artifact_dir, center,
                     )
+            patrol_specs = {
+                0: ((12, 25), (8, 27)),
+                1: ((35, 6), (39, 8)),
+            }
+            evidence["patrolRoutes"] = {}
+            for owner in owner_order:
+                actor, journey, driver, _, _, _, _ = actor_specs[int(owner)]
+                start_hint, destination = patrol_specs[int(owner)]
+                evidence["patrolRoutes"][actor] = exercise_patrol_route(
+                    journey, driver, actor, int(owner), host, join,
+                    actions, artifact_dir, start_hint, destination,
+                )
             key_chord(host, Keys.F8)
             wait_until(
                 "restored normal speed after direction capture",
@@ -3655,6 +3782,17 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
                     "tick": render_state.get("tick"),
                     "entities": render_state.get("entities", []),
                 })
+    patrol_routes = evidence.get("patrolRoutes") or {}
+    for actor in ("host", "join"):
+        for sample in (patrol_routes.get(actor) or {}).get("frames", []):
+            for peer in ("host", "join"):
+                render_state = sample.get(peer) or {}
+                provenance.append({
+                    "phase": f"patrol-{actor}", "peer": peer,
+                    "frame": render_state.get("frame"),
+                    "tick": render_state.get("tick"),
+                    "entities": render_state.get("entities", []),
+                })
     for actor in ("host", "join"):
         phase = f"allDirections{actor.title()}"
         for sample in (all_directions.get(actor) or {}).get("frames", []):
@@ -3704,6 +3842,10 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
         for sample in (formation_routes.get(actor) or {}).get("frames", []):
             correlated_records.append({
                 "phase": f"formation-{actor}", **sample,
+            })
+        for sample in (patrol_routes.get(actor) or {}).get("frames", []):
+            correlated_records.append({
+                "phase": f"patrol-{actor}", **sample,
             })
     for actor in ("host", "join"):
         phase = f"allDirections{actor.title()}"

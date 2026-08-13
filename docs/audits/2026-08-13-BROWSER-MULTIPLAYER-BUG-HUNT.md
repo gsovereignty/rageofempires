@@ -129,17 +129,19 @@ destruction, relay recovery, natural victory, or terminal freeze.
   images, 78 provenance records covering 3,409 entity observations, and 424
   visual-oracle records (231 pass, 193 skipped).
 
-Current-run counts: 3 candidates; 0 newly confirmed bugs; 2 rejected candidate
-classes; 3 blocked/needs-proof candidate or coverage groups; 0 proved
-infrastructure incidents; 1 harness failure. No new bug log entry was written.
+Current-run counts: 3 candidates; 1 newly confirmed tooling bug; 2 rejected
+candidate classes; 2 blocked/needs-proof candidate or coverage groups; 0 proved
+infrastructure incidents; 1 harness failure. One tooling bug log entry was
+written.
 
 Sync diagnosis rejected product command loss/desync: both peers reached the
 commanded tile, both sender streams were contiguous through 458, and both had
 empty missing ranges. `matching_games()` requires exact instantaneous tick and
 hash before testing acceptance; final peers differed by three ticks, so the
 harness discarded matching arrival state and raised `BLOCKED_COMMAND_ABSENT`.
-Primary independent confirmation remains required before this becomes a
-confirmed tooling bug.
+Independent review confirmed this tooling bug as CBMB-20260813-R2-01. It is
+logged in `../todo/BROWSER_MULTIPLAYER_BUG_HUNT_2026-08-13.md`; no fix was
+authorized or attempted.
 
 Two visual candidates remain unconfirmed: 98 house provenance records compare
 composite live layers against an expected set containing only SLP 2235, and

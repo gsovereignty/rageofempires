@@ -120,6 +120,11 @@ def provenance_findings(root: Path) -> list[dict[str, object]]:
     for line_number, line in enumerate(path.read_text().splitlines(), 1):
         record = json.loads(line)
         for entity in record.get("entities", []):
+            if (not entity.get("layers") and
+                    not isinstance(entity.get("renderPosition"), dict)):
+                # Authoritative candidates outside viewport have no draw
+                # submission and therefore no sprite provenance to audit.
+                continue
             source = str(entity.get("source", ""))
             status = str(entity.get("expectedAssetStatus", ""))
             layers = entity.get("layers") or []

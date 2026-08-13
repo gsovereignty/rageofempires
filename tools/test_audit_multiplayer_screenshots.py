@@ -55,6 +55,7 @@ class ScreenshotAuditTests(unittest.TestCase):
             (root / "sprite-provenance.jsonl").write_text("\n".join((
                 json.dumps({"peer": "host", "frame": 1, "entities": [{
                     "id": 2, "source": "intentional_procedural",
+                    "renderPosition": {"x": 10, "y": 20},
                 }]}),
                 json.dumps({"peer": "join", "frame": 1, "entities": [{
                     "id": 3, "source": "legacy", "expectedAssetStatus": "renderable",
@@ -71,9 +72,22 @@ class ScreenshotAuditTests(unittest.TestCase):
             provenance(root, {
                 "id": 4, "source": "legacy", "expectedAssetStatus": "renderable",
                 "expectedResourceIds": [10], "layers": [],
+                "renderPosition": {"x": 10, "y": 20},
             })
             kinds = {item["kind"] for item in MODULE.audit(root)["findings"]}
             self.assertIn("missing_sprite", kinds)
+
+    def test_ignores_wholly_offscreen_candidate_without_draw_submission(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            provenance(root, {
+                "id": 5, "source": "procedural_or_unproven",
+                "expectedAssetStatus": "renderable",
+                "expectedResourceIds": [2085], "layers": [],
+                "renderPosition": None,
+            })
+            findings = MODULE.provenance_findings(root)
+            self.assertEqual(findings, [])
 
     def test_matched_overlap_evidence_passes_and_records_exact_inputs(self):
         with tempfile.TemporaryDirectory() as directory:

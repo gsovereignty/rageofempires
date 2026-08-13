@@ -3048,11 +3048,24 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
         encoding="utf-8",
     )
     failures = visual_failures(evidence)
-    status = "FAIL" if failures else "BLOCKED"
+    screenshot_failures = [
+        finding for finding in screenshot_report.get("findings", [])
+        if finding.get("status") == "FAIL"
+    ]
+    screenshot_status = str(screenshot_report.get("status", "BLOCKED"))
+    status = (
+        "FAIL" if failures or coverage["status"] == "FAIL" or
+        screenshot_status == "FAIL"
+        else "BLOCKED" if coverage["status"] == "BLOCKED" or
+        screenshot_status == "BLOCKED"
+        else "PASS"
+    )
     atomic_write_json(root / "verdict.json", {
         "schemaVersion": 1,
         "status": status,
         "visualFailureCount": len(failures),
+        "screenshotFailureCount": len(screenshot_failures),
+        "screenshotStatus": screenshot_status,
         "visualOracleCount": len(visual_oracles),
         "coverageStatus": coverage["status"],
         "missingRequiredCells": coverage["missingRequiredCells"],

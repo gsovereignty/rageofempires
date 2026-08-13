@@ -46,6 +46,7 @@ from nostr_visual_frame_oracle import (
 )
 from nostr_visual_coverage import evaluate_coverage, load_specification
 from nostr_packaged_pixel_oracle import evaluate_packaged_capture
+from nostr_visual_transition_oracle import evaluate_transitions
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -1391,6 +1392,14 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
             raise Failure(f"frozen moving animation {key}")
     counts["maximumFrameDisplacement"] = maximum_displacement
     counts["unmatchedEntities"] = unmatched_entities
+    transition_oracle = evaluate_transitions(samples)
+    counts["transitionOracle"] = transition_oracle
+    counts["visualOracles"].append(transition_oracle)
+    if transition_oracle["verdict"] != "PASS":
+        raise Failure(
+            "temporal direction transition mismatch "
+            + json.dumps(transition_oracle["failures"][0], sort_keys=True)
+        )
     return counts
 
 

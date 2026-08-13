@@ -123,6 +123,7 @@ audit-nostr-oracles:
 		tools/test_nostr_packaged_pixel_oracle.py \
 		tools/test_nostr_visual_pixel_oracle.py \
 		tools/test_nostr_visual_coverage.py \
+		tools/test_nostr_visual_transition_oracle.py \
 		tools/test_audit_multiplayer_screenshots.py \
 		tools/test_run_nostr_visual_audit.py \
 		tests/web/test_nostr_multiplayer_audit_tools.py; do \

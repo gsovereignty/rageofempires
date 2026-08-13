@@ -25,6 +25,7 @@ from nostr_multiplayer_smoke_test import (
     collapse_match_details,
     diagnostics,
     initialize_run_ledger,
+    probe_relay_pool,
     render_diagnostics,
     request_correlated_pixel_capture,
     selectable_military_id,
@@ -313,6 +314,33 @@ class AuditedInputTests(unittest.TestCase):
 
 
 class FailureEvidenceTests(unittest.TestCase):
+    def test_relay_probe_preserves_configured_order_for_quorum(self):
+        class Socket:
+            def close(self):
+                pass
+
+        def connector(relay, timeout):
+            self.assertEqual(timeout, 0.25)
+            if relay.endswith("bad"):
+                raise OSError("unreachable")
+            return Socket()
+
+        report = probe_relay_pool(
+            ["wss://one/", "wss://bad", "wss://two", "wss://three",
+             "wss://four", "wss://one"],
+            timeout=0.25, connector=connector,
+        )
+        self.assertEqual(report["selectedQuorum"], [
+            "wss://one", "wss://two", "wss://three",
+        ])
+        self.assertEqual(len(report["results"]), 5)
+        failed = next(
+            result for result in report["results"]
+            if result["relay"] == "wss://bad"
+        )
+        self.assertFalse(failed["healthy"])
+        self.assertIn("OSError", failed["error"])
+
     def test_allocates_durable_contract_before_browser_launch(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

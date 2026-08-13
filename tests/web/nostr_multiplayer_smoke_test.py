@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import concurrent.futures
 import hashlib
 import json
 import math
@@ -25,6 +26,7 @@ from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import Select
 from PIL import Image
+from websocket import create_connection
 
 from browser_risk_spike_test import (
     DIST,
@@ -50,6 +52,13 @@ ROOT = Path(__file__).resolve().parents[2]
 AUDIT_ROOT = ROOT / "artifacts" / "nostr-e2e-visual"
 AUDIT_REPORT_ROOT = ROOT / "docs" / "audits"
 WAIT_SECONDS = 180.0
+DEFAULT_RELAYS = (
+    "wss://nostr-pub.wellorder.net", "wss://nostr.oxtr.dev",
+    "wss://nostr.bond", "wss://relay.nostr.net", "wss://yabu.me",
+    "wss://relay.nostr.wirednet.jp", "wss://relay.nostr.info",
+    "wss://nostr.sathoarder.com", "wss://relay.wavlake.com",
+    "wss://relay.noswhere.com",
+)
 
 
 @dataclass(frozen=True)
@@ -57,6 +66,50 @@ class AuditDestination:
     artifacts: Path
     report: Path
     run_id: str
+
+
+def probe_relay_pool(
+    relays: list[str], *, timeout: float = 5.0,
+    connector=create_connection,
+) -> dict[str, object]:
+    """Probe WebSocket handshakes concurrently; select deterministic quorum."""
+    normalized = list(dict.fromkeys(
+        relay.strip().rstrip("/") for relay in relays if relay.strip()
+    ))
+
+    def probe(relay: str) -> dict[str, object]:
+        started = time.monotonic()
+        try:
+            socket = connector(relay, timeout=timeout)
+            socket.close()
+            return {
+                "relay": relay, "healthy": True,
+                "latencyMs": round((time.monotonic() - started) * 1000, 3),
+            }
+        except Exception as error:
+            return {
+                "relay": relay, "healthy": False,
+                "latencyMs": round((time.monotonic() - started) * 1000, 3),
+                "error": f"{type(error).__name__}: {error}",
+            }
+
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=min(len(normalized), 10) or 1
+    ) as executor:
+        by_relay = {
+            result["relay"]: result
+            for result in executor.map(probe, normalized)
+        }
+    results = [by_relay[relay] for relay in normalized]
+    healthy = [
+        result["relay"] for result in results if result["healthy"]
+    ]
+    return {
+        "schemaVersion": 1,
+        "policy": "configured-order-first-three-healthy-v1",
+        "results": results,
+        "selectedQuorum": healthy[:3],
+    }
 
 
 def atomic_write_json(path: Path, value: object) -> None:
@@ -2951,7 +3004,9 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
                         if isinstance(evidence.get("joinRender"), dict)
                         else None),
         "mapSeed": None,
-        "actionSeed": None,
+        "actionSeed": evidence.get(
+            "actionSeed", existing_ledger.get("seed")
+        ),
         "transportFaultSeed": None,
         "randomized": False,
         "assertions": [
@@ -3266,8 +3321,25 @@ def main() -> int:
         retry_budget=arguments.retry_budget,
     )
     try:
+        configured_relays = (
+            arguments.relays.split(",")
+            if arguments.relays else list(DEFAULT_RELAYS)
+        )
+        relay_probe = probe_relay_pool(configured_relays)
+        atomic_write_json(audit_dir / "relay-probe.json", relay_probe)
+        selected_quorum = relay_probe["selectedQuorum"]
+        if len(selected_quorum) < 2:
+            raise Failure(
+                "relay probe found fewer than two healthy configured relays"
+            )
+        run_ledger = json.loads(
+            (audit_dir / "run.json").read_text(encoding="utf-8")
+        )
+        run_ledger["relayPool"] = configured_relays
+        run_ledger["selectedQuorum"] = selected_quorum
+        atomic_write_json(audit_dir / "run.json", run_ledger)
         evidence = run(
-            arguments.relays, arguments.headed, arguments.port,
+            ",".join(selected_quorum), arguments.headed, arguments.port,
             checkpoint=arguments.checkpoint,
             artifact_dir=audit_dir,
             seed=arguments.seed,

@@ -21,6 +21,7 @@ from nostr_multiplayer_smoke_test import (  # noqa: E402
     allocate_audit_destination,
     atomic_write_json,
     initialize_run_ledger,
+    parse_viewport,
     probe_relay_pool,
     write_report,
 )
@@ -56,6 +57,8 @@ def main() -> int:
     parser.add_argument("--checkpoint", action="store_true")
     parser.add_argument("--seed", type=int, default=0xA0E20260812)
     parser.add_argument("--retry-budget", type=int, default=3)
+    parser.add_argument("--viewport", type=parse_viewport, default=(1280, 900))
+    parser.add_argument("--dpr", type=float, choices=(1.0, 2.0), default=1.0)
     parser.add_argument("--audit-root", type=Path, default=AUDIT_ROOT)
     parser.add_argument("--report-root", type=Path, default=AUDIT_REPORT_ROOT)
     arguments = parser.parse_args()
@@ -69,6 +72,7 @@ def main() -> int:
         destination, relays=",".join(configured), headed=arguments.headed,
         port=arguments.port, seed=arguments.seed,
         retry_budget=arguments.retry_budget,
+        viewport=arguments.viewport, dpr=arguments.dpr,
     )
     probe = probe_relay_pool(configured)
     atomic_write_json(destination.artifacts / "relay-probe.json", probe)
@@ -92,6 +96,8 @@ def main() -> int:
             "--relays", ",".join(quorum),
             "--seed", str(arguments.seed),
             "--retry-budget", "0",
+            "--viewport", f"{arguments.viewport[0]}x{arguments.viewport[1]}",
+            "--dpr", str(arguments.dpr),
             "--audit-root", str(attempt_root),
             "--report-root", str(attempt_reports),
         ]

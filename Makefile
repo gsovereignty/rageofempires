@@ -23,7 +23,8 @@ endif
 .PHONY: all configure build run web web-build web-tests \
 	web-tests-only audit-browser-risk-spike audit-browser-risk-spike-only \
 	audit-nostr-oracles audit-nostr-multiplayer \
-	ci-nostr-visual-per-change ci-nostr-visual-scheduled \
+	ci-nostr-visual-per-change ci-nostr-visual-display-matrix \
+	ci-nostr-visual-scheduled \
 	check-all clean help
 
 all: build
@@ -130,7 +131,18 @@ audit-nostr-oracles:
 
 ci-nostr-visual-per-change: build web-tests audit-nostr-oracles
 
-ci-nostr-visual-scheduled: ci-nostr-visual-per-change audit-nostr-multiplayer
+ci-nostr-visual-display-matrix: web-build
+	@for display_case in "1280x900 1" "1440x900 1" \
+		"1000x1000 1" "1280x900 2"; do \
+		set -- $$display_case; \
+		"$(NOSTR_AUDIT_PYTHON)" tools/run_nostr_visual_audit.py \
+			--port "$(NOSTR_AUDIT_PORT)" --viewport "$$1" --dpr "$$2" \
+			$(if $(NOSTR_AUDIT_RELAYS),--relays "$(NOSTR_AUDIT_RELAYS)",) \
+			$(NOSTR_AUDIT_ARGS) || exit $$?; \
+	done
+
+ci-nostr-visual-scheduled: ci-nostr-visual-per-change \
+	ci-nostr-visual-display-matrix
 
 check-all:
 	$(PYTHON) scripts/run_check_all.py --make "$(MAKE)" \
@@ -150,6 +162,7 @@ help:
 	@echo "make audit-nostr-multiplayer  Run packaged two-browser public-relay audit"
 	@echo "make audit-nostr-oracles      Run independent visual oracle tests"
 	@echo "make ci-nostr-visual-per-change  Run required build and oracle tier"
+	@echo "make ci-nostr-visual-display-matrix  Run aspect-ratio and DPR matrix"
 	@echo "make ci-nostr-visual-scheduled   Run full public-relay scheduled tier"
 	@echo "make check-all       Run all native/web tests and browser audits"
 	@echo "make check-all PROBLEMS_ONLY=1  Print only failing-stage diagnostics"

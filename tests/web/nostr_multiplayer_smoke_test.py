@@ -112,6 +112,19 @@ def probe_relay_pool(
     }
 
 
+def parse_viewport(value: str) -> tuple[int, int]:
+    try:
+        width_text, height_text = value.lower().split("x", 1)
+        width, height = int(width_text), int(height_text)
+    except (ValueError, AttributeError) as error:
+        raise argparse.ArgumentTypeError(
+            "viewport must be WIDTHxHEIGHT"
+        ) from error
+    if width < 640 or height < 480:
+        raise argparse.ArgumentTypeError("viewport is below supported minimum")
+    return width, height
+
+
 def atomic_write_json(path: Path, value: object) -> None:
     temporary = path.with_name(f".{path.name}.{secrets.token_hex(6)}.tmp")
     temporary.write_text(
@@ -161,6 +174,8 @@ def initialize_run_ledger(
     port: int,
     seed: int,
     retry_budget: int,
+    viewport: tuple[int, int] = (1280, 900),
+    dpr: float = 1.0,
 ) -> None:
     def ledger_path(path: Path) -> str:
         try:
@@ -199,8 +214,8 @@ def initialize_run_ledger(
         "selectedQuorum": [],
         "retryBudget": retry_budget,
         "serverPort": port,
-        "viewport": {"width": 1280, "height": 720},
-        "dpr": [1, 2],
+        "viewport": {"width": viewport[0], "height": viewport[1]},
+        "dpr": dpr,
         "capture": {
             "renderTelemetry": True,
             "correlatedScreenshots": True,
@@ -2296,7 +2311,9 @@ def exercise_relay_chaos(host, join, relays: str) -> dict[str, object]:
 def run(relays: str | None, headed: bool, port: int = 8888,
         checkpoint: bool = False,
         artifact_dir: Path | None = None,
-        seed: int = 0xA0E20260812) -> dict[str, object]:
+        seed: int = 0xA0E20260812,
+        viewport: tuple[int, int] = (1280, 900),
+        dpr: float = 1.0) -> dict[str, object]:
     if artifact_dir is None:
         artifact_dir = allocate_audit_directory()
     if not (DIST / "aoe_web.html").exists():
@@ -2312,6 +2329,16 @@ def run(relays: str | None, headed: bool, port: int = 8888,
     actions = evidence["actions"]
     host = make_driver("chrome", headed)
     join = make_driver("chrome", headed)
+    for driver in (host, join):
+        if not hasattr(driver, "execute_cdp_cmd"):
+            raise Failure("display emulation requires Chrome CDP")
+        driver.execute_cdp_cmd(
+            "Emulation.setDeviceMetricsOverride",
+            {
+                "width": viewport[0], "height": viewport[1],
+                "deviceScaleFactor": dpr, "mobile": False,
+            },
+        )
     evidence["browser"] = {
         "host": host.capabilities,
         "join": join.capabilities,
@@ -3340,6 +3367,8 @@ def main() -> int:
                         default=AUDIT_REPORT_ROOT)
     parser.add_argument("--seed", type=int, default=0xA0E20260812)
     parser.add_argument("--retry-budget", type=int, default=3)
+    parser.add_argument("--viewport", type=parse_viewport, default=(1280, 900))
+    parser.add_argument("--dpr", type=float, choices=(1.0, 2.0), default=1.0)
     arguments = parser.parse_args()
     destination = allocate_audit_destination(
         arguments.audit_root, arguments.report_root
@@ -3353,6 +3382,8 @@ def main() -> int:
         port=arguments.port,
         seed=arguments.seed,
         retry_budget=arguments.retry_budget,
+        viewport=arguments.viewport,
+        dpr=arguments.dpr,
     )
     try:
         configured_relays = (
@@ -3377,6 +3408,8 @@ def main() -> int:
             checkpoint=arguments.checkpoint,
             artifact_dir=audit_dir,
             seed=arguments.seed,
+            viewport=arguments.viewport,
+            dpr=arguments.dpr,
         )
         evidence_path.write_text(
             json.dumps(evidence, indent=2, sort_keys=True) + "\n",

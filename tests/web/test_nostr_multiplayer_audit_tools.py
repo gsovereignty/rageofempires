@@ -25,6 +25,7 @@ from nostr_multiplayer_smoke_test import (
     collapse_match_details,
     diagnostics,
     initialize_run_ledger,
+    parse_viewport,
     probe_relay_pool,
     render_diagnostics,
     request_correlated_pixel_capture,
@@ -314,6 +315,13 @@ class AuditedInputTests(unittest.TestCase):
 
 
 class FailureEvidenceTests(unittest.TestCase):
+    def test_parses_supported_viewport(self):
+        self.assertEqual(parse_viewport("1280x900"), (1280, 900))
+        with self.assertRaisesRegex(Exception, "WIDTHxHEIGHT"):
+            parse_viewport("wide")
+        with self.assertRaisesRegex(Exception, "supported minimum"):
+            parse_viewport("320x200")
+
     def test_relay_probe_preserves_configured_order_for_quorum(self):
         class Socket:
             def close(self):

@@ -858,10 +858,15 @@ def exercise_all_direction_route(
     audited_world_pointer(
         journey, driver, actions, actor, center[0], center[1]
     )
+    # Direction sampling uses negotiated slow speed so each authoritative
+    # step remains drawable. Arena positioning is not evidence for a required
+    # direction cell and can exceed the bounded journey at that speed.
+    negotiate_game_speed(host, join, 1)
     approach = capture_until_arrival(
         host, join, owner=owner, unit_id=unit_id, destination=center,
         artifact_dir=artifact_dir, label=f"{actor}-route-approach",
     )
+    negotiate_game_speed(host, join, 0)
     route = canonical_direction_route(center)
     segments: list[dict[str, object]] = []
     all_frames: list[dict[str, object]] = []
@@ -2262,6 +2267,35 @@ def matching_games(host, join):
             games[0].get("stateHash") != games[1].get("stateHash")):
         return None
     return games
+
+
+def negotiate_game_speed(host, join, target: int) -> None:
+    """Cycle normal F8 multiplayer control to an exact shared speed."""
+    if target not in {0, 1, 2}:
+        raise ValueError("game speed target must be 0, 1, or 2")
+    for _ in range(3):
+        speeds = [
+            int((game_diagnostics(driver) or {}).get("gameSpeed", -1))
+            for driver in (host, join)
+        ]
+        if speeds == [target, target]:
+            return
+        if speeds[0] != speeds[1]:
+            raise Failure(f"game speed peer divergence: {speeds}")
+        key_chord(host, Keys.F8)
+        wait_until(
+            f"negotiated game speed {target}",
+            lambda: True if all(
+                int((game_diagnostics(driver) or {}).get("gameSpeed", -1))
+                != speeds[0] for driver in (host, join)
+            ) else None,
+            timeout=WAIT_SECONDS,
+        )
+    speeds = [
+        int((game_diagnostics(driver) or {}).get("gameSpeed", -1))
+        for driver in (host, join)
+    ]
+    raise Failure(f"game speed did not reach {target}: {speeds}")
 
 
 def banked_resource_increased(

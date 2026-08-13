@@ -32,6 +32,7 @@ from nostr_multiplayer_smoke_test import (
     collapse_match_details,
     diagnostics,
     initialize_run_ledger,
+    negotiate_game_speed,
     parse_viewport,
     probe_relay_pool,
     render_diagnostics,
@@ -167,6 +168,27 @@ def gathering_sample(*, amount: int = 100, include_resource: bool = True):
 
 
 class AuditedInputTests(unittest.TestCase):
+    def test_game_speed_cycles_until_exact_shared_target(self):
+        host = object()
+        join = object()
+        speed = {"value": 0}
+
+        def diagnostics(_driver):
+            return {"gameSpeed": speed["value"]}
+
+        def chord(_driver, _key):
+            speed["value"] = (speed["value"] + 1) % 3
+
+        with patch(
+            "nostr_multiplayer_smoke_test.game_diagnostics", diagnostics,
+        ), patch(
+            "nostr_multiplayer_smoke_test.key_chord", side_effect=chord,
+        ) as key:
+            negotiate_game_speed(host, join, 2)
+
+        self.assertEqual(speed["value"], 2)
+        self.assertEqual(key.call_count, 2)
+
     def test_zoom_dispatches_wheel_at_canvas_center(self):
         class Journey:
             def __init__(self):

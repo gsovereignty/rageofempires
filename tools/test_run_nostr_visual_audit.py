@@ -15,6 +15,23 @@ SPEC.loader.exec_module(MODULE)
 
 
 class RelayRotationTests(unittest.TestCase):
+    def test_exact_destination_id_reserves_declared_paths(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            destination = MODULE.allocate_audit_destination(
+                root / "artifacts", root / "reports", "same-seed-checkpoint"
+            )
+            self.assertEqual(destination.artifacts.name,
+                             "same-seed-checkpoint")
+            self.assertTrue(destination.report.name.endswith(
+                "-NOSTR-E2E-VISUAL-GAMEPLAY-same-seed-checkpoint.md"
+            ))
+            with self.assertRaises(FileExistsError):
+                MODULE.allocate_audit_destination(
+                    root / "artifacts", root / "reports",
+                    "same-seed-checkpoint",
+                )
+
     def test_active_artifact_progress_extends_inactivity_deadline(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

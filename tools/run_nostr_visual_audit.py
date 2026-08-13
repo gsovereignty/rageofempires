@@ -307,10 +307,14 @@ def main() -> int:
     parser.add_argument("--browser-argument", action="append", default=[])
     parser.add_argument("--audit-root", type=Path, default=AUDIT_ROOT)
     parser.add_argument("--report-root", type=Path, default=AUDIT_REPORT_ROOT)
+    parser.add_argument(
+        "--destination-id",
+        help="reserve an exact durable aggregate directory and report suffix",
+    )
     arguments = parser.parse_args()
 
     destination = allocate_audit_destination(
-        arguments.audit_root, arguments.report_root
+        arguments.audit_root, arguments.report_root, arguments.destination_id
     )
     configured = arguments.relays.split(",") \
         if arguments.relays else list(DEFAULT_RELAYS)

@@ -9,6 +9,7 @@ import concurrent.futures
 import hashlib
 import json
 import math
+import re
 import secrets
 import subprocess
 import sys
@@ -170,6 +171,7 @@ def atomic_write_json(path: Path, value: object) -> None:
 def allocate_audit_destination(
     artifact_root: Path = AUDIT_ROOT,
     report_root: Path = AUDIT_REPORT_ROOT,
+    run_id: str | None = None,
 ) -> AuditDestination:
     """Atomically reserve durable report and artifact destinations."""
     artifact_root.mkdir(parents=True, exist_ok=True)
@@ -177,19 +179,28 @@ def allocate_audit_destination(
     now = datetime.now(timezone.utc)
     stamp = now.strftime("%Y%m%dT%H%M%SZ")
     report_day = now.strftime("%Y-%m-%d")
-    while True:
-        run_id = secrets.token_hex(6)
-        artifacts = artifact_root / f"{stamp}-{run_id}"
-        try:
-            artifacts.mkdir()
-            break
-        except FileExistsError:
-            continue
-    report = report_root / f"{report_day}-NOSTR-E2E-VISUAL-GAMEPLAY.md"
-    if report.exists():
+    if run_id is not None:
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", run_id):
+            raise ValueError("audit destination id contains unsafe characters")
+        artifacts = artifact_root / run_id
+        artifacts.mkdir()
         report = report_root / (
             f"{report_day}-NOSTR-E2E-VISUAL-GAMEPLAY-{run_id}.md"
         )
+    else:
+        while True:
+            run_id = secrets.token_hex(6)
+            artifacts = artifact_root / f"{stamp}-{run_id}"
+            try:
+                artifacts.mkdir()
+                break
+            except FileExistsError:
+                continue
+        report = report_root / f"{report_day}-NOSTR-E2E-VISUAL-GAMEPLAY.md"
+        if report.exists():
+            report = report_root / (
+                f"{report_day}-NOSTR-E2E-VISUAL-GAMEPLAY-{run_id}.md"
+            )
     report.touch(exist_ok=False)
     return AuditDestination(artifacts, report, run_id)
 

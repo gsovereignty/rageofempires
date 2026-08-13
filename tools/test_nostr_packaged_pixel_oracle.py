@@ -11,6 +11,7 @@ from PIL import Image
 from nostr_packaged_pixel_oracle import (
     evaluate_packaged_capture,
     render_decoded_draw,
+    write_wrong_direction_mutation,
 )
 from nostr_slp_decoder import decode_slp_frame
 
@@ -115,6 +116,52 @@ class PackagedPixelOracleTests(unittest.TestCase):
             )
             self.assertEqual(failed["verdict"], "FAIL")
             self.assertEqual(failed["bestDirection"], "1")
+
+    def test_retained_wrong_direction_mutation_fails(self):
+        palette_payload = (
+            "JASC-PAL\n0100\n256\n" +
+            "".join(f"{index} {index // 2} {255 - index}\n"
+                    for index in range(256))
+        ).encode()
+        palette = [(index, index // 2, 255 - index)
+                   for index in range(256)]
+        slp = synthetic_slp()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            graphics = root / "graphics.drs"
+            interface = root / "interfac.drs"
+            graphics.write_bytes(synthetic_drs("slp", 1484, slp))
+            interface.write_bytes(synthetic_drs("bina", 50500, palette_payload))
+            background = Image.new("RGBA", (170, 12), (30, 70, 20, 255))
+            sprite = render_decoded_draw(
+                canvas_size=background.size, payload=slp, palette=palette,
+                frame_index=0, legacy_player=0, ground=(85, 6), zoom=1,
+                flip_horizontal=False, visible=True,
+            )
+            actual = background.copy()
+            actual.alpha_composite(sprite)
+            actual.save(root / "actual.png")
+            background.save(root / "terrain.png")
+            manifest = {"cases": [{
+                "actual": "actual.png", "terrain": "terrain.png",
+                "metadata": {"entity_id": 7, "zoom": 1, "tick": 12,
+                    "sprite_frames": [{"resource_id": 1484, "frame": 0,
+                        "palette_player": 0, "flip_horizontal": False,
+                        "visible": True, "ground": [85, 6],
+                        "action_frame": 0, "frames_per_direction": 1,
+                        "direction_count": 2, "mirroring_mode": 1,
+                        "physical_frame_count": 1,
+                        "logical_direction": 0}]}}]}
+            manifest_path = root / "manifest.json"
+            manifest_path.write_text(json.dumps(manifest))
+            report = write_wrong_direction_mutation(
+                manifest_path=manifest_path, graphics_drs=graphics,
+                interface_drs=interface, expected_logical_direction=0,
+                evidence_directory=root / "mutation",
+            )
+            self.assertEqual(report["verdict"], "FAIL")
+            self.assertEqual(report["metadataLogicalDirection"], 0)
+            self.assertTrue((root / "mutation/mutation.json").is_file())
 
 
 if __name__ == "__main__":

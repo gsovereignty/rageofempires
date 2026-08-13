@@ -180,3 +180,98 @@ def evaluate_packaged_capture(
         "actionFrame": int(draw["action_frame"]),
     })
     return write_evidence(evidence_directory, report, images)
+
+
+def write_wrong_direction_mutation(
+    *, manifest_path: Path, graphics_drs: Path, interface_drs: Path,
+    expected_logical_direction: int, evidence_directory: Path,
+) -> dict[str, object]:
+    """Retain a metadata-preserving wrong-pixel mutation and its verdict."""
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    case = manifest["cases"][0]
+    metadata = case["metadata"]
+    draw = metadata["sprite_frames"][0]
+    resource_id = int(draw["resource_id"])
+    payload, palette, _, _, _ = packaged_asset_inputs(
+        graphics_drs, interface_drs, resource_id
+    )
+    expected = expected_frame(
+        logical_direction_value=expected_logical_direction,
+        action_frame=int(draw["action_frame"]),
+        frames_per_direction=int(draw["frames_per_direction"]),
+        direction_count=int(draw["direction_count"]),
+        mirroring_mode=int(draw["mirroring_mode"]),
+        physical_frame_count=int(draw["physical_frame_count"]),
+    )
+    wrong_direction = None
+    wrong_frame = None
+    for direction in range(int(draw["direction_count"])):
+        candidate = expected_frame(
+            logical_direction_value=direction,
+            action_frame=int(draw["action_frame"]),
+            frames_per_direction=int(draw["frames_per_direction"]),
+            direction_count=int(draw["direction_count"]),
+            mirroring_mode=int(draw["mirroring_mode"]),
+            physical_frame_count=int(draw["physical_frame_count"]),
+        )
+        if (candidate.physical_frame, candidate.flip_horizontal) != (
+            expected.physical_frame, expected.flip_horizontal
+        ):
+            wrong_direction, wrong_frame = direction, candidate
+            break
+    if wrong_frame is None:
+        raise PackagedPixelOracleError("no distinct wrong direction mutation")
+
+    root = manifest_path.parent
+    with Image.open(root / case["terrain"]) as source:
+        background = source.convert("RGBA")
+    wrong_sprite = render_decoded_draw(
+        canvas_size=background.size, payload=payload, palette=palette,
+        frame_index=wrong_frame.physical_frame,
+        legacy_player=int(draw["palette_player"]),
+        ground=(float(draw["ground"][0]), float(draw["ground"][1])),
+        zoom=float(metadata["zoom"]),
+        flip_horizontal=wrong_frame.flip_horizontal,
+        visible=bool(draw["visible"]),
+    )
+    evidence_directory.mkdir(parents=True, exist_ok=True)
+    mutated_actual = background.copy()
+    mutated_actual.alpha_composite(wrong_sprite)
+    mutated_actual_path = evidence_directory / "mutated-actual.png"
+    mutated_actual.save(mutated_actual_path)
+    mutated_manifest = json.loads(json.dumps(manifest))
+    mutated_manifest["cases"][0]["actual"] = mutated_actual_path.name
+    mutated_manifest["cases"][0]["terrain"] = str(
+        (root / case["terrain"]).resolve()
+    )
+    mutation_manifest_path = evidence_directory / "mutation-manifest.json"
+    mutation_manifest_path.write_text(
+        json.dumps(mutated_manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    verdict = evaluate_packaged_capture(
+        manifest_path=mutation_manifest_path,
+        graphics_drs=graphics_drs, interface_drs=interface_drs,
+        expected_logical_direction=expected_logical_direction,
+        evidence_directory=evidence_directory / "oracle",
+    )
+    report = {
+        "schemaVersion": 1,
+        "mutation": "wrong-direction-pixels-metadata-unchanged",
+        "expectedLogicalDirection": expected_logical_direction,
+        "mutatedLogicalDirection": wrong_direction,
+        "metadataLogicalDirection": int(draw["logical_direction"]),
+        "verdict": verdict["verdict"],
+        "oracleReport": "oracle/report.json",
+        "mutatedActual": mutated_actual_path.name,
+        "mutationManifest": mutation_manifest_path.name,
+    }
+    (evidence_directory / "mutation.json").write_text(
+        json.dumps(report, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    if verdict["verdict"] != "FAIL":
+        raise PackagedPixelOracleError(
+            "wrong-direction packaged mutation did not fail"
+        )
+    return report

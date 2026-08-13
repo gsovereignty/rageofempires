@@ -45,7 +45,10 @@ from nostr_visual_frame_oracle import (
     logical_direction as oracle_logical_direction,
 )
 from nostr_visual_coverage import evaluate_coverage, load_specification
-from nostr_packaged_pixel_oracle import evaluate_packaged_capture
+from nostr_packaged_pixel_oracle import (
+    evaluate_packaged_capture,
+    write_wrong_direction_mutation,
+)
 from nostr_visual_transition_oracle import evaluate_transitions
 from nostr_seeded_action_generator import (
     causal_replay_prefix,
@@ -797,6 +800,7 @@ def exercise_all_direction_route(
                     )
                     pixel_oracles.append({
                         **retained,
+                        "manifestPath": str(manifest_path),
                         "oracleKind": "semantic-pixel-direction",
                         "phase": f"{actor}-all-directions",
                         "peer": peer,
@@ -836,6 +840,35 @@ def exercise_all_direction_route(
                     for oracle in pixel_oracles
                 ):
                     pixel_capture["visualOracles"] = pixel_oracles
+                    if actor == "host" and lap == 0 and direction == 0:
+                        mutations = {}
+                        for peer, oracle in zip(("host", "join"), pixel_oracles):
+                            if oracle["verdict"] != "PASS":
+                                raise Failure(
+                                    "baseline pixel oracle must pass before mutation"
+                                )
+                            peer_manifest = Path(str(oracle["manifestPath"]))
+                            mutations[peer] = write_wrong_direction_mutation(
+                                manifest_path=peer_manifest,
+                                graphics_drs=ROOT / "game_data/Data/graphics.drs",
+                                interface_drs=ROOT / "game_data/Data/interfac.drs",
+                                expected_logical_direction=direction,
+                                evidence_directory=(
+                                    peer_manifest.parent /
+                                    "wrong-direction-mutation"
+                                ),
+                            )
+                        pixel_capture["mutationProof"] = {
+                            "onePeerWrong": (
+                                mutations["host"]["verdict"] == "FAIL" and
+                                pixel_oracles[1]["verdict"] == "PASS"
+                            ),
+                            "bothPeersIdenticallyWrong": all(
+                                value["verdict"] == "FAIL"
+                                for value in mutations.values()
+                            ),
+                            "peers": mutations,
+                        }
                     break
                 recapture_attempts.append({
                     "capture": pixel_capture,

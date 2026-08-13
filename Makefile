@@ -22,7 +22,9 @@ endif
 
 .PHONY: all configure build run web web-build web-tests \
 	web-tests-only audit-browser-risk-spike audit-browser-risk-spike-only \
-	audit-nostr-multiplayer check-all clean help
+	audit-nostr-oracles audit-nostr-multiplayer \
+	ci-nostr-visual-per-change ci-nostr-visual-scheduled \
+	check-all clean help
 
 all: build
 
@@ -109,6 +111,26 @@ audit-nostr-multiplayer: web-build
 			--port "$(NOSTR_AUDIT_PORT)" \
 			$$relay_args $(NOSTR_AUDIT_ARGS)
 
+audit-nostr-oracles:
+	@test -x "$(NOSTR_AUDIT_PYTHON)" || { \
+		echo "Missing isolated Selenium Python: $(NOSTR_AUDIT_PYTHON)" >&2; \
+		exit 1; \
+	}
+	@for test_file in \
+		tools/test_nostr_visual_frame_oracle.py \
+		tools/test_nostr_slp_decoder.py \
+		tools/test_nostr_packaged_pixel_oracle.py \
+		tools/test_nostr_visual_pixel_oracle.py \
+		tools/test_nostr_visual_coverage.py \
+		tools/test_audit_multiplayer_screenshots.py \
+		tests/web/test_nostr_multiplayer_audit_tools.py; do \
+		"$(NOSTR_AUDIT_PYTHON)" "$$test_file" || exit $$?; \
+	done
+
+ci-nostr-visual-per-change: build web-tests audit-nostr-oracles
+
+ci-nostr-visual-scheduled: ci-nostr-visual-per-change audit-nostr-multiplayer
+
 check-all:
 	$(PYTHON) scripts/run_check_all.py --make "$(MAKE)" \
 		$(if $(filter 1,$(PROBLEMS_ONLY)),--problems-only,)
@@ -125,6 +147,9 @@ help:
 	@echo "make web-tests       Build web package and run browser-runtime tests"
 	@echo "make audit-browser-risk-spike  Run packaged browser acceptance matrix"
 	@echo "make audit-nostr-multiplayer  Run packaged two-browser public-relay audit"
+	@echo "make audit-nostr-oracles      Run independent visual oracle tests"
+	@echo "make ci-nostr-visual-per-change  Run required build and oracle tier"
+	@echo "make ci-nostr-visual-scheduled   Run full public-relay scheduled tier"
 	@echo "make check-all       Run all native/web tests and browser audits"
 	@echo "make check-all PROBLEMS_ONLY=1  Print only failing-stage diagnostics"
 	@echo "make clean           Clean compiled outputs"

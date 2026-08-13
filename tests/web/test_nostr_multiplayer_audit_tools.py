@@ -27,6 +27,7 @@ from nostr_multiplayer_smoke_test import (
     capture_catalog_semantic_pixels,
     click_canvas_logical,
     canonical_direction_route,
+    deterministic_replacement_destination,
     canonical_transition_routes,
     catalog_ids_for_entity,
     collapse_match_details,
@@ -602,6 +603,20 @@ class FailureEvidenceTests(unittest.TestCase):
 
 
 class RenderOracleTests(unittest.TestCase):
+    def test_stuck_action_replacement_is_seeded_and_changes_target(self):
+        first = deterministic_replacement_destination(
+            (20, 16), (21, 16), 42, owner=0,
+        )
+        self.assertNotEqual(first, (21, 16))
+        self.assertEqual(
+            first,
+            deterministic_replacement_destination(
+                (20, 16), (21, 16), 42, owner=0,
+            ),
+        )
+        self.assertLessEqual(abs(first[0] - 20), 1)
+        self.assertLessEqual(abs(first[1] - 16), 1)
+
     def test_formation_and_patrol_catalog_use_authoritative_fields(self):
         self.assertEqual(
             catalog_ids_for_entity({

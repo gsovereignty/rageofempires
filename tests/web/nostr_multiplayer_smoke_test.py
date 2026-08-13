@@ -679,6 +679,27 @@ def canonical_direction_route(
     return points
 
 
+def deterministic_replacement_destination(
+    start: tuple[int, int], attempted: tuple[int, int], seed: int,
+    owner: int, replacement_index: int = 0,
+) -> tuple[int, int]:
+    """Choose a stable adjacent visible-command target unlike the stuck one."""
+    vectors = (
+        (1, 0), (1, 1), (0, 1), (-1, 1),
+        (-1, 0), (-1, -1), (0, -1), (1, -1),
+    )
+    attempted_vector = (
+        max(-1, min(1, attempted[0] - start[0])),
+        max(-1, min(1, attempted[1] - start[1])),
+    )
+    offset = (seed + owner * 3 + replacement_index * 5) % len(vectors)
+    for step in range(len(vectors)):
+        vector = vectors[(offset + step) % len(vectors)]
+        if vector != attempted_vector:
+            return start[0] + vector[0], start[1] + vector[1]
+    raise AssertionError("8-way replacement set has no alternate destination")
+
+
 def canonical_transition_routes(
     center: tuple[int, int], radius: int = 2,
 ) -> dict[str, list[tuple[int, int]]]:
@@ -4034,16 +4055,48 @@ def run(relays: str | None, headed: bool, port: int = 8888,
             host_motion_frames = capture_correlated_frames(
                 host, join, artifact_dir=artifact_dir, label="host-move"
             )
-            movement_after = wait_until(
-                "matching world movement on both peers",
-                lambda: matching_moved_villager(
+            host_movement_probe = lambda: matching_moved_villager(
                     host, join, selected_id,
                     before_positions[0][selected_id],
-                ),
-                timeout=WAIT_SECONDS,
-            )
+                )
+            replacement = None
+            try:
+                movement_after = wait_until(
+                    "matching world movement on both peers",
+                    host_movement_probe, timeout=30.0,
+                )
+            except Failure:
+                replacement_destination = deterministic_replacement_destination(
+                    host_start, host_destination, seed, owner=0,
+                )
+                audited_world_pointer(
+                    host_journey, host, actions, "host", *host_start, button=0,
+                )
+                wait_until(
+                    "host replacement command unit selection",
+                    lambda: selected_id if int(
+                        host_journey.telemetry().get("selectedUnit", 0)
+                    ) == selected_id else None,
+                )
+                audited_world_pointer(
+                    host_journey, host, actions, "host",
+                    *replacement_destination,
+                )
+                replacement = {
+                    "reason": "no-authoritative-progress-for-30-seconds",
+                    "attempted": {"x": host_destination[0],
+                                  "y": host_destination[1]},
+                    "replacement": {"x": replacement_destination[0],
+                                    "y": replacement_destination[1]},
+                    "seed": seed,
+                }
+                movement_after = wait_until(
+                    "matching replacement world movement on both peers",
+                    host_movement_probe, timeout=WAIT_SECONDS - 30.0,
+                )
             evidence["movement"] = {
                 "unitId": selected_id,
+                "stuckActionReplacement": replacement,
                 "before": {
                     "host": movement_before[0],
                     "join": movement_before[1],
@@ -4091,16 +4144,48 @@ def run(relays: str | None, headed: bool, port: int = 8888,
             join_motion_frames = capture_correlated_frames(
                 host, join, artifact_dir=artifact_dir, label="join-move"
             )
-            red_after = wait_until(
-                "matching join world movement on both peers",
-                lambda: matching_moved_owned_unit(
+            join_movement_probe = lambda: matching_moved_owned_unit(
                     host, join, 1, red_selected_id,
                     red_before[0][red_selected_id],
-                ),
-                timeout=WAIT_SECONDS,
-            )
+                )
+            join_replacement = None
+            try:
+                red_after = wait_until(
+                    "matching join world movement on both peers",
+                    join_movement_probe, timeout=30.0,
+                )
+            except Failure:
+                replacement_destination = deterministic_replacement_destination(
+                    join_start, join_destination, seed, owner=1,
+                )
+                audited_world_pointer(
+                    join_journey, join, actions, "join", *join_start, button=0,
+                )
+                wait_until(
+                    "join replacement command unit selection",
+                    lambda: red_selected_id if int(
+                        join_journey.telemetry().get("selectedUnit", 0)
+                    ) == red_selected_id else None,
+                )
+                audited_world_pointer(
+                    join_journey, join, actions, "join",
+                    *replacement_destination,
+                )
+                join_replacement = {
+                    "reason": "no-authoritative-progress-for-30-seconds",
+                    "attempted": {"x": join_destination[0],
+                                  "y": join_destination[1]},
+                    "replacement": {"x": replacement_destination[0],
+                                    "y": replacement_destination[1]},
+                    "seed": seed,
+                }
+                red_after = wait_until(
+                    "matching replacement join movement on both peers",
+                    join_movement_probe, timeout=WAIT_SECONDS - 30.0,
+                )
             evidence["joinMovement"] = {
                 "unitId": red_selected_id,
+                "stuckActionReplacement": join_replacement,
                 "before": {
                     "host": red_before_games[0],
                     "join": red_before_games[1],

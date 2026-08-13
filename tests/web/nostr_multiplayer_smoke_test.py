@@ -660,6 +660,60 @@ def canonical_transition_routes(
     }
 
 
+def catalog_ids_for_entity(entity: dict[str, object]) -> list[str]:
+    """Classify observed production entity state into tracked catalog rows."""
+    category = str(entity.get("category", ""))
+    action = str(entity.get("action", ""))
+    detail = str(entity.get("actionDetail", ""))
+    animation = str(entity.get("animationState", ""))
+    carried = str(entity.get("carriedResource", "")).lower()
+    result: set[str] = set()
+    if category == "unit-villager":
+        if action == "moving" and not carried:
+            result.add("villager-empty-moving")
+        if carried in {"food", "wood", "gold", "stone"}:
+            result.add(f"villager-carrying-{carried}")
+        for state in ("gathering", "returning", "constructing", "repairing"):
+            if action == state or detail == state:
+                result.add(f"villager-{state}")
+    if category == "unit-militia":
+        result.add("infantry-before-upgrade")
+    if category in {
+        "unit-man_at_arms", "unit-long_swordsman", "unit-two_handed_swordsman",
+        "unit-champion",
+    }:
+        result.add("infantry-after-upgrade")
+    if category in {"unit-archer", "unit-crossbowman", "unit-arbalester"}:
+        result.add("archer-ranged-transition")
+    if category in {
+        "unit-scout_cavalry", "unit-light_cavalry", "unit-knight",
+        "unit-cavalier", "unit-paladin",
+    }:
+        result.add("cavalry")
+    if category in {
+        "unit-battering_ram", "unit-capped_ram", "unit-siege_ram",
+        "unit-mangonel", "unit-onager", "unit-siege_onager",
+        "unit-scorpion", "unit-heavy_scorpion",
+    }:
+        result.add("siege-composite")
+    if category in {
+        "unit-sheep", "unit-deer", "unit-boar", "unit-turkey",
+    }:
+        result.add("huntable-herdable-animals")
+    for state in ("patrol", "chase", "flee", "formation"):
+        if action == state or detail == state:
+            result.add(state)
+    if action in {"attack_moving", "attack-moving"} or detail in {
+        "attack_moving", "attack-moving",
+    }:
+        result.add("attack-movement")
+    if animation in {"dying", "decaying", "dead"}:
+        result.add("death-decay-direction")
+    if category.startswith(("projectile-", "impact-")):
+        result.add("projectile-impact-orientation")
+    return sorted(result)
+
+
 def center_camera_for_tile(
     journey: Journey, driver, actions: list[dict[str, object]],
     actor: str, tile_x: int, tile_y: int,
@@ -862,6 +916,8 @@ def exercise_all_direction_route(
                             manifest_path.parent / retained["images"]["actual"]
                         ),
                         "transitionKind": "authoritative-step",
+                        "catalogIds": ["villager-empty-moving"],
+                        "assertions": ["pixel-direction"],
                     })
                 if not any(
                     oracle["verdict"] == "BLOCKED"
@@ -1225,6 +1281,12 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
                                 )
                             counts["visualOracles"].append({
                                 **oracle,
+                                "oracleKind": "frame-selection",
+                                "assertions": [
+                                    "movement-direction", "resolved-frame",
+                                    "mirror",
+                                ],
+                                "catalogIds": catalog_ids_for_entity(entity),
                                 "peer": peer,
                                 "owner": entity.get("owner"),
                                 "entity": entity.get("id"),
@@ -1244,9 +1306,11 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
                         animation_frames.setdefault(
                             (peer, str(entity.get("category", "")),
                              int(entity.get("id", -1)), layer_index,
+                             int(entity.get("owner", -1)),
                              int(entity.get("facing", -1)),
                              str(entity.get("animationState", "")),
-                             str(entity.get("action", ""))), []
+                             str(entity.get("action", "")),
+                             tuple(catalog_ids_for_entity(entity))), []
                         ).append((
                             int(state.get("tick", -1)),
                             int(layer.get("frame", -1)),
@@ -1455,6 +1519,27 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
         }
         if len(moving_ticks) >= 4 and len(moving_frames) < 2:
             raise Failure(f"frozen moving animation {key}")
+        animation_verdict = (
+            "PASS" if len(moving_ticks) >= 4 and len(moving_frames) >= 2
+            else "SKIPPED"
+        )
+        counts["visualOracles"].append({
+            "schemaVersion": 1,
+            "oracleKind": "animation-progress",
+            "verdict": animation_verdict,
+            "blocker": None if animation_verdict == "PASS" else
+                "fewer than four moving ticks or two physical frames",
+            "peer": key[0], "unitKind": key[1], "entity": key[2],
+            "layer": key[3], "owner": key[4],
+            "logicalDirection": key[5],
+            "animationState": key[6], "action": key[7],
+            "sampleCount": len(observations),
+            "distinctMovingTickCount": len(moving_ticks),
+            "distinctMovingFrameCount": len(moving_frames),
+            "catalogIds": list(key[8]),
+            "assertions": ["animation-progress"]
+                if animation_verdict == "PASS" else [],
+        })
     counts["maximumFrameDisplacement"] = maximum_displacement
     counts["unmatchedEntities"] = unmatched_entities
     transition_oracle = evaluate_transitions(samples)
@@ -3481,6 +3566,9 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
         "visualOracleCount": len(visual_oracles),
         "coverageStatus": coverage["status"],
         "missingRequiredCells": coverage["missingRequiredCells"],
+        "missingCatalogAssertions": coverage[
+            "missingCatalogAssertions"
+        ],
     })
     run_ledger["status"] = status
     run_ledger["finalizedUtc"] = datetime.now(timezone.utc).isoformat()

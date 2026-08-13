@@ -25,6 +25,11 @@ REQUIRED_CATALOG_IDS = {
     "projectile-impact-orientation",
 }
 
+REQUIRED_CATALOG_ASSERTIONS = {
+    "movement-direction", "resolved-frame", "mirror",
+    "animation-progress", "pixel-direction",
+}
+
 
 def cell_key(cell: dict[str, object]) -> str:
     return "|".join(str(cell[field]).lower() for field in KEY_FIELDS)
@@ -58,6 +63,12 @@ def load_specification(path: Path) -> dict[str, object]:
             raise ValueError(f"coverage catalog lacks evidence: {entry.get('id')}")
         if status == "excluded" and not entry.get("reason"):
             raise ValueError(f"coverage exclusion lacks reason: {entry.get('id')}")
+    assertions = set(value.get("requiredCatalogAssertions", []))
+    if assertions != REQUIRED_CATALOG_ASSERTIONS:
+        raise ValueError(
+            "coverage catalog assertions must be exactly: " +
+            ", ".join(sorted(REQUIRED_CATALOG_ASSERTIONS))
+        )
     return value
 
 
@@ -94,11 +105,20 @@ def evaluate_coverage(
     observed: dict[str, dict[str, object]] = {}
     failures: list[int] = []
     blockers: list[int] = []
+    catalog_observed: dict[str, set[str]] = {}
     for index, record in enumerate(oracle_records):
         if record.get("verdict") == "FAIL":
             failures.append(index)
         elif record.get("verdict") == "BLOCKED":
             blockers.append(index)
+        if record.get("verdict") == "PASS":
+            assertions = {
+                str(value) for value in record.get("assertions", [])
+            }
+            for catalog_id in record.get("catalogIds", []):
+                catalog_observed.setdefault(str(catalog_id), set()).update(
+                    assertions
+                )
         normalized = {
             "peer": record.get("peer"),
             "owner": record.get("owner"),
@@ -134,8 +154,31 @@ def evaluate_coverage(
         if sample_count < minimum:
             missing.append({**cell, "sampleCount": sample_count,
                             "requiredSampleCount": minimum})
+    required_assertions = set(
+        specification.get("requiredCatalogAssertions", [])
+    )
+    missing_catalog_assertions = []
+    catalog_coverage = []
+    for entry in specification.get("unitActionCatalog", []):
+        if entry.get("status") != "required":
+            continue
+        identifier = str(entry["id"])
+        observed_assertions = catalog_observed.get(identifier, set())
+        absent = sorted(required_assertions - observed_assertions)
+        catalog_coverage.append({
+            "id": identifier,
+            "observedAssertions": sorted(observed_assertions),
+            "missingAssertions": absent,
+            "evidence": entry.get("evidence"),
+        })
+        if absent:
+            missing_catalog_assertions.append({
+                "id": identifier, "missingAssertions": absent,
+            })
     status = (
-        "FAIL" if failures else "BLOCKED" if blockers or missing else "PASS"
+        "FAIL" if failures else "BLOCKED" if (
+            blockers or missing or missing_catalog_assertions
+        ) else "PASS"
     )
     return {
         "schemaVersion": 1,
@@ -145,6 +188,8 @@ def evaluate_coverage(
         "requiredCells": required,
         "cells": observed,
         "missingRequiredCells": missing,
+        "catalogCoverage": catalog_coverage,
+        "missingCatalogAssertions": missing_catalog_assertions,
         "failedOracleRecordIndexes": failures,
         "blockedOracleRecordIndexes": blockers,
         "exclusions": specification.get("exclusions", []),

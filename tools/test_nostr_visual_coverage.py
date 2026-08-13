@@ -37,6 +37,19 @@ def record(peer, direction, tick, verdict="PASS"):
     }
 
 
+def catalog_specification():
+    value = specification()
+    value["requiredCatalogAssertions"] = [
+        "movement-direction", "resolved-frame", "mirror",
+        "animation-progress", "pixel-direction",
+    ]
+    value["unitActionCatalog"] = [{
+        "id": "villager-empty-moving", "status": "required",
+        "evidence": "fixture",
+    }]
+    return value
+
+
 class VisualCoverageTests(unittest.TestCase):
     def test_real_catalog_covers_every_required_unit_action_category(self):
         value = load_specification(
@@ -91,6 +104,37 @@ class VisualCoverageTests(unittest.TestCase):
         result = evaluate_coverage(specification(), records)
         self.assertEqual(result["status"], "FAIL")
         self.assertEqual(len(result["failedOracleRecordIndexes"]), 1)
+
+    def test_missing_catalog_assertions_block_even_when_cells_complete(self):
+        records = [
+            record(peer, direction, tick)
+            for peer in ("host", "join")
+            for direction in range(8)
+            for tick in range(3)
+        ]
+        result = evaluate_coverage(catalog_specification(), records)
+        self.assertEqual(result["status"], "BLOCKED")
+        self.assertEqual(result["missingCatalogAssertions"][0]["id"],
+                         "villager-empty-moving")
+
+    def test_catalog_pass_requires_every_assertion(self):
+        records = [
+            record(peer, direction, tick)
+            for peer in ("host", "join")
+            for direction in range(8)
+            for tick in range(3)
+        ]
+        records.append({
+            "verdict": "PASS",
+            "catalogIds": ["villager-empty-moving"],
+            "assertions": [
+                "movement-direction", "resolved-frame", "mirror",
+                "animation-progress", "pixel-direction",
+            ],
+        })
+        result = evaluate_coverage(catalog_specification(), records)
+        self.assertEqual(result["status"], "PASS")
+        self.assertFalse(result["missingCatalogAssertions"])
 
 
 if __name__ == "__main__":

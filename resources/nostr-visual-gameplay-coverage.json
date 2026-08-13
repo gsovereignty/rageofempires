@@ -1,6 +1,13 @@
 {
   "schemaVersion": 1,
   "minimumSamplesPerCell": 3,
+  "requiredCatalogAssertions": [
+    "movement-direction",
+    "resolved-frame",
+    "mirror",
+    "animation-progress",
+    "pixel-direction"
+  ],
   "requiredMatrices": [
     {
       "name": "two-peer-two-owner-villager-movement",

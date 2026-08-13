@@ -2191,7 +2191,7 @@ def run(relays: str | None, headed: bool, port: int = 8888,
             # a distinct Red command through the same visible canvas path.
             red_before_games = [game_diagnostics(driver) or {}
                                 for driver in (host, join)]
-            red_before = [owned_unit_positions(game, 1)
+            red_before = [owned_villager_positions(game, 1)
                           for game in red_before_games]
             if red_before[0] != red_before[1] or not red_before[0]:
                 raise Failure(f"peers lack matching red unit: {red_before}")

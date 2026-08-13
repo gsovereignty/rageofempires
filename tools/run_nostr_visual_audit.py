@@ -49,6 +49,15 @@ def latest_attempt(root: Path) -> Path | None:
         if candidates else None
 
 
+def retained_path(path: Path | None) -> str | None:
+    if path is None:
+        return None
+    try:
+        return str(path.relative_to(ROOT))
+    except ValueError:
+        return str(path)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--relays")
@@ -60,6 +69,7 @@ def main() -> int:
     parser.add_argument("--viewport", type=parse_viewport, default=(1280, 900))
     parser.add_argument("--dpr", type=float, choices=(1.0, 2.0), default=1.0)
     parser.add_argument("--zoom", type=float, choices=(1.0, 2.0), default=1.0)
+    parser.add_argument("--browser-argument", action="append", default=[])
     parser.add_argument("--audit-root", type=Path, default=AUDIT_ROOT)
     parser.add_argument("--report-root", type=Path, default=AUDIT_REPORT_ROOT)
     arguments = parser.parse_args()
@@ -74,6 +84,8 @@ def main() -> int:
         port=arguments.port, seed=arguments.seed,
         retry_budget=arguments.retry_budget,
         viewport=arguments.viewport, dpr=arguments.dpr,
+        browser_arguments=arguments.browser_argument,
+        zoom=arguments.zoom,
     )
     probe = probe_relay_pool(configured)
     atomic_write_json(destination.artifacts / "relay-probe.json", probe)
@@ -107,6 +119,8 @@ def main() -> int:
             command.append("--headed")
         if arguments.checkpoint:
             command.append("--checkpoint")
+        for browser_argument in arguments.browser_argument:
+            command.append(f"--browser-argument={browser_argument}")
         completed = subprocess.run(command, cwd=ROOT, check=False)
         attempt_path = latest_attempt(attempt_root)
         verdict_path = attempt_path / "verdict.json" if attempt_path else None
@@ -120,8 +134,7 @@ def main() -> int:
             "quorum": quorum,
             "exitCode": completed.returncode,
             "status": status,
-            "artifactPath": str(attempt_path.relative_to(ROOT))
-                if attempt_path else None,
+            "artifactPath": retained_path(attempt_path),
         })
         final_status = status
         if status in {"PASS", "FAIL"}:

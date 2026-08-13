@@ -184,6 +184,8 @@ def initialize_run_ledger(
     retry_budget: int,
     viewport: tuple[int, int] = (1280, 900),
     dpr: float = 1.0,
+    browser_arguments: list[str] | None = None,
+    zoom: float = 1.0,
 ) -> None:
     def ledger_path(path: Path) -> str:
         try:
@@ -212,7 +214,8 @@ def initialize_run_ledger(
         "sourceCommit": commit,
         "packageSha256": package_digests,
         "browser": {"name": "chrome", "headed": headed,
-                    "versions": "captured after driver creation"},
+                    "versions": "captured after driver creation",
+                    "arguments": list(browser_arguments or [])},
         "scenario": "packaged Nostr multiplayer production scenario",
         "seed": seed,
         "hostPublicKey": "pending product identity initialization",
@@ -224,6 +227,7 @@ def initialize_run_ledger(
         "serverPort": port,
         "viewport": {"width": viewport[0], "height": viewport[1]},
         "dpr": dpr,
+        "zoom": zoom,
         "capture": {
             "renderTelemetry": True,
             "correlatedScreenshots": True,
@@ -2094,6 +2098,36 @@ def launch(driver, base_url: str, mode: str, relays: str | None,
     return Journey(driver, base_url, {})
 
 
+def browser_renderer_diagnostics(driver) -> dict[str, object]:
+    """Read actual production-canvas WebGL identity without changing it."""
+    value = driver.execute_script("""
+        const canvas = Module.canvas || document.getElementById('canvas');
+        const gl = canvas && (
+          canvas.getContext('webgl2') || canvas.getContext('webgl')
+        );
+        if (!gl) return {available: false};
+        const extension = gl.getExtension('WEBGL_debug_renderer_info');
+        return {
+          available: true,
+          contextVersion: gl.getParameter(gl.VERSION),
+          shadingLanguageVersion: gl.getParameter(
+            gl.SHADING_LANGUAGE_VERSION
+          ),
+          vendor: gl.getParameter(gl.VENDOR),
+          renderer: gl.getParameter(gl.RENDERER),
+          unmaskedVendor: extension ? gl.getParameter(
+            extension.UNMASKED_VENDOR_WEBGL
+          ) : null,
+          unmaskedRenderer: extension ? gl.getParameter(
+            extension.UNMASKED_RENDERER_WEBGL
+          ) : null,
+        };
+    """)
+    if not isinstance(value, dict) or not value.get("available"):
+        raise Failure("production canvas has no WebGL renderer diagnostics")
+    return value
+
+
 def capture_browser_overlap(
     driver, root: Path, peer: str, *,
     virtual_root: str = "/audit-overlap",
@@ -2496,7 +2530,8 @@ def run(relays: str | None, headed: bool, port: int = 8888,
         artifact_dir: Path | None = None,
         seed: int = 0xA0E20260812,
         viewport: tuple[int, int] = (1280, 900),
-        dpr: float = 1.0, zoom: float = 1.0) -> dict[str, object]:
+        dpr: float = 1.0, zoom: float = 1.0,
+        browser_arguments: list[str] | None = None) -> dict[str, object]:
     if artifact_dir is None:
         artifact_dir = allocate_audit_directory()
     if not (DIST / "aoe_web.html").exists():
@@ -2516,8 +2551,8 @@ def run(relays: str | None, headed: bool, port: int = 8888,
         coverage_specification, [], seed
     )
     actions = evidence["actions"]
-    host = make_driver("chrome", headed)
-    join = make_driver("chrome", headed)
+    host = make_driver("chrome", headed, browser_arguments)
+    join = make_driver("chrome", headed, browser_arguments)
     for driver in (host, join):
         if not hasattr(driver, "execute_cdp_cmd"):
             raise Failure("display emulation requires Chrome CDP")
@@ -2531,12 +2566,15 @@ def run(relays: str | None, headed: bool, port: int = 8888,
     evidence["browser"] = {
         "host": host.capabilities,
         "join": join.capabilities,
+        "arguments": list(browser_arguments or []),
     }
     with static_server(port) as (base_url, requests):
         host_journey: Journey | None = None
         join_journey: Journey | None = None
         try:
             host_journey = launch(host, base_url, "host", relays)
+            evidence["browser"]["hostRenderer"] = \
+                browser_renderer_diagnostics(host)
             active_relays = str(
                 host.find_element(By.ID, "relays").get_attribute("value") or ""
             )
@@ -2553,6 +2591,8 @@ def run(relays: str | None, headed: bool, port: int = 8888,
             join_journey = launch(
                 join, base_url, "join", active_relays, reference
             )
+            evidence["browser"]["joinRenderer"] = \
+                browser_renderer_diagnostics(join)
             require_quorum(join, "join")
             evidence.setdefault("overlapEvidence", {})["join"] = \
                 capture_browser_overlap(join, artifact_dir, "join")
@@ -3245,6 +3285,10 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
         ROOT / "tools/nostr_packaged_pixel_oracle.py",
         ROOT / "tools/nostr_slp_decoder.py",
         ROOT / "tools/nostr_visual_coverage.py",
+        ROOT / "tools/nostr_visual_transition_oracle.py",
+        ROOT / "tools/nostr_seeded_action_generator.py",
+        ROOT / "tools/run_nostr_visual_audit.py",
+        ROOT / "tools/run_nostr_visual_display_matrix.py",
         ROOT / "resources/nostr-visual-gameplay-coverage.json",
     ]
     source_digests = {
@@ -3595,6 +3639,7 @@ def main() -> int:
     parser.add_argument("--viewport", type=parse_viewport, default=(1280, 900))
     parser.add_argument("--dpr", type=float, choices=(1.0, 2.0), default=1.0)
     parser.add_argument("--zoom", type=float, choices=(1.0, 2.0), default=1.0)
+    parser.add_argument("--browser-argument", action="append", default=[])
     arguments = parser.parse_args()
     destination = allocate_audit_destination(
         arguments.audit_root, arguments.report_root
@@ -3610,6 +3655,8 @@ def main() -> int:
         retry_budget=arguments.retry_budget,
         viewport=arguments.viewport,
         dpr=arguments.dpr,
+        browser_arguments=arguments.browser_argument,
+        zoom=arguments.zoom,
     )
     try:
         configured_relays = (
@@ -3637,6 +3684,7 @@ def main() -> int:
             viewport=arguments.viewport,
             dpr=arguments.dpr,
             zoom=arguments.zoom,
+            browser_arguments=arguments.browser_argument,
         )
         evidence_path.write_text(
             json.dumps(evidence, indent=2, sort_keys=True) + "\n",

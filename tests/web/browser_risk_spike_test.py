@@ -83,13 +83,18 @@ def static_server(port: int = 0) -> tuple[str, list[dict[str, object]]]:
         thread.join(timeout=5)
 
 
-def make_driver(browser: str, headed: bool) -> webdriver.Remote:
+def make_driver(
+    browser: str, headed: bool,
+    browser_arguments: list[str] | None = None,
+) -> webdriver.Remote:
     if browser == "chrome":
         options = webdriver.ChromeOptions()
         if not headed:
             options.add_argument("--headless=new")
         options.add_argument("--window-size=1280,900")
         options.add_argument("--autoplay-policy=user-gesture-required")
+        for argument in browser_arguments or []:
+            options.add_argument(argument)
         options.set_capability("goog:loggingPrefs", {"browser": "ALL"})
         return webdriver.Chrome(options=options)
     if browser == "firefox":

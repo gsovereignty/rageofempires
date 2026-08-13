@@ -128,6 +128,7 @@ audit-nostr-oracles:
 		tools/test_nostr_seeded_action_generator.py \
 		tools/test_audit_multiplayer_screenshots.py \
 		tools/test_run_nostr_visual_audit.py \
+		tools/test_run_nostr_visual_display_matrix.py \
 		tests/web/test_nostr_multiplayer_audit_tools.py; do \
 		"$(NOSTR_AUDIT_PYTHON)" "$$test_file" || exit $$?; \
 	done
@@ -135,15 +136,10 @@ audit-nostr-oracles:
 ci-nostr-visual-per-change: build web-tests audit-nostr-oracles
 
 ci-nostr-visual-display-matrix: web-build
-	@for display_case in "1280x900 1 1" "1440x900 1 1" \
-		"1000x1000 1 1" "1280x900 2 1" "1280x900 1 2"; do \
-		set -- $$display_case; \
-		"$(NOSTR_AUDIT_PYTHON)" tools/run_nostr_visual_audit.py \
-			--port "$(NOSTR_AUDIT_PORT)" --viewport "$$1" --dpr "$$2" \
-			--zoom "$$3" \
-			$(if $(NOSTR_AUDIT_RELAYS),--relays "$(NOSTR_AUDIT_RELAYS)",) \
-			$(NOSTR_AUDIT_ARGS) || exit $$?; \
-	done
+	@"$(NOSTR_AUDIT_PYTHON)" tools/run_nostr_visual_display_matrix.py \
+		--port "$(NOSTR_AUDIT_PORT)" \
+		$(if $(NOSTR_AUDIT_RELAYS),--relays "$(NOSTR_AUDIT_RELAYS)",) \
+		$(NOSTR_AUDIT_ARGS)
 
 ci-nostr-visual-seeds: web-build
 	@rotating_seed="$$($(NOSTR_AUDIT_PYTHON) \

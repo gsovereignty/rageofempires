@@ -810,7 +810,22 @@ public:
                        << ",\"attackTargetId\":"
                        << unit.attack_target_id
                        << ",\"repairTargetId\":"
-                       << unit.repair_target_id << '}';
+                       << unit.repair_target_id
+                       << ",\"formationGroupId\":"
+                       << unit.formation_group_id
+                       << ",\"formationAnchorX\":"
+                       << unit.formation_anchor.x
+                       << ",\"formationAnchorY\":"
+                       << unit.formation_anchor.y
+                       << ",\"formationSlotX\":"
+                       << unit.formation_slot.x
+                       << ",\"formationSlotY\":"
+                       << unit.formation_slot.y
+                       << ",\"formationWaypointCount\":"
+                       << unit.formation_waypoints.size()
+                       << ",\"waypointCount\":" << unit.waypoints.size()
+                       << ",\"patrolling\":"
+                       << (unit.patrolling ? "true" : "false") << '}';
         }
         units_json << ']';
         std::ostringstream buildings_json;

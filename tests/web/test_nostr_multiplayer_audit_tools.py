@@ -12,6 +12,7 @@ from unittest.mock import patch
 from PIL import Image
 
 from nostr_multiplayer_smoke_test import (
+    CDP_SHIFT_MODIFIER,
     Failure,
     allocate_audit_destination,
     analyze_render_samples,
@@ -20,8 +21,10 @@ from nostr_multiplayer_smoke_test import (
     banked_resource_increased,
     capture_failure_value,
     capture_browser_overlap,
+    click_canvas_logical,
     canonical_direction_route,
     canonical_transition_routes,
+    catalog_ids_for_entity,
     collapse_match_details,
     diagnostics,
     initialize_run_ledger,
@@ -160,6 +163,27 @@ def gathering_sample(*, amount: int = 100, include_resource: bool = True):
 
 
 class AuditedInputTests(unittest.TestCase):
+    def test_shift_click_uses_cdp_shift_bit(self):
+        class Canvas:
+            rect = {"x": 0, "y": 0, "width": 1280, "height": 720}
+
+        class Driver:
+            def __init__(self):
+                self.events = []
+
+            def find_element(self, *_):
+                return Canvas()
+
+            def execute_cdp_cmd(self, name, event):
+                self.events.append((name, event))
+
+        driver = Driver()
+        click_canvas_logical(
+            driver, 100, 200, modifiers=CDP_SHIFT_MODIFIER
+        )
+        self.assertEqual([event[1]["modifiers"] for event in driver.events],
+                         [8, 8])
+
     def test_replayable_action_stream_retains_order_and_relative_timing(self):
         actions = [
             {"monotonic": 10.0, "kind": "key", "telemetryTick": 4},
@@ -422,6 +446,19 @@ class FailureEvidenceTests(unittest.TestCase):
 
 
 class RenderOracleTests(unittest.TestCase):
+    def test_formation_and_patrol_catalog_use_authoritative_fields(self):
+        self.assertEqual(
+            catalog_ids_for_entity({
+                "category": "unit-militia", "action": "moving",
+                "formationGroupId": 9, "patrolling": True,
+                "attackMoving": True,
+            }),
+            [
+                "attack-movement", "formation", "infantry-before-upgrade",
+                "patrol",
+            ],
+        )
+
     def test_canonical_route_covers_all_directions_and_closes(self):
         route = canonical_direction_route((20, 16), radius=4)
         self.assertEqual(route[0], route[-1])

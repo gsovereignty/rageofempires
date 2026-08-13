@@ -6988,6 +6988,21 @@ std::string browser_render_telemetry_json(
                       )
                    << "\",\"animationState\":"
                    << static_cast<int>(unit->animation_state)
+                   << ",\"formationGroupId\":"
+                   << unit->formation_group_id
+                   << ",\"formationAnchor\":{\"x\":"
+                   << unit->formation_anchor.x << ",\"y\":"
+                   << unit->formation_anchor.y << "}"
+                   << ",\"formationSlot\":{\"x\":"
+                   << unit->formation_slot.x << ",\"y\":"
+                   << unit->formation_slot.y << "}"
+                   << ",\"formationWaypointCount\":"
+                   << unit->formation_waypoints.size()
+                   << ",\"waypointCount\":" << unit->waypoints.size()
+                   << ",\"patrolling\":"
+                   << (unit->patrolling ? "true" : "false")
+                   << ",\"attackMoving\":"
+                   << (unit->attack_moving ? "true" : "false")
                    << "";
         } else if (capture.kind.starts_with("building-") ||
                    capture.kind.starts_with("remembered-building-")) {

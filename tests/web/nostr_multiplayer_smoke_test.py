@@ -61,6 +61,7 @@ ROOT = Path(__file__).resolve().parents[2]
 AUDIT_ROOT = ROOT / "artifacts" / "nostr-e2e-visual"
 AUDIT_REPORT_ROOT = ROOT / "docs" / "audits"
 WAIT_SECONDS = 180.0
+CDP_SHIFT_MODIFIER = 8
 DEFAULT_RELAYS = (
     "wss://nostr-pub.wellorder.net", "wss://nostr.oxtr.dev",
     "wss://nostr.bond", "wss://relay.nostr.net", "wss://yabu.me",
@@ -708,6 +709,12 @@ def catalog_ids_for_entity(entity: dict[str, object]) -> list[str]:
     for state in ("patrol", "chase", "flee", "formation"):
         if action == state or detail == state:
             result.add(state)
+    if int(entity.get("formationGroupId", 0)) != 0:
+        result.add("formation")
+    if bool(entity.get("patrolling", False)):
+        result.add("patrol")
+    if bool(entity.get("attackMoving", False)):
+        result.add("attack-movement")
     if action in {"attack_moving", "attack-moving"} or detail in {
         "attack_moving", "attack-moving",
     }:
@@ -1067,7 +1074,9 @@ def exercise_transition_routes(
                 )
                 audited_world_pointer(
                     journey, driver, actions, actor, *destination,
-                    modifiers=0 if step_index == 1 else 1,
+                    modifiers=(
+                        0 if step_index == 1 else CDP_SHIFT_MODIFIER
+                    ),
                 )
                 step_records.append({
                     "step": step_index,
@@ -1119,6 +1128,120 @@ def exercise_transition_routes(
     return {
         "actor": actor, "owner": owner, "unitId": unit_id,
         "routes": routes,
+    }
+
+
+def exercise_formation_route(
+    journey: Journey, driver, actor: str, owner: int,
+    host, join, actions: list[dict[str, object]], artifact_dir: Path,
+    center: tuple[int, int],
+) -> dict[str, object]:
+    """Move two units through normal multi-selection and prove regrouping."""
+    games = wait_until(
+        f"{actor} formation synchronized state",
+        lambda: matching_games(host, join), timeout=WAIT_SECONDS,
+    )
+    candidates = owned_villager_positions(games[0], owner)
+    if len(candidates) < 2:
+        raise Failure(f"{actor} formation needs two owned villagers")
+    selected = sorted(
+        candidates,
+        key=lambda unit_id: (
+            abs(candidates[unit_id][0] - center[0]) +
+            abs(candidates[unit_id][1] - center[1]), unit_id,
+        ),
+    )[:2]
+    for index, unit_id in enumerate(selected):
+        position = candidates[unit_id]
+        center_camera_for_tile(journey, driver, actions, actor, *position)
+        audited_world_pointer(
+            journey, driver, actions, actor, *position, button=0,
+            modifiers=0 if index == 0 else CDP_SHIFT_MODIFIER,
+        )
+    wait_until(
+        f"{actor} two-unit formation selection",
+        lambda: True if int(journey.telemetry().get(
+            "selectedUnitCount", 0
+        )) == 2 else None,
+    )
+    destination = (center[0] + 4, center[1] + 4)
+    center_camera_for_tile(journey, driver, actions, actor, *destination)
+    audited_world_pointer(
+        journey, driver, actions, actor, *destination,
+    )
+
+    frames: list[dict[str, object]] = []
+    formation_observations: list[dict[str, object]] = []
+    movement_seen = False
+    settled_polls = 0
+    deadline = time.monotonic() + WAIT_SECONDS
+    while time.monotonic() < deadline:
+        frames.extend(capture_correlated_frames(
+            host, join, seconds=0.15, artifact_dir=artifact_dir,
+            label=f"{actor}-formation-regroup", maximum_samples=4,
+        ))
+        games = matching_games(host, join)
+        if games is None:
+            continue
+        peer_units = []
+        for game in games:
+            by_id = {
+                int(unit["id"]): unit for unit in game.get("units", [])
+                if isinstance(unit, dict) and int(unit.get("id", -1)) in selected
+            }
+            if len(by_id) != 2:
+                raise Failure(f"{actor} formation unit disappeared")
+            peer_units.append(by_id)
+        fields = (
+            "x", "y", "moving", "formationGroupId", "formationAnchorX",
+            "formationAnchorY", "formationSlotX", "formationSlotY",
+            "formationWaypointCount",
+        )
+        for unit_id in selected:
+            if any(field not in peer_units[0][unit_id] for field in fields):
+                raise Failure("formation diagnostics missing production fields")
+            if any(peer_units[0][unit_id][field] !=
+                   peer_units[1][unit_id][field] for field in fields):
+                raise Failure(f"formation peer divergence unit {unit_id}")
+        units = [peer_units[0][unit_id] for unit_id in selected]
+        moving = any(bool(unit["moving"]) for unit in units)
+        movement_seen = movement_seen or moving
+        group_ids = {int(unit["formationGroupId"]) for unit in units}
+        if group_ids != {0}:
+            if len(group_ids) != 1:
+                raise Failure("formation members use different group IDs")
+            anchors = {(int(unit["formationAnchorX"]),
+                        int(unit["formationAnchorY"])) for unit in units}
+            slots = {(int(unit["formationSlotX"]),
+                      int(unit["formationSlotY"])) for unit in units}
+            if len(anchors) != 1 or len(slots) != 2:
+                raise Failure("formation anchor/slots contradict regrouping")
+            formation_observations.append({
+                "tick": games[0].get("currentTick"),
+                "groupId": next(iter(group_ids)),
+                "anchor": list(next(iter(anchors))),
+                "slots": [list(slot) for slot in sorted(slots)],
+            })
+        if movement_seen and not moving:
+            settled_polls += 1
+            if settled_polls >= 2:
+                break
+        else:
+            settled_polls = 0
+    if not movement_seen:
+        raise Failure(f"{actor} formation never moved")
+    if not formation_observations:
+        raise Failure(f"{actor} formation group was never authoritative")
+    if settled_polls < 2:
+        raise Failure(f"{actor} formation did not regroup and settle")
+    return {
+        "actor": actor, "owner": owner, "unitIds": selected,
+        "destination": {"x": destination[0], "y": destination[1]},
+        "formationObservations": formation_observations,
+        "frameCount": len(frames), "frames": frames,
+        "renderOracle": analyze_render_samples_for_audit(
+            frames, f"{actor}-formation-regroup"
+        ),
     }
 
 
@@ -2913,6 +3036,16 @@ def run(relays: str | None, headed: bool, port: int = 8888,
                     observer_journey, observer_driver, observer_actor,
                     host, join, actions, artifact_dir, center,
                 )
+            evidence["formationRoutes"] = {}
+            for owner in owner_order:
+                actor, journey, driver, _, _, _, center = actor_specs[
+                    int(owner)
+                ]
+                evidence["formationRoutes"][actor] = \
+                    exercise_formation_route(
+                        journey, driver, actor, int(owner), host, join,
+                        actions, artifact_dir, center,
+                    )
             key_chord(host, Keys.F8)
             wait_until(
                 "restored normal speed after direction capture",
@@ -3511,6 +3644,17 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
                         "tick": render_state.get("tick"),
                         "entities": render_state.get("entities", []),
                     })
+    formation_routes = evidence.get("formationRoutes") or {}
+    for actor in ("host", "join"):
+        for sample in (formation_routes.get(actor) or {}).get("frames", []):
+            for peer in ("host", "join"):
+                render_state = sample.get(peer) or {}
+                provenance.append({
+                    "phase": f"formation-{actor}", "peer": peer,
+                    "frame": render_state.get("frame"),
+                    "tick": render_state.get("tick"),
+                    "entities": render_state.get("entities", []),
+                })
     for actor in ("host", "join"):
         phase = f"allDirections{actor.title()}"
         for sample in (all_directions.get(actor) or {}).get("frames", []):
@@ -3557,6 +3701,10 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
                 correlated_records.append({
                     "phase": f"transition-{actor}-{route_name}", **sample,
                 })
+        for sample in (formation_routes.get(actor) or {}).get("frames", []):
+            correlated_records.append({
+                "phase": f"formation-{actor}", **sample,
+            })
     for actor in ("host", "join"):
         phase = f"allDirections{actor.title()}"
         for sample in (all_directions.get(actor) or {}).get("frames", []):

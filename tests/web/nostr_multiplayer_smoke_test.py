@@ -1051,7 +1051,7 @@ def select_route_unit_at_current_position(
         # Camera movement consumes real simulation time. Re-read authoritative
         # position after panning; never click position retained before camera
         # setup while selected unit may still be completing an earlier order.
-        games = matching_games(host, join)
+        games = synchronized_stopped_games()
         if games is None:
             continue
         positions = [owned_unit_positions(game, owner) for game in games]
@@ -1893,29 +1893,44 @@ def exercise_obstacle_detour_route(
     obstacle: tuple[int, int],
 ) -> dict[str, object]:
     """Command straight through a known House and prove path detours it."""
-    games = wait_until(
-        f"{actor} obstacle synchronized state",
-        lambda: matching_games(host, join), timeout=WAIT_SECONDS,
-    )
-    current = owned_unit_positions(games[0], owner).get(unit_id)
-    if current is None:
-        raise Failure(f"{actor} obstacle route unit missing")
-    center_camera_for_tile(journey, driver, actions, actor, *current)
-    audited_world_pointer(
-        journey, driver, actions, actor, *current, button=0
-    )
-    center_camera_for_tile(journey, driver, actions, actor, *start)
-    audited_world_pointer(journey, driver, actions, actor, *start)
-    approach = capture_until_arrival(
-        host, join, owner=owner, unit_id=unit_id, destination=start,
-        artifact_dir=artifact_dir, label=f"{actor}-obstacle-approach",
-    )
-    center_camera_for_tile(journey, driver, actions, actor, *destination)
-    audited_world_pointer(journey, driver, actions, actor, *destination)
-    frames = capture_until_arrival(
-        host, join, owner=owner, unit_id=unit_id, destination=destination,
-        artifact_dir=artifact_dir, label=f"{actor}-obstacle-detour",
-    )
+    command_misses: dict[str, list[dict[str, object]]] = {
+        "approach": [], "detour": [],
+    }
+
+    def command_with_retries(
+        target: tuple[int, int], phase: str,
+    ) -> list[dict[str, object]]:
+        for command_attempt in range(3):
+            current = select_route_unit_at_current_position(
+                journey, driver, actor, owner, unit_id,
+                host, join, actions,
+            )
+            center_camera_for_tile(journey, driver, actions, actor, *target)
+            audited_world_pointer(journey, driver, actions, actor, *target)
+            try:
+                return capture_until_arrival(
+                    host, join, owner=owner, unit_id=unit_id,
+                    destination=target, artifact_dir=artifact_dir,
+                    label=(
+                        f"{actor}-obstacle-{phase}"
+                        f"-attempt-{command_attempt + 1}"
+                    ),
+                )
+            except InfrastructureBlocked as error:
+                if "BLOCKED_COMMAND_ABSENT" not in str(error):
+                    raise
+                command_misses[phase].append({
+                    "attempt": command_attempt + 1,
+                    "current": {"x": current[0], "y": current[1]},
+                    "destination": {"x": target[0], "y": target[1]},
+                    "error": str(error),
+                })
+                if command_attempt == 2:
+                    raise
+        raise AssertionError("bounded obstacle command loop did not return")
+
+    approach = command_with_retries(start, "approach")
+    frames = command_with_retries(destination, "detour")
     positions: list[tuple[int, int]] = []
     for sample in frames:
         game = sample.get("authoritativeHost") or {}
@@ -1936,6 +1951,7 @@ def exercise_obstacle_detour_route(
         "start": {"x": start[0], "y": start[1]},
         "destination": {"x": destination[0], "y": destination[1]},
         "obstacle": {"kind": "house", "x": obstacle[0], "y": obstacle[1]},
+        "commandMisses": command_misses,
         "approachFrameCount": len(approach),
         "authoritativePositions": [
             {"x": value[0], "y": value[1]} for value in positions

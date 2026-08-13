@@ -301,3 +301,24 @@ attempt. Fresh production verification is required.
 Evidence:
 `artifacts/browser-multiplayer-audits/20260813T220000Z-harness-restart-7/`.
 Cleanup completed: port 8904 is free and descriptors returned to baseline 5.
+
+## Muted production resume — `20260814T000000Z-muted-resume`
+
+**BLOCKED with no confirmed product bug.** All browser parents carried
+`--mute-audio`; preflight and per-attempt failure records preserve command-line
+proof. Attempt 3 completed both three-lap all-direction sweeps, crossed join
+quantization step 8, and entered host transition routes. This production run
+verifies CBMB-20260813-R7-01 and CBMB-20260813-R8-01 across both peers.
+
+Attempt 1 stopped on queued unit 1 to `(20,12)`. Attempts 2 and 3 reproduced
+unit 10 to `(34,13)` absence in the obstacle-detour approach. Direct traceback
+and source inspection prove CBMB-20260813-R9-01: obstacle approach and detour
+each issued one command outside all bounded recovery logic. Both phases now
+reselect synchronized stopped state and retry up to three times while retaining
+miss records. Exact lower-layer causes of the absent commands remain
+undetermined; no product bug is classified.
+
+Evidence:
+`artifacts/browser-multiplayer-audits/20260814T000000Z-muted-resume/`.
+Cleanup completed: port 8906 is free, owned runtime exited, and descriptors
+returned to baseline 5.

@@ -1011,6 +1011,47 @@ def capture_until_arrival(
     )
 
 
+def record_command_boundary(
+    artifact_dir: Path, *, phase: str, attempt: int, outcome: str,
+    actor: str, owner: int, unit_id: int,
+    destination: tuple[int, int], action: object,
+    host, join, error: str | None = None,
+) -> None:
+    """Durably correlate visible input with production transport state."""
+    peers: dict[str, object] = {}
+    for name, driver in (("host", host), ("join", join)):
+        state = diagnostics(driver) or {}
+        game = state.get("game") or {}
+        peers[name] = {
+            "currentTick": game.get("currentTick"),
+            "stateHash": game.get("stateHash"),
+            "blueContiguous": game.get("blueContiguous"),
+            "redContiguous": game.get("redContiguous"),
+            "blueMissing": game.get("blueMissing"),
+            "redMissing": game.get("redMissing"),
+            "reliabilityStatus": game.get("reliabilityStatus"),
+            "reliabilityReason": game.get("reliabilityReason"),
+            "recentPublications": state.get("recentPublications", []),
+            "recentSubscriptionMessages": state.get(
+                "recentSubscriptionMessages", []
+            ),
+        }
+    record = {
+        "monotonic": time.monotonic(), "phase": phase,
+        "attempt": attempt, "outcome": outcome, "actor": actor,
+        "owner": owner, "unitId": unit_id,
+        "destination": {"x": destination[0], "y": destination[1]},
+        "action": action, "peers": peers,
+    }
+    if error is not None:
+        record["error"] = error
+    path = artifact_dir / "command-boundaries.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as stream:
+        stream.write(json.dumps(record, sort_keys=True) + "\n")
+        stream.flush()
+
+
 def select_route_unit_at_current_position(
     journey: Journey, driver, actor: str, owner: int, unit_id: int,
     host, join, actions: list[dict[str, object]],
@@ -1376,6 +1417,13 @@ def exercise_transition_routes(
                 audited_world_pointer(
                     journey, driver, actions, actor, center[0], center[1]
                 )
+                action = dict(actions[-1])
+                record_command_boundary(
+                    artifact_dir, phase=f"transition-{route_name}-reset",
+                    attempt=reset_attempt + 1, outcome="dispatched",
+                    actor=actor, owner=owner, unit_id=unit_id,
+                    destination=center, action=action, host=host, join=join,
+                )
                 try:
                     capture_until_arrival(
                         host, join, owner=owner, unit_id=unit_id,
@@ -1385,8 +1433,24 @@ def exercise_transition_routes(
                             f"-attempt-{reset_attempt + 1}"
                         ),
                     )
+                    record_command_boundary(
+                        artifact_dir,
+                        phase=f"transition-{route_name}-reset",
+                        attempt=reset_attempt + 1, outcome="accepted",
+                        actor=actor, owner=owner, unit_id=unit_id,
+                        destination=center, action=action,
+                        host=host, join=join,
+                    )
                     break
                 except InfrastructureBlocked as error:
+                    record_command_boundary(
+                        artifact_dir,
+                        phase=f"transition-{route_name}-reset",
+                        attempt=reset_attempt + 1, outcome="absent",
+                        actor=actor, owner=owner, unit_id=unit_id,
+                        destination=center, action=action,
+                        host=host, join=join, error=str(error),
+                    )
                     if "BLOCKED_COMMAND_ABSENT" not in str(error):
                         raise
                     reset_command_misses.append({
@@ -1402,6 +1466,7 @@ def exercise_transition_routes(
         if route_name == "queued-waypoints":
             command_misses: list[dict[str, object]] = []
             for command_attempt in range(3):
+                action_start = len(actions)
                 current = select_route_unit_at_current_position(
                     journey, driver, actor, owner, unit_id,
                     host, join, actions,
@@ -1433,6 +1498,17 @@ def exercise_transition_routes(
                         },
                         "queued": True,
                     })
+                queued_actions = [
+                    dict(value) for value in actions[action_start:]
+                    if value.get("kind") == "world-pointer"
+                ]
+                record_command_boundary(
+                    artifact_dir, phase=f"transition-{route_name}",
+                    attempt=command_attempt + 1, outcome="dispatched",
+                    actor=actor, owner=owner, unit_id=unit_id,
+                    destination=points[-1], action=queued_actions,
+                    host=host, join=join,
+                )
                 try:
                     frames = capture_until_arrival(
                         host, join, owner=owner, unit_id=unit_id,
@@ -1443,8 +1519,22 @@ def exercise_transition_routes(
                         ),
                     )
                     route_frames.extend(frames)
+                    record_command_boundary(
+                        artifact_dir, phase=f"transition-{route_name}",
+                        attempt=command_attempt + 1, outcome="accepted",
+                        actor=actor, owner=owner, unit_id=unit_id,
+                        destination=points[-1], action=queued_actions,
+                        host=host, join=join,
+                    )
                     break
                 except InfrastructureBlocked as error:
+                    record_command_boundary(
+                        artifact_dir, phase=f"transition-{route_name}",
+                        attempt=command_attempt + 1, outcome="absent",
+                        actor=actor, owner=owner, unit_id=unit_id,
+                        destination=points[-1], action=queued_actions,
+                        host=host, join=join, error=str(error),
+                    )
                     if "BLOCKED_COMMAND_ABSENT" not in str(error):
                         raise
                     command_misses.append({
@@ -1488,6 +1578,14 @@ def exercise_transition_routes(
                     audited_world_pointer(
                         journey, driver, actions, actor, *destination
                     )
+                    action = dict(actions[-1])
+                    record_command_boundary(
+                        artifact_dir, phase=f"transition-{route_name}",
+                        attempt=command_attempt + 1, outcome="dispatched",
+                        actor=actor, owner=owner, unit_id=unit_id,
+                        destination=destination, action=action,
+                        host=host, join=join,
+                    )
                     try:
                         frames = capture_until_arrival(
                             host, join, owner=owner, unit_id=unit_id,
@@ -1497,8 +1595,22 @@ def exercise_transition_routes(
                                 f"-attempt-{command_attempt + 1}"
                             ),
                         )
+                        record_command_boundary(
+                            artifact_dir, phase=f"transition-{route_name}",
+                            attempt=command_attempt + 1, outcome="accepted",
+                            actor=actor, owner=owner, unit_id=unit_id,
+                            destination=destination, action=action,
+                            host=host, join=join,
+                        )
                         break
                     except InfrastructureBlocked as error:
+                        record_command_boundary(
+                            artifact_dir, phase=f"transition-{route_name}",
+                            attempt=command_attempt + 1, outcome="absent",
+                            actor=actor, owner=owner, unit_id=unit_id,
+                            destination=destination, action=action,
+                            host=host, join=join, error=str(error),
+                        )
                         if "BLOCKED_COMMAND_ABSENT" not in str(error):
                             raise
                         command_misses.append({
@@ -1907,8 +2019,15 @@ def exercise_obstacle_detour_route(
             )
             center_camera_for_tile(journey, driver, actions, actor, *target)
             audited_world_pointer(journey, driver, actions, actor, *target)
+            action = dict(actions[-1])
+            record_command_boundary(
+                artifact_dir, phase=f"obstacle-{phase}",
+                attempt=command_attempt + 1, outcome="dispatched",
+                actor=actor, owner=owner, unit_id=unit_id,
+                destination=target, action=action, host=host, join=join,
+            )
             try:
-                return capture_until_arrival(
+                frames = capture_until_arrival(
                     host, join, owner=owner, unit_id=unit_id,
                     destination=target, artifact_dir=artifact_dir,
                     label=(

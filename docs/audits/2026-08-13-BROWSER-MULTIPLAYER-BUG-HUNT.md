@@ -322,3 +322,30 @@ Evidence:
 `artifacts/browser-multiplayer-audits/20260814T000000Z-muted-resume/`.
 Cleanup completed: port 8906 is free, owned runtime exited, and descriptors
 returned to baseline 5.
+
+## Obstacle-retry restart — `20260814T013000Z-obstacle-retry`
+
+**BLOCKED with no confirmed product bug.** Attempts 1 and 2 exercised three
+transition-reset attempts before unit 10 to `(28,12)` remained absent. Attempt
+3 crossed that boundary and exercised three obstacle-detour attempts before
+unit 10 to `(40,13)` remained absent. This production-verifies bounded reset
+and obstacle retry invocation; first-miss termination no longer caused either
+stop.
+
+Focused sync diagnosis found equal peer ticks and hashes, empty missing ranges,
+healthy reliability, and nine precisely logged pointer retries. First unproved
+boundary is semantic command construction. Failed route-local `commandMisses`
+were lost when exceptions unwound, `transport.jsonl` contained no recovery
+phase, and retained publication/subscription windows lacked action correlation.
+CBMB-20260813-R10-01 therefore blocked exact classification.
+
+Harness now appends `command-boundaries.jsonl` before and after every reset,
+queued, ordinary transition, and obstacle retry. Each durable record correlates
+pointer action, phase, attempt, destination, peer tick/hash/sequence/missing
+ranges, reliability, recent publications, subscription messages, outcome, and
+error. Records flush before propagation, so persistent failures remain
+diagnosable. Fresh production verification is required.
+
+Evidence:
+`artifacts/browser-multiplayer-audits/20260814T013000Z-obstacle-retry/`.
+Cleanup completed: port 8907 is free and descriptors returned to baseline 5.

@@ -2465,6 +2465,141 @@ def banked_resource_increased(
     return value if value > initial else None
 
 
+def exercise_resource_lifetime(
+    journey: Journey, driver, actor: str, owner: int,
+    observer_journey: Journey, observer_driver, observer_actor: str,
+    host, join, actions: list[dict[str, object]], artifact_dir: Path | None,
+    resource: str, resource_tile: tuple[int, int], gatherer_id: int | None,
+) -> dict[str, object]:
+    """Capture one real gather, cargo-return, and deposit lifetime."""
+    initial = int(journey.telemetry()["resources"][resource])
+    center_camera_for_tile(
+        journey, driver, actions, actor, *resource_tile
+    )
+    center_camera_for_tile(
+        observer_journey, observer_driver, actions, observer_actor,
+        *resource_tile,
+    )
+    if gatherer_id is None:
+        route_unit_tile = (20, 12) if owner == 0 else (28, 12)
+        audited_world_pointer(
+            journey, driver, actions, actor, *route_unit_tile, button=0,
+        )
+        wait_until(
+            f"{actor} route villager selection for {resource}",
+            lambda: int(journey.telemetry().get("selectedUnit", 0)) or None,
+        )
+        gatherer_id = int(journey.telemetry()["selectedUnit"])
+    else:
+        games = wait_until(
+            f"{actor} {resource} gatherer lockstep",
+            lambda: matching_games(host, join), timeout=WAIT_SECONDS,
+        )
+        gatherer = next(
+            (unit for unit in games[0].get("units", [])
+             if int(unit.get("id", -1)) == gatherer_id), None
+        )
+        if not isinstance(gatherer, dict):
+            raise Failure(f"{actor} {resource} gatherer disappeared")
+        audited_world_pointer(
+            journey, driver, actions, actor,
+            int(gatherer["x"]), int(gatherer["y"]), button=0,
+        )
+        wait_until(
+            f"{actor} villager selection for {resource}",
+            lambda: gatherer_id if int(journey.telemetry().get(
+                "selectedUnit", 0
+            )) == gatherer_id else None,
+        )
+    audited_world_pointer(
+        journey, driver, actions, actor, *resource_tile,
+    )
+    frames: list[dict[str, object]] = []
+    gather_pixel: dict[str, object] | None = None
+    return_pixel: dict[str, object] | None = None
+    gathered = None
+    deadline = time.monotonic() + WAIT_SECONDS * 3
+    while time.monotonic() < deadline:
+        frames.extend(capture_correlated_frames(
+            host, join, seconds=0.2, artifact_dir=artifact_dir,
+            label=f"{actor}-gather-{resource}", maximum_samples=4,
+        ))
+        render_states = [render_diagnostics(value) or {}
+                         for value in (host, join)]
+        entities = [
+            next((entity for entity in state.get("entities", [])
+                  if isinstance(entity, dict) and
+                  int(entity.get("id", -1)) == gatherer_id), None)
+            for state in render_states
+        ]
+        if all(isinstance(entity, dict) for entity in entities):
+            if entities[0].get("action") != entities[1].get("action"):
+                raise Failure(f"{actor} {resource} render action diverged")
+            if (gather_pixel is None and
+                    all(entity.get("action") == "gathering"
+                        for entity in entities)):
+                positions = []
+                for entity in entities:
+                    current = entity.get("simulationPosition")
+                    target = entity.get("resourceTarget")
+                    if not isinstance(current, dict) or not isinstance(
+                        target, dict
+                    ):
+                        positions = []
+                        break
+                    positions.append((
+                        (int(current["x"]), int(current["y"])),
+                        (int(target["x"]), int(target["y"])),
+                    ))
+                if len(positions) == 2 and positions[0] == positions[1]:
+                    gather_pixel = capture_catalog_semantic_pixels(
+                        host, join, artifact_dir,
+                        f"{actor}-gather-{resource}-semantic", gatherer_id,
+                        owner=owner, unit_kind="unit-villager",
+                        action="gathering",
+                        catalog_ids=["villager-gathering"],
+                        phase=f"{actor}-gather-{resource}",
+                        direction_positions=positions[0],
+                    )
+            if (return_pixel is None and all(
+                bool(entity.get("returningResource")) and
+                bool(entity.get("moving")) and
+                str(entity.get("carriedResource", "")).lower() == resource
+                for entity in entities
+            )):
+                return_pixel = capture_catalog_semantic_pixels(
+                    host, join, artifact_dir,
+                    f"{actor}-return-{resource}-semantic", gatherer_id,
+                    owner=owner, unit_kind="unit-villager",
+                    action="returning", catalog_ids=[
+                        "villager-returning", f"villager-carrying-{resource}",
+                    ], phase=f"{actor}-return-{resource}",
+                )
+        gathered = banked_resource_increased(
+            journey.telemetry(), resource, initial
+        )
+        if gathered is not None:
+            break
+    if gathered is None:
+        raise Failure(f"{actor} did not gather and bank {resource}")
+    if gather_pixel is None or return_pixel is None:
+        raise Failure(
+            f"{actor} {resource} lifetime lacked gather/return pixel proof"
+        )
+    return {
+        "resource": resource,
+        "initial": initial,
+        "banked": int(gathered),
+        "gathererId": gatherer_id,
+        "frames": frames,
+        "gatherPixelCapture": gather_pixel,
+        "returnPixelCapture": return_pixel,
+        "renderOracle": analyze_render_samples_for_audit(
+            frames, f"{actor}-gather-{resource}"
+        ),
+    }
+
+
 def selectable_military_id(
     selected_unit: int,
     military_ids: set[int],
@@ -2490,101 +2625,24 @@ def prepare_player_for_full_match(
     actions: list[dict[str, object]],
     artifact_dir: Path | None = None,
 ) -> dict[str, object]:
-    telemetry = journey.telemetry()
-    initial_gold = int(telemetry["resources"]["gold"])
-    resource_tile = (7, 10) if owner == 0 else (40, 10)
-    center_camera_for_tile(
-        journey, driver, actions, actor, *resource_tile
-    )
-    center_camera_for_tile(
-        observer_journey, observer_driver, actions, observer_actor,
-        *resource_tile,
-    )
-    route_unit_tile = (20, 12) if owner == 0 else (28, 12)
-    audited_world_pointer(
-        journey, driver, actions, actor, *route_unit_tile, button=0,
-    )
-    wait_until(
-        f"{actor} route villager selection for gathering",
-        lambda: int(journey.telemetry().get("selectedUnit", 0)) or None,
-    )
-    gatherer_id = int(journey.telemetry()["selectedUnit"])
-    audited_world_pointer(
-        journey, driver, actions, actor, *resource_tile,
-    )
-    gather_frames: list[dict[str, object]] = []
-    gather_pixel: dict[str, object] | None = None
-    return_pixel: dict[str, object] | None = None
-    gathered = None
-    deadline = time.monotonic() + WAIT_SECONDS * 3
-    while time.monotonic() < deadline:
-        gather_frames.extend(capture_correlated_frames(
-            host, join, seconds=0.2, artifact_dir=artifact_dir,
-            label=f"{actor}-gather", maximum_samples=4,
-        ))
-        render_states = [render_diagnostics(value) or {}
-                         for value in (host, join)]
-        entities = [
-            next((entity for entity in state.get("entities", [])
-                  if isinstance(entity, dict) and
-                  int(entity.get("id", -1)) == gatherer_id), None)
-            for state in render_states
-        ]
-        if all(isinstance(entity, dict) for entity in entities):
-            host_entity, join_entity = entities
-            if host_entity.get("action") != join_entity.get("action"):
-                raise Failure(f"{actor} gather render action diverged")
-            if (gather_pixel is None and
-                    all(entity.get("action") == "gathering"
-                        for entity in entities)):
-                positions = []
-                for entity in entities:
-                    current = entity.get("simulationPosition")
-                    target = entity.get("resourceTarget")
-                    if not isinstance(current, dict) or not isinstance(
-                        target, dict
-                    ):
-                        positions = []
-                        break
-                    positions.append((
-                        (int(current["x"]), int(current["y"])),
-                        (int(target["x"]), int(target["y"])),
-                    ))
-                if len(positions) == 2 and positions[0] == positions[1]:
-                    gather_pixel = capture_catalog_semantic_pixels(
-                        host, join, artifact_dir,
-                        f"{actor}-gather-gold-semantic", gatherer_id,
-                        owner=owner, unit_kind="unit-villager",
-                        action="gathering",
-                        catalog_ids=["villager-gathering"],
-                        phase=f"{actor}-gather-gold",
-                        direction_positions=positions[0],
-                    )
-            if (return_pixel is None and
-                    all(bool(entity.get("returningResource")) and
-                        bool(entity.get("moving")) for entity in entities)):
-                return_pixel = capture_catalog_semantic_pixels(
-                    host, join, artifact_dir,
-                    f"{actor}-return-gold-semantic", gatherer_id,
-                    owner=owner, unit_kind="unit-villager",
-                    action="returning", catalog_ids=[
-                        "villager-returning", "villager-carrying-gold",
-                    ], phase=f"{actor}-return-gold",
-                )
-        gathered = banked_resource_increased(
-            journey.telemetry(), "gold", initial_gold
+    resource_tiles = ({
+        "gold": (7, 10), "food": (2, 29),
+        "wood": (5, 29), "stone": (10, 29),
+    } if owner == 0 else {
+        "gold": (40, 10), "food": (45, 2),
+        "wood": (42, 2), "stone": (37, 2),
+    })
+    resource_lifetimes: dict[str, dict[str, object]] = {}
+    gatherer_id: int | None = None
+    for resource in ("gold", "food", "wood", "stone"):
+        lifetime = exercise_resource_lifetime(
+            journey, driver, actor, owner,
+            observer_journey, observer_driver, observer_actor,
+            host, join, actions, artifact_dir,
+            resource, resource_tiles[resource], gatherer_id,
         )
-        if gathered is not None:
-            break
-    if gathered is None:
-        raise Failure(f"{actor} did not gather and bank gold")
-    if gather_pixel is None or return_pixel is None:
-        raise Failure(
-            f"{actor} gather lifetime lacked gather/return pixel proof"
-        )
-    gather_oracle = analyze_render_samples_for_audit(
-        gather_frames, f"{actor}-gather"
-    )
+        resource_lifetimes[resource] = lifetime
+        gatherer_id = int(lifetime["gathererId"])
 
     select_barracks_through_footprint(
         journey, driver, actions, actor
@@ -2847,12 +2905,17 @@ def prepare_player_for_full_match(
     )
     return {
         "owner": owner,
-        "initialGold": initial_gold,
-        "gatheredGold": int(gathered),
-        "gatherFrames": gather_frames,
-        "gatherPixelCapture": gather_pixel,
-        "returnPixelCapture": return_pixel,
-        "gatherRenderOracle": gather_oracle,
+        "initialGold": int(resource_lifetimes["gold"]["initial"]),
+        "gatheredGold": int(resource_lifetimes["gold"]["banked"]),
+        "resourceLifetimes": resource_lifetimes,
+        "gatherFrames": resource_lifetimes["gold"]["frames"],
+        "gatherPixelCapture": resource_lifetimes["gold"][
+            "gatherPixelCapture"
+        ],
+        "returnPixelCapture": resource_lifetimes["gold"][
+            "returnPixelCapture"
+        ],
+        "gatherRenderOracle": resource_lifetimes["gold"]["renderOracle"],
         "constructedBuildingIds": sorted(constructed_ids),
         "constructionFrames": construction_frames,
         "constructionPixelCapture": construction_pixel,
@@ -4602,11 +4665,18 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
                 })
     full_gameplay = evidence.get("fullGameplay") or {}
     combat = full_gameplay.get("combat") or {}
-    gather_phases = {
-        f"fullGameplay{actor.title()}Gather":
-            (full_gameplay.get(actor) or {}).get("gatherFrames", [])
-        for actor in ("host", "join")
-    }
+    gather_phases: dict[str, list[dict[str, object]]] = {}
+    for actor in ("host", "join"):
+        player = full_gameplay.get(actor) or {}
+        lifetimes = player.get("resourceLifetimes") or {}
+        if lifetimes:
+            for resource, lifetime in lifetimes.items():
+                gather_phases[
+                    f"fullGameplay{actor.title()}Gather{resource.title()}"
+                ] = (lifetime or {}).get("frames", [])
+        else:
+            gather_phases[f"fullGameplay{actor.title()}Gather"] = \
+                player.get("gatherFrames", [])
     work_phases = dict(gather_phases)
     for actor in ("host", "join"):
         player = full_gameplay.get(actor) or {}

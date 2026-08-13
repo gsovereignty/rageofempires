@@ -19,6 +19,13 @@ terrain gold 7 11
 terrain gold 40 10
 terrain gold 41 10
 terrain gold 40 11
+# Dedicated cargo-return fixtures near each player's Town Center.
+terrain berries 2 29
+terrain forest 5 29
+terrain stone 10 29
+terrain berries 45 2
+terrain forest 42 2
+terrain stone 37 2
 unit villager 0 20 16 stance passive
 unit villager 0 19 15 stance passive
 unit villager 0 18 16 stance passive

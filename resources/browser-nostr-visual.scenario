@@ -53,8 +53,8 @@ building barracks 1 31 5
 building house 1 42 10
 building house 1 37 13
 # Passive Red cavalry expose Blue's route without attacking its subject.
-unit scout_cavalry 1 27 16 stance passive
-unit scout_cavalry 1 27 20 stance passive
+unit scout_cavalry 1 27 15 stance passive
+unit scout_cavalry 1 27 21 stance passive
 unit scout_cavalry 1 20 27 stance passive
 unit scout_cavalry 1 16 27 stance passive
 unit scout_cavalry 1 9 20 stance passive

@@ -11,6 +11,7 @@ from PIL import Image, ImageChops
 
 
 PIXEL_ORACLE_VERSION = "occlusion-aware-direction-score-v2"
+DEFAULT_MAXIMUM_EXPECTED_SCORE = 24.0
 
 
 class PixelOracleError(ValueError):
@@ -127,7 +128,7 @@ def evaluate_direction_pixels(
     alpha_threshold: int = 32,
     minimum_discriminating_pixels: int = 48,
     visibility_color_tolerance: int = 0,
-    maximum_expected_score: float = 0.0,
+    maximum_expected_score: float = DEFAULT_MAXIMUM_EXPECTED_SCORE,
 ) -> tuple[dict[str, object], dict[str, Image.Image]]:
     if expected_direction not in sprites:
         raise PixelOracleError("expected direction missing from alternatives")

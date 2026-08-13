@@ -1141,6 +1141,19 @@ def exercise_transition_routes(
         route_frames: list[dict[str, object]] = []
         step_records: list[dict[str, object]] = []
         if route_name == "queued-waypoints":
+            current = points[0]
+            center_camera_for_tile(
+                journey, driver, actions, actor, *current
+            )
+            audited_world_pointer(
+                journey, driver, actions, actor, *current, button=0,
+            )
+            wait_until(
+                f"{actor} queued route unit {unit_id} selection",
+                lambda: unit_id if int(
+                    journey.telemetry().get("selectedUnit", 0)
+                ) == unit_id else None,
+            )
             for step_index, destination in enumerate(points[1:], 1):
                 center_camera_for_tile(
                     journey, driver, actions, actor, *destination
@@ -1167,12 +1180,32 @@ def exercise_transition_routes(
                 record["frameCount"] = len(route_frames)
         else:
             for step_index, destination in enumerate(points[1:], 1):
+                current = owned_unit_positions(
+                    wait_until(
+                        f"{actor} {route_name} step synchronized state",
+                        lambda: matching_games(host, join),
+                        timeout=WAIT_SECONDS,
+                    )[0], owner,
+                ).get(unit_id)
+                if current is None:
+                    raise Failure(
+                        f"{actor} {route_name} unit {unit_id} disappeared"
+                    )
                 center_camera_for_tile(
                     journey, driver, actions, actor, *destination
                 )
                 center_camera_for_tile(
                     observer_journey, observer_driver, actions, observer_actor,
                     destination[0] + 1, destination[1],
+                )
+                audited_world_pointer(
+                    journey, driver, actions, actor, *current, button=0,
+                )
+                wait_until(
+                    f"{actor} {route_name} unit {unit_id} selection",
+                    lambda: unit_id if int(
+                        journey.telemetry().get("selectedUnit", 0)
+                    ) == unit_id else None,
                 )
                 audited_world_pointer(
                     journey, driver, actions, actor, *destination
@@ -1896,12 +1929,16 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
                             counts[
                                 "blockingUnresolvedExpectedMappings"
                             ].append(unresolved)
-                    actual_resources = {
-                        layer.get("resourceId")
-                        for layer in entity.get("layers", [])
-                    }
+                    # Coverage metadata names canonical body alternatives.
+                    # Buildings may submit legitimate damage/ambient overlay
+                    # layers after that body. Prove the primary production
+                    # draw uses a canonical body; validate every extra layer
+                    # through its own draw telemetry and peer comparison below.
+                    primary_resource = entity.get("layers", [])[0].get(
+                        "resourceId"
+                    )
                     if (expected_resources and
-                            not actual_resources.issubset(expected_resources)):
+                            primary_resource not in expected_resources):
                         raise Failure(
                             f"rendered asset violates mapping: {entity}"
                         )

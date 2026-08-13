@@ -932,6 +932,23 @@ class RenderOracleTests(unittest.TestCase):
         with self.assertRaisesRegex(Failure, "client asset divergence"):
             analyze_render_samples([value])
 
+    def test_accepts_composite_overlay_after_canonical_primary_body(self):
+        value = sample(1, 10.0)
+        for peer in ("host", "join"):
+            entity = value[peer]["entities"][0]
+            entity["category"] = "building-house"
+            entity["layers"].append({"resourceId": 429, "frame": 3})
+        self.assertEqual(analyze_render_samples([value])["frames"], 1)
+
+    def test_rejects_unexpected_composite_primary_body(self):
+        value = sample(1, 10.0)
+        for peer in ("host", "join"):
+            entity = value[peer]["entities"][0]
+            entity["layers"][0]["resourceId"] = 999
+            entity["layers"].append({"resourceId": 1479, "frame": 1})
+        with self.assertRaisesRegex(Failure, "violates mapping"):
+            analyze_render_samples([value])
+
     def test_records_non_renderable_mapping_without_stopping_match(self):
         value = sample(1, 10.0)
         value["host"]["entities"][0]["expectedAssetStatus"] = "missing_mapping"

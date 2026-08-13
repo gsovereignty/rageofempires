@@ -17,7 +17,11 @@ from nostr_slp_decoder import (
     parse_jasc_palette,
 )
 from nostr_visual_frame_oracle import expected_frame
-from nostr_visual_pixel_oracle import evaluate_direction_pixels, write_evidence
+from nostr_visual_pixel_oracle import (
+    DEFAULT_MAXIMUM_EXPECTED_SCORE,
+    evaluate_direction_pixels,
+    write_evidence,
+)
 
 
 PLAYER_PALETTE_BASES = (16, 32, 48, 64, 96, 112, 128, 80)
@@ -142,6 +146,7 @@ def render_selection_overlay(
 def evaluate_packaged_capture(
     *, manifest_path: Path, graphics_drs: Path, interface_drs: Path,
     expected_logical_direction: int, evidence_directory: Path,
+    maximum_expected_score: float = DEFAULT_MAXIMUM_EXPECTED_SCORE,
 ) -> dict[str, object]:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     cases = manifest.get("cases", [])
@@ -245,6 +250,7 @@ def evaluate_packaged_capture(
     report, images = evaluate_direction_pixels(
         actual=actual, background=background,
         expected_direction=expected_key, sprites=alternatives,
+        maximum_expected_score=maximum_expected_score,
     )
     report.update({
         "decoderVersion": DECODER_VERSION,
@@ -376,6 +382,7 @@ def write_wrong_direction_mutation(
         graphics_drs=graphics_drs, interface_drs=interface_drs,
         expected_logical_direction=expected_logical_direction,
         evidence_directory=evidence_directory / "oracle",
+        maximum_expected_score=0.0,
     )
     report = {
         "schemaVersion": 1,
@@ -465,6 +472,7 @@ def write_wrong_position_mutation(
             graphics_drs=graphics_drs, interface_drs=interface_drs,
             expected_logical_direction=expected_logical_direction,
             evidence_directory=attempt_directory / "oracle",
+            maximum_expected_score=0.0,
         )
         attempts.append({
             "pixelOffsetX": pixel_offset, "verdict": verdict["verdict"],

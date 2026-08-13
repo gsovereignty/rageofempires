@@ -107,7 +107,7 @@ audit-nostr-multiplayer: web-build
 		if [ -n "$(NOSTR_AUDIT_RELAYS)" ]; then \
 			relay_args="--relays $(NOSTR_AUDIT_RELAYS)"; \
 		fi; \
-		"$(NOSTR_AUDIT_PYTHON)" tests/web/nostr_multiplayer_smoke_test.py \
+		"$(NOSTR_AUDIT_PYTHON)" tools/run_nostr_visual_audit.py \
 			--port "$(NOSTR_AUDIT_PORT)" \
 			$$relay_args $(NOSTR_AUDIT_ARGS)
 
@@ -123,6 +123,7 @@ audit-nostr-oracles:
 		tools/test_nostr_visual_pixel_oracle.py \
 		tools/test_nostr_visual_coverage.py \
 		tools/test_audit_multiplayer_screenshots.py \
+		tools/test_run_nostr_visual_audit.py \
 		tests/web/test_nostr_multiplayer_audit_tools.py; do \
 		"$(NOSTR_AUDIT_PYTHON)" "$$test_file" || exit $$?; \
 	done

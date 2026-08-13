@@ -372,3 +372,26 @@ Fresh production verification is required.
 Evidence:
 `artifacts/browser-multiplayer-audits/20260814T030000Z-command-boundaries/`.
 Cleanup completed: port 8908 is free and descriptors returned to baseline 5.
+
+## Intent-correlation restart — `20260814T050000Z-intent-correlation`
+
+**BLOCKED with no confirmed product bug.** Both probes retained 256 exact
+intents containing `intent_id` and content. Attempt 1's three obstacle clicks
+and attempt 2's three reset clicks were each preceded by successful visible
+unit reselection. Exact turn batches spanning every retry contained zero new
+semantic actions; stale matching moves were distinguished by intent ID,
+sender sequence, and tick range. Publication, relay, receive/apply, and
+lockstep are excluded for those clicks. The first failed boundary is after
+Selenium pointer dispatch but before local semantic move enqueue.
+
+Source inspection shows another unresolved boundary inside that interval: the
+harness proved CDP dispatch but did not prove DOM canvas receipt or SDL event
+conversion. CBMB-20260813-R12-01 adds a capture-phase canvas observer for
+`pointerdown`, `pointerup`, `mousedown`, `mouseup`, and `contextmenu`, retaining
+button, coordinates, timing, and default-prevention state in boundary and
+failure evidence. It does not alter event propagation. Fresh production
+verification is required before any product classification.
+
+Evidence:
+`artifacts/browser-multiplayer-audits/20260814T050000Z-intent-correlation/`.
+Cleanup completed: port 8909 is free and descriptors returned to baseline 5.

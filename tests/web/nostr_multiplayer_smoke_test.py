@@ -1041,6 +1041,12 @@ def record_command_boundary(
                     "return globalThis.__aoeAuditPublishIntents || []"
                 ),
             ),
+            "canvasPointerEvents": capture_failure_value(
+                f"{name} canvas pointer events",
+                lambda driver=driver: driver.execute_script(
+                    "return globalThis.__aoeAuditCanvasPointerEvents || []"
+                ),
+            ),
         }
     record = {
         "monotonic": time.monotonic(), "phase": phase,
@@ -1079,6 +1085,25 @@ def install_publish_intent_probe(driver) -> None:
           return original.call(this, intent);
         };
         globalThis.__aoeAuditPublishProbeInstalled = true;
+        globalThis.__aoeAuditCanvasPointerEvents = [];
+        const canvas = document.querySelector('canvas');
+        if (!canvas) return false;
+        for (const type of ['pointerdown', 'pointerup', 'mousedown',
+                            'mouseup', 'contextmenu']) {
+          canvas.addEventListener(type, event => {
+            const rect = canvas.getBoundingClientRect();
+            const records = globalThis.__aoeAuditCanvasPointerEvents;
+            records.push({
+              type, button: event.button, buttons: event.buttons,
+              clientX: event.clientX, clientY: event.clientY,
+              canvasX: event.clientX - rect.left,
+              canvasY: event.clientY - rect.top,
+              wallTimeMs: Date.now(), monotonicMs: performance.now(),
+              defaultPrevented: event.defaultPrevented
+            });
+            if (records.length > 512) records.shift();
+          }, true);
+        }
         return true;
     """)
     if not installed:
@@ -5285,6 +5310,20 @@ def run(relays: str | None, headed: bool, port: int = 8888,
                     ),
                     "join": capture_failure_value(
                         "join publish intents", lambda: publish_intent_probe(join)
+                    ),
+                },
+                "canvasPointerEvents": {
+                    "host": capture_failure_value(
+                        "host canvas pointer events",
+                        lambda: host.execute_script(
+                            "return globalThis.__aoeAuditCanvasPointerEvents || []"
+                        ),
+                    ),
+                    "join": capture_failure_value(
+                        "join canvas pointer events",
+                        lambda: join.execute_script(
+                            "return globalThis.__aoeAuditCanvasPointerEvents || []"
+                        ),
                     ),
                 },
                 "requests": list(requests),

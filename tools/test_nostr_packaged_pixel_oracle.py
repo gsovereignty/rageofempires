@@ -163,6 +163,62 @@ class PackagedPixelOracleTests(unittest.TestCase):
             self.assertEqual(report["metadataLogicalDirection"], 0)
             self.assertTrue((root / "mutation/mutation.json").is_file())
 
+    def test_composite_layers_pass_and_one_layer_mutation_fails(self):
+        palette_payload = (
+            "JASC-PAL\n0100\n256\n" +
+            "".join(f"{index} {index // 2} {255 - index}\n"
+                    for index in range(256))
+        ).encode()
+        palette = [(index, index // 2, 255 - index)
+                   for index in range(256)]
+        slp = synthetic_slp()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            graphics = root / "graphics.drs"
+            interface = root / "interfac.drs"
+            graphics.write_bytes(synthetic_drs("slp", 1484, slp))
+            interface.write_bytes(synthetic_drs("bina", 50500, palette_payload))
+            background = Image.new("RGBA", (240, 12), (30, 70, 20, 255))
+            actual = background.copy()
+            draws = []
+            for ground_x in (70, 170):
+                actual.alpha_composite(render_decoded_draw(
+                    canvas_size=background.size, payload=slp,
+                    palette=palette, frame_index=0, legacy_player=0,
+                    ground=(ground_x, 6), zoom=1, flip_horizontal=False,
+                    visible=True,
+                ))
+                draws.append({
+                    "resource_id": 1484, "frame": 0,
+                    "palette_player": 0, "flip_horizontal": False,
+                    "visible": True, "ground": [ground_x, 6],
+                    "action_frame": 0, "frames_per_direction": 1,
+                    "direction_count": 2, "mirroring_mode": 1,
+                    "physical_frame_count": 1, "logical_direction": 0,
+                })
+            actual.save(root / "actual.png")
+            background.save(root / "terrain.png")
+            manifest_path = root / "manifest.json"
+            manifest_path.write_text(json.dumps({"cases": [{
+                "actual": "actual.png", "terrain": "terrain.png",
+                "metadata": {"entity_id": 7, "zoom": 1, "tick": 12,
+                             "sprite_frames": draws},
+            }]}))
+            passed = evaluate_packaged_capture(
+                manifest_path=manifest_path, graphics_drs=graphics,
+                interface_drs=interface, expected_logical_direction=0,
+                evidence_directory=root / "pass",
+            )
+            self.assertEqual(passed["verdict"], "PASS")
+            self.assertEqual(len(passed["actualLayers"]), 2)
+            mutation = write_wrong_direction_mutation(
+                manifest_path=manifest_path, graphics_drs=graphics,
+                interface_drs=interface, expected_logical_direction=0,
+                evidence_directory=root / "mutation",
+            )
+            self.assertEqual(mutation["verdict"], "FAIL")
+            self.assertEqual(mutation["mutatedLayer"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

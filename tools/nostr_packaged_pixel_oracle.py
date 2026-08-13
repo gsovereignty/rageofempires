@@ -93,25 +93,26 @@ def evaluate_packaged_capture(
     case = cases[0]
     metadata = case.get("metadata", {})
     draws = metadata.get("sprite_frames", [])
-    if len(draws) != 1:
-        raise PackagedPixelOracleError(
-            "direction oracle currently requires one captured sprite layer"
-        )
-    draw = draws[0]
+    if not draws:
+        raise PackagedPixelOracleError("direction oracle captured no layers")
     required = (
         "resource_id", "frame", "palette_player", "flip_horizontal",
         "visible", "ground", "action_frame", "frames_per_direction",
         "direction_count", "mirroring_mode", "physical_frame_count",
     )
-    missing = [field for field in required if field not in draw]
-    if missing:
-        raise PackagedPixelOracleError(
-            f"capture draw metadata missing: {', '.join(missing)}"
-        )
-    if int(draw["logical_direction"]) != expected_logical_direction:
-        raise PackagedPixelOracleError(
-            "captured draw changed direction before pixel readback"
-        )
+    for layer_index, draw in enumerate(draws):
+        missing = [field for field in required if field not in draw]
+        if missing:
+            raise PackagedPixelOracleError(
+                f"capture layer {layer_index} metadata missing: " +
+                ", ".join(missing)
+            )
+        if (int(draw["direction_count"]) > 1 and
+                int(draw["logical_direction"]) != expected_logical_direction):
+            raise PackagedPixelOracleError(
+                f"captured layer {layer_index} changed direction before "
+                "pixel readback"
+            )
     root = manifest_path.parent
     with Image.open(root / case["actual"]) as source:
         actual = source.convert("RGBA")
@@ -120,36 +121,65 @@ def evaluate_packaged_capture(
     if actual.size != background.size:
         raise PackagedPixelOracleError("actual and terrain dimensions differ")
 
-    resource_id = int(draw["resource_id"])
-    payload, palette, interface_payload, graphics_digest, interface_digest = \
-        packaged_asset_inputs(graphics_drs, interface_drs, resource_id)
-    direction_count = int(draw["direction_count"])
-    alternatives: dict[str, Image.Image] = {}
-    alternative_frames: dict[str, dict[str, object]] = {}
-    for direction in range(direction_count):
-        resolved = expected_frame(
-            logical_direction_value=direction,
-            action_frame=int(draw["action_frame"]),
-            frames_per_direction=int(draw["frames_per_direction"]),
-            direction_count=direction_count,
-            mirroring_mode=int(draw["mirroring_mode"]),
-            physical_frame_count=int(draw["physical_frame_count"]),
+    directional_counts = {
+        int(draw["direction_count"]) for draw in draws
+        if int(draw["direction_count"]) > 1
+    }
+    if len(directional_counts) != 1:
+        raise PackagedPixelOracleError(
+            "composite directional layers use incompatible direction counts"
         )
-        key = str(direction)
-        alternatives[key] = render_decoded_draw(
-            canvas_size=actual.size, payload=payload, palette=palette,
-            frame_index=resolved.physical_frame,
-            legacy_player=int(draw["palette_player"]),
-            ground=(float(draw["ground"][0]), float(draw["ground"][1])),
-            zoom=float(metadata["zoom"]),
-            flip_horizontal=resolved.flip_horizontal,
-            visible=bool(draw["visible"]),
+    direction_count = next(iter(directional_counts), 1)
+    if not 0 <= expected_logical_direction < direction_count:
+        raise PackagedPixelOracleError("expected direction outside layer range")
+    alternatives = {
+        str(direction): Image.new("RGBA", actual.size, (0, 0, 0, 0))
+        for direction in range(direction_count)
+    }
+    alternative_frames: dict[str, list[dict[str, object]]] = {
+        str(direction): [] for direction in range(direction_count)
+    }
+    asset_inputs: list[dict[str, object]] = []
+    graphics_digest = file_sha256(graphics_drs)
+    interface_digest = file_sha256(interface_drs)
+    interface_payload = drs_resource(interface_drs, "bina", 50500)
+    for layer_index, draw in enumerate(draws):
+        resource_id = int(draw["resource_id"])
+        payload, layer_palette, _, _, _ = packaged_asset_inputs(
+            graphics_drs, interface_drs, resource_id
         )
-        alternative_frames[key] = {
-            "frame": resolved.physical_frame,
-            "storedDirection": resolved.stored_direction,
-            "flipHorizontal": resolved.flip_horizontal,
-        }
+        asset_inputs.append({
+            "layer": layer_index, "resourceId": resource_id,
+            "resourcePayloadSha256": hashlib.sha256(payload).hexdigest(),
+        })
+        layer_direction_count = int(draw["direction_count"])
+        for direction in range(direction_count):
+            layer_direction = direction if layer_direction_count > 1 else 0
+            resolved = expected_frame(
+                logical_direction_value=layer_direction,
+                action_frame=int(draw["action_frame"]),
+                frames_per_direction=int(draw["frames_per_direction"]),
+                direction_count=layer_direction_count,
+                mirroring_mode=int(draw["mirroring_mode"]),
+                physical_frame_count=int(draw["physical_frame_count"]),
+            )
+            key = str(direction)
+            alternatives[key].alpha_composite(render_decoded_draw(
+                canvas_size=actual.size, payload=payload,
+                palette=layer_palette,
+                frame_index=resolved.physical_frame,
+                legacy_player=int(draw["palette_player"]),
+                ground=(float(draw["ground"][0]), float(draw["ground"][1])),
+                zoom=float(metadata["zoom"]),
+                flip_horizontal=resolved.flip_horizontal,
+                visible=bool(draw["visible"]),
+            ))
+            alternative_frames[key].append({
+                "layer": layer_index, "resourceId": resource_id,
+                "frame": resolved.physical_frame,
+                "storedDirection": resolved.stored_direction,
+                "flipHorizontal": resolved.flip_horizontal,
+            })
     expected_key = str(expected_logical_direction)
     report, images = evaluate_direction_pixels(
         actual=actual, background=background,
@@ -161,23 +191,30 @@ def evaluate_packaged_capture(
         "interfaceDrsSha256": interface_digest,
         "paletteResource": 50500,
         "palettePayloadSha256": hashlib.sha256(interface_payload).hexdigest(),
-        "resourceId": resource_id,
-        "actualFrame": int(draw["frame"]),
-        "actualFlipHorizontal": bool(draw["flip_horizontal"]),
+        "resourceId": int(draws[0]["resource_id"]),
+        "actualFrame": int(draws[0]["frame"]),
+        "actualFlipHorizontal": bool(draws[0]["flip_horizontal"]),
+        "actualLayers": [{
+            "layer": index, "resourceId": int(draw["resource_id"]),
+            "frame": int(draw["frame"]),
+            "flipHorizontal": bool(draw["flip_horizontal"]),
+            "drawOrder": draw.get("draw_order"),
+        } for index, draw in enumerate(draws)],
+        "assetInputs": asset_inputs,
         "alternativeFrames": alternative_frames,
-        "destination": draw.get("destination"),
-        "clippedDestination": draw.get("clipped_destination"),
-        "ground": draw["ground"],
+        "destination": draws[0].get("destination"),
+        "clippedDestination": draws[0].get("clipped_destination"),
+        "ground": draws[0]["ground"],
         "zoom": float(metadata["zoom"]),
         "entityId": int(metadata["entity_id"]),
         "tick": int(metadata["tick"]),
         "scenario": metadata.get("scenario"),
         "ownership": int(metadata.get("ownership", -1)),
         "directionCount": direction_count,
-        "framesPerDirection": int(draw["frames_per_direction"]),
-        "physicalFrameCount": int(draw["physical_frame_count"]),
-        "mirroringMode": int(draw["mirroring_mode"]),
-        "actionFrame": int(draw["action_frame"]),
+        "framesPerDirection": int(draws[0]["frames_per_direction"]),
+        "physicalFrameCount": int(draws[0]["physical_frame_count"]),
+        "mirroringMode": int(draws[0]["mirroring_mode"]),
+        "actionFrame": int(draws[0]["action_frame"]),
     })
     return write_evidence(evidence_directory, report, images)
 
@@ -190,11 +227,14 @@ def write_wrong_direction_mutation(
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     case = manifest["cases"][0]
     metadata = case["metadata"]
-    draw = metadata["sprite_frames"][0]
-    resource_id = int(draw["resource_id"])
-    payload, palette, _, _, _ = packaged_asset_inputs(
-        graphics_drs, interface_drs, resource_id
+    draws = metadata["sprite_frames"]
+    mutated_layer = next(
+        (index for index, value in enumerate(draws)
+         if int(value["direction_count"]) > 1), None
     )
+    if mutated_layer is None:
+        raise PackagedPixelOracleError("no directional composite layer")
+    draw = draws[mutated_layer]
     expected = expected_frame(
         logical_direction_value=expected_logical_direction,
         action_frame=int(draw["action_frame"]),
@@ -225,18 +265,37 @@ def write_wrong_direction_mutation(
     root = manifest_path.parent
     with Image.open(root / case["terrain"]) as source:
         background = source.convert("RGBA")
-    wrong_sprite = render_decoded_draw(
-        canvas_size=background.size, payload=payload, palette=palette,
-        frame_index=wrong_frame.physical_frame,
-        legacy_player=int(draw["palette_player"]),
-        ground=(float(draw["ground"][0]), float(draw["ground"][1])),
-        zoom=float(metadata["zoom"]),
-        flip_horizontal=wrong_frame.flip_horizontal,
-        visible=bool(draw["visible"]),
-    )
     evidence_directory.mkdir(parents=True, exist_ok=True)
     mutated_actual = background.copy()
-    mutated_actual.alpha_composite(wrong_sprite)
+    for layer_index, layer in enumerate(draws):
+        resource_id = int(layer["resource_id"])
+        payload, palette, _, _, _ = packaged_asset_inputs(
+            graphics_drs, interface_drs, resource_id
+        )
+        if layer_index == mutated_layer:
+            resolved = wrong_frame
+        else:
+            layer_direction = (
+                expected_logical_direction
+                if int(layer["direction_count"]) > 1 else 0
+            )
+            resolved = expected_frame(
+                logical_direction_value=layer_direction,
+                action_frame=int(layer["action_frame"]),
+                frames_per_direction=int(layer["frames_per_direction"]),
+                direction_count=int(layer["direction_count"]),
+                mirroring_mode=int(layer["mirroring_mode"]),
+                physical_frame_count=int(layer["physical_frame_count"]),
+            )
+        mutated_actual.alpha_composite(render_decoded_draw(
+            canvas_size=background.size, payload=payload, palette=palette,
+            frame_index=resolved.physical_frame,
+            legacy_player=int(layer["palette_player"]),
+            ground=(float(layer["ground"][0]), float(layer["ground"][1])),
+            zoom=float(metadata["zoom"]),
+            flip_horizontal=resolved.flip_horizontal,
+            visible=bool(layer["visible"]),
+        ))
     mutated_actual_path = evidence_directory / "mutated-actual.png"
     mutated_actual.save(mutated_actual_path)
     mutated_manifest = json.loads(json.dumps(manifest))
@@ -261,6 +320,8 @@ def write_wrong_direction_mutation(
         "expectedLogicalDirection": expected_logical_direction,
         "mutatedLogicalDirection": wrong_direction,
         "metadataLogicalDirection": int(draw["logical_direction"]),
+        "mutatedLayer": mutated_layer,
+        "mutatedResourceId": int(draw["resource_id"]),
         "verdict": verdict["verdict"],
         "oracleReport": "oracle/report.json",
         "mutatedActual": mutated_actual_path.name,

@@ -113,11 +113,14 @@ def evaluate_direction_pixels(
     alpha_threshold: int = 32,
     minimum_discriminating_pixels: int = 48,
     visibility_color_tolerance: int = 0,
+    maximum_expected_score: float = 0.0,
 ) -> tuple[dict[str, object], dict[str, Image.Image]]:
     if expected_direction not in sprites:
         raise PixelOracleError("expected direction missing from alternatives")
     if confidence_margin < 0:
         raise PixelOracleError("confidence margin must be non-negative")
+    if maximum_expected_score < 0:
+        raise PixelOracleError("maximum expected score must be non-negative")
     direction_mask = discriminating_mask(sprites, alpha_threshold)
     mask = observable_mask(
         actual, sprites, direction_mask,
@@ -145,7 +148,9 @@ def evaluate_direction_pixels(
     if discriminating_pixels < minimum_discriminating_pixels:
         verdict = "BLOCKED"
         blocker = "insufficient discriminating pixels"
-    elif best_direction != expected_direction or margin < confidence_margin:
+    elif (best_direction != expected_direction or
+          margin < confidence_margin or
+          expected_score > maximum_expected_score):
         verdict = "FAIL"
         blocker = None
     else:
@@ -167,6 +172,7 @@ def evaluate_direction_pixels(
         "runnerUpScore": runner_up_score,
         "confidenceMargin": margin,
         "requiredConfidenceMargin": confidence_margin,
+        "maximumExpectedScore": maximum_expected_score,
         "discriminatingPixels": discriminating_pixels,
         "minimumDiscriminatingPixels": minimum_discriminating_pixels,
         "alphaThreshold": alpha_threshold,

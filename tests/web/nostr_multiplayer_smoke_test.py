@@ -3179,7 +3179,10 @@ def capture_catalog_semantic_pixels(
             ),
             "transitionKind": "authoritative-step",
             "catalogIds": catalog_ids,
-            "assertions": ["pixel-direction"],
+            "assertions": [
+                "movement-direction", "resolved-frame", "mirror",
+                "pixel-direction",
+            ],
         })
     capture["visualOracles"] = visual_oracles
     return capture

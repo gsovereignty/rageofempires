@@ -2164,7 +2164,8 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
             host_entity = host_entities[key]
             join_entity = join_entities[key]
             for field in ("source", "facing", "action", "actionDetail",
-                          "animationState", "hasResourceTarget",
+                          "animationState", "previousPosition",
+                          "simulationPosition", "hasResourceTarget",
                           "returningResource", "resourceTarget",
                           "resourceTargetInMap", "resourceTargetKind",
                           "resourceTargetExists", "resourceTargetAmount",

@@ -6813,7 +6813,13 @@ std::string browser_render_telemetry_json(
                     effect.total_ticks - effect.ticks_remaining, 0
                 ) * 2;
                 expected_asset = resolve_unit_asset(state, effect.kind);
-                output << ",\"animationState\":\"dying\"";
+                output << ",\"animationState\":\"dying\""
+                       << ",\"previousPosition\":{\"x\":"
+                       << effect.previous_position.x << ",\"y\":"
+                       << effect.previous_position.y << "}"
+                       << ",\"simulationPosition\":{\"x\":"
+                       << effect.position.x << ",\"y\":"
+                       << effect.position.y << "}";
             }
         } else if (capture.kind.starts_with("building-rubble-")) {
             const auto found = rubble_by_id.find(capture.entity);
@@ -6860,7 +6866,13 @@ std::string browser_render_telemetry_json(
                     output << ",\"mappingBlocker\":"
                            << "\"commercial projectile asset contract\"";
                 }
-                output << ",\"animationState\":\"flying\"";
+                output << ",\"animationState\":\"flying\""
+                       << ",\"previousPosition\":{\"x\":"
+                       << projectile.origin.x << ",\"y\":"
+                       << projectile.origin.y << "}"
+                       << ",\"simulationPosition\":{\"x\":"
+                       << projectile.destination.x << ",\"y\":"
+                       << projectile.destination.y << "}";
             }
         } else if (capture.kind.starts_with("impact-")) {
             const auto found = impacts_by_id.find(capture.entity);

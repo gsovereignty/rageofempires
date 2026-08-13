@@ -676,6 +676,34 @@ class RenderOracleTests(unittest.TestCase):
         self.assertEqual(result["offscreenEntities"], 2)
         self.assertEqual(result["unprovenSources"], 0)
 
+    def test_accepts_actual_selection_overlay_submission(self):
+        value = sample(1, 10.0)
+        for peer in ("host", "join"):
+            entity = value[peer]["entities"][0]
+            entity["layers"][0]["drawOrder"] = 3
+            entity["selectionOverlay"] = {
+                "center": {"x": 10.0, "y": 21.0},
+                "halfWidth": 15.0, "halfHeight": 6.3,
+                "color": {"r": 250, "g": 220, "b": 65, "a": 255},
+                "shadowDrawOrder": 4, "markerDrawOrder": 5,
+            }
+        result = analyze_render_samples([value])
+        self.assertEqual(result["selectionOverlayAssertions"], 2)
+
+    def test_rejects_selection_overlay_at_wrong_position(self):
+        value = sample(1, 10.0)
+        for peer in ("host", "join"):
+            entity = value[peer]["entities"][0]
+            entity["layers"][0]["drawOrder"] = 3
+            entity["selectionOverlay"] = {
+                "center": {"x": 14.0, "y": 21.0},
+                "halfWidth": 15.0, "halfHeight": 6.3,
+                "color": {"r": 250, "g": 220, "b": 65, "a": 255},
+                "shadowDrawOrder": 4, "markerDrawOrder": 5,
+            }
+        with self.assertRaisesRegex(Failure, "selection overlay draw mismatch"):
+            analyze_render_samples([value])
+
     def test_rejects_non_monotonic_frames(self):
         with self.assertRaisesRegex(Failure, "non-monotonic"):
             analyze_render_samples([sample(2, 10.0), sample(2, 11.0)])

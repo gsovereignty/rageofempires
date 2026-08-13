@@ -1092,6 +1092,15 @@ struct OverlapCaptureDraw {
     std::size_t physical_frame_count{};
 };
 
+struct SelectionOverlayDraw {
+    SDL_FPoint center{};
+    float half_width{};
+    float half_height{};
+    SDL_Color color{};
+    std::uint64_t shadow_draw_order{};
+    std::uint64_t marker_draw_order{};
+};
+
 struct OverlapCaptureCase {
     std::string id;
     std::string kind;
@@ -1102,6 +1111,7 @@ struct OverlapCaptureCase {
     int expected_left{};
     int expected_top{};
     std::vector<OverlapCaptureDraw> draws;
+    std::optional<SelectionOverlayDraw> selection_overlay;
 };
 
 struct OverlapCaptureState {
@@ -6678,7 +6688,8 @@ void begin_overlap_case(
         identifier << "tick-" << active_overlap_capture.tick << '-'
                    << kind << '-' << entity;
         active_overlap_capture.cases.push_back({
-            identifier.str(), kind, entity, state, facing, owner, 0, 0, {}
+            identifier.str(), kind, entity, state, facing, owner, 0, 0, {},
+            std::nullopt
         });
         active_overlap_capture.current = &active_overlap_capture.cases.back();
     }
@@ -6688,7 +6699,7 @@ void begin_overlap_case(
                    << shared_kind << '-' << entity;
         active_browser_render_capture.cases.push_back({
             identifier.str(), shared_kind, entity, shared_state, facing,
-            owner, 0, 0, {}
+            owner, 0, 0, {}, std::nullopt
         });
         active_browser_render_capture.current =
             &active_browser_render_capture.cases.back();
@@ -7200,7 +7211,27 @@ std::string browser_render_telemetry_json(
             }
             output << '}';
         }
-        output << "]}";
+        output << ']';
+        if (capture.selection_overlay) {
+            const SelectionOverlayDraw& selection =
+                *capture.selection_overlay;
+            output << ",\"selectionOverlay\":{\"center\":{\"x\":"
+                   << selection.center.x << ",\"y\":"
+                   << selection.center.y << "},\"halfWidth\":"
+                   << selection.half_width << ",\"halfHeight\":"
+                   << selection.half_height << ",\"color\":{\"r\":"
+                   << static_cast<int>(selection.color.r) << ",\"g\":"
+                   << static_cast<int>(selection.color.g) << ",\"b\":"
+                   << static_cast<int>(selection.color.b) << ",\"a\":"
+                   << static_cast<int>(selection.color.a)
+                   << "},\"shadowDrawOrder\":"
+                   << selection.shadow_draw_order
+                   << ",\"markerDrawOrder\":"
+                   << selection.marker_draw_order << '}';
+        } else {
+            output << ",\"selectionOverlay\":null";
+        }
+        output << '}';
     }
     output << "]}";
     return output.str();
@@ -7339,7 +7370,26 @@ void write_overlap_manifest(const Simulation& simulation) {
                << ",\"civilization\":\""
                << name(simulation.civilization(owner)) << "\""
                << ",\"age\":" << static_cast<int>(simulation.age(owner))
-               << ",\"sprite_frames\":[";
+               << ",\"selection_overlay\":";
+        if (capture.selection_overlay) {
+            const SelectionOverlayDraw& selection =
+                *capture.selection_overlay;
+            output << "{\"center\":[" << selection.center.x << ','
+                   << selection.center.y << "],\"half_width\":"
+                   << selection.half_width << ",\"half_height\":"
+                   << selection.half_height << ",\"color\":["
+                   << static_cast<int>(selection.color.r) << ','
+                   << static_cast<int>(selection.color.g) << ','
+                   << static_cast<int>(selection.color.b) << ','
+                   << static_cast<int>(selection.color.a)
+                   << "],\"shadow_draw_order\":"
+                   << selection.shadow_draw_order
+                   << ",\"marker_draw_order\":"
+                   << selection.marker_draw_order << '}';
+        } else {
+            output << "null";
+        }
+        output << ",\"sprite_frames\":[";
         for (std::size_t draw_index = 0;
              draw_index < capture.draws.size(); ++draw_index) {
             const LegacySprite& sprite = *capture.draws[draw_index].sprite;
@@ -8322,6 +8372,21 @@ void outline_unit_selection(
         tile_top_position.x,
         tile_top_position.y + half_tile_height + 1.0F,
     };
+    const SelectionOverlayDraw selection_draw{
+        center,
+        half_width,
+        half_height,
+        color,
+        active_browser_render_capture.draw_order++,
+        active_browser_render_capture.draw_order++,
+    };
+    if (active_overlap_capture.current != nullptr) {
+        active_overlap_capture.current->selection_overlay = selection_draw;
+    }
+    if (active_browser_render_capture.current != nullptr) {
+        active_browser_render_capture.current->selection_overlay =
+            selection_draw;
+    }
     set_color(renderer, {38, 26, 12, 230});
     const std::array<SDL_FPoint, 5> shadow{{
         {center.x, center.y - half_height - 1.0F},

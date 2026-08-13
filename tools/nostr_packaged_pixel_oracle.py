@@ -8,7 +8,7 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
-from PIL import Image, ImageEnhance
+from PIL import Image, ImageDraw, ImageEnhance
 
 from nostr_slp_decoder import (
     DECODER_VERSION,
@@ -79,6 +79,63 @@ def render_decoded_draw(
     top = round((ground[1] - decoded.hotspot_y) * zoom)
     canvas = Image.new("RGBA", canvas_size, (0, 0, 0, 0))
     canvas.alpha_composite(sprite, (left, top))
+    return canvas
+
+
+def render_selection_overlay(
+    canvas_size: tuple[int, int], metadata: dict[str, object]
+) -> Image.Image | None:
+    """Reconstruct production selection diamond from submitted geometry."""
+    overlay = metadata.get("selection_overlay")
+    if overlay is None:
+        return None
+    if not isinstance(overlay, dict):
+        raise PackagedPixelOracleError("selection overlay metadata is invalid")
+    required = {
+        "center", "half_width", "half_height", "color",
+        "shadow_draw_order", "marker_draw_order",
+    }
+    if missing := sorted(required - overlay.keys()):
+        raise PackagedPixelOracleError(
+            "selection overlay metadata missing: " + ", ".join(missing)
+        )
+    center = overlay["center"]
+    color = overlay["color"]
+    if not isinstance(center, list) or len(center) != 2 or \
+            not isinstance(color, list) or len(color) != 4:
+        raise PackagedPixelOracleError("selection overlay vectors are invalid")
+    if tuple(int(value) for value in color) != (250, 220, 65, 255):
+        raise PackagedPixelOracleError("selection overlay color is not selected")
+    if int(overlay["marker_draw_order"]) <= int(
+        overlay["shadow_draw_order"]
+    ):
+        raise PackagedPixelOracleError("selection overlay order is invalid")
+    zoom = float(metadata["zoom"])
+    center_x = float(center[0]) * zoom
+    center_y = float(center[1]) * zoom
+    half_width = float(overlay["half_width"]) * zoom
+    half_height = float(overlay["half_height"]) * zoom
+    if half_width <= 0 or half_height <= 0:
+        raise PackagedPixelOracleError("selection overlay extent is invalid")
+    canvas = Image.new("RGBA", canvas_size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(canvas)
+    shadow = [
+        (center_x, center_y - half_height - zoom),
+        (center_x + half_width + zoom, center_y),
+        (center_x, center_y + half_height + zoom),
+        (center_x - half_width - zoom, center_y),
+        (center_x, center_y - half_height - zoom),
+    ]
+    marker = [
+        (center_x, center_y - half_height),
+        (center_x + half_width, center_y),
+        (center_x, center_y + half_height),
+        (center_x - half_width, center_y),
+        (center_x, center_y - half_height),
+    ]
+    line_width = max(1, round(zoom))
+    draw.line(shadow, fill=(38, 26, 12, 230), width=line_width)
+    draw.line(marker, fill=(250, 220, 65, 255), width=line_width)
     return canvas
 
 
@@ -180,6 +237,10 @@ def evaluate_packaged_capture(
                 "storedDirection": resolved.stored_direction,
                 "flipHorizontal": resolved.flip_horizontal,
             })
+    selection_overlay = render_selection_overlay(actual.size, metadata)
+    if selection_overlay is not None:
+        for alternative in alternatives.values():
+            alternative.alpha_composite(selection_overlay)
     expected_key = str(expected_logical_direction)
     report, images = evaluate_direction_pixels(
         actual=actual, background=background,
@@ -215,6 +276,8 @@ def evaluate_packaged_capture(
         "physicalFrameCount": int(draws[0]["physical_frame_count"]),
         "mirroringMode": int(draws[0]["mirroring_mode"]),
         "actionFrame": int(draws[0]["action_frame"]),
+        "selectionOverlay": metadata.get("selection_overlay"),
+        "selectionOverlayPixelAssertion": selection_overlay is not None,
     })
     return write_evidence(evidence_directory, report, images)
 

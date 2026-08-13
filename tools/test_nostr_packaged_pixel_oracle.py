@@ -9,8 +9,10 @@ from pathlib import Path
 from PIL import Image
 
 from nostr_packaged_pixel_oracle import (
+    PackagedPixelOracleError,
     evaluate_packaged_capture,
     render_decoded_draw,
+    render_selection_overlay,
     write_wrong_direction_mutation,
     write_wrong_position_mutation,
 )
@@ -42,6 +44,33 @@ def synthetic_drs(extension: str, identifier: int, resource: bytes) -> bytes:
 
 
 class PackagedPixelOracleTests(unittest.TestCase):
+    def test_selection_overlay_reconstructs_submitted_geometry(self):
+        metadata = {
+            "zoom": 1,
+            "selection_overlay": {
+                "center": [20, 12], "half_width": 15,
+                "half_height": 6.3, "color": [250, 220, 65, 255],
+                "shadow_draw_order": 4, "marker_draw_order": 5,
+            },
+        }
+        overlay = render_selection_overlay((50, 30), metadata)
+        self.assertIsNotNone(overlay)
+        self.assertEqual(overlay.getpixel((20, 5)), (250, 220, 65, 255))
+        self.assertGreater(sum(1 for pixel in overlay.getdata() if pixel[3]), 8)
+
+    def test_selection_overlay_rejects_wrong_production_color(self):
+        with self.assertRaisesRegex(
+            PackagedPixelOracleError, "color is not selected"
+        ):
+            render_selection_overlay((50, 30), {
+                "zoom": 1,
+                "selection_overlay": {
+                    "center": [20, 12], "half_width": 15,
+                    "half_height": 6.3, "color": [255, 0, 0, 255],
+                    "shadow_draw_order": 4, "marker_draw_order": 5,
+                },
+            })
+
     def test_real_capture_pipeline_passes_and_flip_mutation_fails(self):
         palette_payload = (
             "JASC-PAL\n0100\n256\n" +

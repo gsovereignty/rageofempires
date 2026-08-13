@@ -2027,6 +2027,41 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
                     counts["unprovenSources"] += 1
                     raise Failure(f"unproved production render source: {entity}")
                 position = entity.get("renderPosition")
+                selection = entity.get("selectionOverlay")
+                if selection is not None:
+                    if not isinstance(selection, dict) or not isinstance(
+                        position, dict
+                    ):
+                        raise Failure(
+                            f"selection overlay lacks render position: {entity}"
+                        )
+                    center = selection.get("center")
+                    color = selection.get("color")
+                    layer_orders = [
+                        int(layer.get("drawOrder", -1))
+                        for layer in entity.get("layers", [])
+                    ]
+                    if (not isinstance(center, dict) or
+                            not isinstance(color, dict) or
+                            abs(float(center.get("x", -1)) -
+                                float(position["x"])) > 0.01 or
+                            abs(float(center.get("y", -1)) -
+                                (float(position["y"]) + 1.0)) > 0.01 or
+                            float(selection.get("halfWidth", 0)) <= 0 or
+                            float(selection.get("halfHeight", 0)) <= 0 or
+                            tuple(int(color.get(channel, -1))
+                                  for channel in ("r", "g", "b", "a")) !=
+                            (250, 220, 65, 255) or
+                            int(selection.get("shadowDrawOrder", -1)) <=
+                            max(layer_orders, default=-1) or
+                            int(selection.get("markerDrawOrder", -1)) <=
+                            int(selection.get("shadowDrawOrder", -1))):
+                        raise Failure(
+                            f"selection overlay draw mismatch: {entity}"
+                        )
+                    counts["selectionOverlayAssertions"] = (
+                        int(counts.get("selectionOverlayAssertions", 0)) + 1
+                    )
                 if not isinstance(position, dict):
                     continue
                 key = (peer, str(entity.get("category", "")),

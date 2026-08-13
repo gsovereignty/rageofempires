@@ -16,6 +16,7 @@ from nostr_multiplayer_smoke_test import (
     ActionLimitReached,
     BoundedActionLog,
     Failure,
+    InfrastructureBlocked,
     allocate_audit_destination,
     analyze_render_samples,
     analyze_render_samples_for_audit,
@@ -25,12 +26,14 @@ from nostr_multiplayer_smoke_test import (
     capture_failure_value,
     capture_browser_overlap,
     capture_catalog_semantic_pixels,
+    capture_until_arrival,
     click_canvas_logical,
     canonical_direction_route,
     deterministic_replacement_destination,
     failure_bundle_evidence,
     canonical_transition_routes,
     catalog_ids_for_entity,
+    command_acceptance_status,
     collapse_match_details,
     diagnostics,
     initialize_run_ledger,
@@ -513,6 +516,71 @@ class AuditedInputTests(unittest.TestCase):
 
 
 class FailureEvidenceTests(unittest.TestCase):
+    def test_command_acceptance_distinguishes_absent_accepted_and_arrived(self):
+        def game(x, y, destination_x, destination_y, *, waypoints=0):
+            return {"units": [{
+                "id": 9, "owner": 1, "x": x, "y": y,
+                "destinationX": destination_x,
+                "destinationY": destination_y,
+                "moving": (x, y) != (destination_x, destination_y),
+                "waypointCount": waypoints,
+            }]}
+
+        absent = [game(34, 8, 34, 8), game(34, 8, 34, 8)]
+        accepted = [game(34, 8, 28, 12), game(34, 8, 28, 12)]
+        arrived = [game(28, 12, 28, 12), game(28, 12, 28, 12)]
+        self.assertIsNone(command_acceptance_status(
+            absent, owner=1, unit_id=9, destination=(28, 12)
+        ))
+        self.assertEqual(command_acceptance_status(
+            accepted, owner=1, unit_id=9, destination=(28, 12)
+        ), "accepted")
+        self.assertEqual(command_acceptance_status(
+            arrived, owner=1, unit_id=9, destination=(28, 12)
+        ), "arrived")
+
+    def test_command_acceptance_requires_peer_agreement(self):
+        games = [
+            {"units": [{
+                "id": 9, "owner": 1, "x": 34, "y": 8,
+                "destinationX": 28, "destinationY": 12,
+                "moving": True, "waypointCount": 0,
+            }]},
+            {"units": [{
+                "id": 9, "owner": 1, "x": 34, "y": 8,
+                "destinationX": 34, "destinationY": 8,
+                "moving": False, "waypointCount": 0,
+            }]},
+        ]
+        self.assertIsNone(command_acceptance_status(
+            games, owner=1, unit_id=9, destination=(28, 12)
+        ))
+
+    def test_absent_command_blocks_before_pathfinding_failure(self):
+        game = {"units": [{
+            "id": 9, "owner": 1, "x": 34, "y": 8,
+            "destinationX": 34, "destinationY": 8,
+            "moving": False, "waypointCount": 0,
+        }]}
+        with patch(
+            "nostr_multiplayer_smoke_test.capture_correlated_frames",
+            return_value=[],
+        ), patch(
+            "nostr_multiplayer_smoke_test.matching_games",
+            return_value=[game, copy.deepcopy(game)],
+        ), patch(
+            "nostr_multiplayer_smoke_test.time.monotonic",
+            side_effect=[0.0, 1.0, 11.0],
+        ):
+            with self.assertRaisesRegex(
+                InfrastructureBlocked, "BLOCKED_COMMAND_ABSENT"
+            ):
+                capture_until_arrival(
+                    object(), object(), owner=1, unit_id=9,
+                    destination=(28, 12), artifact_dir=Path("ignored"),
+                    label="absent-command",
+                )
+
     def test_failure_bundle_preserves_actual_completed_ui_actions(self):
         actions = [{"kind": "world-pointer", "tileX": 24, "tileY": 20}]
         merged = failure_bundle_evidence({

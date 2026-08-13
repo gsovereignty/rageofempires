@@ -64,6 +64,7 @@ ROOT = Path(__file__).resolve().parents[2]
 AUDIT_ROOT = ROOT / "artifacts" / "nostr-e2e-visual"
 AUDIT_REPORT_ROOT = ROOT / "docs" / "audits"
 WAIT_SECONDS = 180.0
+COMMAND_ACCEPTANCE_SECONDS = 10.0
 CDP_SHIFT_MODIFIER = 8
 DEFAULT_RELAYS = (
     "wss://nostr-pub.wellorder.net", "wss://nostr.oxtr.dev",
@@ -869,14 +870,55 @@ def center_camera_for_tile(
     raise Failure(f"{actor} route tile never entered visible world area")
 
 
+def command_acceptance_status(
+    games: list[dict[str, object]], *, owner: int, unit_id: int,
+    destination: tuple[int, int],
+) -> str | None:
+    """Return synchronized command stage without inferring it from arrival."""
+    if len(games) != 2:
+        return None
+    units: list[dict[str, object]] = []
+    for game in games:
+        unit = next((
+            value for value in game.get("units", [])
+            if isinstance(value, dict) and
+            int(value.get("owner", -1)) == owner and
+            int(value.get("id", -1)) == unit_id
+        ), None)
+        if unit is None:
+            return None
+        units.append(unit)
+    fields = (
+        "x", "y", "destinationX", "destinationY", "moving",
+        "waypointCount",
+    )
+    if any(
+        units[0].get(field) != units[1].get(field) for field in fields
+    ):
+        return None
+    position = (int(units[0]["x"]), int(units[0]["y"]))
+    if position == destination:
+        return "arrived"
+    accepted_destination = (
+        int(units[0].get("destinationX", -1)),
+        int(units[0].get("destinationY", -1)),
+    )
+    if (accepted_destination == destination or
+            int(units[0].get("waypointCount", 0)) > 0):
+        return "accepted"
+    return None
+
+
 def capture_until_arrival(
     host, join, *, owner: int, unit_id: int,
     destination: tuple[int, int], artifact_dir: Path, label: str,
 ) -> list[dict[str, object]]:
-    deadline = time.monotonic() + WAIT_SECONDS
+    acceptance_deadline = time.monotonic() + COMMAND_ACCEPTANCE_SECONDS
+    arrival_deadline: float | None = None
     samples: list[dict[str, object]] = []
     seen: set[tuple[int, int]] = set()
-    while time.monotonic() < deadline:
+    while (time.monotonic() < acceptance_deadline if arrival_deadline is None
+           else time.monotonic() < arrival_deadline):
         for sample in capture_correlated_frames(
             host, join, seconds=0.12, artifact_dir=artifact_dir,
             label=label, maximum_samples=3,
@@ -890,10 +932,20 @@ def capture_until_arrival(
                 samples.append(sample)
         games = matching_games(host, join)
         if games is not None:
-            positions = [owned_unit_positions(game, owner) for game in games]
-            if (positions[0] == positions[1] and
-                    positions[0].get(unit_id) == destination):
+            status = command_acceptance_status(
+                games, owner=owner, unit_id=unit_id,
+                destination=destination,
+            )
+            if status == "arrived":
                 return samples
+            if status == "accepted" and arrival_deadline is None:
+                arrival_deadline = time.monotonic() + WAIT_SECONDS
+    if arrival_deadline is None:
+        raise InfrastructureBlocked(
+            "BLOCKED_COMMAND_ABSENT: "
+            f"unit {unit_id} command to {destination} was not accepted "
+            "by both peers"
+        )
     raise Failure(
         f"unit {unit_id} did not arrive at route destination {destination}"
     )

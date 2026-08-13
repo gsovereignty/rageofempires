@@ -2941,7 +2941,7 @@ def order_enemy_attack(
     military = [
         unit
         for unit in (diagnostics(driver) or {}).get("game", {}).get("units", [])
-        if int(unit["owner"]) == owner and int(unit["kind"]) == 9
+        if int(unit["owner"]) == owner and int(unit["kind"]) in {2, 9}
     ]
     if not military:
         raise Failure(f"{actor} lacks trained military for attack")
@@ -3400,6 +3400,163 @@ def capture_catalog_semantic_pixels(
         })
     capture["visualOracles"] = visual_oracles
     return capture
+
+
+def capture_directional_combat_lifetime(
+    host, join, root: Path, label: str, *,
+    required_catalog_ids: set[str], seconds: float = 12.0,
+) -> dict[str, object]:
+    """Capture combat until every requested directional effect has pixels."""
+    frames: list[dict[str, object]] = []
+    captures: dict[str, dict[str, object]] = {}
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline and required_catalog_ids - captures.keys():
+        samples = capture_correlated_frames(
+            host, join, seconds=0.15, artifact_dir=root,
+            label=label, maximum_samples=4,
+        )
+        frames.extend(samples)
+        if not samples:
+            continue
+        host_entities = {
+            (str(entity.get("category", "")), int(entity.get("id", -1))):
+                entity
+            for entity in (samples[-1].get("host") or {}).get("entities", [])
+            if isinstance(entity, dict)
+        }
+        join_entities = {
+            (str(entity.get("category", "")), int(entity.get("id", -1))):
+                entity
+            for entity in (samples[-1].get("join") or {}).get("entities", [])
+            if isinstance(entity, dict)
+        }
+        for key in host_entities.keys() & join_entities.keys():
+            category, entity_id = key
+            catalog_id = (
+                "projectile-impact-orientation"
+                if category.startswith("projectile-")
+                else "death-decay-direction"
+                if category.startswith("unit-death-") else None
+            )
+            if catalog_id is None or catalog_id not in required_catalog_ids or \
+                    catalog_id in captures:
+                continue
+            entities = (host_entities[key], join_entities[key])
+            if not all(entity.get("layers") for entity in entities):
+                continue
+            directions = {
+                int(layer.get("directionCount", 1))
+                for entity in entities for layer in entity.get("layers", [])
+                if int(layer.get("directionCount", 1)) > 1
+            }
+            if not directions:
+                continue
+            positions = []
+            for entity in entities:
+                previous = entity.get("previousPosition")
+                current = entity.get("simulationPosition")
+                if not isinstance(previous, dict) or not isinstance(
+                    current, dict
+                ):
+                    positions = []
+                    break
+                positions.append((
+                    (int(previous["x"]), int(previous["y"])),
+                    (int(current["x"]), int(current["y"])),
+                ))
+            if len(positions) != 2 or positions[0] != positions[1] or \
+                    positions[0][0] == positions[0][1]:
+                continue
+            capture = capture_catalog_semantic_pixels(
+                host, join, root, f"{label}-{catalog_id}", entity_id,
+                owner=int(entities[0].get("owner", -1)),
+                unit_kind=category,
+                action=("flying" if category.startswith("projectile-")
+                        else "dying"),
+                catalog_ids=[catalog_id], phase=label,
+                direction_positions=positions[0],
+            )
+            if capture is not None:
+                captures[catalog_id] = capture
+    missing = sorted(required_catalog_ids - captures.keys())
+    return {
+        "frames": frames,
+        "pixelCaptures": captures,
+        "missingCatalogIds": missing,
+        "renderOracle": (
+            analyze_render_samples_for_audit(frames, label) if frames else None
+        ),
+    }
+
+
+def exercise_ranged_moving_death(
+    attacker_journey: Journey, attacker_driver, attacker_actor: str,
+    attacker_owner: int, target_journey: Journey, target_driver,
+    target_actor: str, host, join, actions: list[dict[str, object]],
+    root: Path, attacker_tile: tuple[int, int],
+    target_tile: tuple[int, int], target_destination: tuple[int, int],
+) -> dict[str, object]:
+    """Attack one visibly fleeing unit and retain projectile/death pixels."""
+    for journey, driver, actor in (
+        (attacker_journey, attacker_driver, attacker_actor),
+        (target_journey, target_driver, target_actor),
+    ):
+        center_camera_for_tile(
+            journey, driver, actions, actor, *target_tile
+        )
+    audited_world_pointer(
+        target_journey, target_driver, actions, target_actor,
+        *target_tile, button=0,
+    )
+    target_id = wait_until(
+        f"{target_actor} moving-death target selection",
+        lambda: int(target_journey.telemetry().get("selectedUnit", 0)) or None,
+    )
+    audited_world_pointer(
+        attacker_journey, attacker_driver, actions, attacker_actor,
+        *attacker_tile, button=0,
+    )
+    attacker_id = wait_until(
+        f"{attacker_actor} ranged attacker selection",
+        lambda: int(attacker_journey.telemetry().get("selectedUnit", 0)) or None,
+    )
+    audited_world_pointer(
+        attacker_journey, attacker_driver, actions, attacker_actor,
+        *target_tile,
+    )
+    audited_world_pointer(
+        target_journey, target_driver, actions, target_actor,
+        *target_destination,
+    )
+    lifetime = capture_directional_combat_lifetime(
+        host, join, root, f"{attacker_actor}-ranged-moving-death",
+        required_catalog_ids={
+            "projectile-impact-orientation", "death-decay-direction",
+        }, seconds=WAIT_SECONDS * 2,
+    )
+    if lifetime["missingCatalogIds"]:
+        raise Failure(
+            f"{attacker_actor} ranged moving death lacks catalog pixels: "
+            f"{lifetime['missingCatalogIds']}"
+        )
+    games = wait_until(
+        f"{attacker_actor} moving target death lockstep",
+        lambda: matching_games(host, join), timeout=WAIT_SECONDS,
+    )
+    if any(
+        any(int(unit.get("id", -1)) == target_id
+            for unit in game.get("units", []))
+        for game in games
+    ):
+        raise Failure(f"{attacker_actor} moving target survived ranged duel")
+    return {
+        "attackerActor": attacker_actor,
+        "attackerOwner": attacker_owner,
+        "attackerId": attacker_id,
+        "targetActor": target_actor,
+        "targetId": target_id,
+        **lifetime,
+    }
 
 
 def wait_for_drawable_direction(
@@ -4103,6 +4260,18 @@ def run(relays: str | None, headed: bool, port: int = 8888,
                         )
                     )
             negotiate_game_speed(host, join, 0)
+            evidence["rangedMovingDeaths"] = {
+                "host": exercise_ranged_moving_death(
+                    host_journey, host, "host", 0,
+                    join_journey, join, "join", host, join, actions,
+                    artifact_dir, (3, 6), (3, 12), (3, 16),
+                ),
+                "join": exercise_ranged_moving_death(
+                    join_journey, join, "join", 1,
+                    host_journey, host, "host", host, join, actions,
+                    artifact_dir, (44, 25), (44, 19), (44, 15),
+                ),
+            }
             patrol_specs = {
                 0: ((12, 25), (8, 27)),
                 1: ((35, 6), (39, 8)),
@@ -4679,6 +4848,10 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
             gather_phases[f"fullGameplay{actor.title()}Gather"] = \
                 player.get("gatherFrames", [])
     work_phases = dict(gather_phases)
+    ranged_deaths = evidence.get("rangedMovingDeaths") or {}
+    for actor in ("host", "join"):
+        work_phases[f"rangedMovingDeath{actor.title()}"] = \
+            (ranged_deaths.get(actor) or {}).get("frames", [])
     for actor in ("host", "join"):
         player = full_gameplay.get(actor) or {}
         work_phases[f"fullGameplay{actor.title()}Construction"] = \

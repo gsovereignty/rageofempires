@@ -187,6 +187,22 @@ class AuditedInputTests(unittest.TestCase):
         }}
         self.assertIsNone(relay_blocker_from_diagnostics(state, state))
 
+    def test_rejected_publish_quorum_blocks_even_while_active(self):
+        state = {"game": {
+            "reliabilityStatus": 0, "reliabilityReason": 0,
+        }, "recentPublications": [{
+            "intentId": "lobby-2", "results": [
+                {"relay": "one", "ok": False, "message": "rejected"},
+                {"relay": "two", "ok": False, "message": "unsupported"},
+                {"relay": "three", "ok": True, "message": ""},
+            ],
+        }]}
+        blocker = relay_blocker_from_diagnostics(state, state)
+        self.assertEqual(
+            blocker["rejectedPublications"]["host"][0]
+            ["acceptedRelayCount"], 1,
+        )
+
     def test_game_speed_cycles_until_exact_shared_target(self):
         host = object()
         join = object()

@@ -2279,6 +2279,7 @@ def relay_blocker_from_diagnostics(
     """Classify evidenced non-active production reliability as infrastructure."""
     states = {"host": host_state, "join": join_state}
     peers: dict[str, dict[str, int]] = {}
+    rejected_publications: dict[str, list[dict[str, object]]] = {}
     for peer, state in states.items():
         if not isinstance(state, dict):
             return None
@@ -2288,12 +2289,30 @@ def relay_blocker_from_diagnostics(
         status = int(game.get("reliabilityStatus", -1))
         reason = int(game.get("reliabilityReason", -1))
         peers[peer] = {"status": status, "reason": reason}
-    if all(value["status"] == 0 for value in peers.values()):
+        for publication in state.get("recentPublications", []):
+            if not isinstance(publication, dict):
+                continue
+            results = publication.get("results", [])
+            if not isinstance(results, list) or not results:
+                continue
+            accepted = sum(
+                1 for result in results
+                if isinstance(result, dict) and bool(result.get("ok"))
+            )
+            if accepted < 2:
+                rejected_publications.setdefault(peer, []).append({
+                    "intentId": publication.get("intentId"),
+                    "acceptedRelayCount": accepted,
+                    "results": results,
+                })
+    if (all(value["status"] == 0 for value in peers.values()) and
+            not rejected_publications):
         return None
     return {
         "classification": "public-relay-infrastructure",
-        "policy": "non-active-production-reliability-v1",
+        "policy": "production-reliability-or-publish-quorum-v1",
         "peers": peers,
+        "rejectedPublications": rejected_publications,
     }
 
 

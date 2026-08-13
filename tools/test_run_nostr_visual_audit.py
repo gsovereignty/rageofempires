@@ -14,6 +14,23 @@ SPEC.loader.exec_module(MODULE)
 
 
 class RelayRotationTests(unittest.TestCase):
+    def test_extracts_rejected_relays_from_retained_acknowledgements(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "first-failure.json").write_text(json.dumps({
+                "infrastructureBlocker": {
+                    "rejectedPublications": {"host": [{
+                        "intentId": "lobby-2", "results": [
+                            {"relay": "wss://reject/", "ok": False},
+                            {"relay": "wss://accept/", "ok": True},
+                        ],
+                    }]},
+                },
+            }))
+            self.assertEqual(MODULE.rejected_relays(root), {
+                "wss://reject": ["lobby-2"],
+            })
+
     def test_rotates_deterministic_distinct_quorums(self):
         self.assertEqual(MODULE.rotating_quorums(["a", "b", "c", "d"]), [
             ["a", "b", "c"], ["b", "c", "d"],

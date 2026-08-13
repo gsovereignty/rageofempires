@@ -123,6 +123,35 @@ def stopped_at_action_limit(root: Path | None) -> bool:
     return str(value.get("error", "")).startswith("ActionLimitReached:")
 
 
+def rejected_relays(root: Path | None) -> dict[str, list[str]]:
+    """Read relays proven incompatible by retained production acknowledgements."""
+    path = root / "first-failure.json" if root else None
+    if not path or not path.is_file():
+        return {}
+    failure = json.loads(path.read_text(encoding="utf-8"))
+    blocker = failure.get("infrastructureBlocker")
+    if not isinstance(blocker, dict):
+        return {}
+    rejected: dict[str, list[str]] = {}
+    publications = blocker.get("rejectedPublications", {})
+    if not isinstance(publications, dict):
+        return {}
+    for peer_records in publications.values():
+        if not isinstance(peer_records, list):
+            continue
+        for publication in peer_records:
+            if not isinstance(publication, dict):
+                continue
+            intent = str(publication.get("intentId", "unknown"))
+            for result in publication.get("results", []):
+                if not isinstance(result, dict) or bool(result.get("ok")):
+                    continue
+                relay = str(result.get("relay", "")).rstrip("/")
+                if relay and intent not in rejected.setdefault(relay, []):
+                    rejected[relay].append(intent)
+    return rejected
+
+
 def minimize_prefix(
     action_count: int, target_sha256: str, run_candidate,
 ) -> tuple[int, list[dict[str, object]]]:
@@ -195,8 +224,21 @@ def main() -> int:
     maximum_attempts = min(arguments.retry_budget + 1, len(quorums))
     final_status = "BLOCKED"
     final_attempt_path: Path | None = None
+    incompatible_relays: dict[str, list[str]] = {}
+    skipped_quorums: list[dict[str, object]] = []
 
-    for attempt_index, quorum in enumerate(quorums[:maximum_attempts]):
+    for quorum in quorums:
+        conflicts = sorted(set(quorum) & incompatible_relays.keys())
+        if conflicts:
+            skipped_quorums.append({
+                "quorum": quorum,
+                "reason": "contains-proven-incompatible-relay",
+                "relays": conflicts,
+            })
+            continue
+        if len(attempts) >= maximum_attempts:
+            break
+        attempt_index = len(attempts)
         command = [
             str(ROOT / "build-web" / "selenium-venv" / "bin" / "python"),
             str(ROOT / "tests" / "web" / "nostr_multiplayer_smoke_test.py"),
@@ -233,6 +275,12 @@ def main() -> int:
             "artifactPath": retained_path(attempt_path),
         })
         final_status = status
+        if status == "BLOCKED":
+            for relay, intents in rejected_relays(attempt_path).items():
+                retained = incompatible_relays.setdefault(relay, [])
+                retained.extend(
+                    intent for intent in intents if intent not in retained
+                )
         if status in {"PASS", "FAIL"}:
             break
 
@@ -246,6 +294,8 @@ def main() -> int:
         "seed": arguments.seed,
         "retryBudget": arguments.retry_budget,
         "attempts": attempts,
+        "incompatibleRelays": incompatible_relays,
+        "skippedQuorums": skipped_quorums,
         "finalStatus": final_status,
     })
     minimization: dict[str, object] | None = None

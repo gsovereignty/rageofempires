@@ -451,11 +451,11 @@ class RenderOracleTests(unittest.TestCase):
             catalog_ids_for_entity({
                 "category": "unit-militia", "action": "moving",
                 "formationGroupId": 9, "patrolling": True,
-                "attackMoving": True,
+                "attackMoving": True, "chasing": True,
             }),
             [
-                "attack-movement", "formation", "infantry-before-upgrade",
-                "patrol",
+                "attack-movement", "chase", "formation",
+                "infantry-before-upgrade", "patrol",
             ],
         )
 

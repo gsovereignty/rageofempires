@@ -716,6 +716,8 @@ def catalog_ids_for_entity(entity: dict[str, object]) -> list[str]:
         result.add("patrol")
     if bool(entity.get("attackMoving", False)):
         result.add("attack-movement")
+    if bool(entity.get("chasing", False)):
+        result.add("chase")
     if action in {"attack_moving", "attack-moving"} or detail in {
         "attack_moving", "attack-moving",
     }:
@@ -1480,6 +1482,127 @@ def exercise_narrow_passage_route(
         "frameCount": len(frames), "frames": frames,
         "renderOracle": analyze_render_samples_for_audit(
             frames, f"{actor}-narrow-passage"
+        ),
+    }
+
+
+def exercise_moving_target_chase(
+    journey: Journey, driver, actor: str, owner: int,
+    target_journey: Journey, target_driver, target_actor: str,
+    target_owner: int, host, join, actions: list[dict[str, object]],
+    artifact_dir: Path, attacker_hint: tuple[int, int],
+    target_hint: tuple[int, int], target_destination: tuple[int, int],
+) -> dict[str, object]:
+    """Attack a separately commanded moving target and prove live chase."""
+    games = wait_until(
+        f"{actor} chase synchronized state",
+        lambda: matching_games(host, join), timeout=WAIT_SECONDS,
+    )
+    positions = {
+        owner: owned_unit_positions(games[0], owner),
+        target_owner: owned_unit_positions(games[0], target_owner),
+    }
+    attacker_id, attacker_position = min(
+        positions[owner].items(), key=lambda item: (
+            abs(item[1][0] - attacker_hint[0]) +
+            abs(item[1][1] - attacker_hint[1]), item[0],
+        )
+    )
+    target_id, target_position = min(
+        positions[target_owner].items(), key=lambda item: (
+            abs(item[1][0] - target_hint[0]) +
+            abs(item[1][1] - target_hint[1]), item[0],
+        )
+    )
+    if attacker_position != attacker_hint or target_position != target_hint:
+        raise Failure(
+            f"chase fixture mismatch attacker={attacker_position} "
+            f"target={target_position}"
+        )
+    center_camera_for_tile(
+        target_journey, target_driver, actions, target_actor, *target_position
+    )
+    audited_world_pointer(
+        target_journey, target_driver, actions, target_actor,
+        *target_position, button=0,
+    )
+    center_camera_for_tile(journey, driver, actions, actor, *attacker_position)
+    audited_world_pointer(
+        journey, driver, actions, actor, *attacker_position, button=0
+    )
+    center_camera_for_tile(journey, driver, actions, actor, *target_position)
+    audited_world_pointer(journey, driver, actions, actor, *target_position)
+    center_camera_for_tile(
+        target_journey, target_driver, actions, target_actor,
+        *target_destination,
+    )
+    audited_world_pointer(
+        target_journey, target_driver, actions, target_actor,
+        *target_destination,
+    )
+
+    frames: list[dict[str, object]] = []
+    target_positions: set[tuple[int, int]] = set()
+    attacker_destinations: set[tuple[int, int]] = set()
+    chasing_ticks: list[int] = []
+    deadline = time.monotonic() + WAIT_SECONDS
+    while time.monotonic() < deadline:
+        frames.extend(capture_correlated_frames(
+            host, join, seconds=0.15, artifact_dir=artifact_dir,
+            label=f"{actor}-moving-target-chase", maximum_samples=4,
+        ))
+        games = matching_games(host, join)
+        if games is None:
+            continue
+        peer_units = []
+        for game in games:
+            by_id = {int(unit["id"]): unit for unit in game.get("units", [])
+                     if int(unit.get("id", -1)) in {attacker_id, target_id}}
+            if len(by_id) != 2:
+                raise Failure("moving-target chase unit disappeared")
+            peer_units.append(by_id)
+        fields = (
+            "x", "y", "destinationX", "destinationY", "moving",
+            "attackTargetId",
+        )
+        for unit_id in (attacker_id, target_id):
+            if any(peer_units[0][unit_id].get(field) !=
+                   peer_units[1][unit_id].get(field) for field in fields):
+                raise Failure(f"moving-target chase peer divergence {unit_id}")
+        attacker = peer_units[0][attacker_id]
+        target = peer_units[0][target_id]
+        target_positions.add((int(target["x"]), int(target["y"])))
+        if int(attacker.get("attackTargetId", 0)) == target_id:
+            chasing_ticks.append(int(games[0].get("currentTick", -1)))
+            attacker_destinations.add((
+                int(attacker["destinationX"]),
+                int(attacker["destinationY"]),
+            ))
+        if (len(target_positions) >= 3 and
+                len(attacker_destinations) >= 2 and len(chasing_ticks) >= 3):
+            break
+    if len(target_positions) < 3:
+        raise Failure(f"{actor} chase target did not move")
+    if len(attacker_destinations) < 2:
+        raise Failure(f"{actor} attacker destination did not follow target")
+    if len(chasing_ticks) < 3:
+        raise Failure(f"{actor} chase target binding was not retained")
+    audited_key(driver, actions, actor, "s")
+    audited_key(target_driver, actions, target_actor, "s")
+    frames.extend(capture_correlated_frames(
+        host, join, seconds=0.5, artifact_dir=artifact_dir,
+        label=f"{actor}-moving-target-chase-stop", maximum_samples=8,
+    ))
+    return {
+        "actor": actor, "owner": owner, "attackerId": attacker_id,
+        "targetActor": target_actor, "targetOwner": target_owner,
+        "targetId": target_id, "routeKind": "moving-target-chase",
+        "targetPositionCount": len(target_positions),
+        "attackerDestinationCount": len(attacker_destinations),
+        "chasingTicks": chasing_ticks,
+        "frameCount": len(frames), "frames": frames,
+        "renderOracle": analyze_render_samples_for_audit(
+            frames, f"{actor}-moving-target-chase"
         ),
     }
 
@@ -3321,6 +3444,24 @@ def run(relays: str | None, headed: bool, port: int = 8888,
                     journey, driver, actor, int(owner), host, join,
                     actions, artifact_dir, start_hint, destination,
                 )
+            chase_specs = {
+                0: ((24, 9), (20, 9), (12, 9)),
+                1: ((20, 27), (24, 27), (32, 27)),
+            }
+            evidence["chaseRoutes"] = {}
+            for owner in owner_order:
+                actor, journey, driver, target_actor, target_journey, \
+                    target_driver, _ = actor_specs[int(owner)]
+                attacker_hint, target_hint, target_destination = chase_specs[
+                    int(owner)
+                ]
+                evidence["chaseRoutes"][actor] = \
+                    exercise_moving_target_chase(
+                        journey, driver, actor, int(owner),
+                        target_journey, target_driver, target_actor,
+                        1 - int(owner), host, join, actions, artifact_dir,
+                        attacker_hint, target_hint, target_destination,
+                    )
             key_chord(host, Keys.F8)
             wait_until(
                 "restored normal speed after direction capture",
@@ -3953,12 +4094,22 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
                     "entities": render_state.get("entities", []),
                 })
     patrol_routes = evidence.get("patrolRoutes") or {}
+    chase_routes = evidence.get("chaseRoutes") or {}
     for actor in ("host", "join"):
         for sample in (patrol_routes.get(actor) or {}).get("frames", []):
             for peer in ("host", "join"):
                 render_state = sample.get(peer) or {}
                 provenance.append({
                     "phase": f"patrol-{actor}", "peer": peer,
+                    "frame": render_state.get("frame"),
+                    "tick": render_state.get("tick"),
+                    "entities": render_state.get("entities", []),
+                })
+        for sample in (chase_routes.get(actor) or {}).get("frames", []):
+            for peer in ("host", "join"):
+                render_state = sample.get(peer) or {}
+                provenance.append({
+                    "phase": f"chase-{actor}", "peer": peer,
                     "frame": render_state.get("frame"),
                     "tick": render_state.get("tick"),
                     "entities": render_state.get("entities", []),
@@ -4016,6 +4167,10 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
         for sample in (patrol_routes.get(actor) or {}).get("frames", []):
             correlated_records.append({
                 "phase": f"patrol-{actor}", **sample,
+            })
+        for sample in (chase_routes.get(actor) or {}).get("frames", []):
+            correlated_records.append({
+                "phase": f"chase-{actor}", **sample,
             })
         for sample in (obstacle_routes.get(actor) or {}).get("frames", []):
             correlated_records.append({
@@ -4093,6 +4248,14 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
             route_records.append({
                 "id": "narrow-passage", "actor": actor,
                 "verdict": (narrow_route.get("renderOracle") or {}).get(
+                    "verdict", "BLOCKED"
+                ),
+            })
+        chase_route = chase_routes.get(actor) or {}
+        if chase_route:
+            route_records.append({
+                "id": "moving-target-chase", "actor": actor,
+                "verdict": (chase_route.get("renderOracle") or {}).get(
                     "verdict", "BLOCKED"
                 ),
             })

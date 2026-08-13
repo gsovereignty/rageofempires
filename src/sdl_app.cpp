@@ -7003,6 +7003,10 @@ std::string browser_render_telemetry_json(
                    << (unit->patrolling ? "true" : "false")
                    << ",\"attackMoving\":"
                    << (unit->attack_moving ? "true" : "false")
+                   << ",\"attackTargetId\":" << unit->attack_target_id
+                   << ",\"chasing\":"
+                   << (unit->moving && unit->attack_target_id != 0
+                           ? "true" : "false")
                    << "";
         } else if (capture.kind.starts_with("building-") ||
                    capture.kind.starts_with("remembered-building-")) {

@@ -431,7 +431,10 @@ def audited_zoom(
             "kind": "wheel", "deltaY": delta,
             "targetZoom": target_zoom,
         })
-        ActionChains(driver).scroll_by_amount(0, delta).perform()
+        canvas = driver.find_element(By.ID, "canvas")
+        ActionChains(driver).move_to_element(canvas).scroll_by_amount(
+            0, delta
+        ).perform()
         time.sleep(0.1)
     raise Failure(f"{actor} camera did not reach zoom {target_zoom}")
 

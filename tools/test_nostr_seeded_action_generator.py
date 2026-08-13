@@ -4,6 +4,7 @@ import unittest
 
 from nostr_seeded_action_generator import (
     causal_replay_prefix,
+    coverage_priority_directions,
     coverage_priority_plan,
     rotating_seed,
 )
@@ -23,6 +24,18 @@ def specification():
 
 
 class SeededActionGeneratorTests(unittest.TestCase):
+    def test_direction_commands_prioritize_uncovered_owner_cells(self):
+        plan = {"cells": [
+            {"owner": 1, "directionCount": 8, "logicalDirection": 6},
+            {"owner": 0, "directionCount": 8, "logicalDirection": 3},
+            {"owner": 0, "directionCount": 8, "logicalDirection": 5},
+            {"owner": 0, "directionCount": 16, "logicalDirection": 9},
+        ]}
+        directions = coverage_priority_directions(plan, 0, 42)
+        self.assertEqual(directions[0], 3)
+        self.assertEqual(sorted(directions), list(range(8)))
+        self.assertEqual(directions, coverage_priority_directions(plan, 0, 42))
+
     def test_plan_is_seeded_stable_and_prioritizes_lowest_count(self):
         observed = [{
             "peer": "host", "owner": 0, "unitKind": "unit-villager",

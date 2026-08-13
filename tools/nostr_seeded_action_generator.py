@@ -13,6 +13,24 @@ from nostr_visual_coverage import cell_key, required_cells
 GENERATOR_VERSION = "coverage-priority-v1"
 
 
+def coverage_priority_directions(
+    plan: dict[str, object], owner: int, seed: int,
+) -> list[int]:
+    """Order 8-way commands by uncovered cells, with seeded cyclic fallback."""
+    prioritized: list[int] = []
+    for cell in plan.get("cells", []):
+        if int(cell.get("owner", -1)) != owner or \
+                int(cell.get("directionCount", 0)) != 8:
+            continue
+        direction = int(cell.get("logicalDirection", -1))
+        if 0 <= direction < 8 and direction not in prioritized:
+            prioritized.append(direction)
+    rng = random.Random(seed ^ (owner * 0x9E3779B97F4A7C15))
+    start = prioritized[0] if prioritized else rng.randrange(8)
+    step = -1 if rng.randrange(2) else 1
+    return [(start + step * offset) % 8 for offset in range(8)]
+
+
 def coverage_priority_plan(
     specification: dict[str, object],
     observed_records: list[dict[str, object]],

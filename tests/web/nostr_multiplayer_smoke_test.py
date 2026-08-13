@@ -54,6 +54,7 @@ from nostr_visual_transition_oracle import evaluate_transitions
 from nostr_visual_route_coverage import evaluate_route_coverage
 from nostr_seeded_action_generator import (
     causal_replay_prefix,
+    coverage_priority_directions,
     coverage_priority_plan,
 )
 
@@ -655,18 +656,23 @@ def audited_world_pointer(
 
 
 def canonical_direction_route(
-    center: tuple[int, int], radius: int = 4
+    center: tuple[int, int], radius: int = 4,
+    direction_order: list[int] | None = None,
 ) -> list[tuple[int, int]]:
-    """Return closed octagonal route whose segments cover directions 0..7."""
+    """Return closed octagonal route in the requested 8-way command order."""
     if radius < 1:
         raise ValueError("route radius must be positive")
     vectors = (
         (1, 1), (0, 1), (-1, 1), (-1, 0),
         (-1, -1), (0, -1), (1, -1), (1, 0),
     )
+    order = list(range(8)) if direction_order is None else direction_order
+    if sorted(order) != list(range(8)):
+        raise ValueError("direction order must be a permutation of 0..7")
     points = [center]
     x, y = center
-    for dx, dy in vectors:
+    for direction in order:
+        dx, dy = vectors[direction]
         x += dx * radius
         y += dy * radius
         points.append((x, y))
@@ -826,7 +832,7 @@ def exercise_all_direction_route(
     journey: Journey, driver, actor: str, owner: int,
     observer_journey: Journey, observer_driver, observer_actor: str,
     host, join, actions: list[dict[str, object]], artifact_dir: Path,
-    center: tuple[int, int], seed: int,
+    center: tuple[int, int], seed: int, direction_order: list[int],
 ) -> dict[str, object]:
     games = wait_until(
         f"{actor} all-direction villager selection",
@@ -871,11 +877,12 @@ def exercise_all_direction_route(
         artifact_dir=artifact_dir, label=f"{actor}-route-approach",
     )
     negotiate_game_speed(host, join, 0)
-    route = canonical_direction_route(center)
+    route = canonical_direction_route(center, direction_order=direction_order)
     segments: list[dict[str, object]] = []
     all_frames: list[dict[str, object]] = []
     for lap in range(3):
-        for direction, destination in enumerate(route[1:]):
+        for segment_index, destination in enumerate(route[1:]):
+            direction = direction_order[segment_index]
             center_camera_for_tile(
                 journey, driver, actions, actor,
                 destination[0], destination[1]
@@ -887,7 +894,7 @@ def exercise_all_direction_route(
                 observer_journey, observer_driver, actions, observer_actor,
                 destination[0] + 1, destination[1],
             )
-            current = route[direction]
+            current = route[segment_index]
             audited_world_pointer(
                 journey, driver, actions, actor,
                 current[0], current[1], button=0,
@@ -3886,6 +3893,12 @@ def run(relays: str | None, headed: bool, port: int = 8888,
     evidence["actionPlan"] = coverage_priority_plan(
         coverage_specification, [], seed
     )
+    evidence["actionPlan"]["directionOrderByOwner"] = {
+        str(owner): coverage_priority_directions(
+            evidence["actionPlan"], owner, seed
+        )
+        for owner in (0, 1)
+    }
     actions = evidence["actions"]
     host = make_driver("chrome", headed, browser_arguments)
     join = make_driver("chrome", headed, browser_arguments)
@@ -4212,6 +4225,9 @@ def run(relays: str | None, headed: bool, port: int = 8888,
                     journey, driver, actor, int(owner),
                     observer_journey, observer_driver, observer_actor,
                     host, join, actions, artifact_dir, center, seed,
+                    list(evidence["actionPlan"]["directionOrderByOwner"][
+                        str(owner)
+                    ]),
                 )
             evidence["transitionRoutes"] = {}
             for owner in owner_order:

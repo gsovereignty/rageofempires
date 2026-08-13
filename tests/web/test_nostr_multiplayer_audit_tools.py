@@ -628,6 +628,22 @@ class RenderOracleTests(unittest.TestCase):
             (-4, -4), (0, -4), (4, -4), (4, 0),
         ])
 
+    def test_canonical_route_honors_seeded_direction_order_and_closes(self):
+        order = [3, 2, 1, 0, 7, 6, 5, 4]
+        route = canonical_direction_route(
+            (20, 16), radius=4, direction_order=order,
+        )
+        vectors = [
+            (current[0] - previous[0], current[1] - previous[1])
+            for previous, current in zip(route, route[1:])
+        ]
+        canonical = [
+            (4, 4), (0, 4), (-4, 4), (-4, 0),
+            (-4, -4), (0, -4), (4, -4), (4, 0),
+        ]
+        self.assertEqual(vectors, [canonical[direction] for direction in order])
+        self.assertEqual(route[0], route[-1])
+
     def test_transition_routes_cover_turn_shapes_and_close_loops(self):
         routes = canonical_transition_routes((20, 16), radius=2)
         self.assertEqual(set(routes), {

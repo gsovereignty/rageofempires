@@ -6944,6 +6944,28 @@ std::string browser_render_telemetry_json(
                 simulation.is_visible_to_controller(
                     active_view_player, target_position
                 );
+            EntityId work_target_id = unit->repair_target_id;
+            TilePosition work_target_position{-1, -1};
+            if (work_target_id != 0) {
+                const auto target = buildings_by_id.find(work_target_id);
+                if (target != buildings_by_id.end()) {
+                    work_target_position = target->second->position;
+                }
+            } else {
+                const auto construction = std::ranges::find_if(
+                    simulation.buildings(),
+                    [unit](const Building& building) {
+                        return !building.completed() &&
+                            std::ranges::find(
+                                building.builder_ids, unit->id
+                            ) != building.builder_ids.end();
+                    }
+                );
+                if (construction != simulation.buildings().end()) {
+                    work_target_id = construction->id;
+                    work_target_position = construction->position;
+                }
+            }
             output << ",\"simulationPosition\":{\"x\":"
                    << unit->position.x << ",\"y\":"
                    << unit->position.y << "}"
@@ -6977,6 +6999,10 @@ std::string browser_render_telemetry_json(
                    << ",\"resourceBuildingId\":"
                    << unit->resource_building_id
                    << ",\"resourceUnitId\":" << unit->resource_unit_id
+                   << ",\"workTargetId\":" << work_target_id
+                   << ",\"workTarget\":{\"x\":"
+                   << work_target_position.x << ",\"y\":"
+                   << work_target_position.y << "}"
                    << ",\"carriedResource\":\""
                    << overlap_json_escape(name(unit->carried_resource))
                    << "\",\"carriedAmount\":" << unit->carried_amount

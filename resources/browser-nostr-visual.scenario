@@ -44,7 +44,7 @@ unit sheep 1 39 12 stance passive
 unit sheep 1 41 13 stance passive
 building town_center 0 6 24
 building barracks 0 13 23
-building house 0 5 19
+building house 0 5 19 hit_points 40
 building house 0 10 17
 # Shared narrow-passage audit fixture: two 2x2 Houses leave center lane x=24.
 building house 0 21 4
@@ -60,7 +60,7 @@ unit scout_cavalry 0 24 9 stance passive
 unit scout_cavalry 0 28 9 stance passive
 building town_center 1 38 4
 building barracks 1 31 5
-building house 1 42 10
+building house 1 42 10 hit_points 40
 building house 1 37 13
 # Passive Red cavalry expose Blue's route without attacking its subject.
 unit scout_cavalry 1 27 15 stance passive

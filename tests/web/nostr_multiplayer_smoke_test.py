@@ -1923,9 +1923,15 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
                                 int(current["x"]), int(current["y"])
                             )
                             if oracle_previous == oracle_current:
-                                target = entity.get("resourceTarget")
-                                if (entity.get("action") == "gathering" and
-                                        isinstance(target, dict)):
+                                target = (
+                                    entity.get("resourceTarget")
+                                    if entity.get("action") == "gathering"
+                                    else entity.get("workTarget")
+                                    if entity.get("action") in {
+                                        "constructing", "repairing"
+                                    } else None
+                                )
+                                if isinstance(target, dict):
                                     oracle_current = (
                                         int(target["x"]), int(target["y"])
                                     )
@@ -2163,7 +2169,8 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
                           "resourceTargetInMap", "resourceTargetKind",
                           "resourceTargetExists", "resourceTargetAmount",
                           "resourceTargetEntityId", "resourceBuildingId",
-                          "resourceUnitId", "carriedResource",
+                          "resourceUnitId", "workTargetId", "workTarget",
+                          "carriedResource",
                           "carriedAmount"):
                 if host_entity.get(field) != join_entity.get(field):
                     raise Failure(f"client render divergence {key} {field}")
@@ -2664,6 +2671,10 @@ def prepare_player_for_full_match(
         ((32, 10), (33, 13), (29, 10), (30, 14))
     )
     for tile_x, tile_y in candidate_tiles:
+        center_camera_for_tile(
+            observer_journey, observer_driver, actions, observer_actor,
+            tile_x, tile_y,
+        )
         audited_world_pointer(
             journey, driver, actions, actor, tile_x, tile_y,
         )
@@ -2690,16 +2701,149 @@ def prepare_player_for_full_match(
     }
     if not constructed_ids:
         raise Failure(f"{actor} construction lacks new building identity")
-    wait_until(
-        f"{actor} house completed",
-        lambda: (
-            games if all(
-                int(building.get("constructionTicksRemaining", -1)) == 0
-                for building in owner_buildings(games[0], owner)
+    construction_frames: list[dict[str, object]] = []
+    construction_pixel: dict[str, object] | None = None
+    deadline = time.monotonic() + WAIT_SECONDS * 3
+    while time.monotonic() < deadline:
+        construction_frames.extend(capture_correlated_frames(
+            host, join, seconds=0.2, artifact_dir=artifact_dir,
+            label=f"{actor}-construct-house", maximum_samples=4,
+        ))
+        render_states = [render_diagnostics(value) or {}
+                         for value in (host, join)]
+        entities = [
+            next((entity for entity in state.get("entities", [])
+                  if isinstance(entity, dict) and
+                  int(entity.get("id", -1)) == selected_villager), None)
+            for state in render_states
+        ]
+        if (construction_pixel is None and
+                all(isinstance(entity, dict) and
+                    entity.get("action") == "constructing"
+                    for entity in entities)):
+            positions = []
+            for entity in entities:
+                current = entity.get("simulationPosition")
+                target = entity.get("workTarget")
+                if not isinstance(current, dict) or not isinstance(
+                    target, dict
+                ):
+                    positions = []
+                    break
+                positions.append((
+                    (int(current["x"]), int(current["y"])),
+                    (int(target["x"]), int(target["y"])),
+                ))
+            if len(positions) == 2 and positions[0] == positions[1]:
+                construction_pixel = capture_catalog_semantic_pixels(
+                    host, join, artifact_dir,
+                    f"{actor}-construct-house-semantic",
+                    int(selected_villager), owner=owner,
+                    unit_kind="unit-villager", action="constructing",
+                    catalog_ids=["villager-constructing"],
+                    phase=f"{actor}-construct-house",
+                    direction_positions=positions[0],
+                )
+        games = matching_games(host, join)
+        if games is not None:
+            constructed = [
+                building for building in owner_buildings(games[0], owner)
                 if int(building.get("id", -1)) in constructed_ids
-            ) else None
-        ) if (games := matching_games(host, join)) else None,
-        timeout=WAIT_SECONDS * 3,
+            ]
+            if constructed and all(
+                int(building.get("constructionTicksRemaining", -1)) == 0
+                for building in constructed
+            ):
+                break
+    else:
+        raise Failure(f"{actor} house did not complete")
+    if construction_pixel is None:
+        raise Failure(f"{actor} construction lacked drawable pixel proof")
+    construction_oracle = analyze_render_samples_for_audit(
+        construction_frames, f"{actor}-construct-house"
+    )
+
+    repair_tile = (5, 19) if owner == 0 else (42, 10)
+    games = wait_until(
+        f"{actor} repair fixture lockstep", lambda: matching_games(host, join),
+        timeout=WAIT_SECONDS,
+    )
+    villager = next(
+        (unit for unit in games[0].get("units", [])
+         if int(unit.get("id", -1)) == selected_villager), None
+    )
+    if not isinstance(villager, dict):
+        raise Failure(f"{actor} construction villager disappeared")
+    center_camera_for_tile(journey, driver, actions, actor, *repair_tile)
+    center_camera_for_tile(
+        observer_journey, observer_driver, actions, observer_actor, *repair_tile
+    )
+    audited_world_pointer(
+        journey, driver, actions, actor,
+        int(villager["x"]), int(villager["y"]), button=0,
+    )
+    wait_until(
+        f"{actor} repair villager selection",
+        lambda: selected_villager if int(journey.telemetry().get(
+            "selectedUnit", 0
+        )) == selected_villager else None,
+    )
+    audited_command_button(driver, actions, actor, 2)
+    audited_world_pointer(journey, driver, actions, actor, *repair_tile)
+    repair_frames: list[dict[str, object]] = []
+    repair_pixel: dict[str, object] | None = None
+    repair_seen = False
+    deadline = time.monotonic() + WAIT_SECONDS * 3
+    while time.monotonic() < deadline:
+        repair_frames.extend(capture_correlated_frames(
+            host, join, seconds=0.2, artifact_dir=artifact_dir,
+            label=f"{actor}-repair-house", maximum_samples=4,
+        ))
+        render_states = [render_diagnostics(value) or {}
+                         for value in (host, join)]
+        entities = [
+            next((entity for entity in state.get("entities", [])
+                  if isinstance(entity, dict) and
+                  int(entity.get("id", -1)) == selected_villager), None)
+            for state in render_states
+        ]
+        repairing = all(
+            isinstance(entity, dict) and entity.get("action") == "repairing"
+            for entity in entities
+        )
+        repair_seen = repair_seen or repairing
+        if repair_pixel is None and repairing:
+            positions = []
+            for entity in entities:
+                current = entity.get("simulationPosition")
+                target = entity.get("workTarget")
+                if not isinstance(current, dict) or not isinstance(
+                    target, dict
+                ):
+                    positions = []
+                    break
+                positions.append((
+                    (int(current["x"]), int(current["y"])),
+                    (int(target["x"]), int(target["y"])),
+                ))
+            if len(positions) == 2 and positions[0] == positions[1]:
+                repair_pixel = capture_catalog_semantic_pixels(
+                    host, join, artifact_dir,
+                    f"{actor}-repair-house-semantic",
+                    int(selected_villager), owner=owner,
+                    unit_kind="unit-villager", action="repairing",
+                    catalog_ids=["villager-repairing"],
+                    phase=f"{actor}-repair-house",
+                    direction_positions=positions[0],
+                )
+        if repair_seen and not repairing:
+            break
+    else:
+        raise Failure(f"{actor} repair did not complete")
+    if repair_pixel is None:
+        raise Failure(f"{actor} repair lacked drawable pixel proof")
+    repair_oracle = analyze_render_samples_for_audit(
+        repair_frames, f"{actor}-repair-house"
     )
     return {
         "owner": owner,
@@ -2710,6 +2854,12 @@ def prepare_player_for_full_match(
         "returnPixelCapture": return_pixel,
         "gatherRenderOracle": gather_oracle,
         "constructedBuildingIds": sorted(constructed_ids),
+        "constructionFrames": construction_frames,
+        "constructionPixelCapture": construction_pixel,
+        "constructionRenderOracle": construction_oracle,
+        "repairFrames": repair_frames,
+        "repairPixelCapture": repair_pixel,
+        "repairRenderOracle": repair_oracle,
         "militaryCount": int(trained["blueMilitaryCount"]),
         "researched": bool(researched["manAtArmsResearched"]),
     }
@@ -4457,7 +4607,14 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
             (full_gameplay.get(actor) or {}).get("gatherFrames", [])
         for actor in ("host", "join")
     }
-    for phase, samples in gather_phases.items():
+    work_phases = dict(gather_phases)
+    for actor in ("host", "join"):
+        player = full_gameplay.get(actor) or {}
+        work_phases[f"fullGameplay{actor.title()}Construction"] = \
+            player.get("constructionFrames", [])
+        work_phases[f"fullGameplay{actor.title()}Repair"] = \
+            player.get("repairFrames", [])
+    for phase, samples in work_phases.items():
         for sample in samples:
             if isinstance(sample.get("authoritativeHost"), dict):
                 host_states.append({
@@ -4494,7 +4651,7 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
         "hostMovement": evidence.get("movement"),
         "joinMovement": evidence.get("joinMovement"),
         "simultaneousMovement": evidence.get("simultaneousMovement"),
-        "fullGameplayGather": gather_phases,
+        "fullGameplayWork": work_phases,
         "fullGameplayCombat": combat,
     }
     (root / "motion.json").write_text(
@@ -4617,7 +4774,7 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
                 "tick": render_state.get("tick"),
                 "entities": render_state.get("entities", []),
             })
-    for phase, samples in gather_phases.items():
+    for phase, samples in work_phases.items():
         for sample in samples:
             for peer in ("host", "join"):
                 render_state = sample.get(peer) or {}
@@ -4671,7 +4828,7 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
         phase = f"allDirections{actor.title()}"
         for sample in (all_directions.get(actor) or {}).get("frames", []):
             correlated_records.append({"phase": phase, **sample})
-    for phase, samples in gather_phases.items():
+    for phase, samples in work_phases.items():
         for sample in samples:
             correlated_records.append({"phase": phase, **sample})
     for sample in combat.get("frames", []):

@@ -1360,6 +1360,67 @@ def exercise_patrol_route(
     }
 
 
+def exercise_obstacle_detour_route(
+    journey: Journey, driver, actor: str, owner: int, unit_id: int,
+    host, join, actions: list[dict[str, object]], artifact_dir: Path,
+    start: tuple[int, int], destination: tuple[int, int],
+    obstacle: tuple[int, int],
+) -> dict[str, object]:
+    """Command straight through a known House and prove path detours it."""
+    games = wait_until(
+        f"{actor} obstacle synchronized state",
+        lambda: matching_games(host, join), timeout=WAIT_SECONDS,
+    )
+    current = owned_unit_positions(games[0], owner).get(unit_id)
+    if current is None:
+        raise Failure(f"{actor} obstacle route unit missing")
+    center_camera_for_tile(journey, driver, actions, actor, *current)
+    audited_world_pointer(
+        journey, driver, actions, actor, *current, button=0
+    )
+    center_camera_for_tile(journey, driver, actions, actor, *start)
+    audited_world_pointer(journey, driver, actions, actor, *start)
+    approach = capture_until_arrival(
+        host, join, owner=owner, unit_id=unit_id, destination=start,
+        artifact_dir=artifact_dir, label=f"{actor}-obstacle-approach",
+    )
+    center_camera_for_tile(journey, driver, actions, actor, *destination)
+    audited_world_pointer(journey, driver, actions, actor, *destination)
+    frames = capture_until_arrival(
+        host, join, owner=owner, unit_id=unit_id, destination=destination,
+        artifact_dir=artifact_dir, label=f"{actor}-obstacle-detour",
+    )
+    positions: list[tuple[int, int]] = []
+    for sample in frames:
+        game = sample.get("authoritativeHost") or {}
+        value = owned_unit_positions(game, owner).get(unit_id)
+        if value is not None and (not positions or positions[-1] != value):
+            positions.append(value)
+    if not positions:
+        raise Failure(f"{actor} obstacle detour lacks authoritative positions")
+    if not any(position[1] != start[1] for position in positions):
+        raise Failure(
+            f"{actor} path crossed House axis without observable detour"
+        )
+    if any(position == obstacle for position in positions):
+        raise Failure(f"{actor} path entered blocked House tile {obstacle}")
+    return {
+        "actor": actor, "owner": owner, "unitId": unit_id,
+        "routeKind": ["obstacle-detour", "building-corner-navigation"],
+        "start": {"x": start[0], "y": start[1]},
+        "destination": {"x": destination[0], "y": destination[1]},
+        "obstacle": {"kind": "house", "x": obstacle[0], "y": obstacle[1]},
+        "approachFrameCount": len(approach),
+        "authoritativePositions": [
+            {"x": value[0], "y": value[1]} for value in positions
+        ],
+        "frameCount": len(frames), "frames": frames,
+        "renderOracle": analyze_render_samples_for_audit(
+            frames, f"{actor}-obstacle-detour"
+        ),
+    }
+
+
 def analyze_render_samples(samples: list[dict[str, object]]) \
         -> dict[str, object]:
     if not samples:
@@ -3151,6 +3212,21 @@ def run(relays: str | None, headed: bool, port: int = 8888,
                     observer_journey, observer_driver, observer_actor,
                     host, join, actions, artifact_dir, center,
                 )
+            obstacle_specs = {
+                0: ((7, 17), (13, 17), (10, 17)),
+                1: ((34, 13), (40, 13), (37, 13)),
+            }
+            evidence["obstacleRoutes"] = {}
+            for owner in owner_order:
+                actor, journey, driver, _, _, _, _ = actor_specs[int(owner)]
+                start, destination, obstacle = obstacle_specs[int(owner)]
+                evidence["obstacleRoutes"][actor] = \
+                    exercise_obstacle_detour_route(
+                        journey, driver, actor, int(owner),
+                        int(evidence["allDirections"][actor]["unitId"]),
+                        host, join, actions, artifact_dir,
+                        start, destination, obstacle,
+                    )
             evidence["formationRoutes"] = {}
             for owner in owner_order:
                 actor, journey, driver, _, _, _, center = actor_specs[
@@ -3772,6 +3848,17 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
                         "entities": render_state.get("entities", []),
                     })
     formation_routes = evidence.get("formationRoutes") or {}
+    obstacle_routes = evidence.get("obstacleRoutes") or {}
+    for actor in ("host", "join"):
+        for sample in (obstacle_routes.get(actor) or {}).get("frames", []):
+            for peer in ("host", "join"):
+                render_state = sample.get(peer) or {}
+                provenance.append({
+                    "phase": f"obstacle-{actor}", "peer": peer,
+                    "frame": render_state.get("frame"),
+                    "tick": render_state.get("tick"),
+                    "entities": render_state.get("entities", []),
+                })
     for actor in ("host", "join"):
         for sample in (formation_routes.get(actor) or {}).get("frames", []):
             for peer in ("host", "join"):
@@ -3814,6 +3901,10 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
                 "frame": render_state.get("frame"),
                 "tick": render_state.get("tick"),
                 "entities": render_state.get("entities", []),
+            })
+        for sample in (obstacle_routes.get(actor) or {}).get("frames", []):
+            correlated_records.append({
+                "phase": f"obstacle-{actor}", **sample,
             })
     for phase, samples in gather_phases.items():
         for sample in samples:

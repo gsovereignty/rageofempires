@@ -349,3 +349,26 @@ diagnosable. Fresh production verification is required.
 Evidence:
 `artifacts/browser-multiplayer-audits/20260814T013000Z-obstacle-retry/`.
 Cleanup completed: port 8907 is free and descriptors returned to baseline 5.
+
+## Command-boundary restart — `20260814T030000Z-command-boundaries`
+
+**BLOCKED with no confirmed product bug.** Boundary logging captured 126
+records in attempt 1 and 22 in attempt 2, including transient misses that later
+recovered and persistent third-attempt failures. Peer hashes stayed equal,
+sender streams remained contiguous, and unrelated turn/receipt publications
+continued. Attempt 3 stopped earlier in all-direction movement, outside the
+initial recorder scope.
+
+The new records survived exception unwinding and verify CBMB-20260813-R10-01's
+durability correction. They also prove a remaining observability gap: rolling
+publication snapshots expose intent and event IDs, but not exact `EventIntent`
+payloads, so a clicked route target still cannot be tied to semantic command
+construction. Harness now wraps the browser's production
+`AoeNostrRuntime.publish()` facade after both clients launch, records a bounded
+copy of each exact intent before forwarding it unchanged, includes the list in
+every boundary snapshot, and preserves both peer lists in `first-failure.json`.
+Fresh production verification is required.
+
+Evidence:
+`artifacts/browser-multiplayer-audits/20260814T030000Z-command-boundaries/`.
+Cleanup completed: port 8908 is free and descriptors returned to baseline 5.

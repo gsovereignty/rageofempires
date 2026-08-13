@@ -1035,6 +1035,12 @@ def record_command_boundary(
             "recentSubscriptionMessages": state.get(
                 "recentSubscriptionMessages", []
             ),
+            "publishIntents": capture_failure_value(
+                f"{name} publish intents",
+                lambda driver=driver: driver.execute_script(
+                    "return globalThis.__aoeAuditPublishIntents || []"
+                ),
+            ),
         }
     record = {
         "monotonic": time.monotonic(), "phase": phase,
@@ -1050,6 +1056,39 @@ def record_command_boundary(
     with path.open("a", encoding="utf-8") as stream:
         stream.write(json.dumps(record, sort_keys=True) + "\n")
         stream.flush()
+
+
+def install_publish_intent_probe(driver) -> None:
+    """Observe exact production EventIntent calls without altering them."""
+    installed = driver.execute_script("""
+        const runtime = globalThis.AoeNostrRuntime;
+        if (!runtime || typeof runtime.publish !== 'function') return false;
+        if (globalThis.__aoeAuditPublishProbeInstalled) return true;
+        globalThis.__aoeAuditPublishIntents = [];
+        const original = runtime.publish;
+        runtime.publish = function(intent) {
+          const records = globalThis.__aoeAuditPublishIntents;
+          let value;
+          try { value = JSON.parse(JSON.stringify(intent)); }
+          catch (error) { value = {captureError: String(error)}; }
+          records.push({
+            wallTimeMs: Date.now(), monotonicMs: performance.now(),
+            intent: value
+          });
+          if (records.length > 256) records.shift();
+          return original.call(this, intent);
+        };
+        globalThis.__aoeAuditPublishProbeInstalled = true;
+        return true;
+    """)
+    if not installed:
+        raise Failure("production Nostr publish facade unavailable for probe")
+
+
+def publish_intent_probe(driver) -> object:
+    return driver.execute_script(
+        "return globalThis.__aoeAuditPublishIntents || []"
+    )
 
 
 def select_route_unit_at_current_position(
@@ -4456,6 +4495,8 @@ def run(relays: str | None, headed: bool, port: int = 8888,
             join_journey = launch(
                 join, base_url, "join", active_relays, reference
             )
+            install_publish_intent_probe(host)
+            install_publish_intent_probe(join)
             evidence["browser"]["joinRenderer"] = \
                 browser_renderer_diagnostics(join)
             require_quorum(join, "join")
@@ -5238,6 +5279,14 @@ def run(relays: str | None, headed: bool, port: int = 8888,
                     "join render diagnostics", lambda: render_diagnostics(join)
                 ),
                 "browser": evidence.get("browser"),
+                "publishIntents": {
+                    "host": capture_failure_value(
+                        "host publish intents", lambda: publish_intent_probe(host)
+                    ),
+                    "join": capture_failure_value(
+                        "join publish intents", lambda: publish_intent_probe(join)
+                    ),
+                },
                 "requests": list(requests),
                 "hostConsole": capture_failure_value(
                     "host console", lambda: host.get_log("browser")

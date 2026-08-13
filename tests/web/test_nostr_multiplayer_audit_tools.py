@@ -38,6 +38,7 @@ from nostr_multiplayer_smoke_test import (
     render_diagnostics,
     request_correlated_pixel_capture,
     replayable_action_stream,
+    relay_blocker_from_diagnostics,
     selectable_military_id,
     visual_failures,
     visual_findings,
@@ -168,6 +169,24 @@ def gathering_sample(*, amount: int = 100, include_resource: bool = True):
 
 
 class AuditedInputTests(unittest.TestCase):
+    def test_non_active_reliability_is_infrastructure_blocker(self):
+        blocker = relay_blocker_from_diagnostics(
+            {"game": {"reliabilityStatus": 1, "reliabilityReason": 7}},
+            {"game": {"reliabilityStatus": 2, "reliabilityReason": 1}},
+        )
+        self.assertEqual(
+            blocker["classification"], "public-relay-infrastructure"
+        )
+        self.assertEqual(blocker["peers"]["join"], {
+            "status": 2, "reason": 1,
+        })
+
+    def test_active_reliability_is_not_infrastructure_blocker(self):
+        state = {"game": {
+            "reliabilityStatus": 0, "reliabilityReason": 0,
+        }}
+        self.assertIsNone(relay_blocker_from_diagnostics(state, state))
+
     def test_game_speed_cycles_until_exact_shared_target(self):
         host = object()
         join = object()

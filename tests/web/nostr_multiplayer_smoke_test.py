@@ -76,6 +76,10 @@ class ActionLimitReached(Failure):
     """Candidate replay reached its prefix boundary without earlier abort."""
 
 
+class InfrastructureBlocked(Failure):
+    """External relay state prevented production journey progress."""
+
+
 class BoundedActionLog(list[dict[str, object]]):
     def __init__(self, limit: int | None = None):
         super().__init__()
@@ -2269,6 +2273,30 @@ def matching_games(host, join):
     return games
 
 
+def relay_blocker_from_diagnostics(
+    host_state: object, join_state: object,
+) -> dict[str, object] | None:
+    """Classify evidenced non-active production reliability as infrastructure."""
+    states = {"host": host_state, "join": join_state}
+    peers: dict[str, dict[str, int]] = {}
+    for peer, state in states.items():
+        if not isinstance(state, dict):
+            return None
+        game = state.get("game")
+        if not isinstance(game, dict):
+            return None
+        status = int(game.get("reliabilityStatus", -1))
+        reason = int(game.get("reliabilityReason", -1))
+        peers[peer] = {"status": status, "reason": reason}
+    if all(value["status"] == 0 for value in peers.values()):
+        return None
+    return {
+        "classification": "public-relay-infrastructure",
+        "policy": "non-active-production-reliability-v1",
+        "peers": peers,
+    }
+
+
 def negotiate_game_speed(host, join, target: int) -> None:
     """Cycle normal F8 multiplayer control to an exact shared speed."""
     if target not in {0, 1, 2}:
@@ -3932,17 +3960,23 @@ def run(relays: str | None, headed: bool, port: int = 8888,
             ))
             return evidence
         except Exception as error:
+            host_state = capture_failure_value(
+                "host diagnostics", lambda: diagnostics(host)
+            )
+            join_state = capture_failure_value(
+                "join diagnostics", lambda: diagnostics(join)
+            )
+            relay_blocker = relay_blocker_from_diagnostics(
+                host_state, join_state
+            )
             failure = {
                 "error": f"{type(error).__name__}: {error}",
                 "traceback": traceback.format_exc(),
                 "completedEvidence": evidence,
                 "relays": evidence.get("relays", []),
-                "host": capture_failure_value(
-                    "host diagnostics", lambda: diagnostics(host)
-                ),
-                "join": capture_failure_value(
-                    "join diagnostics", lambda: diagnostics(join)
-                ),
+                "host": host_state,
+                "join": join_state,
+                "infrastructureBlocker": relay_blocker,
                 "hostRender": capture_failure_value(
                     "host render diagnostics", lambda: render_diagnostics(host)
                 ),
@@ -3975,6 +4009,10 @@ def run(relays: str | None, headed: bool, port: int = 8888,
                     str(artifact_dir / "last-failure-join.png")
                 ),
             )
+            if relay_blocker is not None:
+                raise InfrastructureBlocked(
+                    f"{error}; reliability={relay_blocker['peers']}"
+                ) from error
             raise
         finally:
             if host_journey is not None:
@@ -4623,7 +4661,8 @@ def main() -> int:
             if verdict_path.is_file() else {}
         )
         retained_status = (
-            "FAIL" if current_verdict.get("status") == "FAIL"
+            "BLOCKED" if isinstance(error, InfrastructureBlocked)
+            else "FAIL" if current_verdict.get("status") == "FAIL"
             else "BLOCKED"
         )
         if retained_status == "FAIL":

@@ -93,6 +93,7 @@ def make_driver(
             options.add_argument("--headless=new")
         options.add_argument("--window-size=1280,900")
         options.add_argument("--autoplay-policy=user-gesture-required")
+        options.add_argument("--mute-audio")
         for argument in browser_arguments or []:
             options.add_argument(argument)
         options.set_capability("goog:loggingPrefs", {"browser": "ALL"})

@@ -854,6 +854,7 @@ def exercise_all_direction_route(
     observer_journey: Journey, observer_driver, observer_actor: str,
     host, join, actions: list[dict[str, object]], artifact_dir: Path,
     center: tuple[int, int], seed: int, direction_order: list[int],
+    progress: dict[str, object],
 ) -> dict[str, object]:
     games = wait_until(
         f"{actor} all-direction villager selection",
@@ -869,6 +870,11 @@ def exercise_all_direction_route(
             item[0],
         ),
     )
+    progress.update({
+        "actor": actor, "owner": owner, "unitId": unit_id,
+        "center": {"x": center[0], "y": center[1]},
+        "approachFrameCount": 0, "segments": [], "frames": [],
+    })
     center_camera_for_tile(
         journey, driver, actions, actor, center[0], center[1]
     )
@@ -897,10 +903,13 @@ def exercise_all_direction_route(
         host, join, owner=owner, unit_id=unit_id, destination=center,
         artifact_dir=artifact_dir, label=f"{actor}-route-approach",
     )
+    progress["approachFrameCount"] = len(approach)
     negotiate_game_speed(host, join, 0)
     route = canonical_direction_route(center, direction_order=direction_order)
     segments: list[dict[str, object]] = []
     all_frames: list[dict[str, object]] = []
+    progress["segments"] = segments
+    progress["frames"] = all_frames
     for lap in range(3):
         for segment_index, destination in enumerate(route[1:]):
             direction = direction_order[segment_index]
@@ -1093,15 +1102,10 @@ def exercise_all_direction_route(
                 "frameCount": len(frames),
                 "pixelCapture": pixel_capture,
             })
-    return {
-        "actor": actor, "owner": owner, "unitId": unit_id,
-        "center": {"x": center[0], "y": center[1]},
-        "approachFrameCount": len(approach),
-        "segments": segments, "frames": all_frames,
-        "renderOracle": analyze_render_samples_for_audit(
-            all_frames, f"{actor}-all-directions"
-        ),
-    }
+    progress["renderOracle"] = analyze_render_samples_for_audit(
+        all_frames, f"{actor}-all-directions"
+    )
+    return progress
 
 
 def exercise_transition_routes(
@@ -4306,6 +4310,8 @@ def run(relays: str | None, headed: bool, port: int = 8888,
             for owner in owner_order:
                 actor, journey, driver, observer_actor, observer_journey, \
                     observer_driver, center = actor_specs[int(owner)]
+                route_progress: dict[str, object] = {}
+                evidence["allDirections"][actor] = route_progress
                 evidence["allDirections"][actor] = exercise_all_direction_route(
                     journey, driver, actor, int(owner),
                     observer_journey, observer_driver, observer_actor,
@@ -4313,6 +4319,7 @@ def run(relays: str | None, headed: bool, port: int = 8888,
                     list(evidence["actionPlan"]["directionOrderByOwner"][
                         str(owner)
                     ]),
+                    route_progress,
                 )
             evidence["transitionRoutes"] = {}
             for owner in owner_order:

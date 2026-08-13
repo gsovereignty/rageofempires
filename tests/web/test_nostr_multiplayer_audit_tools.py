@@ -44,6 +44,7 @@ from nostr_multiplayer_smoke_test import (
     request_correlated_pixel_capture,
     replayable_action_stream,
     relay_blocker_from_diagnostics,
+    select_route_unit_at_current_position,
     selectable_military_id,
     visual_failures,
     visual_findings,
@@ -743,6 +744,52 @@ class FailureEvidenceTests(unittest.TestCase):
 
 
 class RenderOracleTests(unittest.TestCase):
+    def test_route_selection_reacquires_position_after_camera_pan(self):
+        class Journey:
+            def telemetry(self):
+                return {"selectedUnit": 10}
+
+        before = {10: (28, 15)}
+        after = {10: (34, 8)}
+        games = [{"units": [
+            {"id": 10, "owner": 1, "x": x, "y": y}
+        ]} for x, y in [after[10], after[10]]]
+        actions = []
+
+        def pointer_action(*_args, **_kwargs):
+            actions.append({})
+
+        synchronized_reads = iter((before, after, after, after))
+
+        def wait(_label, callback, timeout=None):
+            if "position" not in _label:
+                return callback()
+            positions = next(synchronized_reads)
+            return [{"units": [
+                {"id": 10, "owner": 1, "x": positions[10][0],
+                 "y": positions[10][1]}
+            ]}] * 2
+
+        with patch(
+            "nostr_multiplayer_smoke_test.wait_until",
+            side_effect=wait,
+        ), patch(
+            "nostr_multiplayer_smoke_test.matching_games",
+            return_value=games,
+        ), patch(
+            "nostr_multiplayer_smoke_test.center_camera_for_tile",
+        ), patch(
+            "nostr_multiplayer_smoke_test.audited_world_pointer",
+            side_effect=pointer_action,
+        ) as pointer:
+            selected = select_route_unit_at_current_position(
+                Journey(), object(), "join", 1, 10,
+                object(), object(), actions,
+            )
+        self.assertEqual(selected, after[10])
+        pointer.assert_called_once()
+        self.assertEqual(pointer.call_args.args[-2:], (34, 8))
+
     def test_stuck_action_replacement_is_seeded_and_changes_target(self):
         first = deterministic_replacement_destination(
             (20, 16), (21, 16), 42, owner=0,
@@ -1076,6 +1123,48 @@ class RenderOracleTests(unittest.TestCase):
             entity["category"] = "building-house"
             entity["layers"].append({"resourceId": 429, "frame": 3})
         self.assertEqual(analyze_render_samples([value])["frames"], 1)
+
+    def test_animated_building_does_not_require_movement_positions(self):
+        value = sample(1, 10.0)
+        for peer in ("host", "join"):
+            entity = value[peer]["entities"][0]
+            entity["category"] = "building-house"
+            entity["layers"].append({
+                "resourceId": 429,
+                "frame": 3,
+                "framesPerDirection": 20,
+                "physicalFrameCount": 20,
+                "mirroringMode": 0,
+                "actionFrame": 3,
+                "resolvedStoredDirection": 0,
+            })
+
+        result = analyze_render_samples([value])
+
+        self.assertEqual(result["legacy"], 2)
+        self.assertFalse(any(
+            oracle["oracleKind"] == "frame-selection"
+            for oracle in result["visualOracles"]
+        ))
+        self.assertEqual(
+            sum(oracle["oracleKind"] == "animation-progress"
+                for oracle in result["visualOracles"]),
+            4,
+        )
+
+    def test_animated_movable_entity_requires_movement_positions(self):
+        value = sample(1, 10.0)
+        for peer in ("host", "join"):
+            value[peer]["entities"][0]["layers"][0].update({
+                "framesPerDirection": 2,
+                "physicalFrameCount": 10,
+                "mirroringMode": 6,
+                "actionFrame": 1,
+                "resolvedStoredDirection": 0,
+            })
+
+        with self.assertRaisesRegex(Failure, "frame oracle lacks positions"):
+            analyze_render_samples([value])
 
     def test_rejects_unexpected_composite_primary_body(self):
         value = sample(1, 10.0)

@@ -88,3 +88,24 @@ Both attempts closed owned browsers, drivers, and server. Port 8897 was
 released. Descriptor use returned from 10 to 9, below baseline. Unrelated
 working-tree edits and processes were preserved. No game code changed, so no
 build or test command was run beyond the requested production audit journey.
+
+## Follow-up fixes
+
+Both harness problems were subsequently corrected:
+
+- Movement-direction oracle now runs only for movable `unit-*` and
+  `projectile-*` categories. Static animated buildings retain provenance,
+  asset, draw, animation-progress, and peer-consistency checks.
+- Route selection now reacquires synchronized unit position after camera
+  movement and clicks only a stable current production tile. Retained telemetry
+  records selection attempt and selected unit.
+
+Focused audit-tool suite passed 74 tests. Fresh packaged two-browser validation
+with seed `11055785183250` crossed prior join-selection failure, completed route
+approach, captured direction frames, and retained zero visual-oracle failures.
+It stopped only at configured action limit 40. Evidence:
+`artifacts/browser-multiplayer-audits/20260813T132158Z-crush-browser-multiplayer-bugs/fix-validation/20260813T135904Z-6994351ae5dc/`.
+
+These fixes remove identified harness blockers. Original broad gameplay audit
+verdict remains `BLOCKED` because full economy, combat, relay-recovery, and
+natural-victory coverage was not rerun.

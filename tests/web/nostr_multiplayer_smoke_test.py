@@ -1011,6 +1011,64 @@ def capture_until_arrival(
     )
 
 
+def select_route_unit_at_current_position(
+    journey: Journey, driver, actor: str, owner: int, unit_id: int,
+    host, join, actions: list[dict[str, object]],
+) -> tuple[int, int]:
+    """Select a stopped route unit through its current production tile."""
+    last_position: tuple[int, int] | None = None
+    for attempt in range(4):
+        games = wait_until(
+            f"{actor} synchronized route unit {unit_id} position",
+            lambda: matching_games(host, join), timeout=WAIT_SECONDS,
+        )
+        positions = [owned_unit_positions(game, owner) for game in games]
+        if positions[0] != positions[1] or unit_id not in positions[0]:
+            continue
+        position = positions[0][unit_id]
+        center_camera_for_tile(
+            journey, driver, actions, actor, position[0], position[1]
+        )
+
+        # Camera movement consumes real simulation time. Re-read authoritative
+        # position after panning; never click position retained before camera
+        # setup while selected unit may still be completing an earlier order.
+        games = matching_games(host, join)
+        if games is None:
+            continue
+        positions = [owned_unit_positions(game, owner) for game in games]
+        if positions[0] != positions[1] or unit_id not in positions[0]:
+            continue
+        current = positions[0][unit_id]
+        last_position = current
+        if current != position:
+            continue
+        audited_world_pointer(
+            journey, driver, actions, actor,
+            current[0], current[1], button=0,
+        )
+        try:
+            wait_until(
+                f"{actor} explicit route villager {unit_id} selection",
+                lambda: unit_id if int(
+                    journey.telemetry().get("selectedUnit", 0)
+                ) == unit_id else None,
+                timeout=2.0,
+            )
+            actions[-1]["selectionAttempt"] = attempt + 1
+            actions[-1]["selectedUnit"] = unit_id
+            return current
+        except Failure:
+            actions[-1]["selectionAttempt"] = attempt + 1
+            actions[-1]["selectedUnit"] = int(
+                journey.telemetry().get("selectedUnit", 0)
+            )
+    raise Failure(
+        f"{actor} could not select route villager {unit_id} at current "
+        f"synchronized position; last={last_position}"
+    )
+
+
 def exercise_all_direction_route(
     journey: Journey, driver, actor: str, owner: int,
     observer_journey: Journey, observer_driver, observer_actor: str,
@@ -1025,7 +1083,7 @@ def exercise_all_direction_route(
     candidates = owned_villager_positions(games[0], owner)
     if not candidates:
         raise Failure(f"{actor} has no owned route villager")
-    unit_id, unit_position = min(
+    unit_id, _unit_position = min(
         candidates.items(),
         key=lambda item: (
             abs(item[1][0] - center[0]) + abs(item[1][1] - center[1]),
@@ -1044,16 +1102,12 @@ def exercise_all_direction_route(
         observer_journey, observer_driver, actions, observer_actor,
         center[0] + 1, center[1],
     )
-    audited_world_pointer(
-        journey, driver, actions, actor,
-        unit_position[0], unit_position[1], button=0,
+    selected_position = select_route_unit_at_current_position(
+        journey, driver, actor, owner, unit_id, host, join, actions,
     )
-    wait_until(
-        f"{actor} explicit route villager {unit_id} selection",
-        lambda: unit_id if int(
-            journey.telemetry().get("selectedUnit", 0)
-        ) == unit_id else None,
-    )
+    progress["selectedPosition"] = {
+        "x": selected_position[0], "y": selected_position[1]
+    }
     audited_world_pointer(
         journey, driver, actions, actor, center[0], center[1]
     )
@@ -2153,7 +2207,11 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
                             "framesPerDirection", "physicalFrameCount",
                             "mirroringMode", "actionFrame",
                         )
-                        if all(field in layer for field in oracle_fields):
+                        movement_category = str(
+                            entity.get("category", "")
+                        ).startswith(("unit-", "projectile-"))
+                        if (movement_category and
+                                all(field in layer for field in oracle_fields)):
                             previous = entity.get("previousPosition")
                             current = entity.get("simulationPosition")
                             if not (isinstance(previous, dict) and

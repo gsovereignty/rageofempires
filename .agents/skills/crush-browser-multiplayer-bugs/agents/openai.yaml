@@ -1,0 +1,4 @@
+interface:
+  display_name: "Crush Browser Multiplayer Bugs"
+  short_description: "Prove multiplayer gameplay bugs and root causes"
+  default_prompt: "Use $crush-browser-multiplayer-bugs to audit both sides of browser multiplayer and log only confirmed root-caused bugs."

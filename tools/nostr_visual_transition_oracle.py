@@ -19,6 +19,7 @@ def evaluate_transitions(
     histories: dict[tuple[str, int, int], list[dict[str, object]]] = defaultdict(list)
     failures: list[dict[str, object]] = []
     transition_count = 0
+    stationary_observation_count = 0
     for sample_index, sample in enumerate(samples):
         for peer in ("host", "join"):
             state = sample.get(peer) or {}
@@ -31,20 +32,26 @@ def evaluate_transitions(
                     continue
                 previous_position = (int(previous["x"]), int(previous["y"]))
                 current_position = (int(current["x"]), int(current["y"]))
-                if previous_position == current_position:
-                    continue
                 layer = entity["layers"][0]
                 direction_count = int(layer.get(
                     "directionCount", entity.get("expectedDirectionCount", 8)
                 ))
-                expected = logical_direction(
-                    previous_position, current_position, direction_count
-                )
                 actual = int(layer.get(
                     "logicalDirection", entity.get("facing", -1)
                 ))
                 key = (peer, int(entity.get("owner", -1)),
                        int(entity.get("id", -1)))
+                history = histories[key]
+                stationary = previous_position == current_position
+                if stationary:
+                    if not history:
+                        continue
+                    stationary_observation_count += 1
+                    expected = int(history[-1]["expectedDirection"])
+                else:
+                    expected = logical_direction(
+                        previous_position, current_position, direction_count
+                    )
                 observation = {
                     "sampleIndex": sample_index,
                     "tick": state.get("tick"),
@@ -55,9 +62,18 @@ def evaluate_transitions(
                     "actualDirection": actual,
                     "actionFrame": layer.get("actionFrame"),
                     "physicalFrame": layer.get("frame"),
+                    "stationary": stationary,
                 }
-                history = histories[key]
                 prior = history[-1] if history else None
+                if stationary:
+                    if actual != expected:
+                        failures.append({
+                            "classification": "STOP_FACING_NOT_RETAINED",
+                            "peer": peer, "owner": key[1], "entity": key[2],
+                            "retainedDirection": expected, **observation,
+                        })
+                    history.append(observation)
+                    continue
                 if prior and prior["expectedDirection"] != expected:
                     transition_count += 1
                     if actual == prior["expectedDirection"]:
@@ -100,6 +116,7 @@ def evaluate_transitions(
         "verdict": "FAIL" if failures else "PASS",
         "transitionCount": transition_count,
         "observationCount": sum(len(value) for value in histories.values()),
+        "stationaryObservationCount": stationary_observation_count,
         "maximumStaleFrames": maximum_stale_frames,
         "failures": failures,
     }

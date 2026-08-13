@@ -68,6 +68,26 @@ class TransitionOracleTests(unittest.TestCase):
             {failure["classification"] for failure in result["failures"]},
         )
 
+    def test_arrival_retains_last_movement_facing(self):
+        values = [
+            sample(1, (0, 0), (1, 0), 7),
+            sample(2, (1, 0), (1, 0), 7),
+        ]
+        result = evaluate_transitions(values)
+        self.assertEqual(result["verdict"], "PASS")
+        self.assertEqual(result["stationaryObservationCount"], 2)
+
+    def test_stop_facing_change_fails_structurally(self):
+        values = [
+            sample(1, (0, 0), (1, 0), 7),
+            sample(2, (1, 0), (1, 0), 1),
+        ]
+        result = evaluate_transitions(values)
+        self.assertIn(
+            "STOP_FACING_NOT_RETAINED",
+            {failure["classification"] for failure in result["failures"]},
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

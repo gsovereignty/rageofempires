@@ -436,11 +436,11 @@ def pan_world_target_clear(
         x = float(target["x"])
         y = float(target["y"])
         if edge_margin < x < 1280.0 - edge_margin and \
-                10.0 < y < 520.0:
+                edge_margin < y < 520.0 - edge_margin:
             return
-        if y >= 520.0:
+        if y >= 520.0 - edge_margin:
             key = Keys.ARROW_DOWN
-        elif y <= 10.0:
+        elif y <= edge_margin:
             key = Keys.ARROW_UP
         elif x <= edge_margin:
             key = Keys.ARROW_LEFT

@@ -264,18 +264,15 @@ def allocate_audit_destination(
 ) -> AuditDestination:
     """Atomically reserve durable report and artifact destinations."""
     artifact_root.mkdir(parents=True, exist_ok=True)
-    report_root.mkdir(parents=True, exist_ok=True)
     now = datetime.now(timezone.utc)
     stamp = now.strftime("%Y%m%dT%H%M%SZ")
     report_day = now.strftime("%Y-%m-%d")
+    exact_destination = run_id is not None
     if run_id is not None:
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", run_id):
             raise ValueError("audit destination id contains unsafe characters")
         artifacts = artifact_root / run_id
         artifacts.mkdir()
-        report = report_root / (
-            f"{report_day}-NOSTR-E2E-VISUAL-GAMEPLAY-{run_id}.md"
-        )
     else:
         while True:
             run_id = secrets.token_hex(6)
@@ -285,6 +282,12 @@ def allocate_audit_destination(
                 break
             except FileExistsError:
                 continue
+    report_root.mkdir(parents=True, exist_ok=True)
+    if exact_destination:
+        report = report_root / (
+            f"{report_day}-NOSTR-E2E-VISUAL-GAMEPLAY-{run_id}.md"
+        )
+    else:
         report = report_root / f"{report_day}-NOSTR-E2E-VISUAL-GAMEPLAY.md"
         if report.exists():
             report = report_root / (

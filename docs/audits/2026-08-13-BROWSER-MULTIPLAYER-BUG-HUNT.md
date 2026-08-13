@@ -152,3 +152,29 @@ deliberate mutation checks and were rejected as product findings.
 Cleanup completed: both browsers, driver, and owned server exited; port 8898
 is free; descriptor count returned from 10 to 9. No product code changed and no
 build or general test command ran.
+
+## Harness restart — `20260813T145000Z-harness-restart-2`
+
+**BLOCKED by public-relay infrastructure.** A fresh run verified the exact
+destination-allocation harness correction through the production audit path,
+then completed 82 ordinary gameplay actions before publication quorum failed.
+The run retained 152 peer states, 75 correlated frames, 150 provenance rows,
+148 visual-oracle rows, and 434 screenshots.
+
+`receipt-312` was accepted by `wss://relay.nostr.wirednet.jp`; `wss://nostr.oxtr.dev`
+rejected it as rate limited and `wss://nostr-pub.wellorder.net` timed out. Unit
+9 consequently did not receive a quorum-committed command to `(28,12)`. This
+is classified `public-relay-infrastructure`, not a product or harness bug.
+Evidence:
+`artifacts/browser-multiplayer-audits/20260813T145000Z-harness-restart-2/`.
+
+The preceding launch attempt proved CBMB-20260813-R3-01: a report root nested
+inside an exact artifact destination caused `allocate_audit_destination()` to
+create the destination as a parent before trying to reserve it. Artifact
+reservation now occurs first; a regression covers nested report roots. The
+restart crossed allocation, relay probing, browser launch, lobby setup, and
+gameplay capture, verifying the correction in the real audit path.
+
+Cleanup completed: owned browsers, driver, and server exited; port 8899 is
+free; descriptor count returned to its baseline of 5. Broad required coverage
+remains incomplete, so relay rotation must restart the audit.

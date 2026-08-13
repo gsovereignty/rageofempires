@@ -751,6 +751,19 @@ class FailureEvidenceTests(unittest.TestCase):
             self.assertEqual(ledger["status"], "RUNNING")
             self.assertFalse(ledger["privateKeysRetained"])
 
+    def test_allocates_exact_destination_with_nested_report_root(self):
+        with tempfile.TemporaryDirectory() as directory:
+            artifact_root = Path(directory) / "artifacts"
+            run_id = "declared-run"
+            destination = allocate_audit_destination(
+                artifact_root, artifact_root / run_id / "reports", run_id
+            )
+            self.assertEqual(destination.artifacts, artifact_root / run_id)
+            self.assertEqual(destination.report.parent,
+                             artifact_root / run_id / "reports")
+            self.assertTrue(destination.artifacts.is_dir())
+            self.assertTrue(destination.report.is_file())
+
     def test_diagnostics_tolerates_missing_module(self):
         class Driver:
             def execute_script(self, source):

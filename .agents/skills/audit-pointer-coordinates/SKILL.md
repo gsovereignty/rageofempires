@@ -5,6 +5,15 @@ description: Thoroughly test this reconstruction's cursor tracking, SDL event co
 
 # Audit pointer coordinates
 
+## Ownership boundary
+
+Own coordinate conversion, pointer hit testing, drag selection, world/minimap
+picking, resizing, fullscreen, letterboxing, and high-DPI behavior. Do not
+broaden pointer-driven setup into gameplay, Nostr protocol, synchronization,
+or visual-fidelity acceptance. Route failures outside coordinate mapping to
+`audit-browser-multiplayer-gameplay`, `test-nostr-multiplayer`,
+`diagnose-gameplay-sync`, or `audit-visual-fidelity`.
+
 Read repository `AGENTS.md` files first. Keep original `decompiled/` source read-only; inspect relevant original mouse, hit-test, minimap, and viewport code before judging intended behavior. Do not use any GSD workflow unless current user explicitly requests GSD.
 
 Audit and log bugs. Do not fix product code unless current request also asks for fixes. Preserve unrelated changes.

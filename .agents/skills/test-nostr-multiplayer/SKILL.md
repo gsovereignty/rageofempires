@@ -1,9 +1,28 @@
 ---
 name: test-nostr-multiplayer
-description: Test this project's packaged web multiplayer end to end through two independent browser instances, two distinct ephemeral Nostr identities, and ordinary public relays; verify lobby, readiness, deterministic lockstep gameplay, public side channels, controls, hashes, checkpoint flow, and terminal behavior, while capturing evidence and documenting every confirmed problem or blocker. Use for Nostr multiplayer gameplay tests, two-browser multiplayer audits, public-relay acceptance, ephemeral npub validation, relay quorum/reconnect checks, or investigation of browser multiplayer diagnostics.
+description: "Test this project's packaged Nostr multiplayer protocol through two independent browsers and public relays: identity, lobby, readiness, event publication, quorum, lockstep agreement, chat/signals, controls, checkpoint, recovery, and terminal synchronization. Use for bounded public-relay acceptance and protocol diagnostics. Use audit-browser-multiplayer-gameplay instead for full matches, economy, combat, motion, animation, rendering, sprites, or visual fidelity; use diagnose-gameplay-sync after a concrete divergence or stall is reproduced."
 ---
 
 # Test Nostr multiplayer
+
+Run bounded protocol acceptance. Do not expand into full-match gameplay or
+visual auditing.
+
+## Ownership boundary
+
+- Own identity, lobby convergence, relay establishment, publication, ordered
+  input delivery, lockstep hashes, side channels, checkpoint barriers, relay
+  recovery, and synchronized terminal controls.
+- Stop after one representative command from each player plus bounded protocol
+  controls and synchronized resignation.
+- Hand natural-victory matches, sustained economy/combat, motion, animation,
+  sprite, terrain, HUD, minimap, and rendering coverage to
+  `audit-browser-multiplayer-gameplay`.
+- Hand a reproduced missing command, divergent hash, tick disagreement, or
+  recovery failure to `diagnose-gameplay-sync`; preserve both clients' first
+  failing diagnostics before handoff.
+- Do not duplicate isolated sprite corpora, whole-scenario visual matrices, or
+  pointer-coordinate matrices.
 
 Read repository `AGENTS.md` files first. Treat every run as production-path
 acceptance, not proof by mocks or direct state injection.
@@ -91,7 +110,7 @@ Require:
 Failure of any item blocks gameplay acceptance. Preserve both diagnostics and
 record exact differing fields.
 
-## Exercise complete gameplay
+## Exercise bounded protocol gameplay
 
 Use visible production UI and normal game inputs. Do not inject frames, mutate
 simulation state, force ticks, use test-only runtime branches, or call internal
@@ -113,12 +132,16 @@ Require this ordered journey:
     and final control state.
 11. Request save/checkpoint barrier; verify matching state hashes and checkpoint
     digest without public save bytes.
-12. Exercise resignation or ordinary match objective through terminal result;
+12. Exercise resignation through terminal result;
     verify both clients agree on outcome, final tick, roster result, and final
     state hash.
 
 Do not call run passed if terminal result is absent. Mark it `partial` even when
 all earlier stages pass.
+
+Do not continue into economy, construction, research, production, scouting,
+combat, animation, or natural-victory coverage. Those belong to
+`audit-browser-multiplayer-gameplay`.
 
 At every milestone capture:
 

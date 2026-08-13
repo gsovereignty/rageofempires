@@ -5,6 +5,15 @@ description: Capture, isolate, batch-review, and baseline every reachable produc
 
 # Audit sprite screenshots
 
+## Ownership boundary
+
+Own isolated rendered-sprite capture, corpus completeness, transparent RGBA
+comparison, terrain overlap, and decision baselines. Do not claim whole-screen
+animation/UI fidelity, live multiplayer behavior, synchronization, or pointer
+mapping. Route those to `audit-visual-fidelity`,
+`audit-browser-multiplayer-gameplay`, `diagnose-gameplay-sync`, or
+`audit-pointer-coordinates`.
+
 Read repository `AGENTS.md` files first. Treat `resources/*.scenario` as fixture source of truth. Consult `decompiled/` and original assets only as read-only fidelity evidence.
 
 Read requested scenarios and coverage targets from invocation. Seek exhaustive rendered-sprite coverage when caller gives no narrower scope. Do not broaden into whole-screen visual or UI auditing; use `audit-visual-fidelity` for that work.

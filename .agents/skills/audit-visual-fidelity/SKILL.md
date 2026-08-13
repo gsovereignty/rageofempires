@@ -5,6 +5,15 @@ description: Exhaustively audit this project's packaged scenarios through determ
 
 # Audit visual fidelity
 
+## Ownership boundary
+
+Own whole-screen presentation across packaged scenarios: animation, effects,
+terrain, HUD, minimap, menus, and terminal flow. Do not own Nostr protocol,
+lockstep, relay recovery, full two-player matches, isolated sprite corpus
+baselines, or pointer-coordinate transforms. Route those respectively to
+`test-nostr-multiplayer`, `audit-browser-multiplayer-gameplay`,
+`audit-sprite-screenshots`, and `audit-pointer-coordinates`.
+
 Read repository `AGENTS.md` files first. Treat `resources/*.scenario` as fixture source of truth. Consult `decompiled/` and original assets only as read-only fidelity evidence.
 
 Read audit targets from skill invocation, including optional minimum confirmed-bug target. If caller gives no target, seek exhaustive coverage without imposing a numeric quota.

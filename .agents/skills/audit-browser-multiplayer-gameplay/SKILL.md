@@ -17,6 +17,18 @@ Read repository `AGENTS.md` files first. Preserve unrelated changes. Consult
 
 ## Respect scope
 
+This skill owns broad two-sided gameplay and combined gameplay/visual audits.
+Use `test-nostr-multiplayer` for short protocol-only acceptance. When this run
+reproduces a desync, missing command, divergent hash, or recovery defect,
+preserve first-failure evidence and invoke `diagnose-gameplay-sync` for focused
+localization.
+
+Use `audit-visual-fidelity` for exhaustive whole-screen packaged-scenario
+matrices unrelated to a live two-player match, `audit-sprite-screenshots` for
+isolated sprite corpora/baselines, and `audit-pointer-coordinates` for complete
+coordinate-space and hit-test matrices. This skill may sample those surfaces
+inside multiplayer but does not claim exhaustive specialist coverage.
+
 - Treat an audit request as read-only diagnosis plus audit artifacts and report.
 - Do not fix product code or add production instrumentation unless the current
   user explicitly requests implementation or fixes.

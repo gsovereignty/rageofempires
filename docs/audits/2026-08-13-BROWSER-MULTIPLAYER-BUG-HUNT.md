@@ -109,3 +109,44 @@ It stopped only at configured action limit 40. Evidence:
 These fixes remove identified harness blockers. Original broad gameplay audit
 verdict remains `BLOCKED` because full economy, combat, relay-recovery, and
 natural-victory coverage was not rerun.
+
+## Current run — `20260813T140647Z`
+
+**BLOCKED.** Fresh packaged run used two independent Chrome profiles and
+ephemeral identities over three healthy public relays. Both peers joined one
+match and completed sustained route movement through tick 1360+, but audit
+stopped before economy, construction, research, production, combat,
+destruction, relay recovery, natural victory, or terminal freeze.
+
+- Raw root: `artifacts/browser-multiplayer-audits/20260813T140647Z/`.
+- Attempt: `20260813T140921Z-e3f1529d3d8c/`.
+- Package SHA-256:
+  `b439a25572fdc3d4ff21f445a77c60670ef5f2f94e1f4a4f2ab5e19206a2fb`.
+- Chrome `151.0.7922.109`; Selenium `4.47.0`; viewport 1280x900; DPR 1.
+- Host key: `aaf1e59dd00319e8ebc60e629c3ebec4bfd0fcbf4046e7bb5e610f1ff5cd3b97`.
+- Join key: `a3d5146cc16455e9950ace09121c37a6151420fc58ab7d7033fcd49e2bb5b22a`.
+- Evidence totals: 136 actions, 39 correlated-frame records, 92 retained frame
+  images, 78 provenance records covering 3,409 entity observations, and 424
+  visual-oracle records (231 pass, 193 skipped).
+
+Current-run counts: 3 candidates; 0 newly confirmed bugs; 2 rejected candidate
+classes; 3 blocked/needs-proof candidate or coverage groups; 0 proved
+infrastructure incidents; 1 harness failure. No new bug log entry was written.
+
+Sync diagnosis rejected product command loss/desync: both peers reached the
+commanded tile, both sender streams were contiguous through 458, and both had
+empty missing ranges. `matching_games()` requires exact instantaneous tick and
+hash before testing acceptance; final peers differed by three ticks, so the
+harness discarded matching arrival state and raised `BLOCKED_COMMAND_ABSENT`.
+Primary independent confirmation remains required before this becomes a
+confirmed tooling bug.
+
+Two visual candidates remain unconfirmed: 98 house provenance records compare
+composite live layers against an expected set containing only SLP 2235, and
+five opaque-overlap cases report 17/13/4/4/4 pixels. Exact product root cause is
+undetermined; neither is logged as a product bug. Six pixel-oracle failures are
+deliberate mutation checks and were rejected as product findings.
+
+Cleanup completed: both browsers, driver, and owned server exited; port 8898
+is free; descriptor count returned from 10 to 9. No product code changed and no
+build or general test command ran.

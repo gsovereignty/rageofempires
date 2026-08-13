@@ -1194,6 +1194,7 @@ def exercise_formation_route(
 
     frames: list[dict[str, object]] = []
     formation_observations: list[dict[str, object]] = []
+    pixel_capture: dict[str, object] | None = None
     movement_seen = False
     settled_polls = 0
     deadline = time.monotonic() + WAIT_SECONDS
@@ -1244,6 +1245,14 @@ def exercise_formation_route(
                 "anchor": list(next(iter(anchors))),
                 "slots": [list(slot) for slot in sorted(slots)],
             })
+            if moving and pixel_capture is None:
+                pixel_capture = capture_catalog_semantic_pixels(
+                    host, join, artifact_dir,
+                    f"{actor}-formation-semantic", selected[0],
+                    owner=owner, unit_kind="unit-villager",
+                    action="formation", catalog_ids=["formation"],
+                    phase=f"{actor}-formation-regroup",
+                )
         if movement_seen and not moving:
             settled_polls += 1
             if settled_polls >= 2:
@@ -1254,12 +1263,15 @@ def exercise_formation_route(
         raise Failure(f"{actor} formation never moved")
     if not formation_observations:
         raise Failure(f"{actor} formation group was never authoritative")
+    if pixel_capture is None:
+        raise Failure(f"{actor} formation lacked drawable pixel proof")
     if settled_polls < 2:
         raise Failure(f"{actor} formation did not regroup and settle")
     return {
         "actor": actor, "owner": owner, "unitIds": selected,
         "destination": {"x": destination[0], "y": destination[1]},
         "formationObservations": formation_observations,
+        "pixelCapture": pixel_capture,
         "frameCount": len(frames), "frames": frames,
         "renderOracle": analyze_render_samples_for_audit(
             frames, f"{actor}-formation-regroup"
@@ -1306,6 +1318,7 @@ def exercise_patrol_route(
     authoritative_positions: list[tuple[int, int]] = []
     patrolling_seen = False
     returned = False
+    pixel_capture: dict[str, object] | None = None
     deadline = time.monotonic() + WAIT_SECONDS
     while time.monotonic() < deadline:
         frames.extend(capture_correlated_frames(
@@ -1330,6 +1343,15 @@ def exercise_patrol_route(
         if "patrolling" not in unit:
             raise Failure("patrol diagnostics missing production field")
         patrolling_seen = patrolling_seen or bool(unit["patrolling"])
+        if (bool(unit["patrolling"]) and bool(unit["moving"]) and
+                pixel_capture is None):
+            pixel_capture = capture_catalog_semantic_pixels(
+                host, join, artifact_dir, f"{actor}-patrol-semantic",
+                unit_id, owner=owner, unit_kind=str(
+                    unit.get("category", "unit-unknown")
+                ), action="patrol", catalog_ids=["patrol"],
+                phase=f"{actor}-patrol",
+            )
         position = (int(unit["x"]), int(unit["y"]))
         if not authoritative_positions or position != authoritative_positions[-1]:
             authoritative_positions.append(position)
@@ -1351,6 +1373,8 @@ def exercise_patrol_route(
         raise Failure(f"{actor} patrol state never became authoritative")
     if not returned:
         raise Failure(f"{actor} patrol never began return leg")
+    if pixel_capture is None:
+        raise Failure(f"{actor} patrol lacked drawable pixel proof")
     audited_key(driver, actions, actor, "s")
     wait_until(
         f"{actor} patrol stop",
@@ -1375,6 +1399,7 @@ def exercise_patrol_route(
             for value in authoritative_positions
         ],
         "patrollingSeen": patrolling_seen, "returnLegSeen": returned,
+        "pixelCapture": pixel_capture,
         "frameCount": len(frames), "frames": frames,
         "renderOracle": analyze_render_samples_for_audit(
             frames, f"{actor}-patrol"
@@ -1564,6 +1589,7 @@ def exercise_moving_target_chase(
     target_positions: set[tuple[int, int]] = set()
     attacker_destinations: set[tuple[int, int]] = set()
     chasing_ticks: list[int] = []
+    pixel_capture: dict[str, object] | None = None
     deadline = time.monotonic() + WAIT_SECONDS
     while time.monotonic() < deadline:
         frames.extend(capture_correlated_frames(
@@ -1597,6 +1623,15 @@ def exercise_moving_target_chase(
                 int(attacker["destinationX"]),
                 int(attacker["destinationY"]),
             ))
+            if bool(attacker.get("moving")) and pixel_capture is None:
+                pixel_capture = capture_catalog_semantic_pixels(
+                    host, join, artifact_dir,
+                    f"{actor}-moving-target-chase-semantic", attacker_id,
+                    owner=owner, unit_kind=str(
+                        attacker.get("category", "unit-unknown")
+                    ), action="chase", catalog_ids=["chase"],
+                    phase=f"{actor}-moving-target-chase",
+                )
         if (len(target_positions) >= 3 and
                 len(attacker_destinations) >= 2 and len(chasing_ticks) >= 3):
             break
@@ -1606,6 +1641,8 @@ def exercise_moving_target_chase(
         raise Failure(f"{actor} attacker destination did not follow target")
     if len(chasing_ticks) < 3:
         raise Failure(f"{actor} chase target binding was not retained")
+    if pixel_capture is None:
+        raise Failure(f"{actor} chase lacked drawable pixel proof")
     audited_key(driver, actions, actor, "s")
     audited_key(target_driver, actions, target_actor, "s")
     frames.extend(capture_correlated_frames(
@@ -1619,6 +1656,7 @@ def exercise_moving_target_chase(
         "targetPositionCount": len(target_positions),
         "attackerDestinationCount": len(attacker_destinations),
         "chasingTicks": chasing_ticks,
+        "pixelCapture": pixel_capture,
         "frameCount": len(frames), "frames": frames,
         "renderOracle": analyze_render_samples_for_audit(
             frames, f"{actor}-moving-target-chase"
@@ -2787,6 +2825,98 @@ def request_correlated_pixel_capture(
         "entityId": entity_id,
         "peers": captures,
     }
+
+
+def capture_catalog_semantic_pixels(
+    host, join, root: Path, label: str, entity_id: int, *, owner: int,
+    unit_kind: str, action: str, catalog_ids: list[str], phase: str,
+) -> dict[str, object] | None:
+    """Retain peer pixel proof using direction derived from captured motion."""
+    capture = request_correlated_pixel_capture(
+        host, join, root, label, entity_id,
+    )
+    peer_directions: dict[str, int] = {}
+    manifests: dict[str, tuple[Path, dict[str, object]]] = {}
+    for peer in ("host", "join"):
+        capture_metadata = capture["peers"][peer]
+        manifest_path = root / capture_metadata["manifest"]
+        manifest = json.loads(manifest_path.read_text())
+        cases = manifest.get("cases", [])
+        if len(cases) != 1:
+            raise Failure(
+                f"{peer} catalog pixel capture has {len(cases)} cases"
+            )
+        metadata = cases[0].get("metadata", {})
+        directional_counts = {
+            int(draw.get("direction_count", 1))
+            for draw in metadata.get("sprite_frames", [])
+            if int(draw.get("direction_count", 1)) > 1
+        }
+        if len(directional_counts) > 1:
+            raise Failure(
+                f"{peer} catalog pixel capture has mixed direction counts"
+            )
+        direction_count = next(iter(directional_counts), 1)
+        previous = capture_metadata.get("previousPosition")
+        current = capture_metadata.get("currentPosition")
+        if not isinstance(previous, dict) or not isinstance(current, dict):
+            return None
+        previous_position = (int(previous["x"]), int(previous["y"]))
+        current_position = (int(current["x"]), int(current["y"]))
+        if previous_position == current_position or direction_count <= 1:
+            return None
+        peer_directions[peer] = oracle_logical_direction(
+            previous_position, current_position, direction_count,
+        )
+        manifests[peer] = (manifest_path, metadata)
+    if len(set(peer_directions.values())) != 1:
+        raise Failure(
+            f"catalog pixel peer direction divergence: {peer_directions}"
+        )
+    expected_direction = peer_directions["host"]
+    visual_oracles = []
+    for peer in ("host", "join"):
+        capture_metadata = capture["peers"][peer]
+        manifest_path, _ = manifests[peer]
+        retained = evaluate_packaged_capture(
+            manifest_path=manifest_path,
+            graphics_drs=ROOT / "game_data/Data/graphics.drs",
+            interface_drs=ROOT / "game_data/Data/interfac.drs",
+            expected_logical_direction=expected_direction,
+            evidence_directory=manifest_path.parent / "semantic-direction",
+        )
+        visual_oracles.append({
+            **retained,
+            "manifestPath": str(manifest_path),
+            "oracleKind": "semantic-pixel-direction",
+            "phase": phase,
+            "peer": peer,
+            "owner": owner,
+            "unitKind": unit_kind,
+            "action": action,
+            "entity": entity_id,
+            "logicalDirection": expected_direction,
+            "expectedLogicalDirection": expected_direction,
+            "actualLogicalDirection": capture_metadata.get(
+                "actualLogicalDirection"
+            ),
+            "authoritativeTick": capture_metadata.get("authoritativeTick"),
+            "authoritativeHash": capture_metadata.get("authoritativeHash"),
+            "renderFrame": capture_metadata.get("renderFrame"),
+            "previousPosition": capture_metadata.get("previousPosition"),
+            "currentPosition": capture_metadata.get("currentPosition"),
+            "destinationPosition": capture_metadata.get(
+                "destinationPosition"
+            ),
+            "screenshot": str(
+                manifest_path.parent / retained["images"]["actual"]
+            ),
+            "transitionKind": "authoritative-step",
+            "catalogIds": catalog_ids,
+            "assertions": ["pixel-direction"],
+        })
+    capture["visualOracles"] = visual_oracles
+    return capture
 
 
 def wait_for_drawable_direction(

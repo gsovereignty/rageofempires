@@ -23,6 +23,7 @@ from nostr_multiplayer_smoke_test import (
     banked_resource_increased,
     capture_failure_value,
     capture_browser_overlap,
+    capture_catalog_semantic_pixels,
     click_canvas_logical,
     canonical_direction_route,
     canonical_transition_routes,
@@ -285,6 +286,56 @@ class AuditedInputTests(unittest.TestCase):
                 cases = json.loads(manifest_path.read_text())["cases"]
                 self.assertEqual(len(cases), 1)
                 self.assertEqual(cases[0]["metadata"]["entity_id"], 7)
+
+    def test_catalog_pixel_direction_comes_from_captured_motion(self):
+        capture = {
+            "peers": {
+                peer: {
+                    "manifest": f"{peer}/manifest.json",
+                    "previousPosition": {"x": 2, "y": 2},
+                    "currentPosition": {"x": 2, "y": 3},
+                    "actualLogicalDirection": 7,
+                }
+                for peer in ("host", "join")
+            }
+        }
+        manifest = {"cases": [{"metadata": {"sprite_frames": [{
+            "direction_count": 8,
+        }]}}]}
+        retained = {
+            "verdict": "PASS", "images": {"actual": "actual.png"},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for peer in ("host", "join"):
+                (root / peer).mkdir()
+                (root / peer / "manifest.json").write_text(
+                    json.dumps(manifest)
+                )
+            with patch(
+                "nostr_multiplayer_smoke_test.request_correlated_pixel_capture",
+                return_value=capture,
+            ), patch(
+                "nostr_multiplayer_smoke_test.evaluate_packaged_capture",
+                return_value=retained,
+            ) as evaluate:
+                result = capture_catalog_semantic_pixels(
+                    object(), object(), root, "formation", 7, owner=0,
+                    unit_kind="unit-villager", action="formation",
+                    catalog_ids=["formation"], phase="formation",
+                )
+
+        self.assertIsNotNone(result)
+        self.assertEqual(
+            [call.kwargs["expected_logical_direction"]
+             for call in evaluate.call_args_list],
+            [1, 1],
+        )
+        self.assertEqual(
+            [oracle["actualLogicalDirection"]
+             for oracle in result["visualOracles"]],
+            [7, 7],
+        )
 
     def test_gold_deposit_oracle_waits_for_banked_resource(self):
         carrying = {"resources": {"gold": 200}}

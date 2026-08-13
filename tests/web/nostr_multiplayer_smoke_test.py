@@ -569,7 +569,7 @@ def exercise_all_direction_route(
     journey: Journey, driver, actor: str, owner: int,
     observer_journey: Journey, observer_driver, observer_actor: str,
     host, join, actions: list[dict[str, object]], artifact_dir: Path,
-    center: tuple[int, int],
+    center: tuple[int, int], seed: int,
 ) -> dict[str, object]:
     games = wait_until(
         f"{actor} all-direction villager selection",
@@ -650,7 +650,8 @@ def exercise_all_direction_route(
             )
             pixel_oracles = []
             for peer in ("host", "join"):
-                manifest_path = artifact_dir / pixel_capture["peers"][peer][
+                capture_metadata = pixel_capture["peers"][peer]
+                manifest_path = artifact_dir / capture_metadata[
                     "manifest"
                 ]
                 retained = evaluate_packaged_capture(
@@ -670,7 +671,32 @@ def exercise_all_direction_route(
                     "owner": owner,
                     "unitKind": "unit-villager",
                     "action": "moving",
+                    "seed": seed,
+                    "entity": unit_id,
                     "logicalDirection": direction,
+                    "expectedLogicalDirection": direction,
+                    "actualLogicalDirection": capture_metadata.get(
+                        "actualLogicalDirection"
+                    ),
+                    "authoritativeTick": capture_metadata.get(
+                        "authoritativeTick"
+                    ),
+                    "authoritativeHash": capture_metadata.get(
+                        "authoritativeHash"
+                    ),
+                    "renderFrame": capture_metadata.get("renderFrame"),
+                    "previousPosition": capture_metadata.get(
+                        "previousPosition"
+                    ),
+                    "currentPosition": capture_metadata.get(
+                        "currentPosition"
+                    ),
+                    "destinationPosition": capture_metadata.get(
+                        "destinationPosition"
+                    ),
+                    "screenshot": str(manifest_path.parent / retained[
+                        "images"
+                    ]["actual"]),
                     "transitionKind": "authoritative-step",
                 })
             pixel_capture["visualOracles"] = pixel_oracles
@@ -1767,9 +1793,24 @@ def request_correlated_pixel_capture(
                 f"{peer} exact pixel capture found {count} layers for "
                 f"entity {entity_id}"
             )
+        render_state = render_diagnostics(driver) or {}
+        entity_state = next((
+            entity for entity in render_state.get("entities", [])
+            if isinstance(entity, dict) and
+            int(entity.get("id", -1)) == entity_id
+        ), {})
+        authoritative = game_diagnostics(driver) or {}
         captures[peer] = {
             "manifest": f"{output_name}/manifest.json",
             "entityId": entity_id,
+            "tick": render_state.get("tick"),
+            "renderFrame": render_state.get("frame"),
+            "authoritativeTick": authoritative.get("currentTick"),
+            "authoritativeHash": authoritative.get("stateHash"),
+            "previousPosition": entity_state.get("previousPosition"),
+            "currentPosition": entity_state.get("simulationPosition"),
+            "destinationPosition": entity_state.get("destination"),
+            "actualLogicalDirection": entity_state.get("facing"),
         }
     return {
         "virtualRoot": virtual_root,
@@ -2046,7 +2087,8 @@ def exercise_relay_chaos(host, join, relays: str) -> dict[str, object]:
 
 def run(relays: str | None, headed: bool, port: int = 8888,
         checkpoint: bool = False,
-        artifact_dir: Path | None = None) -> dict[str, object]:
+        artifact_dir: Path | None = None,
+        seed: int = 0xA0E20260812) -> dict[str, object]:
     if artifact_dir is None:
         artifact_dir = allocate_audit_directory()
     if not (DIST / "aoe_web.html").exists():
@@ -2057,6 +2099,7 @@ def run(relays: str | None, headed: bool, port: int = 8888,
         "relaySource": ("explicit-override" if relays is not None
                         else "packaged-production-default"),
         "actions": [],
+        "actionSeed": seed,
     }
     actions = evidence["actions"]
     host = make_driver("chrome", headed)
@@ -2357,11 +2400,13 @@ def run(relays: str | None, headed: bool, port: int = 8888,
                     host_journey, host, "host", 0,
                     join_journey, join, "join",
                     host, join, actions, artifact_dir, (20, 12),
+                    seed,
                 ),
                 "join": exercise_all_direction_route(
                     join_journey, join, "join", 1,
                     host_journey, host, "host",
                     host, join, actions, artifact_dir, (28, 12),
+                    seed,
                 ),
             }
             key_chord(host, Keys.F8)
@@ -3053,6 +3098,7 @@ def main() -> int:
             arguments.relays, arguments.headed, arguments.port,
             checkpoint=arguments.checkpoint,
             artifact_dir=audit_dir,
+            seed=arguments.seed,
         )
         evidence_path.write_text(
             json.dumps(evidence, indent=2, sort_keys=True) + "\n",

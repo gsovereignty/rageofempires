@@ -51,6 +51,20 @@ class PixelCaptureDriver(VirtualFsDriver):
         self.complete = None
 
     def execute_script(self, script, *arguments):
+        if not arguments and "browserRenderTelemetry" in script:
+            return {
+                "tick": 12, "frame": 34,
+                "entities": [{
+                    "id": 7, "facing": 1,
+                    "previousPosition": {"x": 2, "y": 2},
+                    "simulationPosition": {"x": 2, "y": 3},
+                    "destination": {"x": 2, "y": 6},
+                }],
+            }
+        if not arguments and "browserNostrDiagnostics" in script:
+            return {"game": {
+                "currentTick": 12, "stateHash": "hash-12",
+            }}
         path = arguments[0]
         if "browserPixelCaptureRequest =" in script:
             self.complete = path

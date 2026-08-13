@@ -50,6 +50,59 @@ def latest_attempt(root: Path) -> Path | None:
         if candidates else None
 
 
+def newest_new_attempt(root: Path, before: set[Path]) -> Path | None:
+    candidates = [
+        path for path in root.iterdir()
+        if path.is_dir() and path not in before
+    ]
+    return max(candidates, key=lambda path: path.stat().st_mtime_ns) \
+        if candidates else None
+
+
+def retain_attempt_timeout(
+    attempt_root: Path, attempt_index: int, quorum: list[str],
+    timeout_seconds: float, attempt_path: Path | None,
+) -> Path:
+    """Close a killed child attempt with durable truthful BLOCKED evidence."""
+    if attempt_path is None:
+        attempt_path = attempt_root / f"timeout-attempt-{attempt_index + 1}"
+        attempt_path.mkdir()
+    error = (
+        f"attempt exceeded deterministic deadline of {timeout_seconds:g} seconds"
+    )
+    for name in ("actions.jsonl", "correlated-frames.jsonl",
+                 "visual-oracles.jsonl"):
+        path = attempt_path / name
+        if not path.exists():
+            path.write_text("", encoding="utf-8")
+    atomic_write_json(attempt_path / "coverage.json", {
+        "schemaVersion": 1, "status": "BLOCKED",
+        "missingRequiredCells": "unexecuted after attempt timeout",
+    })
+    atomic_write_json(attempt_path / "first-failure.json", {
+        "error": f"TimeoutExpired: {error}",
+        "classification": "attempt-deadline",
+        "quorum": quorum,
+        "timeoutSeconds": timeout_seconds,
+    })
+    atomic_write_json(attempt_path / "verdict.json", {
+        "schemaVersion": 1, "status": "BLOCKED", "failure": error,
+    })
+    run_path = attempt_path / "run.json"
+    run = json.loads(run_path.read_text(encoding="utf-8")) \
+        if run_path.is_file() else {"schemaVersion": 2}
+    run.update({
+        "status": "BLOCKED", "selectedQuorum": quorum,
+        "attemptTimeoutSeconds": timeout_seconds,
+    })
+    atomic_write_json(run_path, run)
+    write_report(
+        attempt_path, "BLOCKED", error,
+        report_path=attempt_path / "report.md",
+    )
+    return attempt_path
+
+
 def retained_path(path: Path | None) -> str | None:
     if path is None:
         return None
@@ -189,6 +242,9 @@ def main() -> int:
     parser.add_argument("--checkpoint", action="store_true")
     parser.add_argument("--seed", type=int, default=0xA0E20260812)
     parser.add_argument("--retry-budget", type=int, default=3)
+    parser.add_argument(
+        "--attempt-timeout-seconds", type=float, default=7200.0
+    )
     parser.add_argument("--viewport", type=parse_viewport, default=(1280, 900))
     parser.add_argument("--dpr", type=float, choices=(1.0, 2.0), default=1.0)
     parser.add_argument("--zoom", type=float, choices=(1.0, 2.0), default=1.0)
@@ -258,8 +314,23 @@ def main() -> int:
             command.append("--checkpoint")
         for browser_argument in arguments.browser_argument:
             command.append(f"--browser-argument={browser_argument}")
-        completed = subprocess.run(command, cwd=ROOT, check=False)
-        attempt_path = latest_attempt(attempt_root)
+        before_attempts = set(attempt_root.iterdir())
+        timed_out = False
+        try:
+            completed = subprocess.run(
+                command, cwd=ROOT, check=False,
+                timeout=arguments.attempt_timeout_seconds,
+            )
+            return_code = completed.returncode
+        except subprocess.TimeoutExpired:
+            timed_out = True
+            return_code = 124
+        attempt_path = newest_new_attempt(attempt_root, before_attempts)
+        if timed_out:
+            attempt_path = retain_attempt_timeout(
+                attempt_root, attempt_index, quorum,
+                arguments.attempt_timeout_seconds, attempt_path,
+            )
         final_attempt_path = attempt_path
         verdict_path = attempt_path / "verdict.json" if attempt_path else None
         verdict = json.loads(verdict_path.read_text()) \
@@ -270,7 +341,8 @@ def main() -> int:
         attempts.append({
             "attempt": attempt_index + 1,
             "quorum": quorum,
-            "exitCode": completed.returncode,
+            "exitCode": return_code,
+            "timedOut": timed_out,
             "status": status,
             "artifactPath": retained_path(attempt_path),
         })
@@ -329,7 +401,16 @@ def main() -> int:
                 command.append("--headed")
             for browser_argument in arguments.browser_argument:
                 command.append(f"--browser-argument={browser_argument}")
-            completed = subprocess.run(command, cwd=ROOT, check=False)
+            timed_out = False
+            try:
+                completed = subprocess.run(
+                    command, cwd=ROOT, check=False,
+                    timeout=arguments.attempt_timeout_seconds,
+                )
+                return_code = completed.returncode
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                return_code = 124
             new_paths = [path for path in minimization_root.iterdir()
                          if path.is_dir() and path not in before]
             candidate_path = max(
@@ -337,6 +418,12 @@ def main() -> int:
             ) if new_paths else None
             verdict_path = candidate_path / "verdict.json" \
                 if candidate_path else None
+            if timed_out:
+                candidate_path = retain_attempt_timeout(
+                    minimization_root, len(retained_candidate_runs), quorum,
+                    arguments.attempt_timeout_seconds, candidate_path,
+                )
+                verdict_path = candidate_path / "verdict.json"
             verdict = json.loads(verdict_path.read_text(encoding="utf-8")) \
                 if verdict_path and verdict_path.is_file() else {
                     "status": "BLOCKED",
@@ -349,7 +436,7 @@ def main() -> int:
                 candidate_paths[limit] = candidate_path
             result = {
                 "actionLimit": limit, "status": status,
-                "exitCode": completed.returncode,
+                "exitCode": return_code, "timedOut": timed_out,
                 "failureIdentity": identity,
                 "artifactPath": retained_path(candidate_path),
             }

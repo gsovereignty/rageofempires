@@ -14,6 +14,29 @@ SPEC.loader.exec_module(MODULE)
 
 
 class RelayRotationTests(unittest.TestCase):
+    def test_timeout_retains_complete_blocked_attempt_contract(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            root.mkdir(exist_ok=True)
+            attempt = MODULE.retain_attempt_timeout(
+                root, 0, ["wss://one", "wss://two"], 90.0, None
+            )
+            self.assertEqual(
+                json.loads((attempt / "verdict.json").read_text())["status"],
+                "BLOCKED",
+            )
+            self.assertEqual(
+                json.loads((attempt / "first-failure.json").read_text())[
+                    "classification"
+                ],
+                "attempt-deadline",
+            )
+            for name in (
+                "run.json", "actions.jsonl", "correlated-frames.jsonl",
+                "visual-oracles.jsonl", "coverage.json", "report.md",
+            ):
+                self.assertTrue((attempt / name).is_file(), name)
+
     def test_extracts_rejected_relays_from_retained_acknowledgements(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

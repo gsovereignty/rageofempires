@@ -138,6 +138,15 @@ def stable_failure_value(value):
 def canonical_failure_identity(root: Path | None) -> dict[str, object] | None:
     if root is None:
         return None
+    failure_path = root / "first-failure.json"
+    if failure_path.is_file():
+        failure = json.loads(failure_path.read_text(encoding="utf-8"))
+        error = str(failure.get("error", ""))
+        if error and not error.startswith("ActionLimitReached:"):
+            return {
+                "kind": "exception", "value": error,
+                "sha256": hashlib.sha256(error.encode()).hexdigest(),
+            }
     visual_path = root / "visual-failures.json"
     if visual_path.is_file():
         failures = json.loads(visual_path.read_text(encoding="utf-8"))
@@ -147,15 +156,6 @@ def canonical_failure_identity(root: Path | None) -> dict[str, object] | None:
             return {
                 "kind": "visual-oracle", "value": value,
                 "sha256": hashlib.sha256(encoded.encode()).hexdigest(),
-            }
-    failure_path = root / "first-failure.json"
-    if failure_path.is_file():
-        failure = json.loads(failure_path.read_text(encoding="utf-8"))
-        error = str(failure.get("error", ""))
-        if error and not error.startswith("ActionLimitReached:"):
-            return {
-                "kind": "exception", "value": error,
-                "sha256": hashlib.sha256(error.encode()).hexdigest(),
             }
     return None
 

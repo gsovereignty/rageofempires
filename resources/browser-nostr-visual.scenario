@@ -9,6 +9,11 @@ player-slot 1 computer "computer-ai" 500 500 200 200 feudal franks 0 0
 team 1 0
 diplomacy 0 1 enemy
 diplomacy 1 0 enemy
+# Both real player views must retain the opposing route subject for correlated
+# pixel evidence across the full arena. Scenario-granted Spies uses the normal
+# production visibility contract while preserving enemy diplomacy and combat.
+technology blue spy_technology
+technology red spy_technology
 objective 1 blue 1 0 "Destroy the enemy Town Center."
 objective 2 red 1 0 "Destroy the human Town Center."
 trigger 1 100 1 0 1 "building_destroyed 47" 2 "complete_objective 1" "victory blue"

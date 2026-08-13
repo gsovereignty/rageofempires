@@ -28,6 +28,7 @@ from nostr_multiplayer_smoke_test import (
     click_canvas_logical,
     canonical_direction_route,
     deterministic_replacement_destination,
+    failure_bundle_evidence,
     canonical_transition_routes,
     catalog_ids_for_entity,
     collapse_match_details,
@@ -512,6 +513,19 @@ class AuditedInputTests(unittest.TestCase):
 
 
 class FailureEvidenceTests(unittest.TestCase):
+    def test_failure_bundle_preserves_actual_completed_ui_actions(self):
+        actions = [{"kind": "world-pointer", "tileX": 24, "tileY": 20}]
+        merged = failure_bundle_evidence({
+            "error": "Failure: drawable direction",
+            "completedEvidence": {"actions": actions, "host": {"old": True}},
+            "host": {"game": {"currentTick": 644}},
+            "hostRender": {"frame": 12810},
+        })
+        self.assertEqual(merged["actions"], actions)
+        self.assertEqual(merged["host"]["game"]["currentTick"], 644)
+        self.assertEqual(merged["failureError"],
+                         "Failure: drawable direction")
+
     def test_parses_supported_viewport(self):
         self.assertEqual(parse_viewport("1280x900"), (1280, 900))
         with self.assertRaisesRegex(Exception, "WIDTHxHEIGHT"):

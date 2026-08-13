@@ -89,7 +89,7 @@ class RelayRotationTests(unittest.TestCase):
                 "actionLimit": limit, "status": "BLOCKED",
             })
 
-    def test_failure_identity_prefers_structured_visual_record(self):
+    def test_failure_identity_prefers_first_thrown_boundary(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "visual-failures.json").write_text(json.dumps([
@@ -100,7 +100,8 @@ class RelayRotationTests(unittest.TestCase):
                 "error": "Failure: wrapper",
             }))
             identity = MODULE.canonical_failure_identity(root)
-            self.assertEqual(identity["kind"], "visual-oracle")
+            self.assertEqual(identity["kind"], "exception")
+            self.assertEqual(identity["value"], "Failure: wrapper")
             self.assertEqual(identity,
                              MODULE.canonical_failure_identity(root))
 

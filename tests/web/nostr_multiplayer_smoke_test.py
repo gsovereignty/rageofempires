@@ -4821,8 +4821,25 @@ def replayable_action_stream(
     return result
 
 
+def failure_bundle_evidence(evidence: dict[str, object]) -> dict[str, object]:
+    """Merge completed journey evidence with final failure observations."""
+    completed = evidence.get("completedEvidence")
+    if not isinstance(completed, dict):
+        return evidence
+    final = dict(completed)
+    for key in (
+        "host", "join", "hostRender", "joinRender", "browser", "requests",
+        "hostConsole", "joinConsole", "relays", "infrastructureBlocker",
+    ):
+        if key in evidence:
+            final[key] = evidence[key]
+    final["failureError"] = evidence.get("error")
+    return final
+
+
 def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
     root.mkdir(parents=True, exist_ok=True)
+    evidence = failure_bundle_evidence(evidence)
     package = DIST / "aoe_web.html"
     commit = subprocess.run(
         ["git", "rev-parse", "HEAD"], cwd=ROOT, check=True,

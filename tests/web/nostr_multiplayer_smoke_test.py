@@ -168,6 +168,34 @@ def atomic_write_json(path: Path, value: object) -> None:
     temporary.replace(path)
 
 
+def audit_source_digests() -> dict[str, str]:
+    """Hash audit inputs once so long runs cannot acquire later edits."""
+    source_paths = [
+        ROOT / "include/aoe/browser_telemetry.hpp",
+        ROOT / "src/browser_telemetry_native.cpp",
+        ROOT / "src/browser_telemetry_web.cpp",
+        ROOT / "src/nostr_multiplayer_runtime.cpp",
+        ROOT / "src/sdl_app.cpp",
+        ROOT / "tests/web/nostr_multiplayer_smoke_test.py",
+        ROOT / "tests/web/test_nostr_multiplayer_audit_tools.py",
+        ROOT / "tools/nostr_visual_frame_oracle.py",
+        ROOT / "tools/nostr_visual_pixel_oracle.py",
+        ROOT / "tools/nostr_packaged_pixel_oracle.py",
+        ROOT / "tools/nostr_slp_decoder.py",
+        ROOT / "tools/nostr_visual_coverage.py",
+        ROOT / "tools/nostr_visual_transition_oracle.py",
+        ROOT / "tools/nostr_visual_route_coverage.py",
+        ROOT / "tools/nostr_seeded_action_generator.py",
+        ROOT / "tools/run_nostr_visual_audit.py",
+        ROOT / "tools/run_nostr_visual_display_matrix.py",
+        ROOT / "resources/nostr-visual-gameplay-coverage.json",
+    ]
+    return {
+        str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in source_paths
+    }
+
+
 def allocate_audit_destination(
     artifact_root: Path = AUDIT_ROOT,
     report_root: Path = AUDIT_REPORT_ROOT,
@@ -249,6 +277,7 @@ def initialize_run_ledger(
         "reportPath": ledger_path(destination.report),
         "artifactPath": ledger_path(destination.artifacts),
         "sourceCommit": commit,
+        "sourceFilesSha256": audit_source_digests(),
         "packageSha256": package_digests,
         "browser": {"name": "chrome", "headed": headed,
                     "versions": "captured after driver creation",
@@ -4906,47 +4935,30 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
     root.mkdir(parents=True, exist_ok=True)
     evidence = failure_bundle_evidence(evidence)
     package = DIST / "aoe_web.html"
-    commit = subprocess.run(
-        ["git", "rev-parse", "HEAD"], cwd=ROOT, check=True,
-        capture_output=True, text=True,
-    ).stdout.strip()
-    package_files = sorted({
-        *DIST.glob("aoe_web.*"), DIST / "aoe_nostr.js",
-    })
-    package_digests = {
-        str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
-        for path in package_files if path.is_file()
-    }
-    source_paths = [
-        ROOT / "include/aoe/browser_telemetry.hpp",
-        ROOT / "src/browser_telemetry_native.cpp",
-        ROOT / "src/browser_telemetry_web.cpp",
-        ROOT / "src/nostr_multiplayer_runtime.cpp",
-        ROOT / "src/sdl_app.cpp",
-        ROOT / "tests/web/nostr_multiplayer_smoke_test.py",
-        ROOT / "tests/web/test_nostr_multiplayer_audit_tools.py",
-        ROOT / "tools/nostr_visual_frame_oracle.py",
-        ROOT / "tools/nostr_visual_pixel_oracle.py",
-        ROOT / "tools/nostr_packaged_pixel_oracle.py",
-        ROOT / "tools/nostr_slp_decoder.py",
-        ROOT / "tools/nostr_visual_coverage.py",
-        ROOT / "tools/nostr_visual_transition_oracle.py",
-        ROOT / "tools/nostr_visual_route_coverage.py",
-        ROOT / "tools/nostr_seeded_action_generator.py",
-        ROOT / "tools/run_nostr_visual_audit.py",
-        ROOT / "tools/run_nostr_visual_display_matrix.py",
-        ROOT / "resources/nostr-visual-gameplay-coverage.json",
-    ]
-    source_digests = {
-        str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
-        for path in source_paths
-    }
     host = evidence.get("host", {})
     join = evidence.get("join", {})
     existing_ledger = (
         json.loads((root / "run.json").read_text(encoding="utf-8"))
         if (root / "run.json").is_file() else {}
     )
+    commit = existing_ledger.get("sourceCommit") or subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=ROOT, check=True,
+        capture_output=True, text=True,
+    ).stdout.strip()
+    package_digests = existing_ledger.get("packageSha256")
+    if not isinstance(package_digests, dict):
+        package_files = sorted({
+            *DIST.glob("aoe_web.*"), DIST / "aoe_nostr.js",
+        })
+        package_digests = {
+            str(path.relative_to(ROOT)): hashlib.sha256(
+                path.read_bytes()
+            ).hexdigest()
+            for path in package_files if path.is_file()
+        }
+    source_digests = existing_ledger.get("sourceFilesSha256")
+    if not isinstance(source_digests, dict):
+        source_digests = audit_source_digests()
     run_ledger = {
         **existing_ledger,
         "schemaVersion": 2,

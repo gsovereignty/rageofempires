@@ -132,11 +132,12 @@ audit-nostr-oracles:
 ci-nostr-visual-per-change: build web-tests audit-nostr-oracles
 
 ci-nostr-visual-display-matrix: web-build
-	@for display_case in "1280x900 1" "1440x900 1" \
-		"1000x1000 1" "1280x900 2"; do \
+	@for display_case in "1280x900 1 1" "1440x900 1 1" \
+		"1000x1000 1 1" "1280x900 2 1" "1280x900 1 2"; do \
 		set -- $$display_case; \
 		"$(NOSTR_AUDIT_PYTHON)" tools/run_nostr_visual_audit.py \
 			--port "$(NOSTR_AUDIT_PORT)" --viewport "$$1" --dpr "$$2" \
+			--zoom "$$3" \
 			$(if $(NOSTR_AUDIT_RELAYS),--relays "$(NOSTR_AUDIT_RELAYS)",) \
 			$(NOSTR_AUDIT_ARGS) || exit $$?; \
 	done

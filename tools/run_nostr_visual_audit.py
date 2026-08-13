@@ -59,6 +59,7 @@ def main() -> int:
     parser.add_argument("--retry-budget", type=int, default=3)
     parser.add_argument("--viewport", type=parse_viewport, default=(1280, 900))
     parser.add_argument("--dpr", type=float, choices=(1.0, 2.0), default=1.0)
+    parser.add_argument("--zoom", type=float, choices=(1.0, 2.0), default=1.0)
     parser.add_argument("--audit-root", type=Path, default=AUDIT_ROOT)
     parser.add_argument("--report-root", type=Path, default=AUDIT_REPORT_ROOT)
     arguments = parser.parse_args()
@@ -98,6 +99,7 @@ def main() -> int:
             "--retry-budget", "0",
             "--viewport", f"{arguments.viewport[0]}x{arguments.viewport[1]}",
             "--dpr", str(arguments.dpr),
+            "--zoom", str(arguments.zoom),
             "--audit-root", str(attempt_root),
             "--report-root", str(attempt_reports),
         ]

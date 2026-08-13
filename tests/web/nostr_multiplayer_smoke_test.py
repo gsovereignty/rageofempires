@@ -415,6 +415,27 @@ def audited_held_key(driver, actions: list[dict[str, object]], actor: str,
     ).perform()
 
 
+def audited_zoom(
+    journey: Journey, driver, actions: list[dict[str, object]], actor: str,
+    target_zoom: float,
+) -> None:
+    if target_zoom not in (1.0, 2.0):
+        raise ValueError("audit zoom must be supported minimum or maximum")
+    for _ in range(16):
+        current = float(journey.telemetry()["camera"]["zoom"])
+        if abs(current - target_zoom) < 0.001:
+            return
+        delta = -100 if current < target_zoom else 100
+        actions.append({
+            "monotonic": time.monotonic(), "actor": actor,
+            "kind": "wheel", "deltaY": delta,
+            "targetZoom": target_zoom,
+        })
+        ActionChains(driver).scroll_by_amount(0, delta).perform()
+        time.sleep(0.1)
+    raise Failure(f"{actor} camera did not reach zoom {target_zoom}")
+
+
 def collapse_match_details(
     driver, actions: list[dict[str, object]], actor: str
 ) -> None:
@@ -2313,7 +2334,7 @@ def run(relays: str | None, headed: bool, port: int = 8888,
         artifact_dir: Path | None = None,
         seed: int = 0xA0E20260812,
         viewport: tuple[int, int] = (1280, 900),
-        dpr: float = 1.0) -> dict[str, object]:
+        dpr: float = 1.0, zoom: float = 1.0) -> dict[str, object]:
     if artifact_dir is None:
         artifact_dir = allocate_audit_directory()
     if not (DIST / "aoe_web.html").exists():
@@ -2412,6 +2433,8 @@ def run(relays: str | None, headed: bool, port: int = 8888,
             )
             collapse_match_details(host, actions, "host")
             collapse_match_details(join, actions, "join")
+            audited_zoom(host_journey, host, actions, "host", zoom)
+            audited_zoom(join_journey, join, actions, "join", zoom)
             # Production F4 hides in-canvas lockstep/chat/signal panels.
             # Save-browser routing must not consume this multiplayer control.
             audited_key(host, actions, "host", Keys.F4)
@@ -3369,6 +3392,7 @@ def main() -> int:
     parser.add_argument("--retry-budget", type=int, default=3)
     parser.add_argument("--viewport", type=parse_viewport, default=(1280, 900))
     parser.add_argument("--dpr", type=float, choices=(1.0, 2.0), default=1.0)
+    parser.add_argument("--zoom", type=float, choices=(1.0, 2.0), default=1.0)
     arguments = parser.parse_args()
     destination = allocate_audit_destination(
         arguments.audit_root, arguments.report_root
@@ -3410,6 +3434,7 @@ def main() -> int:
             seed=arguments.seed,
             viewport=arguments.viewport,
             dpr=arguments.dpr,
+            zoom=arguments.zoom,
         )
         evidence_path.write_text(
             json.dumps(evidence, indent=2, sort_keys=True) + "\n",

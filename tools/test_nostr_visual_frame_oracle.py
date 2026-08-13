@@ -57,18 +57,26 @@ class FrameSelectionOracleTests(unittest.TestCase):
                 self.assertEqual(selected.flip_horizontal, flip)
 
     def test_all_sixteen_direction_slots_mirrored_layout(self):
-        for direction in range(16):
-            selected = expected_frame(
-                logical_direction_value=direction,
-                action_frame=1,
-                frames_per_direction=3,
-                direction_count=16,
-                mirroring_mode=12,
-                physical_frame_count=27,
-            )
-            self.assertIn(selected.stored_direction, range(9))
-            self.assertEqual(selected.physical_frame,
-                             selected.stored_direction * 3 + 1)
+        expected = (
+            (4, True), (3, True), (2, True), (1, True),
+            (0, False), (1, False), (2, False), (3, False),
+            (4, False), (5, False), (6, False), (7, False),
+            (8, False), (7, True), (6, True), (5, True),
+        )
+        for direction, (stored, flip) in enumerate(expected):
+            for action_frame in (0, 2, 4):
+                selected = expected_frame(
+                    logical_direction_value=direction,
+                    action_frame=action_frame,
+                    frames_per_direction=5,
+                    direction_count=16,
+                    mirroring_mode=12,
+                    physical_frame_count=45,
+                )
+                self.assertEqual(selected.stored_direction, stored)
+                self.assertEqual(selected.physical_frame,
+                                 stored * 5 + action_frame)
+                self.assertEqual(selected.flip_horizontal, flip)
 
     def test_two_direction_layout_uses_one_stored_block(self):
         left = expected_frame(logical_direction_value=0, action_frame=2,
@@ -88,6 +96,7 @@ class FrameSelectionOracleTests(unittest.TestCase):
         mutations = (
             {"direction_count": 0}, {"frames_per_direction": 0},
             {"physical_frame_count": 0}, {"mirroring_mode": 8},
+            {"mirroring_mode": 1},
             {"action_frame": 5}, {"logical_direction_value": 8},
             {"physical_frame_count": 24},
         )

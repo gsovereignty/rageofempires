@@ -393,29 +393,43 @@ def audited_pointer(journey: Journey, actions: list[dict[str, object]],
         "targetLogicalX": float(point["x"]),
         "targetLogicalY": float(point["y"]),
         "telemetryTick": int(telemetry["tick"]),
+        "renderFrame": int(telemetry.get("frame", -1)),
+        "targetTelemetry": dict(point),
     })
     journey.pointer(target, button, logical_dx, logical_dy)
 
 
 def audited_key(driver, actions: list[dict[str, object]], actor: str,
                 key: str) -> None:
+    try:
+        render = render_diagnostics(driver) or {}
+    except Exception:
+        render = {}
     actions.append({
         "monotonic": time.monotonic(),
         "actor": actor,
         "kind": "key",
         "key": key,
+        "telemetryTick": int(render.get("tick", -1)),
+        "renderFrame": int(render.get("frame", -1)),
     })
     driver.find_element(By.ID, "canvas").send_keys(key)
 
 
 def audited_held_key(driver, actions: list[dict[str, object]], actor: str,
                      key: str, seconds: float = 0.15) -> None:
+    try:
+        render = render_diagnostics(driver) or {}
+    except Exception:
+        render = {}
     actions.append({
         "monotonic": time.monotonic(),
         "actor": actor,
         "kind": "held-key",
         "key": key,
         "seconds": seconds,
+        "telemetryTick": int(render.get("tick", -1)),
+        "renderFrame": int(render.get("frame", -1)),
     })
     canvas = driver.find_element(By.ID, "canvas")
     ActionChains(driver).key_down(key, canvas).pause(seconds).key_up(
@@ -438,6 +452,8 @@ def audited_zoom(
             "monotonic": time.monotonic(), "actor": actor,
             "kind": "wheel", "deltaY": delta,
             "targetZoom": target_zoom,
+            "telemetryTick": int(journey.telemetry()["tick"]),
+            "sourceZoom": current,
         })
         canvas = driver.find_element(By.ID, "canvas")
         ActionChains(driver).move_to_element(canvas).scroll_by_amount(
@@ -544,6 +560,10 @@ def audited_command_button(driver, actions: list[dict[str, object]],
     row = grid_slot // 5
     logical_x = 37 + 41 * column + 20
     logical_y = (720 - 175) + 31 + 41 * row + 20
+    try:
+        render = render_diagnostics(driver) or {}
+    except Exception:
+        render = {}
     actions.append({
         "monotonic": time.monotonic(),
         "actor": actor,
@@ -551,6 +571,8 @@ def audited_command_button(driver, actions: list[dict[str, object]],
         "gridSlot": grid_slot,
         "targetLogicalX": logical_x,
         "targetLogicalY": logical_y,
+        "telemetryTick": int(render.get("tick", -1)),
+        "renderFrame": int(render.get("frame", -1)),
     })
     click_canvas_logical(driver, logical_x, logical_y)
 
@@ -580,6 +602,12 @@ def audited_world_pointer(
         "tileX": tile_x, "tileY": tile_y,
         "logicalX": logical_x, "logicalY": logical_y,
         "telemetryTick": int(telemetry["tick"]),
+        "renderFrame": int(telemetry.get("frame", -1)),
+        "camera": {
+            "x": float(camera["x"]), "y": float(camera["y"]),
+            "zoom": zoom,
+        },
+        "modifiers": modifiers,
     })
     click_canvas_logical(
         driver, logical_x, logical_y, button=button, modifiers=modifiers
@@ -3072,6 +3100,39 @@ def write_jsonl(path: Path, records: list[dict[str, object]]) -> None:
     )
 
 
+def replayable_action_stream(
+    actions: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    """Add stable order and relative timing without losing raw evidence."""
+    result: list[dict[str, object]] = []
+    first_monotonic = None
+    previous_monotonic = None
+    for sequence, action in enumerate(actions):
+        monotonic = action.get("monotonic")
+        if isinstance(monotonic, (int, float)):
+            if first_monotonic is None:
+                first_monotonic = float(monotonic)
+            elapsed_from_start = round(
+                (float(monotonic) - first_monotonic) * 1000.0, 3
+            )
+            elapsed_from_previous = round(
+                0.0 if previous_monotonic is None else
+                (float(monotonic) - previous_monotonic) * 1000.0,
+                3,
+            )
+            previous_monotonic = float(monotonic)
+        else:
+            elapsed_from_start = None
+            elapsed_from_previous = None
+        result.append({
+            **action,
+            "sequence": sequence,
+            "elapsedFromStartMs": elapsed_from_start,
+            "elapsedFromPreviousMs": elapsed_from_previous,
+        })
+    return result
+
+
 def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
     root.mkdir(parents=True, exist_ok=True)
     package = DIST / "aoe_web.html"
@@ -3170,7 +3231,7 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
         {"phase": "control", "actor": "host", "kind": "speed-pause-resume"},
         {"phase": "terminal", "actor": "both", "kind": "natural-conquest"},
     ]
-    write_jsonl(root / "actions.jsonl", actions)
+    write_jsonl(root / "actions.jsonl", replayable_action_stream(actions))
     recovery = evidence.get("recovery") or {}
     write_jsonl(root / "transport.jsonl", [
         {"phase": phase, "state": state}

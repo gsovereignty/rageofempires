@@ -29,6 +29,7 @@ from nostr_multiplayer_smoke_test import (
     probe_relay_pool,
     render_diagnostics,
     request_correlated_pixel_capture,
+    replayable_action_stream,
     selectable_military_id,
     visual_failures,
     visual_findings,
@@ -159,6 +160,21 @@ def gathering_sample(*, amount: int = 100, include_resource: bool = True):
 
 
 class AuditedInputTests(unittest.TestCase):
+    def test_replayable_action_stream_retains_order_and_relative_timing(self):
+        actions = [
+            {"monotonic": 10.0, "kind": "key", "telemetryTick": 4},
+            {"monotonic": 10.125, "kind": "world-pointer",
+             "telemetryTick": 5},
+            {"kind": "terminal"},
+        ]
+        result = replayable_action_stream(actions)
+        self.assertEqual([item["sequence"] for item in result], [0, 1, 2])
+        self.assertEqual(result[0]["elapsedFromStartMs"], 0.0)
+        self.assertEqual(result[1]["elapsedFromStartMs"], 125.0)
+        self.assertEqual(result[1]["elapsedFromPreviousMs"], 125.0)
+        self.assertIsNone(result[2]["elapsedFromStartMs"])
+        self.assertEqual(result[1]["telemetryTick"], 5)
+
     def test_drawable_direction_uses_interpolation_after_new_step(self):
         host = object()
         join = object()

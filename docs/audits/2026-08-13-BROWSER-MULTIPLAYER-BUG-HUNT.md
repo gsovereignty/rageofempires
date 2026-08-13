@@ -281,3 +281,23 @@ Reset and queued-command retry branches from CBMB-20260813-R6-01 were not
 reached and remain production-unverified. Evidence:
 `artifacts/browser-multiplayer-audits/20260813T210000Z-harness-restart-6/`.
 Cleanup completed: port 8903 is free and all owned runtime exited.
+
+## Stable-selection restart — `20260813T220000Z-harness-restart-7`
+
+**FAIL with no confirmed product bug.** Attempt 1 stopped on an absent initial
+movement command. Attempt 2 reproduced the selection failure through the full
+31-action prefix and exhausted `select_route_unit_at_current_position()`.
+Only attempt 1 inside that helper emitted a click; the remaining three loop
+iterations consumed their retry budget while unit 10 continued moving toward
+`(34,8)`. Final peer state was equal and the unit arrived normally.
+
+This proves CBMB-20260813-R8-01. Despite its stopped-unit contract, the helper
+waited only for matching peer states and did not reject `moving=true`. Camera
+movement let authoritative position change, causing immediate loop retries
+without input. It now waits for the named unit to be present, stopped, and at
+the same position on both peers before centering or spending a selection
+attempt. Fresh production verification is required.
+
+Evidence:
+`artifacts/browser-multiplayer-audits/20260813T220000Z-harness-restart-7/`.
+Cleanup completed: port 8904 is free and descriptors returned to baseline 5.

@@ -1016,11 +1016,29 @@ def select_route_unit_at_current_position(
     host, join, actions: list[dict[str, object]],
 ) -> tuple[int, int]:
     """Select a stopped route unit through its current production tile."""
+    def synchronized_stopped_games() -> list[dict[str, object]] | None:
+        games = matching_games(host, join)
+        if games is None:
+            return None
+        units: list[dict[str, object]] = []
+        for game in games:
+            unit = next((
+                value for value in game.get("units", [])
+                if isinstance(value, dict) and
+                int(value.get("owner", -1)) == owner and
+                int(value.get("id", -1)) == unit_id
+            ), None)
+            if unit is None or bool(unit.get("moving", False)):
+                return None
+            units.append(unit)
+        positions = [(int(unit["x"]), int(unit["y"])) for unit in units]
+        return games if positions[0] == positions[1] else None
+
     last_position: tuple[int, int] | None = None
     for attempt in range(4):
         games = wait_until(
-            f"{actor} synchronized route unit {unit_id} position",
-            lambda: matching_games(host, join), timeout=WAIT_SECONDS,
+            f"{actor} synchronized stopped route unit {unit_id}",
+            synchronized_stopped_games, timeout=WAIT_SECONDS,
         )
         positions = [owned_unit_positions(game, owner) for game in games]
         if positions[0] != positions[1] or unit_id not in positions[0]:

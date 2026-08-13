@@ -2035,7 +2035,21 @@ def exercise_obstacle_detour_route(
                         f"-attempt-{command_attempt + 1}"
                     ),
                 )
+                record_command_boundary(
+                    artifact_dir, phase=f"obstacle-{phase}",
+                    attempt=command_attempt + 1, outcome="accepted",
+                    actor=actor, owner=owner, unit_id=unit_id,
+                    destination=target, action=action, host=host, join=join,
+                )
+                return frames
             except InfrastructureBlocked as error:
+                record_command_boundary(
+                    artifact_dir, phase=f"obstacle-{phase}",
+                    attempt=command_attempt + 1, outcome="absent",
+                    actor=actor, owner=owner, unit_id=unit_id,
+                    destination=target, action=action, host=host, join=join,
+                    error=str(error),
+                )
                 if "BLOCKED_COMMAND_ABSENT" not in str(error):
                     raise
                 command_misses[phase].append({

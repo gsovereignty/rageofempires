@@ -3446,11 +3446,11 @@ def main() -> int:
             json.loads(verdict_path.read_text(encoding="utf-8"))
             if verdict_path.is_file() else {}
         )
-        if current_verdict.get("status") == "RUNNING":
-            atomic_write_json(verdict_path, {
-                "schemaVersion": 1, "status": "BLOCKED",
-                "failure": failure.get("error", str(error)),
-            })
+        atomic_write_json(verdict_path, {
+            "schemaVersion": 1, "status": "BLOCKED",
+            "failure": failure.get("error", str(error)),
+            "partialVerdict": current_verdict,
+        })
         print(f"Nostr multiplayer audit blocked: {audit_dir}", file=sys.stderr)
         return 1
     failures = visual_failures(evidence)

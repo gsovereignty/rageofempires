@@ -10,7 +10,7 @@ from pathlib import Path
 from PIL import Image, ImageChops
 
 
-PIXEL_ORACLE_VERSION = "alpha-direction-score-v1"
+PIXEL_ORACLE_VERSION = "occlusion-aware-direction-score-v2"
 
 
 class PixelOracleError(ValueError):
@@ -75,6 +75,34 @@ def masked_mean_absolute_error(
     return total / (selected * 3.0), selected
 
 
+def observable_mask(
+    actual: Image.Image, sprites: dict[str, Image.Image],
+    discriminating: Image.Image, *, alpha_threshold: int,
+    color_tolerance: int,
+) -> Image.Image:
+    """Keep pixels visibly belonging to some candidate, excluding occluders."""
+    actual_bytes = actual.convert("RGB").tobytes()
+    sprite_bytes = [sprite.convert("RGBA").tobytes()
+                    for sprite in sprites.values()]
+    base = discriminating.tobytes()
+    output = bytearray(len(base))
+    for pixel, selected in enumerate(base):
+        if not selected:
+            continue
+        actual_offset = pixel * 3
+        actual_rgb = actual_bytes[actual_offset:actual_offset + 3]
+        sprite_offset = pixel * 4
+        for payload in sprite_bytes:
+            if payload[sprite_offset + 3] < alpha_threshold:
+                continue
+            candidate_rgb = payload[sprite_offset:sprite_offset + 3]
+            if max(abs(actual_rgb[channel] - candidate_rgb[channel])
+                   for channel in range(3)) <= color_tolerance:
+                output[pixel] = 255
+                break
+    return Image.frombytes("L", actual.size, bytes(output))
+
+
 def evaluate_direction_pixels(
     *,
     actual: Image.Image,
@@ -83,13 +111,19 @@ def evaluate_direction_pixels(
     sprites: dict[str, Image.Image],
     confidence_margin: float = 1.0,
     alpha_threshold: int = 32,
-    minimum_discriminating_pixels: int = 24,
+    minimum_discriminating_pixels: int = 48,
+    visibility_color_tolerance: int = 0,
 ) -> tuple[dict[str, object], dict[str, Image.Image]]:
     if expected_direction not in sprites:
         raise PixelOracleError("expected direction missing from alternatives")
     if confidence_margin < 0:
         raise PixelOracleError("confidence margin must be non-negative")
-    mask = discriminating_mask(sprites, alpha_threshold)
+    direction_mask = discriminating_mask(sprites, alpha_threshold)
+    mask = observable_mask(
+        actual, sprites, direction_mask,
+        alpha_threshold=alpha_threshold,
+        color_tolerance=visibility_color_tolerance,
+    )
     composites = {
         direction: composite(background, sprite)
         for direction, sprite in sprites.items()
@@ -136,6 +170,7 @@ def evaluate_direction_pixels(
         "discriminatingPixels": discriminating_pixels,
         "minimumDiscriminatingPixels": minimum_discriminating_pixels,
         "alphaThreshold": alpha_threshold,
+        "visibilityColorTolerance": visibility_color_tolerance,
         "alternativeDirectionScores": scores,
         "actualDigest": image_digest(actual),
         "backgroundDigest": image_digest(background),

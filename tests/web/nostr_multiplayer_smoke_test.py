@@ -724,62 +724,96 @@ def exercise_all_direction_route(
                 host, join, owner=owner, entity_id=unit_id,
                 direction=direction, baseline_position=current,
             )
-            pixel_capture = request_correlated_pixel_capture(
-                host, join, artifact_dir,
-                f"{actor}-lap-{lap}-direction-{direction}", unit_id,
-            )
-            pixel_oracles = []
-            for peer in ("host", "join"):
-                capture_metadata = pixel_capture["peers"][peer]
-                manifest_path = artifact_dir / capture_metadata[
-                    "manifest"
-                ]
-                retained = evaluate_packaged_capture(
-                    manifest_path=manifest_path,
-                    graphics_drs=ROOT / "game_data/Data/graphics.drs",
-                    interface_drs=ROOT / "game_data/Data/interfac.drs",
-                    expected_logical_direction=direction,
-                    evidence_directory=(
-                        manifest_path.parent / "semantic-direction"
-                    ),
+            recapture_attempts: list[dict[str, object]] = []
+            pixel_capture: dict[str, object] = {}
+            baseline = current
+            for capture_attempt in range(3):
+                capture_label = (
+                    f"{actor}-lap-{lap}-direction-{direction}"
+                    + (f"-recapture-{capture_attempt}"
+                       if capture_attempt else "")
                 )
-                pixel_oracles.append({
-                    **retained,
-                    "oracleKind": "semantic-pixel-direction",
-                    "phase": f"{actor}-all-directions",
-                    "peer": peer,
-                    "owner": owner,
-                    "unitKind": "unit-villager",
-                    "action": "moving",
-                    "seed": seed,
-                    "entity": unit_id,
-                    "logicalDirection": direction,
-                    "expectedLogicalDirection": direction,
-                    "actualLogicalDirection": capture_metadata.get(
-                        "actualLogicalDirection"
-                    ),
-                    "authoritativeTick": capture_metadata.get(
-                        "authoritativeTick"
-                    ),
-                    "authoritativeHash": capture_metadata.get(
-                        "authoritativeHash"
-                    ),
-                    "renderFrame": capture_metadata.get("renderFrame"),
-                    "previousPosition": capture_metadata.get(
-                        "previousPosition"
-                    ),
-                    "currentPosition": capture_metadata.get(
-                        "currentPosition"
-                    ),
-                    "destinationPosition": capture_metadata.get(
-                        "destinationPosition"
-                    ),
-                    "screenshot": str(manifest_path.parent / retained[
-                        "images"
-                    ]["actual"]),
-                    "transitionKind": "authoritative-step",
+                pixel_capture = request_correlated_pixel_capture(
+                    host, join, artifact_dir, capture_label, unit_id,
+                )
+                pixel_oracles = []
+                for peer in ("host", "join"):
+                    capture_metadata = pixel_capture["peers"][peer]
+                    manifest_path = artifact_dir / capture_metadata[
+                        "manifest"
+                    ]
+                    retained = evaluate_packaged_capture(
+                        manifest_path=manifest_path,
+                        graphics_drs=ROOT / "game_data/Data/graphics.drs",
+                        interface_drs=ROOT / "game_data/Data/interfac.drs",
+                        expected_logical_direction=direction,
+                        evidence_directory=(
+                            manifest_path.parent / "semantic-direction"
+                        ),
+                    )
+                    pixel_oracles.append({
+                        **retained,
+                        "oracleKind": "semantic-pixel-direction",
+                        "phase": f"{actor}-all-directions",
+                        "peer": peer,
+                        "owner": owner,
+                        "unitKind": "unit-villager",
+                        "action": "moving",
+                        "seed": seed,
+                        "entity": unit_id,
+                        "logicalDirection": direction,
+                        "expectedLogicalDirection": direction,
+                        "actualLogicalDirection": capture_metadata.get(
+                            "actualLogicalDirection"
+                        ),
+                        "authoritativeTick": capture_metadata.get(
+                            "authoritativeTick"
+                        ),
+                        "authoritativeHash": capture_metadata.get(
+                            "authoritativeHash"
+                        ),
+                        "renderFrame": capture_metadata.get("renderFrame"),
+                        "previousPosition": capture_metadata.get(
+                            "previousPosition"
+                        ),
+                        "currentPosition": capture_metadata.get(
+                            "currentPosition"
+                        ),
+                        "destinationPosition": capture_metadata.get(
+                            "destinationPosition"
+                        ),
+                        "screenshot": str(
+                            manifest_path.parent / retained["images"]["actual"]
+                        ),
+                        "transitionKind": "authoritative-step",
+                    })
+                if not any(
+                    oracle["verdict"] == "BLOCKED"
+                    for oracle in pixel_oracles
+                ):
+                    pixel_capture["visualOracles"] = pixel_oracles
+                    break
+                recapture_attempts.append({
+                    "capture": pixel_capture,
+                    "blockedOracles": pixel_oracles,
                 })
-            pixel_capture["visualOracles"] = pixel_oracles
+                next_position = pixel_capture["peers"][actor].get(
+                    "currentPosition"
+                )
+                if not isinstance(next_position, dict):
+                    pixel_capture["visualOracles"] = pixel_oracles
+                    break
+                baseline = (
+                    int(next_position["x"]), int(next_position["y"])
+                )
+                if baseline == destination or capture_attempt == 2:
+                    pixel_capture["visualOracles"] = pixel_oracles
+                    break
+                wait_for_drawable_direction(
+                    host, join, owner=owner, entity_id=unit_id,
+                    direction=direction, baseline_position=baseline,
+                )
+            pixel_capture["recaptureAttempts"] = recapture_attempts
             frames = capture_until_arrival(
                 host, join, owner=owner, unit_id=unit_id,
                 destination=destination, artifact_dir=artifact_dir,

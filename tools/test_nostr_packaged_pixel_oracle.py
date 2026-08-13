@@ -16,12 +16,12 @@ from nostr_slp_decoder import decode_slp_frame
 
 
 def synthetic_slp() -> bytes:
-    command = bytes((0x80, *range(1, 33), 0x0F))
+    command = bytes((0x02, 128, *range(1, 129), 0x0F))
     payload = bytearray(84 + len(command))
     payload[:4] = b"2.0N"
     struct.pack_into("<i", payload, 4, 1)
     struct.pack_into("<II", payload, 32, 80, 76)
-    struct.pack_into("<iiii", payload, 48, 32, 1, 8, 0)
+    struct.pack_into("<iiii", payload, 48, 128, 1, 32, 0)
     struct.pack_into("<HH", payload, 76, 0, 0)
     struct.pack_into("<I", payload, 80, 84)
     payload.extend(command)
@@ -58,10 +58,10 @@ class PackagedPixelOracleTests(unittest.TestCase):
             interface.write_bytes(
                 synthetic_drs("bina", 50500, palette_payload)
             )
-            background = Image.new("RGBA", (50, 12), (30, 70, 20, 255))
+            background = Image.new("RGBA", (170, 12), (30, 70, 20, 255))
             sprite = render_decoded_draw(
                 canvas_size=background.size, payload=slp, palette=palette,
-                frame_index=0, legacy_player=0, ground=(10, 6), zoom=1,
+                frame_index=0, legacy_player=0, ground=(85, 6), zoom=1,
                 flip_horizontal=False, visible=True,
             )
             actual = background.copy()
@@ -80,9 +80,9 @@ class PackagedPixelOracleTests(unittest.TestCase):
                     "sprite_frames": [{
                         "resource_id": 1484, "frame": 0,
                         "palette_player": 0, "flip_horizontal": False,
-                        "visible": True, "ground": [10, 6],
-                        "destination": [2, 6, 32, 1],
-                        "clipped_destination": [2, 6, 32, 1],
+                        "visible": True, "ground": [85, 6],
+                        "destination": [53, 6, 128, 1],
+                        "clipped_destination": [53, 6, 117, 1],
                         "action_frame": 0, "frames_per_direction": 1,
                         "direction_count": 2, "mirroring_mode": 1,
                         "physical_frame_count": 1,
@@ -102,7 +102,7 @@ class PackagedPixelOracleTests(unittest.TestCase):
 
             wrong_sprite = render_decoded_draw(
                 canvas_size=background.size, payload=slp, palette=palette,
-                frame_index=0, legacy_player=0, ground=(10, 6), zoom=1,
+                frame_index=0, legacy_player=0, ground=(85, 6), zoom=1,
                 flip_horizontal=True, visible=True,
             )
             wrong = background.copy()

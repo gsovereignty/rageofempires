@@ -60,6 +60,18 @@ class PixelDirectionOracleTests(unittest.TestCase):
                 self.assertEqual(report["verdict"], "FAIL")
                 self.assertEqual(report["bestDirection"], actual_direction)
 
+    def test_foreground_occlusion_is_excluded_without_hiding_direction(self):
+        actual = composite(self.background, self.sprites["east"])
+        occluder = Image.new("RGBA", (4, 24), (95, 80, 55, 255))
+        actual.alpha_composite(occluder, (0, 0))
+        report, _ = evaluate_direction_pixels(
+            actual=actual, background=self.background,
+            expected_direction="east", sprites=self.sprites,
+        )
+        self.assertEqual(report["verdict"], "PASS")
+        self.assertEqual(report["bestDirection"], "east")
+        self.assertGreaterEqual(report["discriminatingPixels"], 24)
+
     def test_ambiguous_crop_blocks(self):
         transparent = Image.new("RGBA", (24, 24), (0, 0, 0, 0))
         sprites = {"east": transparent, "west": transparent.copy()}

@@ -1422,6 +1422,68 @@ def exercise_obstacle_detour_route(
     }
 
 
+def exercise_narrow_passage_route(
+    journey: Journey, driver, actor: str, owner: int, unit_id: int,
+    host, join, actions: list[dict[str, object]], artifact_dir: Path,
+) -> dict[str, object]:
+    """Traverse tracked two-House lane and prove unit stays in corridor."""
+    start = (24, 1)
+    destination = (24, 8)
+    games = wait_until(
+        f"{actor} narrow passage synchronized state",
+        lambda: matching_games(host, join), timeout=WAIT_SECONDS,
+    )
+    current = owned_unit_positions(games[0], owner).get(unit_id)
+    if current is None:
+        raise Failure(f"{actor} narrow-passage unit missing")
+    center_camera_for_tile(journey, driver, actions, actor, *current)
+    audited_world_pointer(journey, driver, actions, actor, *current, button=0)
+    center_camera_for_tile(journey, driver, actions, actor, *start)
+    audited_world_pointer(journey, driver, actions, actor, *start)
+    approach = capture_until_arrival(
+        host, join, owner=owner, unit_id=unit_id, destination=start,
+        artifact_dir=artifact_dir, label=f"{actor}-narrow-approach",
+    )
+    center_camera_for_tile(journey, driver, actions, actor, *destination)
+    audited_world_pointer(journey, driver, actions, actor, *destination)
+    frames = capture_until_arrival(
+        host, join, owner=owner, unit_id=unit_id, destination=destination,
+        artifact_dir=artifact_dir, label=f"{actor}-narrow-passage",
+    )
+    positions: list[tuple[int, int]] = []
+    for sample in frames:
+        value = owned_unit_positions(
+            sample.get("authoritativeHost") or {}, owner
+        ).get(unit_id)
+        if value is not None and (not positions or positions[-1] != value):
+            positions.append(value)
+    corridor = [position for position in positions if 3 <= position[1] <= 6]
+    if not corridor:
+        raise Failure(f"{actor} narrow passage has no corridor samples")
+    if any(position[0] not in {23, 24} for position in corridor):
+        raise Failure(
+            f"{actor} bypassed narrow passage: {corridor}"
+        )
+    return {
+        "actor": actor, "owner": owner, "unitId": unit_id,
+        "routeKind": "narrow-passage",
+        "fixtureBuildings": [
+            {"owner": 0, "x": 21, "y": 4},
+            {"owner": 1, "x": 26, "y": 4},
+        ],
+        "start": {"x": start[0], "y": start[1]},
+        "destination": {"x": destination[0], "y": destination[1]},
+        "corridorPositions": [
+            {"x": value[0], "y": value[1]} for value in corridor
+        ],
+        "approachFrameCount": len(approach),
+        "frameCount": len(frames), "frames": frames,
+        "renderOracle": analyze_render_samples_for_audit(
+            frames, f"{actor}-narrow-passage"
+        ),
+    }
+
+
 def analyze_render_samples(samples: list[dict[str, object]]) \
         -> dict[str, object]:
     if not samples:
@@ -3228,6 +3290,15 @@ def run(relays: str | None, headed: bool, port: int = 8888,
                         host, join, actions, artifact_dir,
                         start, destination, obstacle,
                     )
+            evidence["narrowPassageRoutes"] = {}
+            for owner in owner_order:
+                actor, journey, driver, _, _, _, _ = actor_specs[int(owner)]
+                evidence["narrowPassageRoutes"][actor] = \
+                    exercise_narrow_passage_route(
+                        journey, driver, actor, int(owner),
+                        int(evidence["allDirections"][actor]["unitId"]),
+                        host, join, actions, artifact_dir,
+                    )
             evidence["formationRoutes"] = {}
             for owner in owner_order:
                 actor, journey, driver, _, _, _, center = actor_specs[
@@ -3851,12 +3922,22 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
                     })
     formation_routes = evidence.get("formationRoutes") or {}
     obstacle_routes = evidence.get("obstacleRoutes") or {}
+    narrow_routes = evidence.get("narrowPassageRoutes") or {}
     for actor in ("host", "join"):
         for sample in (obstacle_routes.get(actor) or {}).get("frames", []):
             for peer in ("host", "join"):
                 render_state = sample.get(peer) or {}
                 provenance.append({
                     "phase": f"obstacle-{actor}", "peer": peer,
+                    "frame": render_state.get("frame"),
+                    "tick": render_state.get("tick"),
+                    "entities": render_state.get("entities", []),
+                })
+        for sample in (narrow_routes.get(actor) or {}).get("frames", []):
+            for peer in ("host", "join"):
+                render_state = sample.get(peer) or {}
+                provenance.append({
+                    "phase": f"narrow-passage-{actor}", "peer": peer,
                     "frame": render_state.get("frame"),
                     "tick": render_state.get("tick"),
                     "entities": render_state.get("entities", []),
@@ -3904,10 +3985,6 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
                 "tick": render_state.get("tick"),
                 "entities": render_state.get("entities", []),
             })
-        for sample in (obstacle_routes.get(actor) or {}).get("frames", []):
-            correlated_records.append({
-                "phase": f"obstacle-{actor}", **sample,
-            })
     for phase, samples in gather_phases.items():
         for sample in samples:
             for peer in ("host", "join"):
@@ -3939,6 +4016,14 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
         for sample in (patrol_routes.get(actor) or {}).get("frames", []):
             correlated_records.append({
                 "phase": f"patrol-{actor}", **sample,
+            })
+        for sample in (obstacle_routes.get(actor) or {}).get("frames", []):
+            correlated_records.append({
+                "phase": f"obstacle-{actor}", **sample,
+            })
+        for sample in (narrow_routes.get(actor) or {}).get("frames", []):
+            correlated_records.append({
+                "phase": f"narrow-passage-{actor}", **sample,
             })
     for actor in ("host", "join"):
         phase = f"allDirections{actor.title()}"
@@ -4000,6 +4085,14 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
             route_records.append({
                 "id": "formation-regrouping", "actor": actor,
                 "verdict": (formation_route.get("renderOracle") or {}).get(
+                    "verdict", "BLOCKED"
+                ),
+            })
+        narrow_route = narrow_routes.get(actor) or {}
+        if narrow_route:
+            route_records.append({
+                "id": "narrow-passage", "actor": actor,
+                "verdict": (narrow_route.get("renderOracle") or {}).get(
                     "verdict", "BLOCKED"
                 ),
             })

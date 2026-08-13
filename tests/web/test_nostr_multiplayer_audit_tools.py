@@ -388,6 +388,7 @@ class RenderOracleTests(unittest.TestCase):
         self.assertEqual(set(routes), {
             "right-angle", "u-turn", "zigzag",
             "clockwise-loop", "counter-clockwise-loop",
+            "queued-waypoints",
         })
         self.assertEqual(routes["u-turn"][0], routes["u-turn"][-1])
         self.assertEqual(

@@ -525,6 +525,10 @@ def canonical_transition_routes(
             (x, y), (x, y + radius), (x + radius, y + radius),
             (x + radius, y), (x, y),
         ],
+        "queued-waypoints": [
+            (x, y), (x + radius, y), (x + radius, y + radius),
+            (x, y + radius), (x, y),
+        ],
     }
 
 
@@ -778,28 +782,54 @@ def exercise_transition_routes(
             )
         route_frames: list[dict[str, object]] = []
         step_records: list[dict[str, object]] = []
-        for step_index, destination in enumerate(points[1:], 1):
-            center_camera_for_tile(
-                journey, driver, actions, actor, *destination
-            )
-            center_camera_for_tile(
-                observer_journey, observer_driver, actions, observer_actor,
-                destination[0] + 1, destination[1],
-            )
-            audited_world_pointer(
-                journey, driver, actions, actor, *destination
-            )
-            frames = capture_until_arrival(
+        if route_name == "queued-waypoints":
+            for step_index, destination in enumerate(points[1:], 1):
+                center_camera_for_tile(
+                    journey, driver, actions, actor, *destination
+                )
+                audited_world_pointer(
+                    journey, driver, actions, actor, *destination,
+                    modifiers=0 if step_index == 1 else 1,
+                )
+                step_records.append({
+                    "step": step_index,
+                    "destination": {
+                        "x": destination[0], "y": destination[1]
+                    },
+                    "queued": True,
+                })
+            route_frames.extend(capture_until_arrival(
                 host, join, owner=owner, unit_id=unit_id,
-                destination=destination, artifact_dir=artifact_dir,
-                label=f"{actor}-{route_name}-step-{step_index}",
-            )
-            route_frames.extend(frames)
-            step_records.append({
-                "step": step_index,
-                "destination": {"x": destination[0], "y": destination[1]},
-                "frameCount": len(frames),
-            })
+                destination=points[-1], artifact_dir=artifact_dir,
+                label=f"{actor}-{route_name}",
+            ))
+            for record in step_records:
+                record["frameCount"] = len(route_frames)
+        else:
+            for step_index, destination in enumerate(points[1:], 1):
+                center_camera_for_tile(
+                    journey, driver, actions, actor, *destination
+                )
+                center_camera_for_tile(
+                    observer_journey, observer_driver, actions, observer_actor,
+                    destination[0] + 1, destination[1],
+                )
+                audited_world_pointer(
+                    journey, driver, actions, actor, *destination
+                )
+                frames = capture_until_arrival(
+                    host, join, owner=owner, unit_id=unit_id,
+                    destination=destination, artifact_dir=artifact_dir,
+                    label=f"{actor}-{route_name}-step-{step_index}",
+                )
+                route_frames.extend(frames)
+                step_records.append({
+                    "step": step_index,
+                    "destination": {
+                        "x": destination[0], "y": destination[1]
+                    },
+                    "frameCount": len(frames),
+                })
         routes[route_name] = {
             "steps": step_records,
             "frameCount": len(route_frames),

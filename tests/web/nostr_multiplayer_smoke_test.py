@@ -1269,7 +1269,9 @@ def exercise_formation_route(
                     host, join, artifact_dir,
                     f"{actor}-formation-semantic", selected[0],
                     owner=owner, unit_kind="unit-villager",
-                    action="formation", catalog_ids=["formation"],
+                    action="formation", catalog_ids=[
+                        "formation", "villager-empty-moving",
+                    ],
                     phase=f"{actor}-formation-regroup",
                 )
         if movement_seen and not moving:
@@ -1367,8 +1369,10 @@ def exercise_patrol_route(
             pixel_capture = capture_catalog_semantic_pixels(
                 host, join, artifact_dir, f"{actor}-patrol-semantic",
                 unit_id, owner=owner, unit_kind=str(
-                    unit.get("category", "unit-unknown")
-                ), action="patrol", catalog_ids=["patrol"],
+                unit.get("category", "unit-unknown")
+                ), action="patrol", catalog_ids=[
+                    "patrol", "infantry-before-upgrade",
+                ],
                 phase=f"{actor}-patrol",
             )
         position = (int(unit["x"]), int(unit["y"]))
@@ -1648,7 +1652,7 @@ def exercise_moving_target_chase(
                     f"{actor}-moving-target-chase-semantic", attacker_id,
                     owner=owner, unit_kind=str(
                         attacker.get("category", "unit-unknown")
-                    ), action="chase", catalog_ids=["chase"],
+                    ), action="chase", catalog_ids=["chase", "cavalry"],
                     phase=f"{actor}-moving-target-chase",
                 )
         if (len(target_positions) >= 3 and

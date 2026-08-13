@@ -1428,14 +1428,9 @@ def exercise_transition_routes(
                     observer_journey, observer_driver, actions, observer_actor,
                     destination[0] + 1, destination[1],
                 )
-                audited_world_pointer(
-                    journey, driver, actions, actor, *current, button=0,
-                )
-                wait_until(
-                    f"{actor} {route_name} unit {unit_id} selection",
-                    lambda: unit_id if int(
-                        journey.telemetry().get("selectedUnit", 0)
-                    ) == unit_id else None,
+                select_route_unit_at_current_position(
+                    journey, driver, actor, owner, unit_id,
+                    host, join, actions,
                 )
                 audited_world_pointer(
                     journey, driver, actions, actor, *destination

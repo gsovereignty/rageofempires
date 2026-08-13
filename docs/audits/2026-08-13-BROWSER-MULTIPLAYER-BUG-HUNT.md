@@ -178,3 +178,28 @@ gameplay capture, verifying the correction in the real audit path.
 Cleanup completed: owned browsers, driver, and server exited; port 8899 is
 free; descriptor count returned to its baseline of 5. Broad required coverage
 remains incomplete, so relay rotation must restart the audit.
+
+## Relay-rotation restart — `20260813T161000Z-harness-restart-3`
+
+**FAIL with no confirmed product bug.** Three public-relay attempts and four
+production-path minimization replays retained durable evidence. Attempt 1
+stopped when unit 10's command to `(34,13)` was absent from both peers; the
+first failed boundary remains undetermined. Attempt 2 proved an infrastructure
+incident: `wss://nostr.mom` demanded 28-bit proof of work for host `turn-756`
+and join `turn-744`, leaving only one accepting relay. Attempt 3 retained equal
+peer hashes but failed to select join unit 9 before the
+`quantization-boundary-vectors` route. Prefix minimization did not reproduce
+that original identity. No game bug is confirmed or logged.
+
+Direct harness inspection established CBMB-20260813-R4-01. Transition routes
+centered the camera on each destination, then issued one click at a position
+sampled before those camera operations and immediately waited for selection.
+This bypassed `select_route_unit_at_current_position()`, which re-synchronizes
+after camera movement, reacquires the unit's current tile, and retries visible
+selection. Transition routes now use that helper. Production rerun remains
+required before this correction is classified fixed.
+
+Evidence:
+`artifacts/browser-multiplayer-audits/20260813T161000Z-harness-restart-3/`.
+Cleanup completed: port 8900 is free, all owned runtime exited, and descriptor
+count returned to baseline 5.

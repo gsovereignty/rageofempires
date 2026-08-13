@@ -13,6 +13,8 @@ from PIL import Image
 
 from nostr_multiplayer_smoke_test import (
     CDP_SHIFT_MODIFIER,
+    ActionLimitReached,
+    BoundedActionLog,
     Failure,
     allocate_audit_destination,
     analyze_render_samples,
@@ -163,6 +165,15 @@ def gathering_sample(*, amount: int = 100, include_resource: bool = True):
 
 
 class AuditedInputTests(unittest.TestCase):
+    def test_bounded_action_log_stops_before_post_prefix_action(self):
+        actions = BoundedActionLog(2)
+        actions.append({"kind": "first"})
+        actions.append({"kind": "second"})
+        with self.assertRaisesRegex(ActionLimitReached, "action limit 2"):
+            actions.append({"kind": "third"})
+        self.assertEqual([value["kind"] for value in actions],
+                         ["first", "second"])
+
     def test_shift_click_uses_cdp_shift_bit(self):
         class Canvas:
             rect = {"x": 0, "y": 0, "width": 1280, "height": 720}

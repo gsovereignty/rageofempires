@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import subprocess
 import sys
@@ -58,6 +59,99 @@ def retained_path(path: Path | None) -> str | None:
         return str(path)
 
 
+class MinimizationBlocked(RuntimeError):
+    """Candidate run could not decide whether prefix preserves failure."""
+
+
+VOLATILE_FAILURE_KEYS = {
+    "screenshot", "images", "manifestPath", "actualPixelCropPath",
+    "expectedPixelCropPath", "minimizedReplayPath", "traceback",
+    "completedEvidence",
+}
+
+
+def stable_failure_value(value):
+    if isinstance(value, dict):
+        return {
+            key: stable_failure_value(child)
+            for key, child in value.items()
+            if key not in VOLATILE_FAILURE_KEYS and not key.endswith("Path")
+        }
+    if isinstance(value, list):
+        return [stable_failure_value(child) for child in value]
+    return value
+
+
+def canonical_failure_identity(root: Path | None) -> dict[str, object] | None:
+    if root is None:
+        return None
+    visual_path = root / "visual-failures.json"
+    if visual_path.is_file():
+        failures = json.loads(visual_path.read_text(encoding="utf-8"))
+        if failures:
+            value = stable_failure_value(failures[0])
+            encoded = json.dumps(value, sort_keys=True, separators=(",", ":"))
+            return {
+                "kind": "visual-oracle", "value": value,
+                "sha256": hashlib.sha256(encoded.encode()).hexdigest(),
+            }
+    failure_path = root / "first-failure.json"
+    if failure_path.is_file():
+        failure = json.loads(failure_path.read_text(encoding="utf-8"))
+        error = str(failure.get("error", ""))
+        if error and not error.startswith("ActionLimitReached:"):
+            return {
+                "kind": "exception", "value": error,
+                "sha256": hashlib.sha256(error.encode()).hexdigest(),
+            }
+    return None
+
+
+def read_action_stream(root: Path) -> list[dict[str, object]]:
+    path = root / "actions.jsonl"
+    if not path.is_file():
+        return []
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()
+            if line.strip()]
+
+
+def stopped_at_action_limit(root: Path | None) -> bool:
+    path = root / "first-failure.json" if root else None
+    if not path or not path.is_file():
+        return False
+    value = json.loads(path.read_text(encoding="utf-8"))
+    return str(value.get("error", "")).startswith("ActionLimitReached:")
+
+
+def minimize_prefix(
+    action_count: int, target_sha256: str, run_candidate,
+) -> tuple[int, list[dict[str, object]]]:
+    """Binary-search smallest monotonic prefix retaining exact failure."""
+    if action_count < 1:
+        raise ValueError("prefix minimization needs at least one action")
+    low, high = 0, action_count
+    attempts: list[dict[str, object]] = []
+    while low < high:
+        middle = (low + high) // 2
+        candidate = run_candidate(middle)
+        attempts.append(candidate)
+        status = candidate.get("status")
+        if status == "BLOCKED":
+            raise MinimizationBlocked(
+                f"candidate prefix {middle} was infrastructure-blocked"
+            )
+        reproduced = (
+            status == "FAIL" and
+            (candidate.get("failureIdentity") or {}).get("sha256") ==
+            target_sha256
+        )
+        if reproduced:
+            high = middle
+        else:
+            low = middle + 1
+    return low, attempts
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--relays")
@@ -100,6 +194,7 @@ def main() -> int:
     attempts: list[dict[str, object]] = []
     maximum_attempts = min(arguments.retry_budget + 1, len(quorums))
     final_status = "BLOCKED"
+    final_attempt_path: Path | None = None
 
     for attempt_index, quorum in enumerate(quorums[:maximum_attempts]):
         command = [
@@ -123,6 +218,7 @@ def main() -> int:
             command.append(f"--browser-argument={browser_argument}")
         completed = subprocess.run(command, cwd=ROOT, check=False)
         attempt_path = latest_attempt(attempt_root)
+        final_attempt_path = attempt_path
         verdict_path = attempt_path / "verdict.json" if attempt_path else None
         verdict = json.loads(verdict_path.read_text()) \
             if verdict_path and verdict_path.is_file() else {
@@ -152,6 +248,117 @@ def main() -> int:
         "attempts": attempts,
         "finalStatus": final_status,
     })
+    minimization: dict[str, object] | None = None
+    if final_status == "FAIL" and final_attempt_path is not None:
+        target_identity = canonical_failure_identity(final_attempt_path)
+        original_actions = read_action_stream(final_attempt_path)
+        minimization_root = destination.artifacts / "minimization"
+        minimization_reports = destination.artifacts / "minimization-reports"
+        minimization_root.mkdir()
+        minimization_reports.mkdir()
+        candidate_paths: dict[int, Path] = {}
+        retained_candidate_runs: list[dict[str, object]] = []
+
+        def run_candidate(limit: int) -> dict[str, object]:
+            before = set(minimization_root.iterdir())
+            quorum = list(attempts[-1].get("quorum", []))
+            command = [
+                str(ROOT / "build-web" / "selenium-venv" / "bin" / "python"),
+                str(ROOT / "tests" / "web" /
+                    "nostr_multiplayer_smoke_test.py"),
+                "--port", str(arguments.port), "--relays", ",".join(quorum),
+                "--seed", str(arguments.seed), "--retry-budget", "0",
+                "--viewport",
+                f"{arguments.viewport[0]}x{arguments.viewport[1]}",
+                "--dpr", str(arguments.dpr), "--zoom", str(arguments.zoom),
+                "--action-limit", str(limit),
+                "--audit-root", str(minimization_root),
+                "--report-root", str(minimization_reports),
+            ]
+            if arguments.headed:
+                command.append("--headed")
+            for browser_argument in arguments.browser_argument:
+                command.append(f"--browser-argument={browser_argument}")
+            completed = subprocess.run(command, cwd=ROOT, check=False)
+            new_paths = [path for path in minimization_root.iterdir()
+                         if path.is_dir() and path not in before]
+            candidate_path = max(
+                new_paths, key=lambda path: path.stat().st_mtime_ns
+            ) if new_paths else None
+            verdict_path = candidate_path / "verdict.json" \
+                if candidate_path else None
+            verdict = json.loads(verdict_path.read_text(encoding="utf-8")) \
+                if verdict_path and verdict_path.is_file() else {
+                    "status": "BLOCKED",
+                }
+            status = str(verdict.get("status", "BLOCKED"))
+            if status == "BLOCKED" and stopped_at_action_limit(candidate_path):
+                status = "NOT_REPRODUCED"
+            identity = canonical_failure_identity(candidate_path)
+            if candidate_path:
+                candidate_paths[limit] = candidate_path
+            result = {
+                "actionLimit": limit, "status": status,
+                "exitCode": completed.returncode,
+                "failureIdentity": identity,
+                "artifactPath": retained_path(candidate_path),
+            }
+            retained_candidate_runs.append(result)
+            return result
+
+        if not target_identity:
+            minimization = {
+                "schemaVersion": 1, "status": "BLOCKED",
+                "blocker": "original FAIL has no stable retained identity",
+                "originalActionCount": len(original_actions),
+            }
+        elif not original_actions:
+            minimization = {
+                "schemaVersion": 1, "status": "PASS",
+                "preservedFailure": True, "minimumActionCount": 0,
+                "originalActionCount": 0,
+                "failureIdentity": target_identity,
+                "candidateRuns": [], "actions": [],
+            }
+        else:
+            try:
+                minimum, candidate_runs = minimize_prefix(
+                    len(original_actions), str(target_identity["sha256"]),
+                    run_candidate,
+                )
+                proof_path = candidate_paths.get(minimum, final_attempt_path)
+                proof_identity = canonical_failure_identity(proof_path)
+                preserved = (
+                    proof_identity is not None and
+                    proof_identity.get("sha256") == target_identity["sha256"]
+                )
+                if not preserved:
+                    raise MinimizationBlocked(
+                        "minimum prefix lacks retained matching failure proof"
+                    )
+                minimized_actions = read_action_stream(proof_path)[:minimum]
+                minimization = {
+                    "schemaVersion": 1, "status": "PASS",
+                    "kind": "verified-prefix-minimization",
+                    "preservedFailure": True,
+                    "failureIdentity": target_identity,
+                    "originalActionCount": len(original_actions),
+                    "minimumActionCount": minimum,
+                    "proofArtifactPath": retained_path(proof_path),
+                    "candidateRuns": candidate_runs,
+                    "actions": minimized_actions,
+                }
+            except MinimizationBlocked as error:
+                minimization = {
+                    "schemaVersion": 1, "status": "BLOCKED",
+                    "blocker": str(error),
+                    "failureIdentity": target_identity,
+                    "originalActionCount": len(original_actions),
+                    "candidateRuns": retained_candidate_runs,
+                }
+        atomic_write_json(
+            destination.artifacts / "minimized-replay.json", minimization
+        )
     ledger = json.loads((destination.artifacts / "run.json").read_text())
     ledger.update({
         "status": final_status,
@@ -165,6 +372,9 @@ def main() -> int:
         "status": final_status,
         "attemptCount": len(attempts),
         "attemptLedger": "attempts.json",
+        "minimizationStatus": (
+            minimization.get("status") if minimization else "NOT_APPLICABLE"
+        ),
     })
     write_report(
         destination.artifacts, final_status,

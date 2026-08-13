@@ -72,6 +72,23 @@ DEFAULT_RELAYS = (
 )
 
 
+class ActionLimitReached(Failure):
+    """Candidate replay reached its prefix boundary without earlier abort."""
+
+
+class BoundedActionLog(list[dict[str, object]]):
+    def __init__(self, limit: int | None = None):
+        super().__init__()
+        if limit is not None and limit < 0:
+            raise ValueError("action limit must be non-negative")
+        self.limit = limit
+
+    def append(self, value: dict[str, object]) -> None:
+        if self.limit is not None and len(self) >= self.limit:
+            raise ActionLimitReached(f"action limit {self.limit} reached")
+        super().append(value)
+
+
 @dataclass(frozen=True)
 class AuditDestination:
     artifacts: Path
@@ -189,6 +206,7 @@ def initialize_run_ledger(
     dpr: float = 1.0,
     browser_arguments: list[str] | None = None,
     zoom: float = 1.0,
+    action_limit: int | None = None,
 ) -> None:
     def ledger_path(path: Path) -> str:
         try:
@@ -221,6 +239,7 @@ def initialize_run_ledger(
                     "arguments": list(browser_arguments or [])},
         "scenario": "packaged Nostr multiplayer production scenario",
         "seed": seed,
+        "actionLimit": action_limit,
         "hostPublicKey": "pending product identity initialization",
         "joinPublicKey": "pending product identity initialization",
         "relayPool": relays.split(",") if relays else
@@ -3042,7 +3061,8 @@ def run(relays: str | None, headed: bool, port: int = 8888,
         seed: int = 0xA0E20260812,
         viewport: tuple[int, int] = (1280, 900),
         dpr: float = 1.0, zoom: float = 1.0,
-        browser_arguments: list[str] | None = None) -> dict[str, object]:
+        browser_arguments: list[str] | None = None,
+        action_limit: int | None = None) -> dict[str, object]:
     if artifact_dir is None:
         artifact_dir = allocate_audit_directory()
     if not (DIST / "aoe_web.html").exists():
@@ -3052,7 +3072,7 @@ def run(relays: str | None, headed: bool, port: int = 8888,
         "relays": [],
         "relaySource": ("explicit-override" if relays is not None
                         else "packaged-production-default"),
-        "actions": [],
+        "actions": BoundedActionLog(action_limit),
         "actionSeed": seed,
     }
     coverage_specification = load_specification(
@@ -4339,6 +4359,7 @@ def main() -> int:
     parser.add_argument("--dpr", type=float, choices=(1.0, 2.0), default=1.0)
     parser.add_argument("--zoom", type=float, choices=(1.0, 2.0), default=1.0)
     parser.add_argument("--browser-argument", action="append", default=[])
+    parser.add_argument("--action-limit", type=int)
     arguments = parser.parse_args()
     destination = allocate_audit_destination(
         arguments.audit_root, arguments.report_root
@@ -4356,6 +4377,7 @@ def main() -> int:
         dpr=arguments.dpr,
         browser_arguments=arguments.browser_argument,
         zoom=arguments.zoom,
+        action_limit=arguments.action_limit,
     )
     try:
         configured_relays = (
@@ -4384,6 +4406,7 @@ def main() -> int:
             dpr=arguments.dpr,
             zoom=arguments.zoom,
             browser_arguments=arguments.browser_argument,
+            action_limit=arguments.action_limit,
         )
         evidence_path.write_text(
             json.dumps(evidence, indent=2, sort_keys=True) + "\n",
@@ -4400,16 +4423,18 @@ def main() -> int:
                 "relays": (arguments.relays.split(",")
                            if arguments.relays else []),
             }
-        replay_path = audit_dir / "minimized-replay.json"
+        replay_path = audit_dir / "causal-replay-prefix.json"
         replay = causal_replay_prefix(
             list((failure.get("completedEvidence") or {}).get("actions", [])),
             failure,
         )
         atomic_write_json(replay_path, replay)
         try:
-            failure["minimizedReplayPath"] = str(replay_path.relative_to(ROOT))
+            failure["causalReplayPrefixPath"] = str(
+                replay_path.relative_to(ROOT)
+            )
         except ValueError:
-            failure["minimizedReplayPath"] = str(replay_path)
+            failure["causalReplayPrefixPath"] = str(replay_path)
         failure_path.write_text(
             json.dumps(failure, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",

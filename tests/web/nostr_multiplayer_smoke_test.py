@@ -518,13 +518,16 @@ def center_camera_for_tile(
                      float(camera["y"])) * zoom
         # The production Nostr session controls occupy the right side of the
         # canvas. Keep world commands left of that overlay so they reach SDL.
-        if 100.0 < logical_x < 900.0 and 80.0 < logical_y < 500.0:
+        # Keep audited sprite well inside unobstructed world viewport. Merely
+        # being clickable is insufficient: edge placement can put buildings
+        # between target sprite and terrain-only semantic pixel background.
+        if 300.0 < logical_x < 750.0 and 160.0 < logical_y < 400.0:
             return
-        if logical_y >= 500.0:
+        if logical_y >= 400.0:
             key = Keys.ARROW_DOWN
-        elif logical_y <= 80.0:
+        elif logical_y <= 160.0:
             key = Keys.ARROW_UP
-        elif logical_x <= 100.0:
+        elif logical_x <= 300.0:
             key = Keys.ARROW_LEFT
         else:
             key = Keys.ARROW_RIGHT
@@ -609,7 +612,7 @@ def exercise_all_direction_route(
     route = canonical_direction_route(center)
     segments: list[dict[str, object]] = []
     all_frames: list[dict[str, object]] = []
-    for lap in range(2):
+    for lap in range(3):
         for direction, destination in enumerate(route[1:]):
             center_camera_for_tile(
                 journey, driver, actions, actor,
@@ -736,6 +739,16 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
             last_frame[peer] = frame
             for entity in state.get("entities", []):
                 if not isinstance(entity, dict):
+                    continue
+                # Render diagnostics retain authoritative visible-world
+                # candidates even when their projected rectangle is wholly
+                # outside viewport. No draw submission exists in that case;
+                # absence of sprite provenance is expected, not fallback.
+                if (not entity.get("layers") and
+                        not isinstance(entity.get("renderPosition"), dict)):
+                    counts["offscreenEntities"] = (
+                        int(counts.get("offscreenEntities", 0)) + 1
+                    )
                     continue
                 counts["entities"] += 1
                 source = entity.get("source")

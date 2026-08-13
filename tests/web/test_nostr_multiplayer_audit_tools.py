@@ -374,6 +374,24 @@ class RenderOracleTests(unittest.TestCase):
         self.assertEqual(result["legacy"], 4)
         self.assertEqual(result["maximumFrameDisplacement"], 4.0)
 
+    def test_ignores_expected_asset_wholly_outside_viewport(self):
+        value = sample(1, 10.0)
+        offscreen = {
+            "id": 99,
+            "owner": 1,
+            "category": "unit-scout_cavalry",
+            "source": "procedural_or_unproven",
+            "expectedAssetStatus": "renderable",
+            "expectedResourceIds": [2085],
+            "layers": [],
+            "renderPosition": None,
+        }
+        for peer in ("host", "join"):
+            value[peer]["entities"].append(dict(offscreen))
+        result = analyze_render_samples([value])
+        self.assertEqual(result["offscreenEntities"], 2)
+        self.assertEqual(result["unprovenSources"], 0)
+
     def test_rejects_non_monotonic_frames(self):
         with self.assertRaisesRegex(Failure, "non-monotonic"):
             analyze_render_samples([sample(2, 10.0), sample(2, 11.0)])

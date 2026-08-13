@@ -124,6 +124,7 @@ audit-nostr-oracles:
 		tools/test_nostr_packaged_pixel_oracle.py \
 		tools/test_nostr_visual_pixel_oracle.py \
 		tools/test_nostr_visual_coverage.py \
+		tools/test_nostr_visual_route_coverage.py \
 		tools/test_nostr_visual_transition_oracle.py \
 		tools/test_nostr_seeded_action_generator.py \
 		tools/test_audit_multiplayer_screenshots.py \

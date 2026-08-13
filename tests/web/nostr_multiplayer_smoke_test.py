@@ -51,6 +51,7 @@ from nostr_packaged_pixel_oracle import (
     write_wrong_position_mutation,
 )
 from nostr_visual_transition_oracle import evaluate_transitions
+from nostr_visual_route_coverage import evaluate_route_coverage
 from nostr_seeded_action_generator import (
     causal_replay_prefix,
     coverage_priority_plan,
@@ -3648,6 +3649,7 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
         ROOT / "tools/nostr_slp_decoder.py",
         ROOT / "tools/nostr_visual_coverage.py",
         ROOT / "tools/nostr_visual_transition_oracle.py",
+        ROOT / "tools/nostr_visual_route_coverage.py",
         ROOT / "tools/nostr_seeded_action_generator.py",
         ROOT / "tools/run_nostr_visual_audit.py",
         ROOT / "tools/run_nostr_visual_display_matrix.py",
@@ -3974,6 +3976,37 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
     )
     coverage = evaluate_coverage(coverage_specification, visual_oracles)
     atomic_write_json(root / "coverage.json", coverage)
+    route_records: list[dict[str, object]] = []
+    for actor in ("host", "join"):
+        for route_name, route in (
+            (transition_routes.get(actor) or {}).get("routes", {})
+        ).items():
+            route_records.append({
+                "id": route_name, "actor": actor,
+                "verdict": (route.get("renderOracle") or {}).get(
+                    "verdict", "BLOCKED"
+                ),
+            })
+        obstacle_route = obstacle_routes.get(actor) or {}
+        for route_name in obstacle_route.get("routeKind", []):
+            route_records.append({
+                "id": route_name, "actor": actor,
+                "verdict": (obstacle_route.get("renderOracle") or {}).get(
+                    "verdict", "BLOCKED"
+                ),
+            })
+        formation_route = formation_routes.get(actor) or {}
+        if formation_route:
+            route_records.append({
+                "id": "formation-regrouping", "actor": actor,
+                "verdict": (formation_route.get("renderOracle") or {}).get(
+                    "verdict", "BLOCKED"
+                ),
+            })
+    route_coverage = evaluate_route_coverage(
+        coverage_specification, route_records
+    )
+    atomic_write_json(root / "route-coverage.json", route_coverage)
     (root / "console-host.json").write_text(
         json.dumps(evidence.get("hostConsole", []), indent=2) + "\n",
         encoding="utf-8",
@@ -4003,8 +4036,9 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
     screenshot_status = str(screenshot_report.get("status", "BLOCKED"))
     status = (
         "FAIL" if failures or coverage["status"] == "FAIL" or
-        screenshot_status == "FAIL"
+        route_coverage["status"] == "FAIL" or screenshot_status == "FAIL"
         else "BLOCKED" if coverage["status"] == "BLOCKED" or
+        route_coverage["status"] == "BLOCKED" or
         screenshot_status == "BLOCKED"
         else "PASS"
     )
@@ -4016,6 +4050,8 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
         "screenshotStatus": screenshot_status,
         "visualOracleCount": len(visual_oracles),
         "coverageStatus": coverage["status"],
+        "routeCoverageStatus": route_coverage["status"],
+        "missingRequiredRoutes": route_coverage["missingRequiredRoutes"],
         "missingRequiredCells": coverage["missingRequiredCells"],
         "missingCatalogAssertions": coverage[
             "missingCatalogAssertions"

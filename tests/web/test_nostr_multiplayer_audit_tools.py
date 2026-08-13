@@ -678,7 +678,7 @@ class RenderOracleTests(unittest.TestCase):
         self.assertEqual(set(routes), {
             "right-angle", "u-turn", "zigzag",
             "clockwise-loop", "counter-clockwise-loop",
-            "queued-waypoints",
+            "queued-waypoints", "quantization-boundary-vectors",
         })
         self.assertEqual(routes["u-turn"][0], routes["u-turn"][-1])
         self.assertEqual(
@@ -696,6 +696,17 @@ class RenderOracleTests(unittest.TestCase):
             )
         ]
         self.assertEqual(zigzag_vectors, [(2, 2), (2, -2), (2, 2)])
+        boundary_vectors = [
+            (right[0] - left[0], right[1] - left[1])
+            for left, right in zip(
+                routes["quantization-boundary-vectors"],
+                routes["quantization-boundary-vectors"][1:],
+            )
+        ]
+        self.assertTrue(all(
+            sorted((abs(dx), abs(dy))) == [2, 4]
+            for dx, dy in boundary_vectors
+        ))
 
     def test_accepts_monotonic_legacy_motion(self):
         result = analyze_render_samples([sample(1, 10.0), sample(2, 14.0)])

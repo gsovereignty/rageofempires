@@ -735,6 +735,16 @@ def canonical_transition_routes(
             (x, y), (x + radius, y), (x + radius, y + radius),
             (x, y + radius), (x, y),
         ],
+        # Unequal 2:1 and 1:2 command vectors straddle the angular regions
+        # beside cardinal/diagonal quantization boundaries. Authoritative
+        # consecutive tile steps, not these destinations, remain the facing
+        # oracle input.
+        "quantization-boundary-vectors": [
+            (x, y), (x + radius * 2, y + radius), (x, y),
+            (x + radius, y + radius * 2), (x, y),
+            (x - radius * 2, y + radius), (x, y),
+            (x - radius, y - radius * 2), (x, y),
+        ],
     }
 
 

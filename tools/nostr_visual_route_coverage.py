@@ -6,7 +6,8 @@ from __future__ import annotations
 
 REQUIRED_ROUTE_IDS = {
     "right-angle", "u-turn", "zigzag", "clockwise-loop",
-    "counter-clockwise-loop", "queued-waypoints", "moving-target-chase",
+    "counter-clockwise-loop", "queued-waypoints",
+    "quantization-boundary-vectors", "moving-target-chase",
     "obstacle-detour", "narrow-passage", "building-corner-navigation",
     "formation-regrouping", "shoreline-navigation",
 }

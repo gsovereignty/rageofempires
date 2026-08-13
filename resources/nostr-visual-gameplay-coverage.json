@@ -15,6 +15,7 @@
     {"id":"clockwise-loop","status":"required","evidence":"resources/browser-nostr-visual.scenario"},
     {"id":"counter-clockwise-loop","status":"required","evidence":"resources/browser-nostr-visual.scenario"},
     {"id":"queued-waypoints","status":"required","evidence":"docs/guide/BUILD.md#controls"},
+    {"id":"quantization-boundary-vectors","status":"required","evidence":"docs/fidelity/ANIMATION_FIDELITY.md#logical-angle-and-physical-frame-selection"},
     {"id":"moving-target-chase","status":"required","evidence":"docs/guide/BUILD.md#controls"},
     {"id":"obstacle-detour","status":"required","evidence":"resources/browser-nostr-visual.scenario"},
     {"id":"narrow-passage","status":"required","evidence":"docs/guide/BUILD.md#controls"},

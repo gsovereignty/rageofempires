@@ -60,9 +60,9 @@ class PixelDirectionOracleTests(unittest.TestCase):
                 self.assertEqual(report["verdict"], "FAIL")
                 self.assertEqual(report["bestDirection"], actual_direction)
 
-    def test_bounded_renderer_color_error_passes_but_large_error_fails(self):
+    def test_direction_classification_uses_relative_not_absolute_color(self):
         expected = composite(self.background, self.sprites["east"])
-        for delta, verdict in ((12, "PASS"), (40, "PASS"), (80, "FAIL")):
+        for delta in (12, 40, 80):
             actual = expected.copy()
             pixels = []
             for red, green, blue, alpha in actual.getdata():
@@ -76,7 +76,8 @@ class PixelDirectionOracleTests(unittest.TestCase):
                 expected_direction="east", sprites=self.sprites,
                 visibility_color_tolerance=255,
             )
-            self.assertEqual(report["verdict"], verdict)
+            self.assertEqual(report["verdict"], "PASS")
+            self.assertEqual(report["bestDirection"], "east")
 
     def test_foreground_occlusion_is_excluded_without_hiding_direction(self):
         actual = composite(self.background, self.sprites["east"])

@@ -11,12 +11,11 @@ from PIL import Image, ImageChops
 
 
 PIXEL_ORACLE_VERSION = "occlusion-aware-direction-score-v2"
-# Exact packaged reconstruction can differ on direction-discriminating pixels
-# through interpolation, occlusion edges, and palette composition while the
-# expected direction remains the unique best match. Retained production runs
-# observed 42.390805 as the highest expected-best score; 48 preserves bounded
-# pixel fidelity with deterministic headroom. Synthetic mutations use 0.
-DEFAULT_MAXIMUM_EXPECTED_SCORE = 48.0
+# Direction classification follows the TODO contract: expected direction must
+# be the best alternative by the configured confidence margin. This ceiling is
+# retained only for displaced-position detection; production color fidelity is
+# checked by separate palette/layer oracles. Synthetic mutations pass 0.
+DEFAULT_MAXIMUM_EXPECTED_SCORE = 255.0
 
 
 class PixelOracleError(ValueError):

@@ -1135,10 +1135,24 @@ def exercise_all_direction_route(
                 if baseline == destination or capture_attempt == 2:
                     pixel_capture["visualOracles"] = pixel_oracles
                     break
-                wait_for_drawable_direction(
-                    host, join, owner=owner, entity_id=unit_id,
-                    direction=direction, baseline_position=baseline,
-                )
+                try:
+                    wait_for_drawable_direction(
+                        host, join, owner=owner, entity_id=unit_id,
+                        direction=direction, baseline_position=baseline,
+                    )
+                except Failure:
+                    # The unit can cross its final tile between exact capture
+                    # metadata and this next wait. That leaves this crop
+                    # truthfully BLOCKED; later laps can still fill the cell.
+                    games = matching_games(host, join)
+                    positions = [
+                        owned_unit_positions(game, owner).get(unit_id)
+                        for game in games
+                    ] if games is not None else []
+                    if positions == [destination, destination]:
+                        pixel_capture["visualOracles"] = pixel_oracles
+                        break
+                    raise
             pixel_capture["recaptureAttempts"] = recapture_attempts
             frames = capture_until_arrival(
                 host, join, owner=owner, unit_id=unit_id,

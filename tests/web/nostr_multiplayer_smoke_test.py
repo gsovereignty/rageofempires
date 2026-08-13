@@ -105,20 +105,74 @@ class AuditDestination:
 
 def probe_relay_pool(
     relays: list[str], *, timeout: float = 5.0,
-    connector=create_connection,
+    connector=create_connection, probe_event: dict[str, object] | None = None,
 ) -> dict[str, object]:
-    """Probe WebSocket handshakes concurrently; select deterministic quorum."""
+    """Select relays that accept and replay the production gameplay kind."""
     normalized = list(dict.fromkeys(
         relay.strip().rstrip("/") for relay in relays if relay.strip()
     ))
 
+    if probe_event is None:
+        script = """
+import {PrivateKeySigner} from 'applesauce-signers';
+const signer = new PrivateKeySigner();
+const event = await signer.signEvent({
+  kind: 78,
+  created_at: Math.floor(Date.now() / 1000),
+  tags: [['t', 'aoe-relay-capability-probe']],
+  content: JSON.stringify({family: 'aoe2-reconstruction', probe: true}),
+});
+process.stdout.write(JSON.stringify(event));
+"""
+        signed = subprocess.run(
+            ["node", "--input-type=module", "-e", script],
+            cwd=ROOT / "web" / "nostr", check=True, capture_output=True,
+            text=True,
+        )
+        probe_event = json.loads(signed.stdout)
+
     def probe(relay: str) -> dict[str, object]:
         started = time.monotonic()
+        socket = None
         try:
             socket = connector(relay, timeout=timeout)
-            socket.close()
+            socket.settimeout(max(0.001, timeout - (time.monotonic() - started)))
+            socket.send(json.dumps(["EVENT", probe_event]))
+            accepted = False
+            while time.monotonic() - started < timeout:
+                socket.settimeout(max(
+                    0.001, timeout - (time.monotonic() - started)
+                ))
+                message = json.loads(socket.recv())
+                if (message[:2] == ["OK", probe_event["id"]]):
+                    if not message[2]:
+                        raise RuntimeError(
+                            f"publish rejected: {message[3] if len(message) > 3 else ''}"
+                        )
+                    accepted = True
+                    break
+            if not accepted:
+                raise TimeoutError("missing publish acknowledgement")
+            subscription = f"probe-{secrets.token_hex(8)}"
+            socket.send(json.dumps([
+                "REQ", subscription, {"ids": [probe_event["id"]]},
+            ]))
+            replayed = False
+            while time.monotonic() - started < timeout:
+                socket.settimeout(max(
+                    0.001, timeout - (time.monotonic() - started)
+                ))
+                message = json.loads(socket.recv())
+                if (message[:2] == ["EVENT", subscription] and
+                        message[2].get("id") == probe_event["id"]):
+                    replayed = True
+                if message[:2] == ["EOSE", subscription]:
+                    break
+            socket.send(json.dumps(["CLOSE", subscription]))
+            if not replayed:
+                raise RuntimeError("published event was not replayed")
             return {
-                "relay": relay, "healthy": True,
+                "relay": relay, "healthy": True, "kind78": True,
                 "latencyMs": round((time.monotonic() - started) * 1000, 3),
             }
         except Exception as error:
@@ -127,6 +181,12 @@ def probe_relay_pool(
                 "latencyMs": round((time.monotonic() - started) * 1000, 3),
                 "error": f"{type(error).__name__}: {error}",
             }
+        finally:
+            if socket is not None:
+                try:
+                    socket.close()
+                except Exception:
+                    pass
 
     with concurrent.futures.ThreadPoolExecutor(
         max_workers=min(len(normalized), 10) or 1
@@ -140,8 +200,8 @@ def probe_relay_pool(
         result["relay"] for result in results if result["healthy"]
     ]
     return {
-        "schemaVersion": 1,
-        "policy": "configured-order-first-three-healthy-v1",
+        "schemaVersion": 2,
+        "policy": "configured-order-first-three-kind78-publish-replay-v2",
         "results": results,
         "selectedQuorum": healthy[:3],
     }

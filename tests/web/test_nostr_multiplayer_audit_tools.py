@@ -603,6 +603,29 @@ class FailureEvidenceTests(unittest.TestCase):
 
     def test_relay_probe_preserves_configured_order_for_quorum(self):
         class Socket:
+            def __init__(self):
+                self.messages = []
+
+            def settimeout(self, _timeout):
+                pass
+
+            def send(self, payload):
+                message = json.loads(payload)
+                if message[0] == "EVENT":
+                    self.event = message[1]
+                    self.messages.append(json.dumps([
+                        "OK", self.event["id"], True, "",
+                    ]))
+                elif message[0] == "REQ":
+                    subscription = message[1]
+                    self.messages.extend((
+                        json.dumps(["EVENT", subscription, self.event]),
+                        json.dumps(["EOSE", subscription]),
+                    ))
+
+            def recv(self):
+                return self.messages.pop(0)
+
             def close(self):
                 pass
 
@@ -616,6 +639,7 @@ class FailureEvidenceTests(unittest.TestCase):
             ["wss://one/", "wss://bad", "wss://two", "wss://three",
              "wss://four", "wss://one"],
             timeout=0.25, connector=connector,
+            probe_event={"id": "a" * 64, "kind": 78},
         )
         self.assertEqual(report["selectedQuorum"], [
             "wss://one", "wss://two", "wss://three",
@@ -627,6 +651,40 @@ class FailureEvidenceTests(unittest.TestCase):
         )
         self.assertFalse(failed["healthy"])
         self.assertIn("OSError", failed["error"])
+
+    def test_relay_probe_excludes_kind_78_rejection(self):
+        class Socket:
+            def __init__(self):
+                self.closed = False
+
+            def settimeout(self, _timeout):
+                pass
+
+            def send(self, payload):
+                message = json.loads(payload)
+                if message[0] == "EVENT":
+                    self.messages = [json.dumps([
+                        "OK", message[1]["id"], False,
+                        "unsupported event kind: 78",
+                    ])]
+
+            def recv(self):
+                return self.messages.pop(0)
+
+            def close(self):
+                self.closed = True
+
+        socket = Socket()
+        report = probe_relay_pool(
+            ["wss://rejects-kind-78"], timeout=0.25,
+            connector=lambda *_args, **_kwargs: socket,
+            probe_event={"id": "b" * 64, "kind": 78},
+        )
+        self.assertEqual(report["selectedQuorum"], [])
+        self.assertFalse(report["results"][0]["healthy"])
+        self.assertIn("unsupported event kind: 78",
+                      report["results"][0]["error"])
+        self.assertTrue(socket.closed)
 
     def test_allocates_durable_contract_before_browser_launch(self):
         with tempfile.TemporaryDirectory() as directory:

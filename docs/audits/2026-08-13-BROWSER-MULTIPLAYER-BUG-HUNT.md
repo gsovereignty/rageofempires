@@ -203,3 +203,32 @@ Evidence:
 `artifacts/browser-multiplayer-audits/20260813T161000Z-harness-restart-3/`.
 Cleanup completed: port 8900 is free, all owned runtime exited, and descriptor
 count returned to baseline 5.
+
+## Bounded command-retry restart — `20260813T180000Z-harness-restart-4`
+
+**BLOCKED with no confirmed product bug.** Three rotating public-relay attempts
+all crossed route-unit selection, then each stopped on one transition command
+whose destination was never observed on either peer: `(32,14)`, `(30,14)`, and
+`(28,12)`. Attempt 2 separately retained a public-relay reliability failure;
+the other two remained healthy. Focused sync diagnosis localized the unknown
+boundary between application receipt of the dispatched right-click and
+semantic command construction. No retained action intent or publication could
+be correlated to any failed target, so product classification remains
+`NEEDS_PROOF`.
+
+Attempt 1 proves CBMB-20260813-R4-01 crossed its prior failure: join unit 10 was
+selected through the synchronized helper and retained
+`quantization-boundary-vectors` step-1 frames at ticks 2394–2412. The original
+unit 9 selection timeout did not recur.
+
+Direct harness evidence established CBMB-20260813-R5-01. One ambiguous absent
+command ended the entire attempt even though visible input can be safely
+reissued after synchronized reselection. Transition steps now retain each miss,
+reacquire selection, and retry the same ordinary production command up to
+three times. Three misses still block and remain available for product
+diagnosis; one ambiguous dispatch can no longer discard later coverage.
+
+Evidence:
+`artifacts/browser-multiplayer-audits/20260813T180000Z-harness-restart-4/`.
+Cleanup completed: port 8901 is free, owned runtime exited, and descriptors
+returned to baseline 5.

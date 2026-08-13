@@ -1410,36 +1410,56 @@ def exercise_transition_routes(
                 record["frameCount"] = len(route_frames)
         else:
             for step_index, destination in enumerate(points[1:], 1):
-                current = owned_unit_positions(
-                    wait_until(
-                        f"{actor} {route_name} step synchronized state",
-                        lambda: matching_games(host, join),
-                        timeout=WAIT_SECONDS,
-                    )[0], owner,
-                ).get(unit_id)
-                if current is None:
-                    raise Failure(
-                        f"{actor} {route_name} unit {unit_id} disappeared"
+                command_misses: list[dict[str, object]] = []
+                for command_attempt in range(3):
+                    current = owned_unit_positions(
+                        wait_until(
+                            f"{actor} {route_name} step synchronized state",
+                            lambda: matching_games(host, join),
+                            timeout=WAIT_SECONDS,
+                        )[0], owner,
+                    ).get(unit_id)
+                    if current is None:
+                        raise Failure(
+                            f"{actor} {route_name} unit {unit_id} disappeared"
+                        )
+                    center_camera_for_tile(
+                        journey, driver, actions, actor, *destination
                     )
-                center_camera_for_tile(
-                    journey, driver, actions, actor, *destination
-                )
-                center_camera_for_tile(
-                    observer_journey, observer_driver, actions, observer_actor,
-                    destination[0] + 1, destination[1],
-                )
-                select_route_unit_at_current_position(
-                    journey, driver, actor, owner, unit_id,
-                    host, join, actions,
-                )
-                audited_world_pointer(
-                    journey, driver, actions, actor, *destination
-                )
-                frames = capture_until_arrival(
-                    host, join, owner=owner, unit_id=unit_id,
-                    destination=destination, artifact_dir=artifact_dir,
-                    label=f"{actor}-{route_name}-step-{step_index}",
-                )
+                    center_camera_for_tile(
+                        observer_journey, observer_driver, actions,
+                        observer_actor, destination[0] + 1, destination[1],
+                    )
+                    select_route_unit_at_current_position(
+                        journey, driver, actor, owner, unit_id,
+                        host, join, actions,
+                    )
+                    audited_world_pointer(
+                        journey, driver, actions, actor, *destination
+                    )
+                    try:
+                        frames = capture_until_arrival(
+                            host, join, owner=owner, unit_id=unit_id,
+                            destination=destination, artifact_dir=artifact_dir,
+                            label=(
+                                f"{actor}-{route_name}-step-{step_index}"
+                                f"-attempt-{command_attempt + 1}"
+                            ),
+                        )
+                        break
+                    except InfrastructureBlocked as error:
+                        if "BLOCKED_COMMAND_ABSENT" not in str(error):
+                            raise
+                        command_misses.append({
+                            "attempt": command_attempt + 1,
+                            "current": {"x": current[0], "y": current[1]},
+                            "destination": {
+                                "x": destination[0], "y": destination[1]
+                            },
+                            "error": str(error),
+                        })
+                        if command_attempt == 2:
+                            raise
                 route_frames.extend(frames)
                 step_records.append({
                     "step": step_index,
@@ -1447,6 +1467,7 @@ def exercise_transition_routes(
                         "x": destination[0], "y": destination[1]
                     },
                     "frameCount": len(frames),
+                    "commandMisses": command_misses,
                 })
         routes[route_name] = {
             "steps": step_records,

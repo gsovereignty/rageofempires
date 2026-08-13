@@ -3522,24 +3522,40 @@ def main() -> int:
             json.dumps(failure, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
-        write_report(
-            audit_dir, "BLOCKED",
-            "Run stopped before acceptance completed. Infrastructure versus "
-            "product classification remains unproved pending evidence review.\n\n"
-            f"Primary failure: `{failure.get('error', str(error))}`",
-            report_path=destination.report,
-        )
         verdict_path = audit_dir / "verdict.json"
         current_verdict = (
             json.loads(verdict_path.read_text(encoding="utf-8"))
             if verdict_path.is_file() else {}
         )
+        retained_status = (
+            "FAIL" if current_verdict.get("status") == "FAIL"
+            else "BLOCKED"
+        )
+        if retained_status == "FAIL":
+            report_summary = (
+                "Retained machine oracle proved a product or audit-oracle "
+                "failure before run stopped. See `first-failure.json` and "
+                "nested `partialVerdict`."
+            )
+        else:
+            report_summary = (
+                "Run stopped before acceptance completed. Infrastructure "
+                "versus product classification remains unproved.\n\n"
+                f"Primary failure: `{failure.get('error', str(error))}`"
+            )
+        write_report(
+            audit_dir, retained_status, report_summary,
+            report_path=destination.report,
+        )
         atomic_write_json(verdict_path, {
-            "schemaVersion": 1, "status": "BLOCKED",
+            "schemaVersion": 1, "status": retained_status,
             "failure": failure.get("error", str(error)),
             "partialVerdict": current_verdict,
         })
-        print(f"Nostr multiplayer audit blocked: {audit_dir}", file=sys.stderr)
+        print(
+            f"Nostr multiplayer audit {retained_status.lower()}: {audit_dir}",
+            file=sys.stderr,
+        )
         return 1
     failures = visual_failures(evidence)
     if failures:

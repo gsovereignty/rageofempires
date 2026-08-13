@@ -1916,16 +1916,25 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
                                 raise Failure(
                                     f"frame oracle lacks positions: {entity}"
                                 )
-                            if (int(previous["x"]), int(previous["y"])) == (
+                            oracle_previous = (
+                                int(previous["x"]), int(previous["y"])
+                            )
+                            oracle_current = (
                                 int(current["x"]), int(current["y"])
-                            ):
-                                continue
+                            )
+                            if oracle_previous == oracle_current:
+                                target = entity.get("resourceTarget")
+                                if (entity.get("action") == "gathering" and
+                                        isinstance(target, dict)):
+                                    oracle_current = (
+                                        int(target["x"]), int(target["y"])
+                                    )
+                                if oracle_previous == oracle_current:
+                                    continue
                             try:
                                 oracle = evaluate_layer(
-                                    previous=(int(previous["x"]),
-                                              int(previous["y"])),
-                                    current=(int(current["x"]),
-                                             int(current["y"])),
+                                    previous=oracle_previous,
+                                    current=oracle_current,
                                     direction_count=int(
                                         layer.get(
                                             "directionCount",
@@ -2196,11 +2205,14 @@ def analyze_render_samples(samples: list[dict[str, object]]) \
                 raise Failure(f"invalid animation frame {key}: {frame}")
         if len(observations) > 1:
             counts["animationSequenceBlocked"] += 1
+        action_active = key[7] not in {"", "idle", "standing", "none"}
         moving_ticks = {
-            tick for tick, _, moving, _, _ in observations if moving
+            tick for tick, _, moving, _, _ in observations
+            if moving or action_active
         }
         moving_frames = {
-            frame for _, frame, moving, _, _ in observations if moving
+            frame for _, frame, moving, _, _ in observations
+            if moving or action_active
         }
         if len(moving_ticks) >= 4 and len(moving_frames) < 2:
             raise Failure(f"frozen moving animation {key}")
@@ -2463,6 +2475,9 @@ def prepare_player_for_full_match(
     driver,
     actor: str,
     owner: int,
+    observer_journey: Journey,
+    observer_driver,
+    observer_actor: str,
     host,
     join,
     actions: list[dict[str, object]],
@@ -2474,6 +2489,10 @@ def prepare_player_for_full_match(
     center_camera_for_tile(
         journey, driver, actions, actor, *resource_tile
     )
+    center_camera_for_tile(
+        observer_journey, observer_driver, actions, observer_actor,
+        *resource_tile,
+    )
     route_unit_tile = (20, 12) if owner == 0 else (28, 12)
     audited_world_pointer(
         journey, driver, actions, actor, *route_unit_tile, button=0,
@@ -2482,25 +2501,82 @@ def prepare_player_for_full_match(
         f"{actor} route villager selection for gathering",
         lambda: int(journey.telemetry().get("selectedUnit", 0)) or None,
     )
+    gatherer_id = int(journey.telemetry()["selectedUnit"])
     audited_world_pointer(
         journey, driver, actions, actor, *resource_tile,
     )
-    gather_frames = capture_correlated_frames(
-        host, join, seconds=2.0,
-        artifact_dir=artifact_dir,
-        label=f"{actor}-gather",
-    )
+    gather_frames: list[dict[str, object]] = []
+    gather_pixel: dict[str, object] | None = None
+    return_pixel: dict[str, object] | None = None
+    gathered = None
+    deadline = time.monotonic() + WAIT_SECONDS * 3
+    while time.monotonic() < deadline:
+        gather_frames.extend(capture_correlated_frames(
+            host, join, seconds=0.2, artifact_dir=artifact_dir,
+            label=f"{actor}-gather", maximum_samples=4,
+        ))
+        render_states = [render_diagnostics(value) or {}
+                         for value in (host, join)]
+        entities = [
+            next((entity for entity in state.get("entities", [])
+                  if isinstance(entity, dict) and
+                  int(entity.get("id", -1)) == gatherer_id), None)
+            for state in render_states
+        ]
+        if all(isinstance(entity, dict) for entity in entities):
+            host_entity, join_entity = entities
+            if host_entity.get("action") != join_entity.get("action"):
+                raise Failure(f"{actor} gather render action diverged")
+            if (gather_pixel is None and
+                    all(entity.get("action") == "gathering"
+                        for entity in entities)):
+                positions = []
+                for entity in entities:
+                    current = entity.get("simulationPosition")
+                    target = entity.get("resourceTarget")
+                    if not isinstance(current, dict) or not isinstance(
+                        target, dict
+                    ):
+                        positions = []
+                        break
+                    positions.append((
+                        (int(current["x"]), int(current["y"])),
+                        (int(target["x"]), int(target["y"])),
+                    ))
+                if len(positions) == 2 and positions[0] == positions[1]:
+                    gather_pixel = capture_catalog_semantic_pixels(
+                        host, join, artifact_dir,
+                        f"{actor}-gather-gold-semantic", gatherer_id,
+                        owner=owner, unit_kind="unit-villager",
+                        action="gathering",
+                        catalog_ids=["villager-gathering"],
+                        phase=f"{actor}-gather-gold",
+                        direction_positions=positions[0],
+                    )
+            if (return_pixel is None and
+                    all(bool(entity.get("returningResource")) and
+                        bool(entity.get("moving")) for entity in entities)):
+                return_pixel = capture_catalog_semantic_pixels(
+                    host, join, artifact_dir,
+                    f"{actor}-return-gold-semantic", gatherer_id,
+                    owner=owner, unit_kind="unit-villager",
+                    action="returning", catalog_ids=[
+                        "villager-returning", "villager-carrying-gold",
+                    ], phase=f"{actor}-return-gold",
+                )
+        gathered = banked_resource_increased(
+            journey.telemetry(), "gold", initial_gold
+        )
+        if gathered is not None:
+            break
+    if gathered is None:
+        raise Failure(f"{actor} did not gather and bank gold")
+    if gather_pixel is None or return_pixel is None:
+        raise Failure(
+            f"{actor} gather lifetime lacked gather/return pixel proof"
+        )
     gather_oracle = analyze_render_samples_for_audit(
         gather_frames, f"{actor}-gather"
-    )
-    gathered = wait_until(
-        f"{actor} gathered gold",
-        lambda: banked_resource_increased(
-            journey.telemetry(), "gold", initial_gold
-        ),
-        # Preserve gathering target until simulation naturally fills carry
-        # capacity, returns to an eligible drop-off, and banks the resource.
-        timeout=WAIT_SECONDS * 3,
     )
 
     select_barracks_through_footprint(
@@ -2630,6 +2706,8 @@ def prepare_player_for_full_match(
         "initialGold": initial_gold,
         "gatheredGold": int(gathered),
         "gatherFrames": gather_frames,
+        "gatherPixelCapture": gather_pixel,
+        "returnPixelCapture": return_pixel,
         "gatherRenderOracle": gather_oracle,
         "constructedBuildingIds": sorted(constructed_ids),
         "militaryCount": int(trained["blueMilitaryCount"]),
@@ -3015,6 +3093,7 @@ def request_correlated_pixel_capture(
 def capture_catalog_semantic_pixels(
     host, join, root: Path, label: str, entity_id: int, *, owner: int,
     unit_kind: str, action: str, catalog_ids: list[str], phase: str,
+    direction_positions: tuple[tuple[int, int], tuple[int, int]] | None = None,
 ) -> dict[str, object] | None:
     """Retain peer pixel proof using direction derived from captured motion."""
     capture = request_correlated_pixel_capture(
@@ -3048,6 +3127,8 @@ def capture_catalog_semantic_pixels(
             return None
         previous_position = (int(previous["x"]), int(previous["y"]))
         current_position = (int(current["x"]), int(current["y"]))
+        if direction_positions is not None:
+            previous_position, current_position = direction_positions
         if previous_position == current_position or direction_count <= 1:
             return None
         peer_directions[peer] = oracle_logical_direction(
@@ -3847,11 +3928,13 @@ def run(relays: str | None, headed: bool, port: int = 8888,
 
             evidence["fullGameplay"] = {
                 "host": prepare_player_for_full_match(
-                    host_journey, host, "host", 0, host, join, actions,
+                    host_journey, host, "host", 0,
+                    join_journey, join, "join", host, join, actions,
                     artifact_dir,
                 ),
                 "join": prepare_player_for_full_match(
-                    join_journey, join, "join", 1, host, join, actions,
+                    join_journey, join, "join", 1,
+                    host_journey, host, "host", host, join, actions,
                     artifact_dir,
                 ),
             }

@@ -20,6 +20,7 @@ from nostr_multiplayer_smoke_test import (
     analyze_render_samples,
     analyze_render_samples_for_audit,
     audited_key,
+    audited_zoom,
     banked_resource_increased,
     capture_failure_value,
     capture_browser_overlap,
@@ -166,6 +167,42 @@ def gathering_sample(*, amount: int = 100, include_resource: bool = True):
 
 
 class AuditedInputTests(unittest.TestCase):
+    def test_zoom_dispatches_wheel_at_canvas_center(self):
+        class Journey:
+            def __init__(self):
+                self.calls = 0
+
+            def telemetry(self):
+                self.calls += 1
+                return {
+                    "tick": 4,
+                    "camera": {"zoom": 1.25 if self.calls < 3 else 1.0},
+                }
+
+        class Canvas:
+            rect = {"x": 10, "y": 20, "width": 100, "height": 60}
+
+        class Driver:
+            def __init__(self):
+                self.events = []
+
+            def find_element(self, *_):
+                return Canvas()
+
+            def execute_cdp_cmd(self, name, event):
+                self.events.append((name, event))
+
+        driver = Driver()
+        actions = []
+        with patch("nostr_multiplayer_smoke_test.time.sleep"):
+            audited_zoom(Journey(), driver, actions, "host", 1.0)
+
+        wheel = driver.events[1]
+        self.assertEqual(wheel[0], "Input.dispatchMouseEvent")
+        self.assertEqual(wheel[1]["type"], "mouseWheel")
+        self.assertEqual((wheel[1]["x"], wheel[1]["y"]), (60.0, 50.0))
+        self.assertEqual(wheel[1]["deltaY"], 100)
+
     def test_bounded_action_log_stops_before_post_prefix_action(self):
         actions = BoundedActionLog(2)
         actions.append({"kind": "first"})

@@ -482,9 +482,19 @@ def audited_zoom(
             "sourceZoom": current,
         })
         canvas = driver.find_element(By.ID, "canvas")
-        ActionChains(driver).move_to_element(canvas).scroll_by_amount(
-            0, delta
-        ).perform()
+        rect = canvas.rect
+        driver.execute_cdp_cmd("Input.dispatchMouseEvent", {
+            "type": "mouseMoved",
+            "x": float(rect["x"]) + float(rect["width"]) / 2.0,
+            "y": float(rect["y"]) + float(rect["height"]) / 2.0,
+        })
+        driver.execute_cdp_cmd("Input.dispatchMouseEvent", {
+            "type": "mouseWheel",
+            "x": float(rect["x"]) + float(rect["width"]) / 2.0,
+            "y": float(rect["y"]) + float(rect["height"]) / 2.0,
+            "deltaX": 0,
+            "deltaY": delta,
+        })
         time.sleep(0.1)
     raise Failure(f"{actor} camera did not reach zoom {target_zoom}")
 

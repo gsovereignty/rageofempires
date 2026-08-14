@@ -4281,6 +4281,10 @@ def click_canvas_logical(driver, x: float, y: float,
         round(rect["y"] + y * rect["height"] / 720.0),
     )
     actions.pointer_action.pointer_down(button=button)
+    # Preserve a real human press across at least one browser/SDL pump slice.
+    # Zero-duration synthetic down/up pairs can both reach the canvas inside
+    # one millisecond yet fail to produce an SDL semantic command under load.
+    actions.pointer_action.pause(0.05)
     actions.pointer_action.pointer_up(button=button)
     actions.perform()
 

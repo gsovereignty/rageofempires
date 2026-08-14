@@ -395,3 +395,24 @@ verification is required before any product classification.
 Evidence:
 `artifacts/browser-multiplayer-audits/20260814T050000Z-intent-correlation/`.
 Cleanup completed: port 8909 is free and descriptors returned to baseline 5.
+
+## Canvas-event restart — `20260814T063000Z-canvas-events`
+
+**BLOCKED with no confirmed product bug.** Attempts 1 and 2 repeated join unit
+10 reset misses to `(28,12)` through all three retries. Every click produced a
+complete canvas event chain—`pointerdown`, `mousedown`, `contextmenu`,
+`pointerup`, and `mouseup`—at the exact target. Exact acting-peer turn batches
+still contained zero commands. The boundary is therefore after DOM canvas
+delivery and before semantic command construction. Attempt 3 stopped earlier
+in all-direction movement.
+
+Direct event timing proves CBMB-20260813-R13-01: synthetic pointer down and up
+were delivered within one millisecond. This does not exercise an ordinary
+human press across a browser/SDL pump slice and intermittently produced no
+semantic command under the long audit load. `click_canvas_logical()` now holds
+the pointer for 50 ms between down and up. Fresh production verification is
+required; no game behavior was changed or classified.
+
+Evidence:
+`artifacts/browser-multiplayer-audits/20260814T063000Z-canvas-events/`.
+Cleanup completed: port 8910 is free and descriptors returned to baseline 5.

@@ -1269,14 +1269,43 @@ def exercise_all_direction_route(
                 observer_journey, observer_driver, actions, observer_actor,
                 destination[0] + 1, destination[1],
             )
-            current = select_route_unit_at_current_position(
-                journey, driver, actor, owner, unit_id,
-                host, join, actions,
-            )
-            audited_world_pointer(
-                journey, driver, actions, actor,
-                destination[0], destination[1]
-            )
+            command_misses: list[dict[str, object]] = []
+            for command_attempt in range(3):
+                current = select_route_unit_at_current_position(
+                    journey, driver, actor, owner, unit_id,
+                    host, join, actions,
+                )
+                audited_world_pointer(
+                    journey, driver, actions, actor,
+                    destination[0], destination[1]
+                )
+                try:
+                    wait_until(
+                        f"{actor} all-direction command acceptance",
+                        lambda: command_acceptance_status(
+                            [game_diagnostics(value) or {}
+                             for value in (host, join)],
+                            owner=owner, unit_id=unit_id,
+                            destination=destination,
+                        ),
+                        timeout=COMMAND_ACCEPTANCE_SECONDS,
+                    )
+                    break
+                except Failure as error:
+                    command_misses.append({
+                        "attempt": command_attempt + 1,
+                        "current": {"x": current[0], "y": current[1]},
+                        "destination": {
+                            "x": destination[0], "y": destination[1]
+                        },
+                        "error": str(error),
+                    })
+                    if command_attempt == 2:
+                        raise InfrastructureBlocked(
+                            "BLOCKED_COMMAND_ABSENT: "
+                            f"unit {unit_id} command to {destination} was "
+                            "not accepted by both peers"
+                        ) from error
             wait_for_drawable_direction(
                 host, join, owner=owner, entity_id=unit_id,
                 direction=direction, baseline_position=current,
@@ -1451,6 +1480,7 @@ def exercise_all_direction_route(
             segments.append({
                 "lap": lap, "logicalDirection": direction,
                 "destination": {"x": destination[0], "y": destination[1]},
+                "commandMisses": command_misses,
                 "frameCount": len(frames),
                 "pixelCapture": pixel_capture,
             })

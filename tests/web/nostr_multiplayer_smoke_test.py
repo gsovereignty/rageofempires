@@ -272,7 +272,13 @@ def allocate_audit_destination(
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", run_id):
             raise ValueError("audit destination id contains unsafe characters")
         artifacts = artifact_root / run_id
-        artifacts.mkdir()
+        try:
+            artifacts.mkdir()
+        except FileExistsError:
+            if not artifacts.is_dir() or {
+                child.name for child in artifacts.iterdir()
+            } != {"preflight.md"}:
+                raise
     else:
         while True:
             run_id = secrets.token_hex(6)

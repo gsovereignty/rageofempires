@@ -764,6 +764,31 @@ class FailureEvidenceTests(unittest.TestCase):
             self.assertTrue(destination.artifacts.is_dir())
             self.assertTrue(destination.report.is_file())
 
+    def test_adopts_exact_destination_reserved_by_preflight(self):
+        with tempfile.TemporaryDirectory() as directory:
+            artifact_root = Path(directory) / "artifacts"
+            artifacts = artifact_root / "declared-run"
+            artifacts.mkdir(parents=True)
+            preflight = artifacts / "preflight.md"
+            preflight.write_text("# Preflight\n")
+            destination = allocate_audit_destination(
+                artifact_root, artifacts / "reports", "declared-run"
+            )
+            self.assertEqual(destination.artifacts, artifacts)
+            self.assertEqual(preflight.read_text(), "# Preflight\n")
+            self.assertTrue(destination.report.is_file())
+
+    def test_rejects_non_preflight_exact_destination_content(self):
+        with tempfile.TemporaryDirectory() as directory:
+            artifact_root = Path(directory) / "artifacts"
+            artifacts = artifact_root / "declared-run"
+            artifacts.mkdir(parents=True)
+            (artifacts / "run.json").write_text("{}")
+            with self.assertRaises(FileExistsError):
+                allocate_audit_destination(
+                    artifact_root, artifacts / "reports", "declared-run"
+                )
+
     def test_diagnostics_tolerates_missing_module(self):
         class Driver:
             def execute_script(self, source):

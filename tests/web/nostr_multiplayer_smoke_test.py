@@ -1477,12 +1477,16 @@ def exercise_transition_routes(
         current = owned_unit_positions(games[0], owner).get(unit_id)
         if current != center:
             for reset_attempt in range(3):
+                center_camera_for_tile(
+                    journey, driver, actions, actor, center[0], center[1]
+                )
+                # Pan before selection. Failed audit commands had camera key
+                # actions and a long unobserved selection-to-command interval;
+                # successful commands did not. Keep selection immediately
+                # adjacent to the production command input.
                 current = select_route_unit_at_current_position(
                     journey, driver, actor, owner, unit_id,
                     host, join, actions,
-                )
-                center_camera_for_tile(
-                    journey, driver, actions, actor, center[0], center[1]
                 )
                 audited_world_pointer(
                     journey, driver, actions, actor, center[0], center[1]
@@ -2083,11 +2087,11 @@ def exercise_obstacle_detour_route(
         target: tuple[int, int], phase: str,
     ) -> list[dict[str, object]]:
         for command_attempt in range(3):
+            center_camera_for_tile(journey, driver, actions, actor, *target)
             current = select_route_unit_at_current_position(
                 journey, driver, actor, owner, unit_id,
                 host, join, actions,
             )
-            center_camera_for_tile(journey, driver, actions, actor, *target)
             audited_world_pointer(journey, driver, actions, actor, *target)
             action = dict(actions[-1])
             record_command_boundary(

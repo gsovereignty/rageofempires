@@ -2273,6 +2273,16 @@ def exercise_narrow_passage_route(
         raise Failure(f"{actor} narrow-passage unit missing")
     staging_targets: list[tuple[int, int]] = []
     staging_x, staging_y = current
+    # Leave map edges while still below the fixture Houses. Vertical staging
+    # at x=20 or x=28 stays beside their footprints and remains reachable by
+    # the camera at its horizontal clamps.
+    staging_anchor_x = 20 if staging_x < start[0] else 28
+    while abs(staging_x - staging_anchor_x) > 4:
+        staging_x += 4 if staging_anchor_x > staging_x else -4
+        staging_targets.append((staging_x, staging_y))
+    if staging_x != staging_anchor_x:
+        staging_x = staging_anchor_x
+        staging_targets.append((staging_x, staging_y))
     while abs(staging_y - start[1]) > 4:
         staging_y += 4 if start[1] > staging_y else -4
         staging_targets.append((staging_x, staging_y))

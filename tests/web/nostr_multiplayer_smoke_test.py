@@ -2215,10 +2215,21 @@ def exercise_narrow_passage_route(
         target: tuple[int, int], phase: str,
     ) -> list[dict[str, object]]:
         for command_attempt in range(3):
-            center_camera_for_tile(journey, driver, actions, actor, *target)
             current = select_route_unit_at_current_position(
                 journey, driver, actor, owner, unit_id,
                 host, join, actions,
+            )
+            # Narrow route endpoints can be too far apart to keep both the
+            # stopped unit and destination on canvas. Select first, pan to the
+            # destination, then prove selection survived immediately before
+            # dispatch.
+            center_camera_for_tile(journey, driver, actions, actor, *target)
+            wait_until(
+                f"{actor} narrow {phase} selection after camera pan",
+                lambda: unit_id if int(
+                    journey.telemetry().get("selectedUnit", 0)
+                ) == unit_id else None,
+                timeout=2.0,
             )
             audited_world_pointer(journey, driver, actions, actor, *target)
             action = dict(actions[-1])

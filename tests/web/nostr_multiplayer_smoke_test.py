@@ -83,6 +83,10 @@ class InfrastructureBlocked(Failure):
     """External relay state prevented production journey progress."""
 
 
+class EmptyPixelCapture(Failure):
+    """Exact capture completed without the requested entity layer."""
+
+
 class BoundedActionLog(list[dict[str, object]]):
     def __init__(self, limit: int | None = None):
         super().__init__()
@@ -1216,6 +1220,10 @@ def prepare_correlated_entity_capture(
             "was not synchronized"
         )
     position = positions[0][entity_id]
+    before_frames = [
+        int((render_diagnostics(peer) or {}).get("frame", -1))
+        for peer in (host, join)
+    ]
     center_camera_for_tile(
         journey, driver, actions, actor, position[0], position[1]
     )
@@ -1223,6 +1231,19 @@ def prepare_correlated_entity_capture(
         observer_journey, observer_driver, actions, observer_actor,
         position[0], position[1],
     )
+
+    for peer_name, peer_driver, before_frame in zip(
+        ("host", "join"), (host, join), before_frames, strict=True,
+    ):
+        if before_frame >= 0:
+            wait_until(
+                f"{peer_name} fresh correlated capture frame {entity_id}",
+                lambda peer_driver=peer_driver,
+                before_frame=before_frame: True if int(
+                    (render_diagnostics(peer_driver) or {}).get("frame", -1)
+                ) > before_frame else None,
+                timeout=WAIT_SECONDS,
+            )
 
     # Camera travel consumes simulation time. Re-prove the intended motion
     # direction after both pans, then require a visible production layer on
@@ -1254,6 +1275,57 @@ def prepare_correlated_entity_capture(
             timeout=WAIT_SECONDS,
         )
     return position
+
+
+def request_prepared_correlated_pixel_capture(
+    journey: Journey, driver, actor: str,
+    observer_journey: Journey, observer_driver, observer_actor: str,
+    host, join, actions: list[dict[str, object]], root: Path, label: str,
+    *, owner: int, entity_id: int, direction: int,
+    baseline_position: tuple[int, int], maximum_attempts: int = 3,
+) -> dict[str, object]:
+    """Retry only empty exact captures after fresh visibility proof."""
+    outcomes: list[dict[str, object]] = []
+    ledger = root / "pixel-oracle" / label / "capture-attempts.json"
+    ledger.parent.mkdir(parents=True, exist_ok=True)
+    for attempt in range(1, maximum_attempts + 1):
+        position = prepare_correlated_entity_capture(
+            journey, driver, actor,
+            observer_journey, observer_driver, observer_actor,
+            host, join, actions, owner=owner, entity_id=entity_id,
+            direction=direction, baseline_position=baseline_position,
+        )
+        request_label = f"{label}-exact-attempt-{attempt}"
+        try:
+            capture = request_correlated_pixel_capture(
+                host, join, root, request_label, entity_id,
+            )
+        except EmptyPixelCapture as error:
+            outcomes.append({
+                "attempt": attempt, "requestLabel": request_label,
+                "position": {"x": position[0], "y": position[1]},
+                "status": "EMPTY", "error": str(error),
+            })
+            ledger.write_text(
+                json.dumps({"attempts": outcomes}, indent=2,
+                           sort_keys=True) + "\n"
+            )
+            if attempt == maximum_attempts:
+                raise
+            continue
+        outcomes.append({
+            "attempt": attempt, "requestLabel": request_label,
+            "position": {"x": position[0], "y": position[1]},
+            "status": "CAPTURED",
+        })
+        ledger.write_text(
+            json.dumps({"attempts": outcomes}, indent=2,
+                       sort_keys=True) + "\n"
+        )
+        capture["attempts"] = outcomes
+        capture["attemptLedger"] = str(ledger.relative_to(root))
+        return capture
+    raise AssertionError("unreachable empty capture retry loop")
 
 
 def exercise_all_direction_route(
@@ -1368,12 +1440,6 @@ def exercise_all_direction_route(
                 host, join, owner=owner, entity_id=unit_id,
                 direction=direction, baseline_position=current,
             )
-            prepare_correlated_entity_capture(
-                journey, driver, actor,
-                observer_journey, observer_driver, observer_actor,
-                host, join, actions, owner=owner, entity_id=unit_id,
-                direction=direction, baseline_position=current,
-            )
             recapture_attempts: list[dict[str, object]] = []
             pixel_capture: dict[str, object] = {}
             baseline = current
@@ -1383,8 +1449,12 @@ def exercise_all_direction_route(
                     + (f"-recapture-{capture_attempt}"
                        if capture_attempt else "")
                 )
-                pixel_capture = request_correlated_pixel_capture(
-                    host, join, artifact_dir, capture_label, unit_id,
+                pixel_capture = request_prepared_correlated_pixel_capture(
+                    journey, driver, actor,
+                    observer_journey, observer_driver, observer_actor,
+                    host, join, actions, artifact_dir, capture_label,
+                    owner=owner, entity_id=unit_id, direction=direction,
+                    baseline_position=current,
                 )
                 pixel_oracles = []
                 for peer in ("host", "join"):
@@ -4075,6 +4145,11 @@ def request_correlated_pixel_capture(
             driver, root, peer, virtual_root=virtual_root,
             output_name=output_name, entity_id=entity_id,
         )
+        if count == 0:
+            raise EmptyPixelCapture(
+                f"{peer} exact pixel capture found 0 layers for "
+                f"entity {entity_id}"
+            )
         if count != 1:
             raise Failure(
                 f"{peer} exact pixel capture found {count} layers for "

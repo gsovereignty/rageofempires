@@ -15,6 +15,7 @@ from nostr_multiplayer_smoke_test import (
     CDP_SHIFT_MODIFIER,
     ActionLimitReached,
     BoundedActionLog,
+    EmptyPixelCapture,
     Failure,
     InfrastructureBlocked,
     allocate_audit_destination,
@@ -43,6 +44,7 @@ from nostr_multiplayer_smoke_test import (
     prepare_correlated_entity_capture,
     render_diagnostics,
     request_correlated_pixel_capture,
+    request_prepared_correlated_pixel_capture,
     replayable_action_stream,
     relay_blocker_from_diagnostics,
     select_route_unit_at_current_position,
@@ -430,6 +432,64 @@ class AuditedInputTests(unittest.TestCase):
         drawable.assert_called_once_with(
             host, join, owner=0, entity_id=7, direction=3,
             baseline_position=(17, 11),
+        )
+
+    def test_retries_empty_capture_after_fresh_visibility_preparation(self):
+        captured = {"peers": {"host": {}, "join": {}}}
+        with tempfile.TemporaryDirectory() as directory, patch(
+            "nostr_multiplayer_smoke_test.prepare_correlated_entity_capture",
+            return_value=(18, 11),
+        ) as prepare, patch(
+            "nostr_multiplayer_smoke_test.request_correlated_pixel_capture",
+            side_effect=[EmptyPixelCapture("host empty"), captured],
+        ) as request:
+            result = request_prepared_correlated_pixel_capture(
+                object(), object(), "host", object(), object(), "join",
+                object(), object(), [], Path(directory), "direction-3",
+                owner=0, entity_id=7, direction=3,
+                baseline_position=(17, 11),
+            )
+
+            ledger = json.loads((Path(directory) / result[
+                "attemptLedger"
+            ]).read_text())
+
+        self.assertEqual(prepare.call_count, 2)
+        self.assertEqual([
+            call.args[3] for call in request.call_args_list
+        ], ["direction-3-exact-attempt-1",
+            "direction-3-exact-attempt-2"])
+        self.assertEqual(
+            [attempt["status"] for attempt in ledger["attempts"]],
+            ["EMPTY", "CAPTURED"],
+        )
+
+    def test_exhausted_empty_capture_attempts_remain_a_failure(self):
+        with tempfile.TemporaryDirectory() as directory, patch(
+            "nostr_multiplayer_smoke_test.prepare_correlated_entity_capture",
+            return_value=(18, 11),
+        ) as prepare, patch(
+            "nostr_multiplayer_smoke_test.request_correlated_pixel_capture",
+            side_effect=[EmptyPixelCapture(f"empty {attempt}")
+                         for attempt in range(3)],
+        ) as request:
+            with self.assertRaisesRegex(EmptyPixelCapture, "empty 2"):
+                request_prepared_correlated_pixel_capture(
+                    object(), object(), "host", object(), object(), "join",
+                    object(), object(), [], Path(directory), "direction-3",
+                    owner=0, entity_id=7, direction=3,
+                    baseline_position=(17, 11),
+                )
+            ledger = json.loads((
+                Path(directory) / "pixel-oracle" / "direction-3" /
+                "capture-attempts.json"
+            ).read_text())
+
+        self.assertEqual(prepare.call_count, 3)
+        self.assertEqual(request.call_count, 3)
+        self.assertEqual(
+            [attempt["status"] for attempt in ledger["attempts"]],
+            ["EMPTY", "EMPTY", "EMPTY"],
         )
 
     def test_catalog_pixel_direction_comes_from_captured_motion(self):

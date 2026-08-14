@@ -2210,6 +2210,9 @@ def exercise_narrow_passage_route(
     command_misses: dict[str, list[dict[str, object]]] = {
         "approach": [], "traversal": [],
     }
+    recall_misses: dict[str, list[dict[str, object]]] = {
+        "approach": [], "traversal": [],
+    }
 
     def command_with_retries(
         target: tuple[int, int], phase: str,
@@ -2232,13 +2235,35 @@ def exercise_narrow_passage_route(
             native_modified_digit(driver, "8", Keys.CONTROL)
             center_camera_for_tile(journey, driver, actions, actor, *target)
             audited_key(driver, actions, actor, "8")
-            wait_until(
-                f"{actor} narrow {phase} control-group recall",
-                lambda: unit_id if int(
-                    journey.telemetry().get("selectedUnit", 0)
-                ) == unit_id else None,
-                timeout=2.0,
-            )
+            try:
+                wait_until(
+                    f"{actor} narrow {phase} control-group recall",
+                    lambda: unit_id if int(
+                        journey.telemetry().get("selectedUnit", 0)
+                    ) == unit_id else None,
+                    timeout=2.0,
+                )
+            except Failure as error:
+                recall_misses[phase].append({
+                    "attempt": command_attempt + 1,
+                    "current": {"x": current[0], "y": current[1]},
+                    "destination": {"x": target[0], "y": target[1]},
+                    "error": str(error),
+                })
+                record_command_boundary(
+                    artifact_dir, phase=f"narrow-{phase}",
+                    attempt=command_attempt + 1,
+                    outcome="selection-recall-absent",
+                    actor=actor, owner=owner, unit_id=unit_id,
+                    destination=target, action=dict(actions[-1]),
+                    host=host, join=join, error=str(error),
+                )
+                if command_attempt == 2:
+                    raise Failure(
+                        f"{actor} narrow {phase} control-group recall "
+                        "exhausted three attempts"
+                    ) from error
+                continue
             audited_world_pointer(journey, driver, actions, actor, *target)
             action = dict(actions[-1])
             record_command_boundary(
@@ -2309,6 +2334,7 @@ def exercise_narrow_passage_route(
         "start": {"x": start[0], "y": start[1]},
         "destination": {"x": destination[0], "y": destination[1]},
         "commandMisses": command_misses,
+        "controlGroupRecallMisses": recall_misses,
         "corridorPositions": [
             {"x": value[0], "y": value[1]} for value in corridor
         ],

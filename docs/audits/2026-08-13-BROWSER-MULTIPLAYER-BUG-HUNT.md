@@ -416,3 +416,73 @@ required; no game behavior was changed or classified.
 Evidence:
 `artifacts/browser-multiplayer-audits/20260814T063000Z-canvas-events/`.
 Cleanup completed: port 8910 is free and descriptors returned to baseline 5.
+
+## Pause handoff — 2026-08-14 after correlated-capture fixes
+
+**PAUSED cleanly; broad audit remains incomplete.** No audit runner, smoke
+process, Chrome, ChromeDriver, or owned server is running. Ports 8923 and 8924
+are free. No product bug has been confirmed or logged from the runs below.
+Product code was not changed by this work.
+
+### Latest completed audits
+
+- `artifacts/browser-multiplayer-audits/20260814T190000Z-narrow-unoccupied-anchor/`
+  ended `FAIL`. Join completed the unoccupied-x30 narrow staging route. Host
+  unit 1 failed once to arrive at `(20,9)`, but exact-identity minimization did
+  not reproduce it. Root cause remains undetermined; no product bug was logged.
+- `artifacts/browser-multiplayer-audits/20260814T110000Z-full-audit/` ended
+  `FAIL` after two attempts. Attempt 1 stopped on unclassified command absence
+  for unit 10 to `(28,12)`. Attempt 2 proved a harness defect: exact pixel
+  capture demanded entity 1 from the join peer while that peer's independently
+  panned camera did not render entity 1. Exact-identity minimization retained
+  the result. Summary, aggregate report, `attempts.json`, and
+  `minimized-replay.json` are present under that root.
+- `artifacts/browser-multiplayer-audits/20260814T140000Z-correlated-visibility/`
+  verified the first visibility correction, then proved a second harness race.
+  Both peers visibly rendered entity 10 with intended facing, but the next
+  exact host capture exported an empty `{"cases":[]}` manifest. Evidence is in
+  attempt `20260814T125852Z-855a8ce2ce05`, including `first-failure.json`, peer
+  render diagnostics, and the empty capture manifest. Aggregate minimization
+  was stopped once this harness-only boundary was proved.
+
+### Latest harness commits
+
+- `4922206 Fix correlated capture camera visibility` centers both peer cameras
+  on the synchronized entity tile, re-proves intended drawable direction after
+  camera movement, and requires a visible production layer before requesting
+  exact correlated capture. Focused divergent-camera regression included.
+- `6019872 Retry empty correlated pixel captures` handles the remaining
+  next-frame export race. Only zero-layer manifests retry, up to three times.
+  Every retry re-reads synchronized position, centers both cameras, waits for a
+  fresh advancing frame, re-proves direction and visible production layers,
+  and uses a unique `-exact-attempt-N` request ID. It writes
+  `capture-attempts.json`. Nonempty wrong-layer or multiple-layer results still
+  fail immediately. Regressions cover first-empty-then-success and exhausted
+  three-empty attempts.
+
+Both commits contain harness/regression changes only. Static validation passed
+with `python3 -m py_compile` on the two changed Python files and
+`git diff --check`. Per repository instructions, no game build or test suite
+was run for these non-game changes. Production-path verification of `6019872`
+has **not** started.
+
+### Resume point
+
+Resume from commit `6019872` with a fresh full packaged two-browser audit. Do
+not reuse a prior artifact destination. Before launch, declare a new durable
+root and nested report path, select a free port after 8923, probe and pass an
+explicit healthy public-relay pool on the command line, and preserve the dirty
+default-relay tuple. Use two independent Chrome profiles with `--mute-audio`,
+relay retry count 2, full attempt/progress timeouts, and no action limit.
+
+First acceptance target: cross the prior host exact-capture failure while
+retaining `capture-attempts.json`; an initial empty manifest must either recover
+on a fresh-frame retry or fail after all three evidenced attempts. Continue the
+full audit after that crossing. Fix future proved harness blockers, commit each
+fix separately, and restart. Never modify game code for product findings;
+log only independently reproduced product bugs with precise proved root cause.
+
+Unrelated working-tree changes remain and must be preserved: codebase-memory
+artifacts, `src/nostr_multiplayer_runtime.cpp`, `web/shell.html`, and the
+pre-existing `DEFAULT_RELAYS` hunk in
+`tests/web/nostr_multiplayer_smoke_test.py`.

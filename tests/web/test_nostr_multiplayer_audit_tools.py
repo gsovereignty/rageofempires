@@ -40,6 +40,7 @@ from nostr_multiplayer_smoke_test import (
     negotiate_game_speed,
     parse_viewport,
     probe_relay_pool,
+    prepare_correlated_entity_capture,
     render_diagnostics,
     request_correlated_pixel_capture,
     replayable_action_stream,
@@ -386,6 +387,50 @@ class AuditedInputTests(unittest.TestCase):
                 cases = json.loads(manifest_path.read_text())["cases"]
                 self.assertEqual(len(cases), 1)
                 self.assertEqual(cases[0]["metadata"]["entity_id"], 7)
+
+    def test_prepares_both_divergent_cameras_before_correlated_capture(self):
+        host = object()
+        join = object()
+        host_journey = object()
+        join_journey = object()
+        games = [{"units": [{
+            "id": 7, "owner": 0, "x": 18, "y": 11,
+        }]} for _ in range(2)]
+
+        def rendered(driver):
+            return {"entities": [{
+                "id": 7,
+                "layers": [{"visible": True}],
+                "cameraMarker": "host" if driver is host else "join",
+            }]}
+
+        with patch(
+            "nostr_multiplayer_smoke_test.matching_games",
+            return_value=games,
+        ), patch(
+            "nostr_multiplayer_smoke_test.center_camera_for_tile",
+        ) as center, patch(
+            "nostr_multiplayer_smoke_test.wait_for_drawable_direction",
+        ) as drawable, patch(
+            "nostr_multiplayer_smoke_test.render_diagnostics",
+            side_effect=rendered,
+        ):
+            position = prepare_correlated_entity_capture(
+                host_journey, host, "host",
+                join_journey, join, "join",
+                host, join, [], owner=0, entity_id=7, direction=3,
+                baseline_position=(17, 11),
+            )
+
+        self.assertEqual(position, (18, 11))
+        self.assertEqual(center.call_args_list, [
+            unittest.mock.call(host_journey, host, [], "host", 18, 11),
+            unittest.mock.call(join_journey, join, [], "join", 18, 11),
+        ])
+        drawable.assert_called_once_with(
+            host, join, owner=0, entity_id=7, direction=3,
+            baseline_position=(17, 11),
+        )
 
     def test_catalog_pixel_direction_comes_from_captured_motion(self):
         capture = {

@@ -1198,6 +1198,64 @@ def select_route_unit_at_current_position(
     )
 
 
+def prepare_correlated_entity_capture(
+    journey: Journey, driver, actor: str,
+    observer_journey: Journey, observer_driver, observer_actor: str,
+    host, join, actions: list[dict[str, object]], *, owner: int,
+    entity_id: int, direction: int, baseline_position: tuple[int, int],
+) -> tuple[int, int]:
+    """Put one synchronized entity visibly on both peers before capture."""
+    games = wait_until(
+        f"{actor} synchronized correlated capture entity {entity_id}",
+        lambda: matching_games(host, join), timeout=WAIT_SECONDS,
+    )
+    positions = [owned_unit_positions(game, owner) for game in games]
+    if positions[0] != positions[1] or entity_id not in positions[0]:
+        raise Failure(
+            f"{actor} correlated capture entity {entity_id} position "
+            "was not synchronized"
+        )
+    position = positions[0][entity_id]
+    center_camera_for_tile(
+        journey, driver, actions, actor, position[0], position[1]
+    )
+    center_camera_for_tile(
+        observer_journey, observer_driver, actions, observer_actor,
+        position[0], position[1],
+    )
+
+    # Camera travel consumes simulation time. Re-prove the intended motion
+    # direction after both pans, then require a visible production layer on
+    # each peer before arming the exact-frame capture request.
+    wait_for_drawable_direction(
+        host, join, owner=owner, entity_id=entity_id,
+        direction=direction, baseline_position=baseline_position,
+    )
+
+    def visible_entity(peer_driver):
+        render = render_diagnostics(peer_driver) or {}
+        entity = next((
+            value for value in render.get("entities", [])
+            if isinstance(value, dict) and
+            int(value.get("id", -1)) == entity_id
+        ), None)
+        if entity is None:
+            return None
+        layers = entity.get("layers", [])
+        return entity if any(
+            isinstance(layer, dict) and bool(layer.get("visible", False))
+            for layer in layers
+        ) else None
+
+    for peer, peer_driver in (("host", host), ("join", join)):
+        wait_until(
+            f"{peer} visible correlated capture entity {entity_id}",
+            lambda peer_driver=peer_driver: visible_entity(peer_driver),
+            timeout=WAIT_SECONDS,
+        )
+    return position
+
+
 def exercise_all_direction_route(
     journey: Journey, driver, actor: str, owner: int,
     observer_journey: Journey, observer_driver, observer_actor: str,
@@ -1308,6 +1366,12 @@ def exercise_all_direction_route(
                         ) from error
             wait_for_drawable_direction(
                 host, join, owner=owner, entity_id=unit_id,
+                direction=direction, baseline_position=current,
+            )
+            prepare_correlated_entity_capture(
+                journey, driver, actor,
+                observer_journey, observer_driver, observer_actor,
+                host, join, actions, owner=owner, entity_id=unit_id,
                 direction=direction, baseline_position=current,
             )
             recapture_attempts: list[dict[str, object]] = []

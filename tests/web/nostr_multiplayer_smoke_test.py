@@ -2220,12 +2220,20 @@ def exercise_narrow_passage_route(
                 host, join, actions,
             )
             # Narrow route endpoints can be too far apart to keep both the
-            # stopped unit and destination on canvas. Select first, pan to the
-            # destination, then prove selection survived immediately before
-            # dispatch.
+            # stopped unit and destination on canvas. Preserve the selected
+            # unit through the long pan with an otherwise-unused production
+            # control group, then prove its recall before dispatch.
+            actions.append({
+                "monotonic": time.monotonic(), "actor": actor,
+                "kind": "control-group-assignment", "group": 8,
+                "unitId": unit_id,
+                "telemetryTick": int(journey.telemetry()["tick"]),
+            })
+            native_modified_digit(driver, "8", Keys.CONTROL)
             center_camera_for_tile(journey, driver, actions, actor, *target)
+            audited_key(driver, actions, actor, "8")
             wait_until(
-                f"{actor} narrow {phase} selection after camera pan",
+                f"{actor} narrow {phase} control-group recall",
                 lambda: unit_id if int(
                     journey.telemetry().get("selectedUnit", 0)
                 ) == unit_id else None,

@@ -2207,27 +2207,65 @@ def exercise_narrow_passage_route(
     """Traverse tracked two-House lane and prove unit stays in corridor."""
     start = (24, 1)
     destination = (24, 8)
-    games = wait_until(
-        f"{actor} narrow passage synchronized state",
-        lambda: matching_games(host, join), timeout=WAIT_SECONDS,
-    )
-    current = owned_unit_positions(games[0], owner).get(unit_id)
-    if current is None:
-        raise Failure(f"{actor} narrow-passage unit missing")
-    center_camera_for_tile(journey, driver, actions, actor, *current)
-    audited_world_pointer(journey, driver, actions, actor, *current, button=0)
-    center_camera_for_tile(journey, driver, actions, actor, *start)
-    audited_world_pointer(journey, driver, actions, actor, *start)
-    approach = capture_until_arrival(
-        host, join, owner=owner, unit_id=unit_id, destination=start,
-        artifact_dir=artifact_dir, label=f"{actor}-narrow-approach",
-    )
-    center_camera_for_tile(journey, driver, actions, actor, *destination)
-    audited_world_pointer(journey, driver, actions, actor, *destination)
-    frames = capture_until_arrival(
-        host, join, owner=owner, unit_id=unit_id, destination=destination,
-        artifact_dir=artifact_dir, label=f"{actor}-narrow-passage",
-    )
+    command_misses: dict[str, list[dict[str, object]]] = {
+        "approach": [], "traversal": [],
+    }
+
+    def command_with_retries(
+        target: tuple[int, int], phase: str,
+    ) -> list[dict[str, object]]:
+        for command_attempt in range(3):
+            center_camera_for_tile(journey, driver, actions, actor, *target)
+            current = select_route_unit_at_current_position(
+                journey, driver, actor, owner, unit_id,
+                host, join, actions,
+            )
+            audited_world_pointer(journey, driver, actions, actor, *target)
+            action = dict(actions[-1])
+            record_command_boundary(
+                artifact_dir, phase=f"narrow-{phase}",
+                attempt=command_attempt + 1, outcome="dispatched",
+                actor=actor, owner=owner, unit_id=unit_id,
+                destination=target, action=action, host=host, join=join,
+            )
+            try:
+                samples = capture_until_arrival(
+                    host, join, owner=owner, unit_id=unit_id,
+                    destination=target, artifact_dir=artifact_dir,
+                    label=(
+                        f"{actor}-narrow-{phase}"
+                        f"-attempt-{command_attempt + 1}"
+                    ),
+                )
+                record_command_boundary(
+                    artifact_dir, phase=f"narrow-{phase}",
+                    attempt=command_attempt + 1, outcome="accepted",
+                    actor=actor, owner=owner, unit_id=unit_id,
+                    destination=target, action=action, host=host, join=join,
+                )
+                return samples
+            except InfrastructureBlocked as error:
+                record_command_boundary(
+                    artifact_dir, phase=f"narrow-{phase}",
+                    attempt=command_attempt + 1, outcome="absent",
+                    actor=actor, owner=owner, unit_id=unit_id,
+                    destination=target, action=action, host=host, join=join,
+                    error=str(error),
+                )
+                if "BLOCKED_COMMAND_ABSENT" not in str(error):
+                    raise
+                command_misses[phase].append({
+                    "attempt": command_attempt + 1,
+                    "current": {"x": current[0], "y": current[1]},
+                    "destination": {"x": target[0], "y": target[1]},
+                    "error": str(error),
+                })
+                if command_attempt == 2:
+                    raise
+        raise AssertionError("bounded narrow command loop did not return")
+
+    approach = command_with_retries(start, "approach")
+    frames = command_with_retries(destination, "traversal")
     positions: list[tuple[int, int]] = []
     for sample in frames:
         value = owned_unit_positions(
@@ -2251,6 +2289,7 @@ def exercise_narrow_passage_route(
         ],
         "start": {"x": start[0], "y": start[1]},
         "destination": {"x": destination[0], "y": destination[1]},
+        "commandMisses": command_misses,
         "corridorPositions": [
             {"x": value[0], "y": value[1]} for value in corridor
         ],

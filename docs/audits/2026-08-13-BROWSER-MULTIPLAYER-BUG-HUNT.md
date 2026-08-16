@@ -482,6 +482,43 @@ full audit after that crossing. Fix future proved harness blockers, commit each
 fix separately, and restart. Never modify game code for product findings;
 log only independently reproduced product bugs with precise proved root cause.
 
+## Resume execution — 2026-08-16
+
+**BLOCKED by local storage after two proved harness fixes.** Three fresh
+aggregate roots were declared before launch and retain all attempt evidence:
+
+- `artifacts/browser-multiplayer-audits/20260816T111900Z-6019872-full-restart/`
+- `artifacts/browser-multiplayer-audits/20260816T105500Z-065b236-full-restart/`
+- `artifacts/browser-multiplayer-audits/20260816T111600Z-a7c9547-full-restart/`
+
+The first restart production-verified `6019872`. Exact entity-10 captures
+retained `capture-attempts.json`; one host attempt was empty and attempt 2
+recovered after re-reading position, re-centering both cameras, waiting for a
+fresh frame, re-proving direction and visible layers, and using a unique
+request ID. Both peer manifests then contained exactly one production layer.
+
+A later nonempty capture changed authoritative direction between preparation
+and next-frame readback. `evaluate_packaged_capture()` raised before the
+existing route recapture loop could classify that sample as stale. Commit
+`065b236` retains this condition as durable `BLOCKED` evidence, allowing a
+fresh direction proof and recapture. Production verification reproduced the
+same condition at join tick 883 and continued beyond it.
+
+That newly reachable final-blocked branch exposed a second harness defect:
+`exercise_all_direction_route()` stored `pixel_capture` inside
+`recapture_attempts`, then attached that list to the same object, producing
+`ValueError: Circular reference detected` during durable JSON serialization.
+Commit `a7c9547` stores a shallow capture snapshot and adds a serialization
+regression.
+
+The final restart stopped with `OSError: [Errno 28] No space left on device`
+while exporting required exact-capture sprite evidence. At stop, the data
+volume reported roughly 560 MiB free and 100% capacity. Retained restart roots
+used about 723 MiB. Evidence was not deleted. No product bug was confirmed or
+logged. No synchronization divergence reproduced, so focused sync diagnosis
+was not invoked. All owned runners, browsers, drivers, profiles, and server
+processes were stopped; port 8925 was released.
+
 Unrelated working-tree changes remain and must be preserved: codebase-memory
 artifacts, `src/nostr_multiplayer_runtime.cpp`, `web/shell.html`, and the
 pre-existing `DEFAULT_RELAYS` hunk in

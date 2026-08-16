@@ -3170,7 +3170,9 @@ def visual_failures(evidence: dict[str, object]) -> list[dict[str, object]]:
         if isinstance(value, dict):
             if value.get("verdict") == "FAIL":
                 failures.append(value)
-            for child in value.values():
+            for key, child in value.items():
+                if key == "mutationProof":
+                    continue
                 visit(child)
         elif isinstance(value, list):
             for child in value:
@@ -3187,7 +3189,9 @@ def visual_findings(evidence: dict[str, object]) -> list[dict[str, object]]:
         if isinstance(value, dict):
             if value.get("verdict") in {"FAIL", "BLOCKED"}:
                 findings.append(value)
-            for child in value.values():
+            for key, child in value.items():
+                if key == "mutationProof":
+                    continue
                 visit(child)
         elif isinstance(value, list):
             for child in value:

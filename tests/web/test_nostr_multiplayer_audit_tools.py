@@ -1503,6 +1503,29 @@ class RenderOracleTests(unittest.TestCase):
         result = analyze_render_samples([first, second])
         self.assertEqual(result["animationSequenceBlocked"], 2)
 
+    def test_negative_control_mutations_are_not_visual_failures(self):
+        production_failure = {"verdict": "FAIL", "kind": "production"}
+        evidence = {
+            "oracle": production_failure,
+            "pixelCapture": {
+                "mutationProof": {
+                    "peers": {
+                        "host": {"verdict": "FAIL", "kind": "mutation"},
+                        "join": {"verdict": "FAIL", "kind": "mutation"},
+                    },
+                    "wrongPosition": {
+                        "peers": {
+                            "host": {"verdict": "FAIL"},
+                            "join": {"verdict": "FAIL"},
+                        },
+                    },
+                },
+            },
+        }
+
+        self.assertEqual(visual_failures(evidence), [production_failure])
+        self.assertEqual(visual_findings(evidence), [production_failure])
+
     def test_rejects_frozen_moving_animation(self):
         values = [sample(frame, 10.0 + frame) for frame in range(1, 5)]
         for value in values:

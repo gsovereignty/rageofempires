@@ -1410,6 +1410,7 @@ def exercise_all_direction_route(
                 destination[0] + 1, destination[1],
             )
             command_misses: list[dict[str, object]] = []
+            acceptance_status: str | None = None
             for command_attempt in range(3):
                 current = select_route_unit_at_current_position(
                     journey, driver, actor, owner, unit_id,
@@ -1420,7 +1421,7 @@ def exercise_all_direction_route(
                     destination[0], destination[1]
                 )
                 try:
-                    wait_until(
+                    acceptance_status = wait_until(
                         f"{actor} all-direction command acceptance",
                         lambda: command_acceptance_status(
                             [game_diagnostics(value) or {}
@@ -1446,6 +1447,21 @@ def exercise_all_direction_route(
                             f"unit {unit_id} command to {destination} was "
                             "not accepted by both peers"
                         ) from error
+            if acceptance_status == "arrived":
+                # A short segment can finish before the first render poll.
+                # Retain it as unsampled; later laps can still fill this
+                # direction cell, while waiting now could never observe an
+                # interpolation from a unit that is already stopped.
+                segments.append({
+                    "lap": lap, "logicalDirection": direction,
+                    "destination": {
+                        "x": destination[0], "y": destination[1]
+                    },
+                    "commandMisses": command_misses,
+                    "frameCount": 0,
+                    "pixelCapture": None,
+                })
+                continue
             wait_for_drawable_direction(
                 host, join, owner=owner, entity_id=unit_id,
                 direction=direction, baseline_position=current,

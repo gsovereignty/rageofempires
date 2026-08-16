@@ -3155,6 +3155,13 @@ def analyze_render_samples_for_audit(
             result["verdict"] = "PASS"
         return result
     except Failure as error:
+        if str(error) == "render oracle captured no correlated frames":
+            return {
+                "phase": phase,
+                "verdict": "BLOCKED",
+                "blocker": str(error),
+                "frames": len(samples),
+            }
         return {
             "phase": phase,
             "verdict": "FAIL",

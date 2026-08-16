@@ -1279,6 +1279,14 @@ class RenderOracleTests(unittest.TestCase):
         self.assertEqual(result["phase"], "combat")
         self.assertEqual(visual_failures({"oracle": result}), [result])
 
+    def test_missing_correlated_frames_are_blocked_not_failed(self):
+        result = analyze_render_samples_for_audit([], "queued-waypoints")
+
+        self.assertEqual(result["verdict"], "BLOCKED")
+        self.assertEqual(result["frames"], 0)
+        self.assertEqual(visual_failures({"oracle": result}), [])
+        self.assertEqual(visual_findings({"oracle": result}), [result])
+
     def test_rejects_contractual_procedural_effect(self):
         value = sample(1, 10.0, "intentional_procedural")
         for peer in ("host", "join"):

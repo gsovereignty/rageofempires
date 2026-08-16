@@ -983,6 +983,7 @@ def command_acceptance_status(
 def capture_until_arrival(
     host, join, *, owner: int, unit_id: int,
     destination: tuple[int, int], artifact_dir: Path, label: str,
+    allow_adjacent_resolution: bool = False,
 ) -> list[dict[str, object]]:
     acceptance_deadline = time.monotonic() + COMMAND_ACCEPTANCE_SECONDS
     arrival_deadline: float | None = None
@@ -1008,6 +1009,20 @@ def capture_until_arrival(
         )
         if status == "arrived":
             return samples
+        if allow_adjacent_resolution:
+            units = [next((
+                value for value in game.get("units", [])
+                if int(value.get("owner", -1)) == owner and
+                int(value.get("id", -1)) == unit_id
+            ), None) for game in games]
+            if all(
+                unit is not None and not bool(unit.get("moving")) and
+                int(unit.get("waypointCount", -1)) == 0 and
+                abs(int(unit["x"]) - destination[0]) +
+                abs(int(unit["y"]) - destination[1]) <= 1
+                for unit in units
+            ):
+                return samples
         if status == "accepted" and arrival_deadline is None:
             arrival_deadline = time.monotonic() + WAIT_SECONDS
     if arrival_deadline is None:
@@ -2391,6 +2406,7 @@ def exercise_narrow_passage_route(
                 samples = capture_until_arrival(
                     host, join, owner=owner, unit_id=unit_id,
                     destination=target, artifact_dir=artifact_dir,
+                    allow_adjacent_resolution=True,
                     label=(
                         f"{actor}-narrow-{phase}"
                         f"-attempt-{command_attempt + 1}"

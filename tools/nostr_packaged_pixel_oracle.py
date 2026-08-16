@@ -171,10 +171,25 @@ def evaluate_packaged_capture(
             )
         if (int(draw["direction_count"]) > 1 and
                 int(draw["logical_direction"]) != expected_logical_direction):
-            raise PackagedPixelOracleError(
-                f"captured layer {layer_index} changed direction before "
-                "pixel readback"
+            evidence_directory.mkdir(parents=True, exist_ok=True)
+            report = {
+                "verdict": "BLOCKED",
+                "reason": "captured-direction-changed-before-pixel-readback",
+                "layer": layer_index,
+                "expectedLogicalDirection": expected_logical_direction,
+                "capturedLogicalDirection": int(draw["logical_direction"]),
+                "entityId": int(metadata.get("entity_id", -1)),
+                "tick": int(metadata.get("tick", -1)),
+                "images": {
+                    "actual": str(case["actual"]),
+                    "terrain": str(case["terrain"]),
+                },
+            }
+            (evidence_directory / "blocked.json").write_text(
+                json.dumps(report, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
             )
+            return report
     root = manifest_path.parent
     with Image.open(root / case["actual"]) as source:
         actual = source.convert("RGBA")

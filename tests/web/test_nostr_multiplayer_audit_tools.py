@@ -37,6 +37,7 @@ from nostr_multiplayer_smoke_test import (
     command_acceptance_status,
     collapse_match_details,
     diagnostics,
+    evaluate_packaged_capture,
     initialize_run_ledger,
     negotiate_game_speed,
     parse_viewport,
@@ -541,6 +542,52 @@ class AuditedInputTests(unittest.TestCase):
              for oracle in result["visualOracles"]],
             [7, 7],
         )
+
+    def test_direction_change_before_pixel_readback_is_recapturable_block(self):
+        manifest = {
+            "cases": [{
+                "actual": "actual.png",
+                "terrain": "terrain.png",
+                "metadata": {
+                    "entity_id": 10,
+                    "tick": 1842,
+                    "sprite_frames": [{
+                        "resource_id": 123,
+                        "frame": 4,
+                        "palette_player": 1,
+                        "flip_horizontal": False,
+                        "visible": True,
+                        "ground": [20.0, 30.0],
+                        "action_frame": 2,
+                        "frames_per_direction": 5,
+                        "direction_count": 8,
+                        "logical_direction": 7,
+                        "mirroring_mode": 1,
+                        "physical_frame_count": 25,
+                    }],
+                },
+            }],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest_path = root / "manifest.json"
+            manifest_path.write_text(json.dumps(manifest))
+            evidence = root / "semantic-direction"
+            result = evaluate_packaged_capture(
+                manifest_path=manifest_path,
+                graphics_drs=root / "graphics.drs",
+                interface_drs=root / "interface.drs",
+                expected_logical_direction=6,
+                evidence_directory=evidence,
+            )
+            retained = json.loads((evidence / "blocked.json").read_text())
+
+        self.assertEqual(result["verdict"], "BLOCKED")
+        self.assertEqual(
+            result["reason"],
+            "captured-direction-changed-before-pixel-readback",
+        )
+        self.assertEqual(retained, result)
 
     def test_gold_deposit_oracle_waits_for_banked_resource(self):
         carrying = {"resources": {"gold": 200}}

@@ -48,6 +48,7 @@ from nostr_multiplayer_smoke_test import (
     request_prepared_correlated_pixel_capture,
     replayable_action_stream,
     relay_blocker_from_diagnostics,
+    recapture_attempt_record,
     select_route_unit_at_current_position,
     selectable_military_id,
     visual_failures,
@@ -588,6 +589,18 @@ class AuditedInputTests(unittest.TestCase):
             "captured-direction-changed-before-pixel-readback",
         )
         self.assertEqual(retained, result)
+
+    def test_final_blocked_recapture_record_has_no_capture_cycle(self):
+        capture = {"peers": {"host": {}, "join": {}}}
+        record = recapture_attempt_record(
+            capture, [{"verdict": "BLOCKED"}],
+        )
+        capture["recaptureAttempts"] = [record]
+
+        encoded = json.dumps(capture)
+
+        self.assertIsNot(record["capture"], capture)
+        self.assertIn('"recaptureAttempts"', encoded)
 
     def test_gold_deposit_oracle_waits_for_banked_resource(self):
         carrying = {"resources": {"gold": 200}}

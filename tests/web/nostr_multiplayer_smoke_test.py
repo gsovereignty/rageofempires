@@ -1328,6 +1328,16 @@ def request_prepared_correlated_pixel_capture(
     raise AssertionError("unreachable empty capture retry loop")
 
 
+def recapture_attempt_record(
+    capture: dict[str, object], blocked_oracles: list[dict[str, object]],
+) -> dict[str, object]:
+    """Retain a blocked capture without aliasing its eventual retry ledger."""
+    return {
+        "capture": dict(capture),
+        "blockedOracles": blocked_oracles,
+    }
+
+
 def exercise_all_direction_route(
     journey: Journey, driver, actor: str, owner: int,
     observer_journey: Journey, observer_driver, observer_actor: str,
@@ -1570,10 +1580,9 @@ def exercise_all_direction_route(
                             "peers": position_mutations,
                         }
                     break
-                recapture_attempts.append({
-                    "capture": pixel_capture,
-                    "blockedOracles": pixel_oracles,
-                })
+                recapture_attempts.append(recapture_attempt_record(
+                    pixel_capture, pixel_oracles,
+                ))
                 next_position = pixel_capture["peers"][actor].get(
                     "currentPosition"
                 )

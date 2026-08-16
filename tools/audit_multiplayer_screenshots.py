@@ -130,6 +130,9 @@ def provenance_findings(root: Path) -> list[dict[str, object]]:
             layers = entity.get("layers") or []
             expected = set(entity.get("expectedResourceIds") or [])
             actual = {layer.get("resourceId") for layer in layers}
+            primary_resource = (
+                layers[0].get("resourceId") if layers else None
+            )
             common = {
                 "line": line_number, "peer": record.get("peer"),
                 "frame": record.get("frame"), "entityId": entity.get("id"),
@@ -144,7 +147,7 @@ def provenance_findings(root: Path) -> list[dict[str, object]]:
             elif status != "renderable" or not layers:
                 findings.append({**common, "status": "FAIL",
                                  "kind": "missing_sprite", "mapping": status})
-            elif expected and not actual.issubset(expected):
+            elif expected and primary_resource not in expected:
                 findings.append({**common, "status": "FAIL",
                                  "kind": "wrong_resource_mapping",
                                  "expected": sorted(expected),

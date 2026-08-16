@@ -66,6 +66,28 @@ class ScreenshotAuditTests(unittest.TestCase):
             self.assertIn("procedural_render", kinds)
             self.assertIn("wrong_resource_mapping", kinds)
 
+    def test_allows_multipart_layers_after_expected_primary_body(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "sprite-provenance.jsonl").write_text(json.dumps({
+                "peer": "host", "frame": 1, "entities": [{
+                    "id": 45,
+                    "category": "building-house",
+                    "source": "legacy",
+                    "expectedAssetStatus": "renderable",
+                    "expectedResourceIds": [2235],
+                    "layers": [
+                        {"resourceId": 2235},
+                        {"resourceId": 425},
+                        {"resourceId": 428},
+                    ],
+                }],
+            }) + "\n")
+
+            findings = provenance_findings(root)
+
+        self.assertEqual(findings, [])
+
     def test_flags_missing_sprite(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

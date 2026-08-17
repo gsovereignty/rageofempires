@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "discoveredUtc": "2026-08-17T21:39:40Z",
+  "discoveryProtocol": "NIP-66",
+  "discoveryKind": 30166,
+  "selectionPolicy": "recent multi-monitor clearnet reports plus direct kind-78 publish/replay",
+  "relays": [
+    "wss://nos.lol",
+    "wss://nostr.mom",
+    "wss://relay.primal.net",
+    "wss://relay.mostr.pub",
+    "wss://nostr.data.haus",
+    "wss://nostr.bitcoiner.social",
+    "wss://nostr.l484.com",
+    "wss://adre.su",
+    "wss://relay.libernet.app",
+    "wss://relay.digitalhowl.ch",
+    "wss://relay.solife.me",
+    "wss://asia.vectorapp.io/nostr",
+    "wss://relay.illuminodes.com",
+    "wss://relay.peer.ooo",
+    "wss://relay.chontit.win",
+    "wss://nostr.overmind.lol",
+    "wss://insta-relay.apps3.slidestr.net",
+    "wss://nostr.carroarmato0.be",
+    "wss://offchain.pub",
+    "wss://freelay.sovbit.host"
+  ]
+}

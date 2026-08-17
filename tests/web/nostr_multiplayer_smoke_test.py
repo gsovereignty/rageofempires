@@ -63,16 +63,25 @@ from nostr_seeded_action_generator import (
 ROOT = Path(__file__).resolve().parents[2]
 AUDIT_ROOT = ROOT / "artifacts" / "nostr-e2e-visual"
 AUDIT_REPORT_ROOT = ROOT / "docs" / "audits"
+RELAY_CONFIG_PATH = ROOT / "resources" / "nostr-relays.json"
 WAIT_SECONDS = 180.0
 COMMAND_ACCEPTANCE_SECONDS = 10.0
 CDP_SHIFT_MODIFIER = 8
-DEFAULT_RELAYS = (
-    "wss://nostr-pub.wellorder.net", "wss://nostr.oxtr.dev",
-    "wss://nostr.bond", "wss://relay.nostr.net", "wss://yabu.me",
-    "wss://relay.nostr.wirednet.jp", "wss://relay.nostr.info",
-    "wss://nostr.sathoarder.com", "wss://relay.wavlake.com",
-    "wss://relay.noswhere.com",
-)
+
+
+def load_default_relays(path: Path = RELAY_CONFIG_PATH) -> tuple[str, ...]:
+    value = json.loads(path.read_text(encoding="utf-8"))
+    relays = value.get("relays")
+    if (not isinstance(relays, list) or len(relays) != 20 or
+            not all(isinstance(relay, str) and relay.startswith("wss://")
+                    for relay in relays) or len(set(relays)) != len(relays)):
+        raise ValueError(
+            "canonical relay pool must contain 20 unique wss URLs"
+        )
+    return tuple(relays)
+
+
+DEFAULT_RELAYS = load_default_relays()
 
 
 class ActionLimitReached(Failure):
@@ -254,6 +263,7 @@ def audit_source_digests() -> dict[str, str]:
         ROOT / "tools/run_nostr_visual_audit.py",
         ROOT / "tools/run_nostr_visual_display_matrix.py",
         ROOT / "resources/nostr-visual-gameplay-coverage.json",
+        RELAY_CONFIG_PATH,
     ]
     return {
         str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()

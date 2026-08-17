@@ -54,7 +54,12 @@
     "risk-scenario": {
       "reason": "fixed scenario root",
       "source": "resources/browser-risk-spike.scenario",
-      "dependencies": ["scenario-record", "skirmish-scenario", "nostr-visual-scenario", "civilizations", "entities", "technology", "terrain", "ui", "audio"]
+      "dependencies": ["scenario-record", "skirmish-scenario", "nostr-visual-scenario", "nostr-relays", "civilizations", "entities", "technology", "terrain", "ui", "audio"]
+    },
+    "nostr-relays": {
+      "reason": "canonical production and audit public relay pool",
+      "source": "resources/nostr-relays.json",
+      "dependencies": []
     },
     "scenario-record": {
       "reason": "fixed IDs, positions, budgets, and dependency graph",

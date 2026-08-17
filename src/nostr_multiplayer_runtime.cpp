@@ -6,6 +6,7 @@
 #include <cctype>
 #include <charconv>
 #include <deque>
+#include <fstream>
 #include <iomanip>
 #include <limits>
 #include <map>
@@ -19,6 +20,7 @@
 
 #include "aoe/nostr_browser_bridge.hpp"
 #include "aoe/nostr_protocol.hpp"
+#include "aoe/runtime_paths.hpp"
 
 namespace aoe {
 namespace {
@@ -336,6 +338,33 @@ std::vector<std::string> string_array_field(
     return result;
 }
 
+std::vector<std::string> default_public_relays() {
+    const auto path = runtime_resources_directory() / "nostr-relays.json";
+    std::ifstream input{path};
+    if (!input) {
+        throw std::runtime_error(
+            "cannot open canonical Nostr relay configuration: " +
+            path.string()
+        );
+    }
+    std::ostringstream contents;
+    contents << input.rdbuf();
+    const auto relays = string_array_field(
+        JsonParser(contents.str()).parse().object(), "relays", 20, 256
+    );
+    if (relays.size() != 20 ||
+        std::ranges::any_of(relays, [](const std::string& relay) {
+            return !relay.starts_with("wss://");
+        }) || std::set<std::string>{relays.begin(), relays.end()}.size() !=
+            relays.size()) {
+        throw std::runtime_error(
+            "canonical Nostr relay configuration must contain 20 unique "
+            "wss URLs"
+        );
+    }
+    return relays;
+}
+
 std::vector<std::pair<std::uint64_t, std::uint64_t>> range_array_field(
     const JsonValue::Object& object,
     std::string_view key
@@ -524,18 +553,7 @@ public:
         if (config_.input_delay_ticks < 3) config_.input_delay_ticks = 3;
         config_.host_slot = *PlayerSlotId::from_index(0);
         if (relays_.empty() && hosting_) {
-            relays_ = {
-                "wss://nostr-pub.wellorder.net/",
-                "wss://nostr.oxtr.dev/",
-                "wss://nostr.bond/",
-                "wss://relay.nostr.net/",
-                "wss://yabu.me/",
-                "wss://relay.nostr.wirednet.jp/",
-                "wss://relay.nostr.info/",
-                "wss://nostr.sathoarder.com/",
-                "wss://relay.wavlake.com/",
-                "wss://relay.noswhere.com/",
-            };
+            relays_ = default_public_relays();
         }
         std::ostringstream initialize;
         initialize << "{\"role\":"

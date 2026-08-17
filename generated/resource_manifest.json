@@ -53,9 +53,14 @@
       "sha256": "ac3f52ed31674a08d4d6030c37404fd4cf3a1d9393e67022bc6a39717d6e7eff"
     },
     {
+      "path": "resources/browser-nostr-visual.scenario",
+      "size": 3836,
+      "sha256": "4cba50f3e334adef320fde52808bc6f88068a2db5e64e752d927308bcaac84a6"
+    },
+    {
       "path": "resources/browser-risk-spike.json",
-      "size": 5841,
-      "sha256": "6c42dbe4b4c666ebc5beb3e26142f9851ed22764bdd609abd54ff7a229faa0ba"
+      "size": 6240,
+      "sha256": "88b5037400115e2314885e809d1efb6726da4bffa52455a846e8c4e85c89ac51"
     },
     {
       "path": "resources/browser-risk-spike.scenario",
@@ -291,6 +296,16 @@
       "path": "resources/naval-selection-portrait-regression.scenario",
       "size": 521,
       "sha256": "ae8ea7aa585d9169eacbc3ed9312182df6f0449f163a3084c1f93fb143eb2fc7"
+    },
+    {
+      "path": "resources/nostr-relays.json",
+      "size": 855,
+      "sha256": "0a92c2b359203a679ea348e4d79fc40052c10b28985acd613dbe4d47916774f7"
+    },
+    {
+      "path": "resources/nostr-visual-gameplay-coverage.json",
+      "size": 5554,
+      "sha256": "ae07dfb01d7d8515cf475f46d20b8f578e2cc6dd97fd302cdbcb355a856c80ed"
     },
     {
       "path": "resources/padded-archer-armor-render-audit.scenario",

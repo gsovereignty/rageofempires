@@ -39,6 +39,7 @@ from nostr_multiplayer_smoke_test import (
     diagnostics,
     evaluate_packaged_capture,
     initialize_run_ledger,
+    load_default_relays,
     negotiate_game_speed,
     parse_viewport,
     probe_relay_pool,
@@ -804,6 +805,19 @@ class FailureEvidenceTests(unittest.TestCase):
             parse_viewport("wide")
         with self.assertRaisesRegex(Exception, "supported minimum"):
             parse_viewport("320x200")
+
+    def test_loads_exact_canonical_relay_pool(self):
+        relays = load_default_relays()
+        self.assertEqual(len(relays), 20)
+        self.assertEqual(len(set(relays)), 20)
+        self.assertTrue(all(relay.startswith("wss://") for relay in relays))
+
+    def test_rejects_noncanonical_relay_pool(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "relays.json"
+            path.write_text(json.dumps({"relays": ["wss://one"]}))
+            with self.assertRaisesRegex(ValueError, "20 unique wss URLs"):
+                load_default_relays(path)
 
     def test_relay_probe_preserves_configured_order_for_quorum(self):
         class Socket:

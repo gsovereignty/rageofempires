@@ -150,6 +150,22 @@ Module['setStatus'] = function (message) {
   if (status) status.textContent = message || '';
 };
 Module['onRuntimeInitialized'] = function () {
+  try {
+    const relayConfig = JSON.parse(
+      FS.readFile('/resources/nostr-relays.json', {encoding: 'utf8'})
+    );
+    if (!Array.isArray(relayConfig.relays) || relayConfig.relays.length !== 20 ||
+        relayConfig.relays.some(function (relay) {
+          return typeof relay !== 'string' || !relay.startsWith('wss://');
+        }) || new Set(relayConfig.relays).size !== relayConfig.relays.length) {
+      throw new Error('canonical relay pool must contain 20 unique wss URLs');
+    }
+    document.getElementById('relays').value = relayConfig.relays.join(',');
+    Module['canonicalNostrRelays'] = relayConfig.relays;
+  } catch (error) {
+    Module['reportFailure']('Canonical Nostr relay configuration failed: ' + error);
+    return;
+  }
   document.getElementById('loading').hidden = true;
   document.getElementById('launch').hidden = false;
   document.getElementById('start').hidden = false;

@@ -173,6 +173,12 @@ VOLATILE_FAILURE_KEYS = {
     "completedEvidence",
 }
 
+NON_MINIMIZABLE_EXCEPTION_PREFIXES = (
+    "InvalidSessionIdException:",
+    "NoSuchWindowException:",
+    "SessionNotCreatedException:",
+)
+
 
 def stable_failure_value(value):
     if isinstance(value, dict):
@@ -193,7 +199,9 @@ def canonical_failure_identity(root: Path | None) -> dict[str, object] | None:
     if failure_path.is_file():
         failure = json.loads(failure_path.read_text(encoding="utf-8"))
         error = str(failure.get("error", ""))
-        if error and not error.startswith("ActionLimitReached:"):
+        if error and not error.startswith(
+            ("ActionLimitReached:", *NON_MINIMIZABLE_EXCEPTION_PREFIXES)
+        ):
             return {
                 "kind": "exception", "value": error,
                 "sha256": hashlib.sha256(error.encode()).hexdigest(),
@@ -206,6 +214,20 @@ def canonical_failure_identity(root: Path | None) -> dict[str, object] | None:
             encoded = json.dumps(value, sort_keys=True, separators=(",", ":"))
             return {
                 "kind": "visual-oracle", "value": value,
+                "sha256": hashlib.sha256(encoded.encode()).hexdigest(),
+            }
+    screenshot_path = root / "screenshot-audit.json"
+    if screenshot_path.is_file():
+        report = json.loads(screenshot_path.read_text(encoding="utf-8"))
+        failures = [
+            finding for finding in report.get("findings", [])
+            if finding.get("status") == "FAIL"
+        ]
+        if failures:
+            value = stable_failure_value(failures[0])
+            encoded = json.dumps(value, sort_keys=True, separators=(",", ":"))
+            return {
+                "kind": "screenshot-oracle", "value": value,
                 "sha256": hashlib.sha256(encoded.encode()).hexdigest(),
             }
     return None

@@ -147,6 +147,30 @@ class RelayRotationTests(unittest.TestCase):
             self.assertEqual(identity,
                              MODULE.canonical_failure_identity(root))
 
+    def test_failure_identity_ignores_dead_browser_and_uses_screenshot_oracle(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "first-failure.json").write_text(json.dumps({
+                "error": "InvalidSessionIdException: browser closed",
+            }))
+            (root / "screenshot-audit.json").write_text(json.dumps({
+                "findings": [{
+                    "case": "host-house-45", "kind": "sprite_overlap",
+                    "overlapPixels": 17, "status": "FAIL",
+                }],
+            }))
+            identity = MODULE.canonical_failure_identity(root)
+            self.assertEqual(identity["kind"], "screenshot-oracle")
+            self.assertEqual(identity["value"]["case"], "host-house-45")
+
+    def test_dead_browser_without_retained_oracle_has_no_identity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "first-failure.json").write_text(json.dumps({
+                "error": "InvalidSessionIdException: browser closed",
+            }))
+            self.assertIsNone(MODULE.canonical_failure_identity(root))
+
 
 if __name__ == "__main__":
     unittest.main()

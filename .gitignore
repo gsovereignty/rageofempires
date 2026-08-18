@@ -8,3 +8,4 @@ __pycache__/
 *.py[cod]
 target/
 web/nostr/node_modules/
+.codebase-memory/

@@ -14616,11 +14616,13 @@ void render_multiplayer_presentation(
         const auto player_line = [&](const LockstepPlayerConfig& player,
                                      bool ready,
                                      float y) {
-            const bool local =
-                player.slot == presentation->local_slot;
             std::ostringstream line;
             line << (player.slot == Player::blue ? "BLUE" : "RED")
-                 << (local ? "  [LOCAL]" : "  [PEER]")
+                 << "  [" << multiplayer_slot_presence(
+                        player.slot,
+                        presentation->local_slot,
+                        player.peer_id
+                    ) << ']'
                  << "   CIV " << name(player.civilization)
                  << "   TEAM " << player.team
                  << "   " << (ready ? "READY" : "NOT READY");

@@ -43,5 +43,25 @@ int main() {
         ),
         "red view must not own blue entities"
     );
+    require(
+        aoe::multiplayer_slot_presence(
+            aoe::Player::blue, aoe::Player::blue, "host-public-key"
+        ) == "LOCAL",
+        "local lobby slot must identify itself"
+    );
+    require(
+        aoe::multiplayer_slot_presence(
+            aoe::Player::red, aoe::Player::blue, "open"
+        ) == "OPEN SLOT",
+        "unoccupied lobby slot must remain visibly open"
+    );
+    require(
+        aoe::multiplayer_slot_presence(
+            aoe::Player::red,
+            aoe::Player::blue,
+            "1997a573ffd3ae140232209df7226f31"
+        ) == "PEER 1997a573ffd3",
+        "occupied lobby slot must show joined peer identity"
+    );
     return 0;
 }

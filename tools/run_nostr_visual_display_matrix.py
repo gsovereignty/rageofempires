@@ -120,7 +120,6 @@ def renderer_evidence(child: Path | None) -> dict[str, object] | None:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--relays")
     parser.add_argument("--port", type=int, default=8892)
     parser.add_argument("--seed", type=int, default=0xA0E20260812)
     parser.add_argument("--retry-budget", type=int, default=3)
@@ -169,8 +168,6 @@ def main() -> int:
             "--audit-root", str(cells_root),
             "--report-root", str(reports_root),
         ]
-        if arguments.relays:
-            command.extend(["--relays", arguments.relays])
         if case["headed"]:
             command.append("--headed")
         for browser_argument in case["browserArguments"]:

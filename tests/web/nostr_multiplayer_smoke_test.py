@@ -84,6 +84,13 @@ def load_default_relays(path: Path = RELAY_CONFIG_PATH) -> tuple[str, ...]:
 DEFAULT_RELAYS = load_default_relays()
 
 
+def relay_pool_digest(relays: tuple[str, ...] | list[str]) -> str:
+    return hashlib.sha256("\n".join(relays).encode("utf-8")).hexdigest()
+
+
+CANONICAL_RELAY_POOL_DIGEST = relay_pool_digest(DEFAULT_RELAYS)
+
+
 class ActionLimitReached(Failure):
     """Candidate replay reached its prefix boundary without earlier abort."""
 
@@ -4044,7 +4051,7 @@ def launch_attack_wave(
     )
 
 
-def launch(driver, base_url: str, mode: str, relays: str | None,
+def launch(driver, base_url: str, mode: str,
            match_reference: str = "", allied: bool = True) -> Journey:
     driver.get(
         f"{base_url}/aoe_web.html?scenario=nostr-visual&"
@@ -4059,10 +4066,6 @@ def launch(driver, base_url: str, mode: str, relays: str | None,
         ),
     )
     Select(driver.find_element(By.ID, "launch-mode")).select_by_value(mode)
-    if relays is not None:
-        relay_input = driver.find_element(By.ID, "relays")
-        relay_input.send_keys(Keys.COMMAND, "a")
-        relay_input.send_keys(relays)
     if mode == "join":
         reference_input = driver.find_element(By.ID, "match-reference")
         reference_input.send_keys(match_reference)
@@ -4076,6 +4079,30 @@ def launch(driver, base_url: str, mode: str, relays: str | None,
     )
     driver.execute_script("Module.browserRenderTelemetryEnabled = true")
     return Journey(driver, base_url, {})
+
+
+def require_canonical_relay_identity(driver, name: str) -> dict[str, object]:
+    value = diagnostics(driver)
+    if not isinstance(value, dict):
+        raise Failure(f"{name} has no Nostr diagnostics")
+    runtime_relays = value.get("relays")
+    runtime_digest = value.get("relayPoolDigest")
+    packaged = driver.execute_script(
+        "return {relays: Module.canonicalNostrRelays || null, "
+        "digest: Module.canonicalNostrRelayDigest || null};"
+    )
+    if runtime_relays != list(DEFAULT_RELAYS):
+        raise Failure(f"{name} runtime relay pool differs from production")
+    if not isinstance(packaged, dict) or \
+            packaged.get("relays") != list(DEFAULT_RELAYS):
+        raise Failure(f"{name} packaged relay pool differs from production")
+    if runtime_digest != CANONICAL_RELAY_POOL_DIGEST or \
+            packaged.get("digest") != CANONICAL_RELAY_POOL_DIGEST:
+        raise Failure(f"{name} relay digest differs from production")
+    return {
+        "relays": list(DEFAULT_RELAYS),
+        "digest": CANONICAL_RELAY_POOL_DIGEST,
+    }
 
 
 def browser_renderer_diagnostics(driver) -> dict[str, object]:
@@ -4769,7 +4796,7 @@ def exercise_relay_chaos(host, join, relays: str) -> dict[str, object]:
     return recovery
 
 
-def run(relays: str | None, headed: bool, port: int = 8888,
+def run(headed: bool, port: int = 8888,
         checkpoint: bool = False,
         artifact_dir: Path | None = None,
         seed: int = 0xA0E20260812,
@@ -4784,8 +4811,8 @@ def run(relays: str | None, headed: bool, port: int = 8888,
     artifact_dir.mkdir(parents=True, exist_ok=True)
     evidence: dict[str, object] = {
         "relays": [],
-        "relaySource": ("explicit-override" if relays is not None
-                        else "packaged-production-default"),
+        "relaySource": "packaged-production-default",
+        "relayPoolDigest": CANONICAL_RELAY_POOL_DIGEST,
         "actions": BoundedActionLog(action_limit),
         "actionSeed": seed,
     }
@@ -4823,7 +4850,9 @@ def run(relays: str | None, headed: bool, port: int = 8888,
         host_journey: Journey | None = None
         join_journey: Journey | None = None
         try:
-            host_journey = launch(host, base_url, "host", relays)
+            host_journey = launch(host, base_url, "host")
+            evidence["hostRelayIdentity"] = \
+                require_canonical_relay_identity(host, "host")
             evidence["browser"]["hostRenderer"] = \
                 browser_renderer_diagnostics(host)
             active_relays = str(
@@ -4839,9 +4868,9 @@ def run(relays: str | None, headed: bool, port: int = 8888,
             if not reference.startswith("aoe-nostr:1:"):
                 raise Failure(f"invalid host match reference: {reference!r}")
 
-            join_journey = launch(
-                join, base_url, "join", active_relays, reference
-            )
+            join_journey = launch(join, base_url, "join", reference)
+            evidence["joinRelayIdentity"] = \
+                require_canonical_relay_identity(join, "join")
             install_publish_intent_probe(host)
             install_publish_intent_probe(join)
             evidence["browser"]["joinRenderer"] = \
@@ -6252,10 +6281,6 @@ def write_audit_bundle(root: Path, evidence: dict[str, object]) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--relays",
-        help="explicit override; default uses packaged production relay list",
-    )
     parser.add_argument("--port", type=int, default=8888)
     parser.add_argument("--headed", action="store_true")
     parser.add_argument("--checkpoint", action="store_true")
@@ -6280,7 +6305,7 @@ def main() -> int:
     evidence_path = audit_dir / "evidence.json"
     initialize_run_ledger(
         destination,
-        relays=arguments.relays,
+        relays=",".join(DEFAULT_RELAYS),
         headed=arguments.headed,
         port=arguments.port,
         seed=arguments.seed,
@@ -6292,10 +6317,7 @@ def main() -> int:
         action_limit=arguments.action_limit,
     )
     try:
-        configured_relays = (
-            arguments.relays.split(",")
-            if arguments.relays else list(DEFAULT_RELAYS)
-        )
+        configured_relays = list(DEFAULT_RELAYS)
         relay_probe = probe_relay_pool(configured_relays)
         atomic_write_json(audit_dir / "relay-probe.json", relay_probe)
         selected_quorum = relay_probe["selectedQuorum"]
@@ -6310,7 +6332,7 @@ def main() -> int:
         run_ledger["selectedQuorum"] = selected_quorum
         atomic_write_json(audit_dir / "run.json", run_ledger)
         evidence = run(
-            ",".join(selected_quorum), arguments.headed, arguments.port,
+            arguments.headed, arguments.port,
             checkpoint=arguments.checkpoint,
             artifact_dir=audit_dir,
             seed=arguments.seed,
@@ -6332,8 +6354,8 @@ def main() -> int:
         else:
             failure = {
                 "error": f"{type(error).__name__}: {error}",
-                "relays": (arguments.relays.split(",")
-                           if arguments.relays else []),
+                "relays": list(DEFAULT_RELAYS),
+                "relayPoolDigest": CANONICAL_RELAY_POOL_DIGEST,
             }
         replay_path = audit_dir / "causal-replay-prefix.json"
         replay = causal_replay_prefix(

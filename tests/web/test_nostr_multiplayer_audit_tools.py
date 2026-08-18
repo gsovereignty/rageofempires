@@ -40,6 +40,7 @@ from nostr_multiplayer_smoke_test import (
     evaluate_packaged_capture,
     initialize_run_ledger,
     load_default_relays,
+    relay_pool_digest,
     negotiate_game_speed,
     parse_viewport,
     probe_relay_pool,
@@ -811,6 +812,16 @@ class FailureEvidenceTests(unittest.TestCase):
         self.assertEqual(len(relays), 20)
         self.assertEqual(len(set(relays)), 20)
         self.assertTrue(all(relay.startswith("wss://") for relay in relays))
+        self.assertEqual(len(relay_pool_digest(relays)), 64)
+
+    def test_relay_pool_digest_covers_order_and_membership(self):
+        relays = ["wss://one.example", "wss://two.example"]
+        self.assertNotEqual(
+            relay_pool_digest(relays), relay_pool_digest(list(reversed(relays)))
+        )
+        self.assertNotEqual(
+            relay_pool_digest(relays), relay_pool_digest(relays[:1])
+        )
 
     def test_rejects_noncanonical_relay_pool(self):
         with tempfile.TemporaryDirectory() as directory:

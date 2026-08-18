@@ -149,7 +149,7 @@ Module['setStatus'] = function (message) {
   const status = document.getElementById('status');
   if (status) status.textContent = message || '';
 };
-Module['onRuntimeInitialized'] = function () {
+Module['onRuntimeInitialized'] = async function () {
   try {
     const relayConfig = JSON.parse(
       FS.readFile('/resources/nostr-relays.json', {encoding: 'utf8'})
@@ -162,6 +162,12 @@ Module['onRuntimeInitialized'] = function () {
     }
     document.getElementById('relays').value = relayConfig.relays.join(',');
     Module['canonicalNostrRelays'] = relayConfig.relays;
+    const relayBytes = new TextEncoder().encode(relayConfig.relays.join('\n'));
+    const relayDigest = await crypto.subtle.digest('SHA-256', relayBytes);
+    Module['canonicalNostrRelayDigest'] = Array.from(
+      new Uint8Array(relayDigest),
+      function (byte) { return byte.toString(16).padStart(2, '0'); }
+    ).join('');
   } catch (error) {
     Module['reportFailure']('Canonical Nostr relay configuration failed: ' + error);
     return;

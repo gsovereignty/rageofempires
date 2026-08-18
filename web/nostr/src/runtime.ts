@@ -20,6 +20,7 @@ import {
   MAX_TAG_PART_BYTES,
   parseMatchReference,
   randomMatchId,
+  sameRelayPool,
   validateRelay,
   validateIntent,
   validateRelays,
@@ -34,6 +35,7 @@ type RuntimeDiagnostics = {
   hostPublicKey: string;
   matchReference: string;
   relays: string[];
+  relayPoolDigest: string;
   disabledRelays: string[];
   eoseRelays: string[];
   relayStatus: Record<string, RelayStatus>;
@@ -49,6 +51,14 @@ type RuntimeDiagnostics = {
   }>;
   cachedEvents: number;
 };
+
+export async function relayPoolDigest(relays: string[]): Promise<string> {
+  const bytes = new TextEncoder().encode(relays.join("\n"));
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0")
+  ).join("");
+}
 
 function boundedEventEnvelope(event: NostrEvent, relay: string): string {
   if (event.kind !== LOBBY_KIND && event.kind !== MATCH_KIND) {
@@ -91,6 +101,7 @@ export class AoeNostrClient {
   private recentPublications: RuntimeDiagnostics["recentPublications"] = [];
   private recentSubscriptionMessages: RuntimeDiagnostics["recentSubscriptionMessages"] = [];
   private relays: string[] = [];
+  private relayDigest = "";
   private matchId = "";
   private publicKey = "";
   private hostPublicKey = "";
@@ -107,8 +118,11 @@ export class AoeNostrClient {
     this.signer = new PrivateKeySigner();
     this.running = true;
     this.publicKey = await this.signer.getPublicKey();
+    const configuredRelays = validateRelays(
+      input.relays, input.one_relay_development
+    );
     if (input.role === "host") {
-      this.relays = validateRelays(input.relays, input.one_relay_development);
+      this.relays = configuredRelays;
       this.matchId = randomMatchId();
       this.hostPublicKey = this.publicKey;
     } else {
@@ -117,10 +131,14 @@ export class AoeNostrClient {
       if (reference.relays.length === 1 && !input.one_relay_development) {
         throw new Error("one-relay match requires development-mode opt-in");
       }
-      this.relays = reference.relays;
+      if (!sameRelayPool(reference.relays, configuredRelays)) {
+        throw new Error("match reference relay pool differs from production");
+      }
+      this.relays = configuredRelays;
       this.matchId = reference.matchId;
       this.hostPublicKey = reference.hostPubkey;
     }
+    this.relayDigest = await relayPoolDigest(this.relays);
     this.matchReference = makeMatchReference({
       hostPubkey: this.hostPublicKey,
       matchId: this.matchId,
@@ -348,6 +366,7 @@ export class AoeNostrClient {
       hostPublicKey: this.hostPublicKey,
       matchReference: this.matchReference,
       relays: [...this.relays],
+      relayPoolDigest: this.relayDigest,
       disabledRelays: [...this.disabledRelays],
       eoseRelays: [...this.eoseRelays],
       relayStatus: Object.fromEntries(this.relayStatus),

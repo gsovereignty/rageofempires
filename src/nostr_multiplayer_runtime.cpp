@@ -1182,7 +1182,7 @@ private:
             host_public_key_ = string_field(object, "host_pubkey", 64);
             match_id_ = string_field(object, "match_id", 64);
             match_reference_ = string_field(object, "match_reference", 4096);
-            relays_ = string_array_field(object, "relays", 10, 512);
+            relays_ = string_array_field(object, "relays", 20, 512);
             quorum_ = static_cast<std::size_t>(number_field(object, "quorum"));
             if (!hex64(public_key_) || !hex64(host_public_key_) ||
                 !hex64(match_id_) || quorum_ < 1 || quorum_ > relays_.size()) {
@@ -1474,7 +1474,7 @@ private:
             throw std::runtime_error("lobby status does not match roster");
         }
         const std::vector<std::string> lobby_relays = string_array_field(
-            content, "relays", 10, 512
+            content, "relays", 20, 512
         );
         if (lobby_relays != relays_) {
             throw std::runtime_error("lobby relay set mismatch");

@@ -11,7 +11,6 @@ CMAKE_ARGS ?=
 WEB_PORT ?= 8888
 PYTHON ?= python3
 NOSTR_AUDIT_PYTHON ?= build-web/selenium-venv/bin/python
-NOSTR_AUDIT_RELAYS ?=
 NOSTR_AUDIT_PORT ?= 8892
 NOSTR_AUDIT_ARGS ?=
 ifeq ($(shell uname -s),Darwin)
@@ -105,13 +104,9 @@ audit-nostr-multiplayer: web-build
 		echo "Missing isolated Selenium Python: $(NOSTR_AUDIT_PYTHON)" >&2; \
 		exit 1; \
 	}
-	@relay_args=""; \
-		if [ -n "$(NOSTR_AUDIT_RELAYS)" ]; then \
-			relay_args="--relays $(NOSTR_AUDIT_RELAYS)"; \
-		fi; \
-		"$(NOSTR_AUDIT_PYTHON)" tools/run_nostr_visual_audit.py \
+	@"$(NOSTR_AUDIT_PYTHON)" tools/run_nostr_visual_audit.py \
 			--port "$(NOSTR_AUDIT_PORT)" \
-			$$relay_args $(NOSTR_AUDIT_ARGS)
+			$(NOSTR_AUDIT_ARGS)
 
 audit-nostr-oracles:
 	@test -x "$(NOSTR_AUDIT_PYTHON)" || { \
@@ -139,7 +134,6 @@ ci-nostr-visual-per-change: build web-tests audit-nostr-oracles
 ci-nostr-visual-display-matrix: web-build
 	@"$(NOSTR_AUDIT_PYTHON)" tools/run_nostr_visual_display_matrix.py \
 		--port "$(NOSTR_AUDIT_PORT)" \
-		$(if $(NOSTR_AUDIT_RELAYS),--relays "$(NOSTR_AUDIT_RELAYS)",) \
 		$(NOSTR_AUDIT_ARGS)
 
 ci-nostr-visual-seeds: web-build
@@ -150,7 +144,6 @@ ci-nostr-visual-seeds: web-build
 		"$$rotating_seed"; do \
 		"$(NOSTR_AUDIT_PYTHON)" tools/run_nostr_visual_audit.py \
 			--port "$(NOSTR_AUDIT_PORT)" --seed "$$seed" \
-			$(if $(NOSTR_AUDIT_RELAYS),--relays "$(NOSTR_AUDIT_RELAYS)",) \
 			$(NOSTR_AUDIT_ARGS) || exit $$?; \
 	done
 
@@ -182,4 +175,4 @@ help:
 	@echo "make check-all PROBLEMS_ONLY=1  Print only failing-stage diagnostics"
 	@echo "make clean           Clean compiled outputs"
 	@echo "Variables: BUILD_DIR, WEB_PORT, BUILD_TYPE, JOBS, CMAKE, CTEST, PYTHON, CMAKE_ARGS"
-	@echo "Audit variables: NOSTR_AUDIT_PYTHON, NOSTR_AUDIT_RELAYS, NOSTR_AUDIT_PORT, NOSTR_AUDIT_ARGS, PROBLEMS_ONLY"
+	@echo "Audit variables: NOSTR_AUDIT_PYTHON, NOSTR_AUDIT_PORT, NOSTR_AUDIT_ARGS, PROBLEMS_ONLY"

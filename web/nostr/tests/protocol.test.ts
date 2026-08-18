@@ -11,9 +11,11 @@ import {
   matchSubscriptionFilters,
   MATCH_KIND,
   parseMatchReference,
+  sameRelayPool,
   validateIntent,
   validateRelays,
 } from "../src/protocol.js";
+import {relayPoolDigest} from "../src/runtime.js";
 
 test("pinned Applesauce factory signs and EventStore deduplicates", async () => {
   const signer = new PrivateKeySigner(new Uint8Array(32).fill(7));
@@ -46,15 +48,15 @@ test("public match reference round trips bounded relay hints", () => {
 
 test("relay and intent bounds reject unsupported inputs", () => {
   assert.throws(() => validateRelays(["ws://localhost"], true), /wss/);
-  assert.throws(() => validateRelays(["wss://one.example"], false), /2-10/);
+  assert.throws(() => validateRelays(["wss://one.example"], false), /2-20/);
   assert.doesNotThrow(() => validateRelays(
-    Array.from({length: 10}, (_, index) => `wss://relay-${index}.example`),
+    Array.from({length: 20}, (_, index) => `wss://relay-${index}.example`),
     false,
   ));
   assert.throws(() => validateRelays(
-    Array.from({length: 11}, (_, index) => `wss://relay-${index}.example`),
+    Array.from({length: 21}, (_, index) => `wss://relay-${index}.example`),
     false,
-  ), /2-10/);
+  ), /2-20/);
   assert.throws(() => validateIntent({
     intent_id: "x",
     kind: 9999,
@@ -67,6 +69,24 @@ test("relay and intent bounds reject unsupported inputs", () => {
     tags: [["t", APP_TAG]],
     content: "{}",
   }));
+});
+
+test("ordered relay pool has stable SHA-256 identity", async () => {
+  assert.equal(
+    await relayPoolDigest(["wss://one.example/", "wss://two.example/"]),
+    "acf341ed957885b01511f287f7f380ea8e7a63b247b0fc84fca3b3dec77c292d",
+  );
+  assert.notEqual(
+    await relayPoolDigest(["wss://two.example/", "wss://one.example/"]),
+    await relayPoolDigest(["wss://one.example/", "wss://two.example/"]),
+  );
+});
+
+test("production relay identity rejects subsets and reordered pools", () => {
+  const production = ["wss://one.example/", "wss://two.example/"];
+  assert.equal(sameRelayPool(production, [...production]), true);
+  assert.equal(sameRelayPool(production, production.slice(0, 1)), false);
+  assert.equal(sameRelayPool(production, [...production].reverse()), false);
 });
 
 test("match subscriptions stay within ordinary relay tag limits", () => {

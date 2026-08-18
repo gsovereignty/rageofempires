@@ -309,7 +309,6 @@ def minimize_prefix(
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--relays")
     parser.add_argument("--port", type=int, default=8892)
     parser.add_argument("--headed", action="store_true")
     parser.add_argument("--checkpoint", action="store_true")
@@ -338,8 +337,7 @@ def main() -> int:
     destination = allocate_audit_destination(
         arguments.audit_root, arguments.report_root, arguments.destination_id
     )
-    configured = arguments.relays.split(",") \
-        if arguments.relays else list(DEFAULT_RELAYS)
+    configured = list(DEFAULT_RELAYS)
     initialize_run_ledger(
         destination, relays=",".join(configured), headed=arguments.headed,
         port=arguments.port, seed=arguments.seed,
@@ -353,7 +351,7 @@ def main() -> int:
     healthy = [
         result["relay"] for result in probe["results"] if result["healthy"]
     ]
-    quorums = rotating_quorums(healthy)
+    quorums = [configured for _ in range(arguments.retry_budget + 1)]
     attempt_root = destination.artifacts / "attempts"
     attempt_reports = destination.artifacts / "attempt-reports"
     attempt_root.mkdir()
@@ -381,7 +379,6 @@ def main() -> int:
             str(ROOT / "build-web" / "selenium-venv" / "bin" / "python"),
             str(ROOT / "tests" / "web" / "nostr_multiplayer_smoke_test.py"),
             "--port", str(arguments.port),
-            "--relays", ",".join(quorum),
             "--seed", str(arguments.seed),
             "--retry-budget", "0",
             "--viewport", f"{arguments.viewport[0]}x{arguments.viewport[1]}",
@@ -468,7 +465,7 @@ def main() -> int:
                 str(ROOT / "build-web" / "selenium-venv" / "bin" / "python"),
                 str(ROOT / "tests" / "web" /
                     "nostr_multiplayer_smoke_test.py"),
-                "--port", str(arguments.port), "--relays", ",".join(quorum),
+                "--port", str(arguments.port),
                 "--seed", str(arguments.seed), "--retry-budget", "0",
                 "--viewport",
                 f"{arguments.viewport[0]}x{arguments.viewport[1]}",

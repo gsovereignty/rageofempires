@@ -1,4 +1,5 @@
 import {AoeNostrClient, BridgeChannel} from "./runtime.js";
+import {sameRelayPool} from "./protocol.js";
 import type {EventIntent, LaunchConfig} from "./protocol.js";
 
 type EmscriptenModule = {
@@ -10,6 +11,8 @@ type EmscriptenModule = {
   _aoe_nostr_publish_result(pointer: number, size: number): void;
   browserNostrDiagnostics?: () => unknown;
   browserNostrGameDiagnostics?: unknown;
+  canonicalNostrRelays?: string[];
+  canonicalNostrRelayDigest?: string;
 };
 
 type AoeNostrFacade = {
@@ -58,7 +61,16 @@ const facade = {
       });
     }
     try {
+      const canonicalRelays = globalThis.Module?.canonicalNostrRelays;
+      if (!canonicalRelays || !sameRelayPool(config.relays, canonicalRelays)) {
+        throw new Error("runtime relay pool differs from packaged production");
+      }
       await client.initialize(config);
+      const diagnostics = client.diagnostics();
+      if (diagnostics.relayPoolDigest !==
+          globalThis.Module?.canonicalNostrRelayDigest) {
+        throw new Error("runtime relay digest differs from packaged production");
+      }
     } catch (error) {
       emit("status", JSON.stringify({type: "fatal", message: String(error)}));
     }

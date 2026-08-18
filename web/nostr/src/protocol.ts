@@ -25,7 +25,7 @@ export const MAX_CONTENT_BYTES = 768 * 1024;
 export const MAX_TAGS = 64;
 export const MAX_TAG_PARTS = 8;
 export const MAX_TAG_PART_BYTES = 4096;
-export const MAX_RELAYS = 10;
+export const MAX_RELAYS = 20;
 export const MAX_RELAY_BYTES = 512;
 
 export type LaunchConfig = {
@@ -74,13 +74,18 @@ export function validateRelays(
 ): string[] {
   if (!Array.isArray(relays) || relays.length > MAX_RELAYS ||
       relays.length < (oneRelayDevelopment ? 1 : 2)) {
-    throw new Error("match requires 2-10 relays (or one development relay)");
+    throw new Error("match requires 2-20 relays (or one development relay)");
   }
   const normalized = relays.map(validateRelay);
   if (new Set(normalized).size !== normalized.length) {
     throw new Error("relay list contains duplicates");
   }
   return normalized;
+}
+
+export function sameRelayPool(left: string[], right: string[]): boolean {
+  return left.length === right.length &&
+    left.every((relay, index) => relay === right[index]);
 }
 
 function base64UrlEncode(value: string): string {

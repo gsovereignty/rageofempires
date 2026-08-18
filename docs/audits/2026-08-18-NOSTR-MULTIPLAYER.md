@@ -8,6 +8,8 @@
 - Local serving port: 8891
 - Evidence: `artifacts/nostr-multiplayer/2026-08-18-lobby-visibility/`
 - Scope stopped at lobby discovery; gameplay was not tested.
+- One earlier three-relay attempt was configuration-invalid and is excluded.
+  Acceptance runs must use the exact packaged 20-relay pool.
 
 ## Journey ledger
 
@@ -47,6 +49,21 @@
 - Root cause: undetermined. Browser diagnostics did not expose per-relay state
   or a fatal error for this run.
 - Evidence: `joined-lobby.json`
+
+### Relay configuration identity gate
+
+- Production pool: exact ordered 20-relay list in
+  `resources/nostr-relays.json`.
+- SHA-256: `c0251c7773ce5b7dd81c442d29e5fa4d36f65f48abee6b1362475b830e55ca32`.
+- Host and join browser diagnostics both reported all 20 relays and this exact
+  digest before lobby work.
+- Acceptance CLI rejects `--relays`; visual audit and display-matrix
+  orchestrators no longer pass relay subsets.
+- Packaged browser bridge rejects any runtime list or digest differing from
+  packaged production configuration.
+- Verification reached 19 relay EOSE observations on each independent browser.
+  Joined lobby revision 2 was not reached, so broader lobby acceptance remains
+  blocked and is not claimed here.
 
 ## Verdict
 

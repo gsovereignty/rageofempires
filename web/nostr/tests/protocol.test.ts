@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {EventFactory, EventStore} from "applesauce-core";
+import type {NostrEvent} from "applesauce-core/helpers/event";
 import {PrivateKeySigner} from "applesauce-signers";
 
 import {
   APP_TAG,
   LOBBY_KIND,
+  lobbyDiscoveryFilters,
   makeMatchReference,
   matchSubscriptionFilters,
   MATCH_KIND,
@@ -17,6 +19,7 @@ import {
 } from "../src/protocol.js";
 import {
   collectPublishQuorum,
+  parseLobbyAnnouncement,
   readyPublishRelays,
   relayStatusFingerprint,
   relayPoolDigest,
@@ -154,4 +157,58 @@ test("match subscriptions stay within ordinary relay tag limits", () => {
     );
   }
   assert.deepEqual(filters[0].authors, ["host-public-key"]);
+});
+
+test("discovery filter searches current public application lobbies", () => {
+  assert.deepEqual(lobbyDiscoveryFilters(5000), [{
+    kinds: [LOBBY_KIND],
+    "#t": [APP_TAG],
+    since: -2500,
+  }]);
+});
+
+test("discovery accepts only open compatible unexpired production lobbies", () => {
+  const now = 5000;
+  const host = "a".repeat(64);
+  const match = "b".repeat(64);
+  const relays = ["wss://one.example/", "wss://two.example/"];
+  const content = {
+    protocol: 1,
+    family: "lobby",
+    match_id: match,
+    revision: 3,
+    host_pubkey: host,
+    config_digest: "config",
+    compatibility_digest: "compatible",
+    hello_frame: "hello",
+    relays,
+    status: "open",
+    expires_at: 5200,
+    open: true,
+  };
+  const event = {
+    id: "c".repeat(64),
+    pubkey: host,
+    kind: LOBBY_KIND,
+    created_at: 4900,
+    tags: [["m", match], ["d", match], ["t", APP_TAG], ["v", "1"],
+      ["expiration", "5200"]],
+    content: JSON.stringify(content),
+    sig: "d".repeat(128),
+  } as NostrEvent;
+  assert.deepEqual(parseLobbyAnnouncement(event, relays, "compatible", now), {
+    eventId: event.id,
+    hostPubkey: host,
+    matchId: match,
+    revision: 3,
+    expiresAt: 5200,
+    open: true,
+  });
+  assert.equal(parseLobbyAnnouncement(event, relays, "wrong", now), null);
+  assert.equal(parseLobbyAnnouncement(event, [...relays].reverse(), "compatible", now), null);
+  assert.equal(parseLobbyAnnouncement(event, relays, "compatible", 5300), null);
+  assert.equal(parseLobbyAnnouncement({
+    ...event,
+    content: JSON.stringify({...content, status: "full", open: true}),
+  } as NostrEvent, relays, "compatible", now), null);
 });

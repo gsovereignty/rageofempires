@@ -4081,6 +4081,27 @@ def launch(driver, base_url: str, mode: str,
     return Journey(driver, base_url, {})
 
 
+def select_waiting_session(driver, host_public_key: str) -> dict[str, object]:
+    lobby = wait_until(
+        "host lobby in waiting-session list",
+        lambda: next((candidate for candidate in
+            (diagnostics(driver) or {}).get("openLobbies", [])
+            if candidate.get("hostPubkey") == host_public_key), None),
+        timeout=WAIT_SECONDS,
+    )
+    reference = str(lobby.get("matchReference", ""))
+    button = wait_until(
+        "visible waiting-session button",
+        lambda: next((candidate for candidate in driver.find_elements(
+            By.CSS_SELECTOR,
+            "#open-lobby-list button[data-match-reference]",
+        ) if candidate.get_attribute("data-match-reference") == reference), None),
+        timeout=WAIT_SECONDS,
+    )
+    button.click()
+    return lobby
+
+
 def require_canonical_relay_identity(driver, name: str) -> dict[str, object]:
     value = diagnostics(driver)
     if not isinstance(value, dict):
@@ -4868,11 +4889,14 @@ def run(headed: bool, port: int = 8888,
             if not reference.startswith("aoe-nostr:1:"):
                 raise Failure(f"invalid host match reference: {reference!r}")
 
-            join_journey = launch(join, base_url, "join", reference)
+            join_journey = launch(join, base_url, "join")
             evidence["joinRelayIdentity"] = \
                 require_canonical_relay_identity(join, "join")
             install_publish_intent_probe(host)
             install_publish_intent_probe(join)
+            evidence["selectedWaitingSession"] = select_waiting_session(
+                join, str(host_state.get("publicKey", ""))
+            )
             evidence["browser"]["joinRenderer"] = \
                 browser_renderer_diagnostics(join)
             require_quorum(join, "join")

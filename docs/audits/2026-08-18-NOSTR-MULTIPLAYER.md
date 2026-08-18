@@ -30,6 +30,8 @@
 | Join publication | Observed join | Two relay accepts | PASS | `joined-lobby.json` |
 | Occupied canonical lobby | Revision 2, active | Revision 2, active | PASS | `joined-lobby.json`, `host-joined-lobby.png`, `join-joined-lobby.png` |
 | Peer roster | Join key assigned to Red | Own key assigned to Red | PASS | `joined-lobby.json`, screenshots |
+| Waiting-session discovery | Published open lobby | Listed host without invite input | PASS | `discovered-lobby.json`, `join-session-list.png` |
+| Direct selected join | Accepted selected peer | Selected visible session button | PASS | `discovered-lobby.json`, `host-discovered-join.png`, `join-discovered-join.png` |
 
 ## Problems encountered
 
@@ -74,9 +76,27 @@
   both clients; working relays carried publications and observations.
 - Evidence: `joined-lobby.json` browser console and relay status.
 
+## Waiting-session discovery
+
+- Join mode accepts an empty invite reference and opens a global kind-30078
+  subscription on the exact production relay pool.
+- Discovery filters by application tag, then validates protocol version,
+  event/address identity, host authorship, expiry, two-hour production lifetime,
+  compatibility digest, ordered relay identity, revision, and open status.
+- Events deduplicate by host and match; relay copies merge into one selectable
+  session and newer revisions replace older revisions. Full or expired sessions
+  are removed.
+- Selecting a visible session switches the same client from discovery to exact
+  host/match subscriptions and performs the existing join handshake.
+- Invite reference remains available as optional direct-entry/deep-link input.
+- Production acceptance entered no invite reference, selected host from visible
+  list, and reached revision 2 with both clients active in 9 seconds.
+- Evidence: `discovered-lobby.json`, `join-session-list.png`,
+  `host-discovered-join.png`, and `join-discovered-join.png`.
+
 ## Regression gates
 
-- `npm test`: 9/9 pass
+- `npm test`: 11/11 pass
 - `npm run typecheck`: pass
 - `make`: pass
 - packaged `aoe_web` build: pass
@@ -90,5 +110,6 @@
 ## Verdict
 
 PARTIAL for the full multiplayer protocol skill. Lobby acceptance itself PASS:
-host publication, join publication, canonical revision 2, occupied roster, and
-active relay reliability all passed through the packaged production path.
+host publication, global discovery, selectable waiting-session list, direct
+join without invite input, canonical revision 2, occupied roster, and active
+relay reliability all passed through the packaged production path.

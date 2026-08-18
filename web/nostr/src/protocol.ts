@@ -27,13 +27,24 @@ export const MAX_TAG_PARTS = 8;
 export const MAX_TAG_PART_BYTES = 4096;
 export const MAX_RELAYS = 20;
 export const MAX_RELAY_BYTES = 512;
+export const LOBBY_LIFETIME_SECONDS = 2 * 60 * 60;
+export const LOBBY_CLOCK_SKEW_SECONDS = 300;
 
 export type LaunchConfig = {
   role: "host" | "join";
   relays: string[];
   one_relay_development: boolean;
+  compatibility_digest: string;
   match_reference?: string;
 };
+
+export function lobbyDiscoveryFilters(now = Math.floor(Date.now() / 1000)) {
+  return [{
+    kinds: [LOBBY_KIND],
+    "#t": [APP_TAG],
+    since: now - LOBBY_LIFETIME_SECONDS - LOBBY_CLOCK_SKEW_SECONDS,
+  }];
+}
 
 export type EventIntent = {
   intent_id: string;

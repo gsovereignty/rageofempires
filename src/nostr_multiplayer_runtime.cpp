@@ -559,6 +559,8 @@ public:
         initialize << "{\"role\":"
                    << json_string(hosting_ ? "host" : "join")
                    << ",\"relays\":" << json_string_array(relays_)
+                   << ",\"compatibility_digest\":"
+                   << json_string(compatibility_digest(config_))
                    << ",\"one_relay_development\":"
                    << (one_relay_development_ ? "true" : "false");
         if (!match_reference_.empty()) {

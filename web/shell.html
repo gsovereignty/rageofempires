@@ -25,7 +25,7 @@
       <label id="relay-field" hidden>Public relays
         <input id="relays" size="64" readonly>
       </label>
-      <label id="reference-field" hidden>Public match reference
+      <label id="reference-field" hidden>Invite reference (optional)
         <textarea id="match-reference" rows="3" cols="72"></textarea>
       </label>
       <label id="one-relay-field" hidden>
@@ -61,6 +61,11 @@
           <div id="relay-controls"></div>
         </details>
       </div>
+      <section id="open-lobby-browser" hidden>
+        <strong>Waiting sessions</strong>
+        <p id="open-lobby-status">Searching production relays…</p>
+        <div id="open-lobby-list"></div>
+      </section>
     </section>
     <button id="start" type="button" hidden>Start</button>
     <button id="fullscreen" type="button" hidden>Fullscreen</button>

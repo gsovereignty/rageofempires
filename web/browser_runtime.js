@@ -195,6 +195,9 @@ const nostrPublicReference = document.getElementById('nostr-public-reference');
 const copyMatchReference = document.getElementById('copy-match-reference');
 const copyMatchStatus = document.getElementById('copy-match-status');
 const relayControls = document.getElementById('relay-controls');
+const openLobbyBrowser = document.getElementById('open-lobby-browser');
+const openLobbyStatus = document.getElementById('open-lobby-status');
+const openLobbyList = document.getElementById('open-lobby-list');
 
 toggleNostrSessionDetails.addEventListener('click', function () {
   nostrSessionDetails.hidden = !nostrSessionDetails.hidden;
@@ -212,6 +215,43 @@ relayControls.addEventListener('click', function (event) {
   globalThis.AoeNostrRuntime.setRelayEnabled(button.dataset.relay, enabled);
   Module['canvas'].focus({preventScroll: true});
 });
+
+openLobbyList.addEventListener('click', function (event) {
+  const button = event.target.closest('button[data-match-reference]');
+  if (!button || !globalThis.AoeNostrRuntime) return;
+  try {
+    globalThis.AoeNostrRuntime.selectLobby(button.dataset.matchReference);
+    openLobbyStatus.textContent = 'Joining selected session…';
+    for (const candidate of openLobbyList.querySelectorAll('button')) {
+      candidate.disabled = true;
+    }
+    Module['canvas'].focus({preventScroll: true});
+  } catch (error) {
+    openLobbyStatus.textContent = 'Session unavailable: ' + error;
+  }
+});
+
+const refreshOpenLobbies = function (value) {
+  const discovering = value?.discoveryMode === true;
+  openLobbyBrowser.hidden = !discovering;
+  if (!discovering) return;
+  const lobbies = Array.isArray(value?.openLobbies) ? value.openLobbies : [];
+  const signature = JSON.stringify(lobbies.map(function (lobby) {
+    return lobby.eventId;
+  }));
+  if (openLobbyList.dataset.signature === signature) return;
+  openLobbyList.dataset.signature = signature;
+  openLobbyStatus.textContent = lobbies.length
+    ? 'Select session to join.' : 'No compatible waiting sessions yet.';
+  openLobbyList.replaceChildren(...lobbies.map(function (lobby) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.matchReference = lobby.matchReference;
+    button.textContent = 'Join ' + lobby.hostPubkey.slice(0, 12) +
+      ' · revision ' + lobby.revision;
+    return button;
+  }));
+};
 
 const refreshRelayControls = function (value) {
   const relays = value?.relays || [];
@@ -242,6 +282,7 @@ const refreshNostrSession = function () {
       ? document.getElementById('match-reference').value.trim() : '');
   copyMatchReference.disabled = nostrPublicReference.value.length === 0;
   refreshRelayControls(value);
+  refreshOpenLobbies(value);
 };
 setInterval(refreshNostrSession, 500);
 
@@ -342,6 +383,8 @@ document.getElementById('launch-mode').addEventListener('change', function () {
   document.getElementById('allied-field').hidden = !multiplayer;
   document.getElementById('public-warning').hidden = !multiplayer;
   document.getElementById('reference-field').hidden = this.value !== 'join';
+  document.getElementById('start').textContent = this.value === 'join'
+    ? 'Browse waiting sessions' : 'Start';
 });
 
 document.getElementById('fullscreen').addEventListener(

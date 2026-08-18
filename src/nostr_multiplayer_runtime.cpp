@@ -618,6 +618,7 @@ public:
             }
         }
         maybe_apply_start(simulation);
+        maybe_publish_initial_lobby();
         maybe_publish_prerequisites();
         maybe_start();
         update_reliability();
@@ -882,6 +883,8 @@ public:
                << static_cast<int>(reliability_status_)
                << ",\"reliabilityReason\":"
                << static_cast<int>(reliability_reason_)
+               << ",\"usableRelayCount\":" << usable_relay_count()
+               << ",\"eoseRelayCount\":" << eose_relay_count()
                << ",\"lobbyRevision\":" << accepted_lobby_revision_
                << ",\"startRequested\":"
                << (start_requested_ ? "true" : "false")
@@ -1069,7 +1072,7 @@ private:
         return true;
     }
 
-    void publish_lobby() {
+    bool publish_lobby() {
         LockstepFrame hello = hello_for_config(config_, Player::blue);
         std::ostringstream content;
         content << base_content("lobby")
@@ -1091,9 +1094,17 @@ private:
                 << (config_.red.peer_id == "open" ? "true" : "false")
                 << '}';
         reset_lobby_prerequisites();
-        (void)publish(
+        return publish(
             "lobby", content.str(), true, true, IntentKind::lobby
         );
+    }
+
+    void maybe_publish_initial_lobby() {
+        if (!initial_lobby_publish_pending_ || !hosting_ || !initialized_ ||
+            usable_relay_count() < quorum_ || eose_relay_count() < quorum_) {
+            return;
+        }
+        if (publish_lobby()) initial_lobby_publish_pending_ = false;
     }
 
     void publish_join() {
@@ -1198,7 +1209,7 @@ private:
                 lobby_expires_at_ = unix_time_seconds() +
                     lobby_lifetime_seconds;
                 lobby_revision_ = 1;
-                publish_lobby();
+                initial_lobby_publish_pending_ = true;
             }
             return;
         }
@@ -2281,6 +2292,7 @@ private:
     Player local_slot_{Player::blue};
     bool one_relay_development_{};
     bool initialized_{};
+    bool initial_lobby_publish_pending_{};
     bool disconnected_{};
     bool ready_requested_{};
     bool start_requested_{};

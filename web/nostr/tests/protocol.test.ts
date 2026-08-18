@@ -15,7 +15,12 @@ import {
   validateIntent,
   validateRelays,
 } from "../src/protocol.js";
-import {relayPoolDigest} from "../src/runtime.js";
+import {
+  collectPublishQuorum,
+  readyPublishRelays,
+  relayStatusFingerprint,
+  relayPoolDigest,
+} from "../src/runtime.js";
 
 test("pinned Applesauce factory signs and EventStore deduplicates", async () => {
   const signer = new PrivateKeySigner(new Uint8Array(32).fill(7));
@@ -87,6 +92,55 @@ test("production relay identity rejects subsets and reordered pools", () => {
   assert.equal(sameRelayPool(production, [...production]), true);
   assert.equal(sameRelayPool(production, production.slice(0, 1)), false);
   assert.equal(sameRelayPool(production, [...production].reverse()), false);
+});
+
+test("publication uses ready relays without changing configured pool", () => {
+  const configured = [
+    "wss://ready-one.example/",
+    "wss://offline.example/",
+    "wss://disabled.example/",
+    "wss://ready-two.example/",
+  ];
+  const statuses = new Map([
+    [configured[0], {connected: true, ready: true}],
+    [configured[1], {connected: false, ready: false}],
+    [configured[2], {connected: true, ready: true}],
+    [configured[3], {connected: true, ready: true}],
+  ]);
+  assert.deepEqual(
+    readyPublishRelays(configured, new Set([configured[2]]), statuses),
+    [configured[0], configured[3]],
+  );
+  assert.equal(configured.length, 4);
+});
+
+test("publication completes when relay quorum accepts", async () => {
+  const attempted: string[] = [];
+  const results = await collectPublishQuorum(
+    ["wss://one/", "wss://silent/", "wss://two/"],
+    2,
+    async (relay) => {
+      attempted.push(relay);
+      if (relay.includes("silent")) return new Promise(() => {});
+      return [{from: relay, ok: true, message: "saved"}];
+    },
+  );
+  assert.deepEqual(attempted, ["wss://one/", "wss://silent/", "wss://two/"]);
+  assert.equal(results.filter((result) => result.ok).length, 2);
+});
+
+test("relay status fingerprint changes only bridge-relevant fields", () => {
+  const ready = {
+    connected: true,
+    ready: true,
+    authRequiredForRead: false,
+    authRequiredForPublish: false,
+  };
+  assert.equal(relayStatusFingerprint(ready), relayStatusFingerprint({...ready}));
+  assert.notEqual(
+    relayStatusFingerprint(ready),
+    relayStatusFingerprint({...ready, ready: false}),
+  );
 });
 
 test("match subscriptions stay within ordinary relay tag limits", () => {

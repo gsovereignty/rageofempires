@@ -60,6 +60,60 @@ export async function relayPoolDigest(relays: string[]): Promise<string> {
   ).join("");
 }
 
+export function readyPublishRelays(
+  relays: string[],
+  disabledRelays: ReadonlySet<string>,
+  relayStatus: ReadonlyMap<string, Pick<RelayStatus, "connected" | "ready">>,
+): string[] {
+  return relays.filter((relay) => {
+    const status = relayStatus.get(relay);
+    return !disabledRelays.has(relay) && status?.connected === true &&
+      status.ready === true;
+  });
+}
+
+export function relayStatusFingerprint(
+  status: Pick<RelayStatus, "connected" | "ready" |
+    "authRequiredForRead" | "authRequiredForPublish">,
+): string {
+  return [
+    status.connected,
+    status.ready,
+    status.authRequiredForRead,
+    status.authRequiredForPublish,
+  ].join(":");
+}
+
+export async function collectPublishQuorum(
+  relays: string[],
+  quorum: number,
+  publishRelay: (relay: string) => Promise<PublishResponse[]>,
+): Promise<PublishResponse[]> {
+  if (quorum < 1 || relays.length < quorum) return [];
+  return new Promise((resolve) => {
+    const results: PublishResponse[] = [];
+    let settled = 0;
+    let complete = false;
+    const finish = (responses: PublishResponse[]) => {
+      if (complete) return;
+      results.push(...responses);
+      settled += 1;
+      const accepted = results.filter((result) => result.ok).length;
+      if (accepted >= quorum || settled === relays.length) {
+        complete = true;
+        resolve(results);
+      }
+    };
+    for (const relay of relays) {
+      void publishRelay(relay).then(finish).catch((error: unknown) => finish([{
+        from: relay,
+        ok: false,
+        message: String(error),
+      }]));
+    }
+  });
+}
+
 function boundedEventEnvelope(event: NostrEvent, relay: string): string {
   if (event.kind !== LOBBY_KIND && event.kind !== MATCH_KIND) {
     throw new Error("unsupported subscribed event kind");
@@ -98,6 +152,7 @@ export class AoeNostrClient {
   private disabledRelays = new Set<string>();
   private eoseRelays = new Set<string>();
   private relayStatus = new Map<string, RelayStatus>();
+  private emittedRelayStatus = new Map<string, string>();
   private recentPublications: RuntimeDiagnostics["recentPublications"] = [];
   private recentSubscriptionMessages: RuntimeDiagnostics["recentSubscriptionMessages"] = [];
   private relays: string[] = [];
@@ -167,6 +222,9 @@ export class AoeNostrClient {
       next: (statuses: Record<string, RelayStatus>) => {
         for (const [url, status] of Object.entries(statuses)) {
           this.relayStatus.set(url, status);
+          const fingerprint = relayStatusFingerprint(status);
+          if (this.emittedRelayStatus.get(url) === fingerprint) continue;
+          this.emittedRelayStatus.set(url, fingerprint);
           this.status("relay", {
             relay: url,
             connected: status.connected,
@@ -286,12 +344,18 @@ export class AoeNostrClient {
         .as(this.signer)
         .sign();
       if (intent.cache) this.signedEvents.set(event.id, event);
-      const active = this.relays.filter((relay) => !this.disabledRelays.has(relay));
-      const results = await this.pool.publish(active, event, {
-        reconnect: true,
-        retries: 3,
-        timeout: 15000,
-      });
+      const active = readyPublishRelays(
+        this.relays, this.disabledRelays, this.relayStatus,
+      );
+      const results = await collectPublishQuorum(
+        active,
+        this.quorum,
+        (relay) => this.pool.publish([relay], event, {
+          reconnect: true,
+          retries: false,
+          timeout: 15000,
+        }),
+      );
       this.publishResult(intent.intent_id, event, results);
     } catch (error) {
       this.emit("publish", JSON.stringify({
@@ -333,12 +397,18 @@ export class AoeNostrClient {
       this.status("republish_unavailable", {event_id: eventId});
       return;
     }
-    const active = this.relays.filter((relay) => !this.disabledRelays.has(relay));
-    const results = await this.pool.publish(active, event, {
-      reconnect: true,
-      retries: 3,
-      timeout: 15000,
-    });
+    const active = readyPublishRelays(
+      this.relays, this.disabledRelays, this.relayStatus,
+    );
+    const results = await collectPublishQuorum(
+      active,
+      this.quorum,
+      (relay) => this.pool.publish([relay], event, {
+        reconnect: true,
+        retries: false,
+        timeout: 15000,
+      }),
+    );
     this.publishResult(`republish:${eventId}`, event, results);
   }
 
@@ -355,6 +425,7 @@ export class AoeNostrClient {
     this.disabledRelays.clear();
     this.eoseRelays.clear();
     this.relayStatus.clear();
+    this.emittedRelayStatus.clear();
     this.recentPublications = [];
     this.recentSubscriptionMessages = [];
   }

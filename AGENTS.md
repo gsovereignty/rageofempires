@@ -35,6 +35,14 @@ preserve and exclude unrelated user or agent changes. If no tracked files
 changed, or a commit is genuinely impossible, report that explicitly instead
 of creating an empty or mixed commit.
 
+Before committing, inspect the actual changes and write one focused message as
+a problem statement: `problem: <affected subject> <undesirable condition or
+missing capability>.` Describe the actual problem solved, not the solution,
+implementation, command, or files changed. Keep the subject under 50 characters
+when possible and never over 70. Add a wrapped body only when necessary to
+explain solution rationale, breaking changes, migrations, reverts, or issue
+references.
+
 Before every completion commit containing game-code changes, run `make` from
 this repository root and require it to finish without build errors. Fix
 in-scope failures before committing. If `make` fails because of unrelated

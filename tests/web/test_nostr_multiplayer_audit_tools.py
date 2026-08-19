@@ -33,6 +33,7 @@ from nostr_multiplayer_smoke_test import (
     capture_route_pixel_or_unsampled,
     capture_until_arrival,
     center_camera_for_tile,
+    center_peer_cameras_for_tile,
     click_canvas_logical,
     canonical_direction_route,
     deterministic_replacement_destination,
@@ -1518,6 +1519,25 @@ class RenderOracleTests(unittest.TestCase):
                 Journey(), object(), actions, "join", 40, 8,
             )
         held_key.assert_not_called()
+
+    def test_correlated_capture_centers_both_peer_cameras(self):
+        actor_journey = object()
+        observer_journey = object()
+        actor_driver = object()
+        observer_driver = object()
+        actions: list[dict[str, object]] = []
+        with patch(
+            "nostr_multiplayer_smoke_test.center_camera_for_tile",
+        ) as center:
+            center_peer_cameras_for_tile(
+                actor_journey, actor_driver, "join",
+                observer_journey, observer_driver, "host",
+                actions, 27, 20,
+            )
+        self.assertEqual(center.call_args_list, [
+            call(actor_journey, actor_driver, actions, "join", 27, 20),
+            call(observer_journey, observer_driver, actions, "host", 27, 20),
+        ])
 
     def test_route_selection_reacquires_position_after_camera_pan(self):
         class Journey:

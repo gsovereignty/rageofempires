@@ -966,6 +966,20 @@ def center_camera_for_tile(
     raise Failure(f"{actor} route tile never entered visible world area")
 
 
+def center_peer_cameras_for_tile(
+    actor_journey: Journey, actor_driver, actor: str,
+    observer_journey: Journey, observer_driver, observer: str,
+    actions: list[dict[str, object]], tile_x: int, tile_y: int,
+) -> None:
+    """Keep a correlated pixel target inside both production viewports."""
+    center_camera_for_tile(
+        actor_journey, actor_driver, actions, actor, tile_x, tile_y,
+    )
+    center_camera_for_tile(
+        observer_journey, observer_driver, actions, observer, tile_x, tile_y,
+    )
+
+
 def command_acceptance_status(
     games: list[dict[str, object]], *, owner: int, unit_id: int,
     destination: tuple[int, int],
@@ -2025,6 +2039,7 @@ def exercise_transition_routes(
 
 def exercise_formation_route(
     journey: Journey, driver, actor: str, owner: int,
+    observer_journey: Journey, observer_driver, observer_actor: str,
     host, join, actions: list[dict[str, object]], artifact_dir: Path,
     center: tuple[int, int],
 ) -> dict[str, object]:
@@ -2111,7 +2126,11 @@ def exercise_formation_route(
         if before is None:
             continue
         before_positions = owned_villager_positions(before[0], owner)
-        center_camera_for_tile(journey, driver, actions, actor, *destination)
+        center_peer_cameras_for_tile(
+            journey, driver, actor,
+            observer_journey, observer_driver, observer_actor,
+            actions, *destination,
+        )
         audited_world_pointer(journey, driver, actions, actor, *destination)
 
         def formation_command_accepted() -> list[dict[str, object]] | None:
@@ -2831,9 +2850,12 @@ def exercise_cand003_focused_routes(
     # CAND-003's affected oracle is the first (join/Red) formation immediately
     # after both owners traverse the passage in production owner order.
     for owner in owner_order[:1]:
-        actor, journey, driver, _, _, _, center = actor_specs[owner]
+        (actor, journey, driver, observer_actor, observer_journey,
+         observer_driver, center) = actor_specs[owner]
         formation = exercise_formation_route(
-            journey, driver, actor, owner, host, join,
+            journey, driver, actor, owner,
+            observer_journey, observer_driver, observer_actor,
+            host, join,
             actions, artifact_dir, center,
         )
         result["formation"][actor] = formation
@@ -5750,12 +5772,13 @@ def run(headed: bool, port: int = 8888,
                     )
             evidence["formationRoutes"] = {}
             for owner in owner_order:
-                actor, journey, driver, _, _, _, center = actor_specs[
-                    int(owner)
-                ]
+                (actor, journey, driver, observer_actor, observer_journey,
+                 observer_driver, center) = actor_specs[int(owner)]
                 evidence["formationRoutes"][actor] = \
                     exercise_formation_route(
-                        journey, driver, actor, int(owner), host, join,
+                        journey, driver, actor, int(owner),
+                        observer_journey, observer_driver, observer_actor,
+                        host, join,
                         actions, artifact_dir, center,
                     )
             catalog_specs = {

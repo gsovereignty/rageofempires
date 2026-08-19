@@ -4053,10 +4053,7 @@ def launch_attack_wave(
 
 def launch(driver, base_url: str, mode: str,
            match_reference: str = "", allied: bool = True) -> Journey:
-    driver.get(
-        f"{base_url}/aoe_web.html?scenario=nostr-visual&"
-        "overlapCapture=/audit-overlap&overlapTick=0"
-    )
+    driver.get(gameplay_launch_url(base_url))
     wait_until(
         f"{mode} browser storage",
         lambda: driver.execute_script(
@@ -4079,6 +4076,11 @@ def launch(driver, base_url: str, mode: str,
     )
     driver.execute_script("Module.browserRenderTelemetryEnabled = true")
     return Journey(driver, base_url, {})
+
+
+def gameplay_launch_url(base_url: str) -> str:
+    """Return production audit URL without an eager pixel-capture request."""
+    return f"{base_url}/aoe_web.html?scenario=nostr-visual"
 
 
 def select_waiting_session(driver, host_public_key: str) -> dict[str, object]:
@@ -4224,6 +4226,77 @@ def capture_browser_overlap(
         json.dumps(aggregate, indent=2, sort_keys=True) + "\n"
     )
     return count
+
+
+def request_browser_overlap(driver, root: Path, peer: str) -> int:
+    """Capture next unobscured production gameplay frame for one peer."""
+    virtual_root = "/audit-overlap"
+    driver.execute_script(
+        "Module.browserPixelCaptureComplete = null;"
+        "Module.browserPixelCaptureRequest = arguments[0];",
+        virtual_root,
+    )
+    wait_until(
+        f"{peer} gameplay overlap capture",
+        lambda: True if driver.execute_script(
+            "return Module.browserPixelCaptureComplete === arguments[0];",
+            virtual_root,
+        ) else None,
+        timeout=WAIT_SECONDS,
+    )
+    return capture_browser_overlap(driver, root, peer)
+
+
+def capture_initial_gameplay_overlap(
+    host, join, root: Path, actions: list[dict[str, object]],
+) -> dict[str, int]:
+    """Gate overlap evidence on live gameplay, then hide both panels."""
+    wait_until(
+        "overlap capture gameplay tick gate",
+        lambda: (
+            True
+            if all(
+                int((game_diagnostics(driver) or {}).get("currentTick", 0))
+                >= 8
+                for driver in (host, join)
+            )
+            else None
+        ),
+        timeout=WAIT_SECONDS,
+    )
+    # Production F4 hides in-canvas lockstep/chat/signal panels. Both peers
+    # must consume it before either actual frame is captured.
+    audited_key(host, actions, "host", Keys.F4)
+    audited_key(join, actions, "join", Keys.F4)
+    return {
+        "host": request_browser_overlap(host, root, "host"),
+        "join": request_browser_overlap(join, root, "join"),
+    }
+
+
+def write_overlap_checkpoint(
+    root: Path,
+    host,
+    join,
+    overlap_evidence: dict[str, int],
+) -> dict[str, object]:
+    """Persist focused proof before later long-match phases can time out."""
+    host_state = diagnostics(host) or {}
+    join_state = diagnostics(join) or {}
+    checkpoint: dict[str, object] = {
+        "schemaVersion": 1,
+        "status": "FOCUSED_PASS",
+        "capturedUtc": datetime.now(timezone.utc).isoformat(),
+        "hostPublicKey": host_state.get("publicKey"),
+        "joinPublicKey": join_state.get("publicKey"),
+        "host": host_state.get("game"),
+        "join": join_state.get("game"),
+        "overlapEvidence": overlap_evidence,
+        "relayEvidence": "relay-probe.json",
+        "overlapManifest": "overlap/manifest.json",
+    }
+    atomic_write_json(root / "overlap-checkpoint.json", checkpoint)
+    return checkpoint
 
 
 def request_correlated_pixel_capture(
@@ -4908,8 +4981,6 @@ def run(headed: bool, port: int = 8888,
                 raise Failure("production launch form has no relays")
             evidence["relays"] = active_relays.split(",")
             host_state = require_quorum(host, "host")
-            evidence.setdefault("overlapEvidence", {})["host"] = \
-                capture_browser_overlap(host, artifact_dir, "host")
             reference = str(host_state.get("matchReference", ""))
             if not reference.startswith("aoe-nostr:1:"):
                 raise Failure(f"invalid host match reference: {reference!r}")
@@ -4925,8 +4996,6 @@ def run(headed: bool, port: int = 8888,
             evidence["browser"]["joinRenderer"] = \
                 browser_renderer_diagnostics(join)
             require_quorum(join, "join")
-            evidence.setdefault("overlapEvidence", {})["join"] = \
-                capture_browser_overlap(join, artifact_dir, "join")
             wait_until(
                 "canonical lobby revision 2",
                 lambda: (
@@ -4974,10 +5043,12 @@ def run(headed: bool, port: int = 8888,
             collapse_match_details(join, actions, "join")
             audited_zoom(host_journey, host, actions, "host", zoom)
             audited_zoom(join_journey, join, actions, "join", zoom)
-            # Production F4 hides in-canvas lockstep/chat/signal panels.
-            # Save-browser routing must not consume this multiplayer control.
-            audited_key(host, actions, "host", Keys.F4)
-            audited_key(join, actions, "join", Keys.F4)
+            evidence["overlapEvidence"] = capture_initial_gameplay_overlap(
+                host, join, artifact_dir, actions
+            )
+            evidence["overlapCheckpoint"] = write_overlap_checkpoint(
+                artifact_dir, host, join, evidence["overlapEvidence"]
+            )
 
             # Normal world input creates a non-empty lockstep turn batch.
             movement_before = [game_diagnostics(driver) or {}

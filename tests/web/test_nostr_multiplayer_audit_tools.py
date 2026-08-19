@@ -10,6 +10,7 @@ from pathlib import Path
 from unittest.mock import call, patch
 
 from PIL import Image
+from selenium.webdriver.common.keys import Keys
 
 from nostr_multiplayer_smoke_test import (
     CDP_SHIFT_MODIFIER,
@@ -25,6 +26,7 @@ from nostr_multiplayer_smoke_test import (
     audited_zoom,
     banked_resource_increased,
     capture_failure_value,
+    capture_initial_gameplay_overlap,
     capture_browser_overlap,
     capture_catalog_semantic_pixels,
     capture_until_arrival,
@@ -32,6 +34,7 @@ from nostr_multiplayer_smoke_test import (
     canonical_direction_route,
     deterministic_replacement_destination,
     failure_bundle_evidence,
+    gameplay_launch_url,
     canonical_transition_routes,
     catalog_ids_for_entity,
     command_acceptance_status,
@@ -47,6 +50,7 @@ from nostr_multiplayer_smoke_test import (
     prepare_correlated_entity_capture,
     render_diagnostics,
     request_correlated_pixel_capture,
+    request_browser_overlap,
     request_prepared_correlated_pixel_capture,
     replayable_action_stream,
     relay_blocker_from_diagnostics,
@@ -57,6 +61,7 @@ from nostr_multiplayer_smoke_test import (
     visual_findings,
     wait_for_drawable_direction,
     write_audit_bundle,
+    write_overlap_checkpoint,
 )
 
 
@@ -432,6 +437,104 @@ class AuditedInputTests(unittest.TestCase):
                 cases = json.loads(manifest_path.read_text())["cases"]
                 self.assertEqual(len(cases), 1)
                 self.assertEqual(cases[0]["metadata"]["entity_id"], 7)
+
+    def test_requests_overlap_only_after_explicit_gameplay_capture(self):
+        manifest = {"cases": [{
+            "id": "unit-7", "sprite": "unit-7.tga", "x": 12,
+            "y": 23, "metadata": {"entity_id": 7},
+        }]}
+        files = {
+            "/audit-overlap/manifest.json": json.dumps(manifest).encode(),
+            "/audit-overlap/actual.bmp": encoded_image("BMP"),
+            "/audit-overlap/terrain.bmp": encoded_image("BMP"),
+            "/audit-overlap/unit-7.tga": encoded_image("TGA", "RGBA"),
+        }
+        driver = PixelCaptureDriver(files)
+        with tempfile.TemporaryDirectory() as directory:
+            count = request_browser_overlap(
+                driver, Path(directory), "host"
+            )
+
+        self.assertEqual(count, 1)
+        self.assertEqual(driver.complete, "/audit-overlap")
+
+    def test_launch_url_never_requests_tick_zero_overlap_capture(self):
+        url = gameplay_launch_url("http://127.0.0.1:8892")
+
+        self.assertEqual(
+            url,
+            "http://127.0.0.1:8892/aoe_web.html?scenario=nostr-visual",
+        )
+        self.assertNotIn("overlapCapture", url)
+        self.assertNotIn("overlapTick", url)
+
+    def test_overlap_capture_follows_tick_gate_and_both_panel_hides(self):
+        host = object()
+        join = object()
+        events: list[str] = []
+
+        def game(driver):
+            events.append("tick-host" if driver is host else "tick-join")
+            return {"currentTick": 8}
+
+        def key(driver, _actions, actor, value):
+            self.assertEqual(value, Keys.F4)
+            events.append(f"hide-{actor}")
+
+        def request(driver, _root, peer):
+            events.append(f"capture-{peer}")
+            return 10
+
+        with patch(
+            "nostr_multiplayer_smoke_test.game_diagnostics", side_effect=game,
+        ), patch(
+            "nostr_multiplayer_smoke_test.audited_key", side_effect=key,
+        ), patch(
+            "nostr_multiplayer_smoke_test.request_browser_overlap",
+            side_effect=request,
+        ):
+            result = capture_initial_gameplay_overlap(
+                host, join, Path("unused"), []
+            )
+
+        self.assertEqual(result, {"host": 10, "join": 10})
+        self.assertEqual(events, [
+            "tick-host", "tick-join", "hide-host", "hide-join",
+            "capture-host", "capture-join",
+        ])
+
+    def test_overlap_checkpoint_persists_peer_lockstep_proof(self):
+        host = object()
+        join = object()
+        states = {
+            host: {"publicKey": "host-key", "game": {
+                "currentTick": 17, "stateHash": "same-hash",
+                "blueContiguous": 4, "redContiguous": 3,
+                "blueMissing": [], "redMissing": [],
+            }},
+            join: {"publicKey": "join-key", "game": {
+                "currentTick": 17, "stateHash": "same-hash",
+                "blueContiguous": 4, "redContiguous": 3,
+                "blueMissing": [], "redMissing": [],
+            }},
+        }
+        with tempfile.TemporaryDirectory() as directory, patch(
+            "nostr_multiplayer_smoke_test.diagnostics",
+            side_effect=lambda driver: states[driver],
+        ):
+            checkpoint = write_overlap_checkpoint(
+                Path(directory), host, join, {"host": 10, "join": 10}
+            )
+            stored = json.loads(
+                (Path(directory) / "overlap-checkpoint.json").read_text()
+            )
+
+        self.assertEqual(stored, checkpoint)
+        self.assertEqual(stored["status"], "FOCUSED_PASS")
+        self.assertNotEqual(stored["hostPublicKey"],
+                            stored["joinPublicKey"])
+        self.assertEqual(stored["host"]["stateHash"],
+                         stored["join"]["stateHash"])
 
     def test_prepares_both_divergent_cameras_before_correlated_capture(self):
         host = object()

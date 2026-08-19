@@ -435,6 +435,44 @@ class AuditedInputTests(unittest.TestCase):
                 baseline_position=(10, 10),
             )
 
+    def test_drawable_direction_accepts_settled_command_endpoint(self):
+        host = object()
+        join = object()
+
+        def state(_driver):
+            return {"entities": [{
+                "id": 9, "owner": 1, "moving": False,
+                "interpolating": False,
+                "previousPosition": {"x": 37, "y": 5},
+                "simulationPosition": {"x": 36, "y": 4},
+            }]}
+
+        with patch("nostr_multiplayer_smoke_test.render_diagnostics", state):
+            wait_for_drawable_direction(
+                host, join, owner=1, entity_id=9, direction=4,
+                baseline_position=(40, 8),
+            )
+
+    def test_drawable_direction_ignores_opponent_fog_omission(self):
+        host = object()
+        join = object()
+
+        def state(driver):
+            if driver is host:
+                return {"entities": []}
+            return {"entities": [{
+                "id": 9, "owner": 1, "moving": False,
+                "interpolating": False,
+                "previousPosition": {"x": 37, "y": 5},
+                "simulationPosition": {"x": 36, "y": 4},
+            }]}
+
+        with patch("nostr_multiplayer_smoke_test.render_diagnostics", state):
+            wait_for_drawable_direction(
+                host, join, owner=1, entity_id=9, direction=4,
+                baseline_position=(40, 8),
+            )
+
     def test_exports_live_renderer_overlap_inputs_as_png_manifest(self):
         manifest = {"cases": [{
             "id": "unit-7", "actual": "actual.bmp", "terrain": "terrain.bmp",
@@ -641,6 +679,11 @@ class AuditedInputTests(unittest.TestCase):
             "nostr_multiplayer_smoke_test.prepare_correlated_entity_capture",
             return_value=(18, 11),
         ) as prepare, patch(
+            "nostr_multiplayer_smoke_test.render_diagnostics",
+            return_value={"entities": [{
+                "id": 7, "layers": [{"visible": True}],
+            }]},
+        ), patch(
             "nostr_multiplayer_smoke_test.request_correlated_pixel_capture",
             side_effect=[EmptyPixelCapture("host empty"), captured],
         ) as request:
@@ -665,11 +708,59 @@ class AuditedInputTests(unittest.TestCase):
             ["EMPTY", "CAPTURED"],
         )
 
+    def test_pixel_capture_excludes_opponent_hidden_by_fog(self):
+        host = object()
+        join = object()
+
+        def render(driver):
+            if driver is host:
+                return {"entities": []}
+            return {"entities": [{
+                "id": 9, "layers": [{"visible": True}],
+            }]}
+
+        captured = {"peers": {"join": {}}}
+        with tempfile.TemporaryDirectory() as directory, patch(
+            "nostr_multiplayer_smoke_test.prepare_correlated_entity_capture",
+            return_value=(36, 4),
+        ), patch(
+            "nostr_multiplayer_smoke_test.render_diagnostics",
+            side_effect=render,
+        ), patch(
+            "nostr_multiplayer_smoke_test.request_correlated_pixel_capture",
+            return_value=captured,
+        ) as request:
+            result = request_prepared_correlated_pixel_capture(
+                object(), host, "join", object(), join, "host",
+                host, join, [], Path(directory), "direction-4",
+                owner=1, entity_id=9, direction=4,
+                baseline_position=(40, 8),
+            )
+
+        self.assertEqual(result, {
+            **captured,
+            "attempts": [{
+                "attempt": 1,
+                "requestLabel": "direction-4-exact-attempt-1",
+                "position": {"x": 36, "y": 4},
+                "status": "CAPTURED",
+            }],
+            "attemptLedger": (
+                "pixel-oracle/direction-4/capture-attempts.json"
+            ),
+        })
+        self.assertEqual(request.call_args.kwargs["peers"], ("join",))
+
     def test_exhausted_empty_capture_attempts_remain_a_failure(self):
         with tempfile.TemporaryDirectory() as directory, patch(
             "nostr_multiplayer_smoke_test.prepare_correlated_entity_capture",
             return_value=(18, 11),
         ) as prepare, patch(
+            "nostr_multiplayer_smoke_test.render_diagnostics",
+            return_value={"entities": [{
+                "id": 7, "layers": [{"visible": True}],
+            }]},
+        ), patch(
             "nostr_multiplayer_smoke_test.request_correlated_pixel_capture",
             side_effect=[EmptyPixelCapture(f"empty {attempt}")
                          for attempt in range(3)],

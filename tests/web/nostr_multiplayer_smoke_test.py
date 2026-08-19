@@ -1241,7 +1241,7 @@ def prepare_correlated_entity_capture(
     host, join, actions: list[dict[str, object]], *, owner: int,
     entity_id: int, direction: int, baseline_position: tuple[int, int],
 ) -> tuple[int, int]:
-    """Put one synchronized entity visibly on both peers before capture."""
+    """Put one synchronized entity visibly on its owning peer before capture."""
     games = wait_until(
         f"{actor} synchronized correlated capture entity {entity_id}",
         lambda: matching_games(host, join), timeout=WAIT_SECONDS,
@@ -1280,7 +1280,7 @@ def prepare_correlated_entity_capture(
 
     # Camera travel consumes simulation time. Re-prove the intended motion
     # direction after both pans, then require a visible production layer on
-    # each peer before arming the exact-frame capture request.
+    # the owning peer. Opposing peers may correctly omit it under fog.
     wait_for_drawable_direction(
         host, join, owner=owner, entity_id=entity_id,
         direction=direction, baseline_position=baseline_position,
@@ -1301,12 +1301,10 @@ def prepare_correlated_entity_capture(
             for layer in layers
         ) else None
 
-    for peer, peer_driver in (("host", host), ("join", join)):
-        wait_until(
-            f"{peer} visible correlated capture entity {entity_id}",
-            lambda peer_driver=peer_driver: visible_entity(peer_driver),
-            timeout=WAIT_SECONDS,
-        )
+    wait_until(
+        f"{actor} visible correlated capture entity {entity_id}",
+        lambda: visible_entity(driver), timeout=WAIT_SECONDS,
+    )
     return position
 
 
@@ -1329,9 +1327,27 @@ def request_prepared_correlated_pixel_capture(
             direction=direction, baseline_position=baseline_position,
         )
         request_label = f"{label}-exact-attempt-{attempt}"
+        visible_peers = tuple(
+            peer for peer, peer_driver in (("host", host), ("join", join))
+            if any(
+                isinstance(entity, dict) and
+                int(entity.get("id", -1)) == entity_id and
+                any(isinstance(layer, dict) and
+                    bool(layer.get("visible", False))
+                    for layer in entity.get("layers", []))
+                for entity in (render_diagnostics(peer_driver) or {}).get(
+                    "entities", []
+                )
+            )
+        )
+        if actor not in visible_peers:
+            raise Failure(
+                f"{actor} exact pixel capture entity {entity_id} is hidden"
+            )
         try:
             capture = request_correlated_pixel_capture(
                 host, join, root, request_label, entity_id,
+                peers=visible_peers,
             )
         except EmptyPixelCapture as error:
             outcomes.append({
@@ -1516,8 +1532,7 @@ def exercise_all_direction_route(
                     baseline_position=current,
                 )
                 pixel_oracles = []
-                for peer in ("host", "join"):
-                    capture_metadata = pixel_capture["peers"][peer]
+                for peer, capture_metadata in pixel_capture["peers"].items():
                     manifest_path = artifact_dir / capture_metadata[
                         "manifest"
                     ]
@@ -4554,22 +4569,26 @@ def write_overlap_checkpoint(
 
 
 def request_correlated_pixel_capture(
-    host, join, root: Path, label: str, entity_id: int,
+    host, join, root: Path, label: str, entity_id: int, *,
+    peers: tuple[str, ...] = ("host", "join"),
 ) -> dict[str, object]:
-    """Capture each peer's next real production frame after same command."""
+    """Capture each visible peer's production frame after same command."""
     safe_label = "".join(
         character if character.isalnum() or character in "-_" else "-"
         for character in label
     )
     virtual_root = f"/audit-pixels/{safe_label}"
-    for driver in (host, join):
+    peer_drivers = {"host": host, "join": join}
+    for peer in peers:
+        driver = peer_drivers[peer]
         driver.execute_script(
             "Module.browserPixelCaptureComplete = null;"
             "Module.browserPixelCaptureRequest = arguments[0];",
             virtual_root,
         )
     captures: dict[str, object] = {}
-    for peer, driver in (("host", host), ("join", join)):
+    for peer in peers:
+        driver = peer_drivers[peer]
         wait_until(
             f"{peer} exact pixel capture {safe_label}",
             lambda: True if driver.execute_script(
@@ -4879,7 +4898,8 @@ def wait_for_drawable_direction(
     baseline_position: tuple[int, int],
 ) -> None:
     def matched() -> bool | None:
-        for driver in (host, join):
+        owner_driver = host if owner == 0 else join
+        for driver in (owner_driver,):
             state = render_diagnostics(driver) or {}
             entity = next((
                 candidate for candidate in state.get("entities", [])
@@ -4887,7 +4907,7 @@ def wait_for_drawable_direction(
                 int(candidate.get("id", -1)) == entity_id and
                 int(candidate.get("owner", -1)) == owner
             ), None)
-            if not entity or not bool(entity.get("interpolating", False)):
+            if not entity:
                 return None
             previous = entity.get("previousPosition")
             current = entity.get("simulationPosition")
@@ -4902,6 +4922,10 @@ def wait_for_drawable_direction(
             )
             if resolved != direction:
                 return None
+            # Polling can observe a short segment only after its final
+            # interpolation interval. The endpoint still proves this command's
+            # direction because it differs from the pre-command baseline and
+            # retains the final authoritative step used by the renderer.
         return True
 
     wait_until(

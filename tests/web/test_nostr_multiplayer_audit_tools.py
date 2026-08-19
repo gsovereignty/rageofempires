@@ -378,6 +378,36 @@ class AuditedInputTests(unittest.TestCase):
             call(0.05), call(0.05), call(0.05),
         ])
 
+    def test_shift_right_click_preserves_requested_mouse_button(self):
+        class Canvas:
+            rect = {"x": 0, "y": 0, "width": 1280, "height": 720}
+
+        class Driver:
+            def __init__(self):
+                self.events = []
+
+            def find_element(self, *_):
+                return Canvas()
+
+            def execute_cdp_cmd(self, name, event):
+                self.events.append((name, event))
+
+        driver = Driver()
+        with patch("nostr_multiplayer_smoke_test.time.sleep"):
+            click_canvas_logical(
+                driver, 100, 200, button=2,
+                modifiers=CDP_SHIFT_MODIFIER,
+            )
+        mouse_events = [
+            event for name, event in driver.events
+            if name == "Input.dispatchMouseEvent"
+        ]
+        self.assertEqual(
+            [(event["button"], event["buttons"])
+             for event in mouse_events],
+            [("right", 2), ("right", 0)],
+        )
+
     def test_shift_click_releases_shift_after_mouse_failure(self):
         class Canvas:
             rect = {"x": 0, "y": 0, "width": 1280, "height": 720}

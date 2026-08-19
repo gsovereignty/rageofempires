@@ -4985,6 +4985,14 @@ def click_canvas_logical(driver, x: float, y: float,
         page_y = rect["y"] + y * rect["height"] / 720.0
         if modifiers != CDP_SHIFT_MODIFIER:
             raise ValueError("unsupported canvas click modifiers")
+        cdp_buttons = {
+            0: ("left", 1),
+            1: ("middle", 4),
+            2: ("right", 2),
+        }
+        if button not in cdp_buttons:
+            raise ValueError("unsupported canvas mouse button")
+        cdp_button, cdp_button_mask = cdp_buttons[button]
         shift_event = {
             "key": "Shift", "code": "ShiftLeft",
             "windowsVirtualKeyCode": 16,
@@ -5000,14 +5008,14 @@ def click_canvas_logical(driver, x: float, y: float,
             time.sleep(0.05)
             driver.execute_cdp_cmd("Input.dispatchMouseEvent", {
                 "type": "mousePressed", "x": page_x, "y": page_y,
-                "button": "left",
-                "buttons": 1,
+                "button": cdp_button,
+                "buttons": cdp_button_mask,
                 "clickCount": 1, "modifiers": modifiers,
             })
             time.sleep(0.05)
             driver.execute_cdp_cmd("Input.dispatchMouseEvent", {
                 "type": "mouseReleased", "x": page_x, "y": page_y,
-                "button": "left", "buttons": 0,
+                "button": cdp_button, "buttons": 0,
                 "clickCount": 1, "modifiers": modifiers,
             })
             time.sleep(0.05)

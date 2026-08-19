@@ -34,12 +34,16 @@ EM_JS(void, publish_browser_pixel_capture_complete_js,
     });
 
 EM_JS(void, publish_browser_shutdown_diagnostics_js, (const char* reason), {
-    Module.browserShutdownDiagnostics = {
+    const diagnostics = {
       reason: UTF8ToString(reason),
       monotonicMs: performance.now(),
       lifecycle: Module.browserLifecycle
         ? {...Module.browserLifecycle} : null
     };
+    Module.browserShutdownDiagnostics = diagnostics;
+    if (Module.browserNostrShutdownDiagnostics) {
+      Module.browserNostrShutdownDiagnostics.context = diagnostics;
+    }
 });
 
 EM_JS(void, publish_browser_telemetry_js,

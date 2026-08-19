@@ -22611,6 +22611,24 @@ void multiplayer_lockstep_handles_transport_disorder_deterministically() {
     require(buffered.advance(future));
     require(buffered.status() == aoe::LockstepStatus::running);
 
+    aoe::LockstepSession future_checkpoint("scenario-v62", 4, 2);
+    start_session(future_checkpoint, future);
+    aoe::LockstepFrame future_checkpoint_blue{
+        aoe::LockstepFrameKind::turn,
+        aoe::lockstep_protocol_version,
+        aoe::Player::blue,
+        "scenario-v62",
+        2, 2, "future-checkpoint", {},
+    };
+    aoe::LockstepFrame future_checkpoint_red = future_checkpoint_blue;
+    future_checkpoint_red.player = aoe::Player::red;
+    require(future_checkpoint.receive(future_checkpoint_blue, future));
+    require(future_checkpoint.receive(future_checkpoint_red, future));
+    aoe::LockstepFrame unexpected_future_hash = future_checkpoint_blue;
+    unexpected_future_hash.tick = 1;
+    unexpected_future_hash.sequence = 1;
+    require(!future_checkpoint.receive(unexpected_future_hash, future));
+
     aoe::Simulation ownership_sim = aoe::Simulation::create_demo();
     aoe::LockstepSession ownership("scenario-v62", 4, 1);
     require(!ownership.connected(aoe::Player::blue));

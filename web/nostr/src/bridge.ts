@@ -11,6 +11,8 @@ type EmscriptenModule = {
   _aoe_nostr_publish_result(pointer: number, size: number): void;
   browserNostrDiagnostics?: () => unknown;
   browserNostrGameDiagnostics?: unknown;
+  browserShutdownDiagnostics?: unknown;
+  browserNostrShutdownDiagnostics?: unknown;
   canonicalNostrRelays?: string[];
   canonicalNostrRelayDigest?: string;
 };
@@ -34,6 +36,20 @@ declare global {
 
 const encoder = new TextEncoder();
 
+export function makeShutdownDiagnostics(
+  context: unknown,
+  clientDiagnostics: unknown,
+  hadClient: boolean,
+  wallTimeMs: number,
+): Record<string, unknown> {
+  return {
+    context: context ?? null,
+    client: clientDiagnostics ?? null,
+    hadClient,
+    wallTimeMs,
+  };
+}
+
 function emit(channel: BridgeChannel, json: string): void {
   const module = globalThis.Module;
   if (!module) throw new Error("Emscripten module is not initialized");
@@ -56,8 +72,10 @@ const facade = {
     client?.shutdown();
     client = new AoeNostrClient(emit);
     if (globalThis.Module) {
+      globalThis.Module.browserNostrShutdownDiagnostics = null;
       globalThis.Module.browserNostrDiagnostics = () => ({
         ...(client?.diagnostics() as Record<string, unknown> ?? {}),
+        shutdown: globalThis.Module?.browserNostrShutdownDiagnostics ?? null,
         game: globalThis.Module?.browserNostrGameDiagnostics ?? null,
       });
     }
@@ -96,6 +114,17 @@ const facade = {
     client?.selectLobby(matchReference);
   },
   shutdown(): void {
+    const hadClient = client !== undefined;
+    const finalDiagnostics = client?.diagnostics() ?? null;
+    if (globalThis.Module) {
+      globalThis.Module.browserNostrShutdownDiagnostics =
+        makeShutdownDiagnostics(
+          globalThis.Module.browserShutdownDiagnostics,
+          finalDiagnostics,
+          hadClient,
+          Date.now(),
+        );
+    }
     client?.shutdown();
     client = undefined;
   },

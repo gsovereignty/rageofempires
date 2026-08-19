@@ -1006,9 +1006,11 @@ def capture_until_arrival(
     host, join, *, owner: int, unit_id: int,
     destination: tuple[int, int], artifact_dir: Path, label: str,
     allow_adjacent_resolution: bool = False,
+    require_departure: bool = False,
 ) -> list[dict[str, object]]:
     acceptance_deadline = time.monotonic() + COMMAND_ACCEPTANCE_SECONDS
     arrival_deadline: float | None = None
+    departed = [False, False]
     samples: list[dict[str, object]] = []
     seen: set[tuple[int, int]] = set()
     while (time.monotonic() < acceptance_deadline if arrival_deadline is None
@@ -1029,14 +1031,21 @@ def capture_until_arrival(
             games, owner=owner, unit_id=unit_id,
             destination=destination,
         )
-        if status == "arrived":
+        units = [next((
+            value for value in game.get("units", [])
+            if int(value.get("owner", -1)) == owner and
+            int(value.get("id", -1)) == unit_id
+        ), None) for game in games]
+        for index, unit in enumerate(units):
+            if unit is not None and (
+                int(unit["x"]), int(unit["y"])
+            ) != destination:
+                departed[index] = True
+        if status == "arrived" and (
+            all(departed) or not require_departure
+        ):
             return samples
         if allow_adjacent_resolution:
-            units = [next((
-                value for value in game.get("units", [])
-                if int(value.get("owner", -1)) == owner and
-                int(value.get("id", -1)) == unit_id
-            ), None) for game in games]
             if all(
                 unit is not None and not bool(unit.get("moving")) and
                 int(unit.get("waypointCount", -1)) == 0 and
@@ -1879,6 +1888,7 @@ def exercise_transition_routes(
                             f"{actor}-{route_name}"
                             f"-attempt-{command_attempt + 1}"
                         ),
+                        require_departure=True,
                     )
                     route_frames.extend(frames)
                     record_command_boundary(

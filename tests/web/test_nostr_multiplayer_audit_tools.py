@@ -1211,6 +1211,40 @@ class FailureEvidenceTests(unittest.TestCase):
                     label="absent-command",
                 )
 
+    def test_closed_route_waits_for_departure_before_final_arrival(self):
+        def game(x, y, destination_x, destination_y, *, waypoints=0):
+            return {"units": [{
+                "id": 9, "owner": 1, "x": x, "y": y,
+                "destinationX": destination_x,
+                "destinationY": destination_y,
+                "moving": (x, y) != (destination_x, destination_y),
+                "waypointCount": waypoints,
+            }]}
+
+        initial = game(20, 12, 20, 12, waypoints=4)
+        moving = game(22, 12, 20, 12, waypoints=3)
+        arrived = game(20, 12, 20, 12)
+        diagnostics = [
+            initial, copy.deepcopy(initial),
+            moving, copy.deepcopy(moving),
+            arrived, copy.deepcopy(arrived),
+        ]
+        with patch(
+            "nostr_multiplayer_smoke_test.capture_correlated_frames",
+            return_value=[],
+        ), patch(
+            "nostr_multiplayer_smoke_test.game_diagnostics",
+            side_effect=diagnostics,
+        ), patch(
+            "nostr_multiplayer_smoke_test.time.monotonic",
+            side_effect=[0.0, 0.1, 0.2, 0.3, 0.4],
+        ):
+            self.assertEqual(capture_until_arrival(
+                object(), object(), owner=1, unit_id=9,
+                destination=(20, 12), artifact_dir=Path("ignored"),
+                label="closed-route", require_departure=True,
+            ), [])
+
     def test_failure_bundle_preserves_actual_completed_ui_actions(self):
         actions = [{"kind": "world-pointer", "tileX": 24, "tileY": 20}]
         merged = failure_bundle_evidence({

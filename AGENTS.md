@@ -81,6 +81,29 @@ preserve or export it there before continuing or making any completion claim.
 If no suitable destination is known, do not run the audit; establish the
 destination first.
 
+## Browser multiplayer test harness
+
+The complete reproducible browser multiplayer test-harness source lives in
+this repository. Treat these tracked files as the authoritative harness:
+
+- `tests/web/nostr_multiplayer_smoke_test.py` is the main two-browser runner.
+- `tests/web/test_nostr_multiplayer_audit_tools.py` contains harness regression
+  tests.
+- `tools/run_nostr_visual_audit.py` and
+  `tools/run_nostr_visual_display_matrix.py` orchestrate visual audit runs.
+- `tools/nostr_*` contains the seeded-action, coverage, frame, pixel, route,
+  transition, sprite, and packaged-oracle helpers.
+- `Makefile` owns supported build, test, and audit entry points.
+- `.agents/skills/audit-browser-multiplayer-gameplay/SKILL.md` defines the
+  production audit contract.
+
+Generated or externally supplied runtime pieces are intentionally not tracked
+as harness source: `build-web/dist/`, `build-web/selenium-venv/`, browser and
+WebDriver installations, public Nostr relays, and run evidence under
+`artifacts/`. Do not treat their absence from Git as missing harness source.
+Do not introduce a parent-directory runtime dependency to provide any of these
+pieces.
+
 ## Production-fix completion gate
 
 Never classify, describe, count, or report a bug as fixed until all of these

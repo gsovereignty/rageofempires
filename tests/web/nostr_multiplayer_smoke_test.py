@@ -597,10 +597,11 @@ def audited_held_key(driver, actions: list[dict[str, object]], actor: str,
         "telemetryTick": int(render.get("tick", -1)),
         "renderFrame": int(render.get("frame", -1)),
     })
-    canvas = driver.find_element(By.ID, "canvas")
-    ActionChains(driver).key_down(key, canvas).pause(seconds).key_up(
-        key, canvas
-    ).perform()
+    # SDL consumes keyboard events at the window level. Passing the canvas as
+    # the optional key target makes Selenium move to and click its center
+    # before dispatching the key, which can replace an existing multi-unit
+    # selection while camera movement is being requested.
+    ActionChains(driver).key_down(key).pause(seconds).key_up(key).perform()
 
 
 def audited_zoom(

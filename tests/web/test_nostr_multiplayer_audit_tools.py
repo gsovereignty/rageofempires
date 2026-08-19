@@ -22,6 +22,7 @@ from nostr_multiplayer_smoke_test import (
     allocate_audit_destination,
     analyze_render_samples,
     analyze_render_samples_for_audit,
+    audited_held_key,
     audited_key,
     audited_zoom,
     banked_resource_increased,
@@ -1468,6 +1469,42 @@ class FailureEvidenceTests(unittest.TestCase):
 
 
 class RenderOracleTests(unittest.TestCase):
+    def test_held_camera_key_does_not_click_canvas(self):
+        calls = []
+
+        class Chain:
+            def __init__(self, driver):
+                calls.append(("driver", driver))
+
+            def key_down(self, *args):
+                calls.append(("down", args))
+                return self
+
+            def pause(self, seconds):
+                calls.append(("pause", seconds))
+                return self
+
+            def key_up(self, *args):
+                calls.append(("up", args))
+                return self
+
+            def perform(self):
+                calls.append(("perform",))
+
+        driver = object()
+        with patch(
+            "nostr_multiplayer_smoke_test.render_diagnostics",
+            return_value={"tick": 12, "frame": 34},
+        ), patch(
+            "nostr_multiplayer_smoke_test.ActionChains", Chain,
+        ):
+            audited_held_key(
+                driver, [], "join", Keys.ARROW_DOWN, seconds=0.2,
+            )
+
+        self.assertEqual(calls[1], ("down", (Keys.ARROW_DOWN,)))
+        self.assertEqual(calls[3], ("up", (Keys.ARROW_DOWN,)))
+
     def test_camera_accepts_right_clamp_route_tile_left_of_controls(self):
         class Journey:
             def telemetry(self):

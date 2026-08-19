@@ -7,7 +7,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 from PIL import Image
 
@@ -282,7 +282,7 @@ class AuditedInputTests(unittest.TestCase):
         self.assertEqual([value["kind"] for value in actions],
                          ["first", "second"])
 
-    def test_shift_click_uses_cdp_shift_bit(self):
+    def test_shift_click_holds_real_shift_across_mouse_press(self):
         class Canvas:
             rect = {"x": 0, "y": 0, "width": 1280, "height": 720}
 
@@ -297,11 +297,50 @@ class AuditedInputTests(unittest.TestCase):
                 self.events.append((name, event))
 
         driver = Driver()
-        click_canvas_logical(
-            driver, 100, 200, modifiers=CDP_SHIFT_MODIFIER
+        with patch("nostr_multiplayer_smoke_test.time.sleep") as sleep:
+            click_canvas_logical(
+                driver, 100, 200, modifiers=CDP_SHIFT_MODIFIER
+            )
+        self.assertEqual([
+            (name, event["type"])
+            for name, event in driver.events
+        ], [
+            ("Input.dispatchKeyEvent", "keyDown"),
+            ("Input.dispatchMouseEvent", "mousePressed"),
+            ("Input.dispatchMouseEvent", "mouseReleased"),
+            ("Input.dispatchKeyEvent", "keyUp"),
+        ])
+        self.assertEqual(
+            [event["modifiers"] for _, event in driver.events[:3]],
+            [CDP_SHIFT_MODIFIER] * 3,
         )
-        self.assertEqual([event[1]["modifiers"] for event in driver.events],
-                         [8, 8])
+        self.assertEqual(sleep.call_args_list, [
+            call(0.05), call(0.05), call(0.05),
+        ])
+
+    def test_shift_click_releases_shift_after_mouse_failure(self):
+        class Canvas:
+            rect = {"x": 0, "y": 0, "width": 1280, "height": 720}
+
+        class Driver:
+            def __init__(self):
+                self.events = []
+
+            def find_element(self, *_):
+                return Canvas()
+
+            def execute_cdp_cmd(self, name, event):
+                self.events.append((name, event))
+                if event["type"] == "mousePressed":
+                    raise RuntimeError("mouse dispatch failed")
+
+        driver = Driver()
+        with self.assertRaisesRegex(RuntimeError, "mouse dispatch failed"):
+            click_canvas_logical(
+                driver, 100, 200, modifiers=CDP_SHIFT_MODIFIER
+            )
+        self.assertEqual(driver.events[-1][0], "Input.dispatchKeyEvent")
+        self.assertEqual(driver.events[-1][1]["type"], "keyUp")
 
     def test_replayable_action_stream_retains_order_and_relative_timing(self):
         actions = [

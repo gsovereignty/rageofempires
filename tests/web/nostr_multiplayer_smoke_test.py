@@ -4632,12 +4632,37 @@ def click_canvas_logical(driver, x: float, y: float,
     if modifiers:
         page_x = rect["x"] + x * rect["width"] / 1280.0
         page_y = rect["y"] + y * rect["height"] / 720.0
-        for event_type in ("mousePressed", "mouseReleased"):
+        if modifiers != CDP_SHIFT_MODIFIER:
+            raise ValueError("unsupported canvas click modifiers")
+        shift_event = {
+            "key": "Shift", "code": "ShiftLeft",
+            "windowsVirtualKeyCode": 16,
+            "nativeVirtualKeyCode": 16,
+        }
+        driver.execute_cdp_cmd("Input.dispatchKeyEvent", {
+            "type": "keyDown", **shift_event,
+            "modifiers": CDP_SHIFT_MODIFIER,
+        })
+        try:
+            # Let browser-to-SDL keyboard state reach its event pump before
+            # mouse input, then keep Shift down until mouse-up is consumed.
+            time.sleep(0.05)
             driver.execute_cdp_cmd("Input.dispatchMouseEvent", {
-                "type": event_type, "x": page_x, "y": page_y,
+                "type": "mousePressed", "x": page_x, "y": page_y,
                 "button": "left",
-                "buttons": 1 if event_type == "mousePressed" else 0,
+                "buttons": 1,
                 "clickCount": 1, "modifiers": modifiers,
+            })
+            time.sleep(0.05)
+            driver.execute_cdp_cmd("Input.dispatchMouseEvent", {
+                "type": "mouseReleased", "x": page_x, "y": page_y,
+                "button": "left", "buttons": 0,
+                "clickCount": 1, "modifiers": modifiers,
+            })
+            time.sleep(0.05)
+        finally:
+            driver.execute_cdp_cmd("Input.dispatchKeyEvent", {
+                "type": "keyUp", **shift_event,
             })
         return
     mouse = PointerInput("mouse", "multiplayer UI")

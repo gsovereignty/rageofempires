@@ -23,7 +23,10 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.actions.action_builder import ActionBuilder
 from selenium.webdriver.common.actions.pointer_input import PointerInput
 from selenium.webdriver.common.by import By
-from selenium.common.exceptions import StaleElementReferenceException
+from selenium.common.exceptions import (
+    ElementClickInterceptedException,
+    StaleElementReferenceException,
+)
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import Select
 from PIL import Image
@@ -3685,7 +3688,7 @@ def matching_games(host, join):
 def relay_blocker_from_diagnostics(
     host_state: object, join_state: object,
 ) -> dict[str, object] | None:
-    """Classify evidenced non-active production reliability as infrastructure."""
+    """Classify only reliability states that directly prove relay failure."""
     states = {"host": host_state, "join": join_state}
     peers: dict[str, dict[str, int]] = {}
     rejected_publications: dict[str, list[dict[str, object]]] = {}
@@ -3714,12 +3717,13 @@ def relay_blocker_from_diagnostics(
                     "acceptedRelayCount": accepted,
                     "results": results,
                 })
-    if (all(value["status"] == 0 for value in peers.values()) and
+    relay_reasons = {2, 5, 7}
+    if (not any(value["reason"] in relay_reasons for value in peers.values()) and
             not rejected_publications):
         return None
     return {
         "classification": "public-relay-infrastructure",
-        "policy": "production-reliability-or-publish-quorum-v1",
+        "policy": "direct-relay-reason-or-publish-quorum-v2",
         "peers": peers,
         "rejectedPublications": rejected_publications,
     }
@@ -5130,12 +5134,27 @@ def set_relay_enabled(driver, relay_index: int, enabled: bool) -> None:
     if not details.get_attribute("open"):
         driver.execute_script("arguments[0].open = true", details)
     selector = f"#relay-controls button[data-relay-index='{relay_index}']"
+    wait_until(
+        f"relay {relay_index} production control",
+        lambda: next(iter(driver.find_elements(By.CSS_SELECTOR, selector)), None),
+        timeout=WAIT_SECONDS,
+    )
     for attempt in range(10):
         try:
             button = driver.find_element(By.CSS_SELECTOR, selector)
             current = button.get_attribute("data-enabled") == "true"
             if current != enabled:
-                button.click()
+                driver.execute_script(
+                    "arguments[0].scrollIntoView({block: 'center'});", button
+                )
+                try:
+                    button.click()
+                except ElementClickInterceptedException:
+                    # Diagnostics refresh replaces a long relay-control list
+                    # while Selenium computes viewport click coordinates.
+                    # Dispatch through the current production button itself.
+                    button = driver.find_element(By.CSS_SELECTOR, selector)
+                    driver.execute_script("arguments[0].click();", button)
             return
         except StaleElementReferenceException:
             if attempt == 9:
@@ -5230,17 +5249,17 @@ def exercise_relay_chaos(host, join, relays: str) -> dict[str, object]:
         "stableTicks": stopped_ticks,
     }
 
-    # Restore the full production relay pool before requiring active status.
-    # Two EOSE relays satisfy transport quorum, but failed turn publications
-    # can still require observations from the original pool before the
-    # runtime can leave backfill_incomplete.
+    # Restore every configured control before requiring active status. Relay
+    # pool identity remains the exact ordered production list, but transiently
+    # unavailable public relays must not be confused with transport quorum.
+    operational_quorum = min(2, relay_count)
     for relay_index in range(relay_count):
         for driver in (host, join):
             set_relay_enabled(driver, relay_index, True)
     recovered = wait_until(
         "relay EOSE backfill and lockstep recovery",
         lambda: matching_relay_state(
-            host, join, disabled=0, status=0, eose=relay_count,
+            host, join, disabled=0, status=0, eose=operational_quorum,
         ),
         timeout=WAIT_SECONDS,
     )
@@ -5248,12 +5267,12 @@ def exercise_relay_chaos(host, join, relays: str) -> dict[str, object]:
         "host": recovered[0], "join": recovered[1]
     }
     wait_until(
-        "all configured relays restored through EOSE",
+        "all configured relay controls restored with EOSE quorum",
         lambda: (
             True if all(
                 not (state := diagnostics(driver) or {}).get(
                     "disabledRelays"
-                ) and len(state.get("eoseRelays", [])) >= relay_count
+                ) and len(state.get("eoseRelays", [])) >= operational_quorum
                 for driver in (host, join)
             ) else None
         ),
@@ -5269,7 +5288,7 @@ def exercise_relay_chaos(host, join, relays: str) -> dict[str, object]:
     wait_until(
         "post-recovery ordinary input advances lockstep",
         lambda: matching_relay_state(
-            host, join, disabled=0, status=0, eose=relay_count,
+            host, join, disabled=0, status=0, eose=operational_quorum,
             minimum_tick=resumed_tick + 1,
         ),
         timeout=WAIT_SECONDS,

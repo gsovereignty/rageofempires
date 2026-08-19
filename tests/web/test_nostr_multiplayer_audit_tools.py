@@ -247,17 +247,26 @@ def gathering_sample(*, amount: int = 100, include_resource: bool = True):
 
 
 class AuditedInputTests(unittest.TestCase):
-    def test_non_active_reliability_is_infrastructure_blocker(self):
+    def test_direct_relay_reliability_is_infrastructure_blocker(self):
         blocker = relay_blocker_from_diagnostics(
             {"game": {"reliabilityStatus": 1, "reliabilityReason": 7}},
-            {"game": {"reliabilityStatus": 2, "reliabilityReason": 1}},
+            {"game": {"reliabilityStatus": 2, "reliabilityReason": 5}},
         )
         self.assertEqual(
             blocker["classification"], "public-relay-infrastructure"
         )
         self.assertEqual(blocker["peers"]["join"], {
-            "status": 2, "reason": 1,
+            "status": 2, "reason": 5,
         })
+
+    def test_peer_silence_alone_is_not_attributed_to_relays(self):
+        host = {"game": {
+            "reliabilityStatus": 0, "reliabilityReason": 0,
+        }}
+        join = {"game": {
+            "reliabilityStatus": 2, "reliabilityReason": 1,
+        }}
+        self.assertIsNone(relay_blocker_from_diagnostics(host, join))
 
     def test_active_reliability_is_not_infrastructure_blocker(self):
         state = {"game": {

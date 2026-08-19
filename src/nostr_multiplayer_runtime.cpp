@@ -873,6 +873,17 @@ public:
         const Economy& red_economy = simulation.economy(Player::red);
         std::ostringstream output;
         output << "{\"currentTick\":" << current_tick()
+               << ",\"protocolVersion\":" << nostr_match_protocol_version
+               << ",\"epoch\":" << match_epoch
+               << ",\"localSlot\":" << slot_number(local_slot_)
+               << ",\"hostPublicKey\":"
+               << json_string(host_public_key_)
+               << ",\"bluePublicKey\":"
+               << json_string(config_.blue.peer_id)
+               << ",\"redPublicKey\":"
+               << json_string(config_.red.peer_id)
+               << ",\"configDigest\":"
+               << json_string(lockstep_config_digest(config_))
                << ",\"stateHash\":\""
                << deterministic_state_hash(simulation) << '"'
                << ",\"scenarioDigest\":"
@@ -888,6 +899,24 @@ public:
                << ",\"usableRelayCount\":" << usable_relay_count()
                << ",\"eoseRelayCount\":" << eose_relay_count()
                << ",\"lobbyRevision\":" << accepted_lobby_revision_
+               << ",\"lobbyEventId\":"
+               << json_string(accepted_lobby_event_id_)
+               << ",\"blueAckEventId\":"
+               << json_string(
+                      ack_event_ids_[0].value_or(std::string{})
+                  )
+               << ",\"redAckEventId\":"
+               << json_string(
+                      ack_event_ids_[1].value_or(std::string{})
+                  )
+               << ",\"blueReadyEventId\":"
+               << json_string(
+                      ready_event_ids_[0].value_or(std::string{})
+                  )
+               << ",\"redReadyEventId\":"
+               << json_string(
+                      ready_event_ids_[1].value_or(std::string{})
+                  )
                << ",\"startRequested\":"
                << (start_requested_ ? "true" : "false")
                << ",\"startSent\":" << (start_sent_ ? "true" : "false")

@@ -1,5 +1,6 @@
 #include "aoe/frontend_game_modes.hpp"
 
+#include <algorithm>
 #ifdef NDEBUG
 #undef NDEBUG
 #endif

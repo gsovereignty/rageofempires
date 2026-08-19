@@ -29,6 +29,7 @@ from nostr_multiplayer_smoke_test import (
     capture_initial_gameplay_overlap,
     capture_browser_overlap,
     capture_catalog_semantic_pixels,
+    capture_route_pixel_or_unsampled,
     capture_until_arrival,
     center_camera_for_tile,
     click_canvas_logical,
@@ -42,6 +43,7 @@ from nostr_multiplayer_smoke_test import (
     collapse_match_details,
     diagnostics,
     evaluate_packaged_capture,
+    entity_arrived_on_both_peers,
     initialize_run_ledger,
     load_default_relays,
     relay_pool_digest,
@@ -49,6 +51,7 @@ from nostr_multiplayer_smoke_test import (
     narrow_passage_egress,
     validate_cand003_route_state,
     parse_viewport,
+    PostCameraDirectionExpired,
     probe_relay_pool,
     prepare_correlated_entity_capture,
     render_diagnostics,
@@ -703,6 +706,57 @@ class AuditedInputTests(unittest.TestCase):
             baseline_position=(17, 11),
         )
 
+    def test_post_camera_direction_expiry_has_dedicated_type(self):
+        games = [{"units": [{
+            "id": 7, "owner": 0, "x": 18, "y": 11,
+        }]} for _ in range(2)]
+        with patch(
+            "nostr_multiplayer_smoke_test.matching_games",
+            return_value=games,
+        ), patch(
+            "nostr_multiplayer_smoke_test.center_camera_for_tile",
+        ), patch(
+            "nostr_multiplayer_smoke_test.render_diagnostics",
+            return_value={"frame": -1, "entities": []},
+        ), patch(
+            "nostr_multiplayer_smoke_test.wait_for_drawable_direction",
+            side_effect=Failure(
+                "timed out waiting for entity 7 drawable direction 3; "
+                "last=None"
+            ),
+        ):
+            with self.assertRaisesRegex(
+                PostCameraDirectionExpired, "drawable direction 3"
+            ):
+                prepare_correlated_entity_capture(
+                    object(), object(), "host", object(), object(), "join",
+                    object(), object(), [], owner=0, entity_id=7,
+                    direction=3, baseline_position=(17, 11),
+                )
+
+    def test_non_timeout_post_camera_failure_propagates(self):
+        games = [{"units": [{
+            "id": 7, "owner": 0, "x": 18, "y": 11,
+        }]} for _ in range(2)]
+        with patch(
+            "nostr_multiplayer_smoke_test.matching_games",
+            return_value=games,
+        ), patch(
+            "nostr_multiplayer_smoke_test.center_camera_for_tile",
+        ), patch(
+            "nostr_multiplayer_smoke_test.render_diagnostics",
+            return_value={"frame": -1, "entities": []},
+        ), patch(
+            "nostr_multiplayer_smoke_test.wait_for_drawable_direction",
+            side_effect=Failure("render diagnostics failed"),
+        ):
+            with self.assertRaisesRegex(Failure, "render diagnostics failed"):
+                prepare_correlated_entity_capture(
+                    object(), object(), "host", object(), object(), "join",
+                    object(), object(), [], owner=0, entity_id=7,
+                    direction=3, baseline_position=(17, 11),
+                )
+
     def test_retries_empty_capture_after_fresh_visibility_preparation(self):
         captured = {"peers": {"host": {}, "join": {}}}
         with tempfile.TemporaryDirectory() as directory, patch(
@@ -1079,6 +1133,58 @@ class FailureEvidenceTests(unittest.TestCase):
         self.assertIsNone(command_acceptance_status(
             games, owner=1, unit_id=9, destination=(28, 12)
         ))
+
+    def test_arrival_during_camera_preparation_is_synchronized(self):
+        games = [{"units": [{
+            "id": 10, "owner": 1, "x": 40, "y": 8,
+        }]} for _ in range(2)]
+        with patch(
+            "nostr_multiplayer_smoke_test.matching_games",
+            return_value=games,
+        ):
+            self.assertTrue(entity_arrived_on_both_peers(
+                object(), object(), owner=1, entity_id=10,
+                destination=(40, 8),
+            ))
+            self.assertFalse(entity_arrived_on_both_peers(
+                object(), object(), owner=1, entity_id=10,
+                destination=(36, 4),
+            ))
+
+    def test_typed_camera_expiry_is_unsampled_then_route_continues(self):
+        games = [{"units": [{
+            "id": 10, "owner": 1, "x": 40, "y": 8,
+        }]} for _ in range(2)]
+        captures = unittest.mock.Mock(side_effect=[
+            PostCameraDirectionExpired("direction 0 expired"),
+            {"peers": {"join": {"actualLogicalDirection": 1}}},
+        ])
+        with patch(
+            "nostr_multiplayer_smoke_test.matching_games",
+            return_value=games,
+        ):
+            first = capture_route_pixel_or_unsampled(
+                captures, object(), object(), owner=1, entity_id=10,
+                destination=(40, 8),
+            )
+            second = capture_route_pixel_or_unsampled(
+                captures, object(), object(), owner=1, entity_id=10,
+                destination=(40, 8),
+            )
+        self.assertEqual(first, {
+            "status": "UNSAMPLED",
+            "reason": "arrived-during-camera-preparation",
+        })
+        self.assertEqual(second["peers"]["join"]["actualLogicalDirection"], 1)
+        self.assertEqual(captures.call_count, 2)
+
+    def test_unrelated_capture_failure_propagates(self):
+        with self.assertRaisesRegex(Failure, "pixel write failed"):
+            capture_route_pixel_or_unsampled(
+                unittest.mock.Mock(side_effect=Failure("pixel write failed")),
+                object(), object(), owner=1, entity_id=10,
+                destination=(40, 8),
+            )
 
     def test_absent_command_blocks_before_pathfinding_failure(self):
         game = {"units": [{

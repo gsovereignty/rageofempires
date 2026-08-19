@@ -103,6 +103,10 @@ class EmptyPixelCapture(Failure):
     """Exact capture completed without the requested entity layer."""
 
 
+class PostCameraDirectionExpired(Failure):
+    """Camera preparation outlasted an already-proved movement direction."""
+
+
 class BoundedActionLog(list[dict[str, object]]):
     def __init__(self, limit: int | None = None):
         super().__init__()
@@ -1281,10 +1285,19 @@ def prepare_correlated_entity_capture(
     # Camera travel consumes simulation time. Re-prove the intended motion
     # direction after both pans, then require a visible production layer on
     # the owning peer. Opposing peers may correctly omit it under fog.
-    wait_for_drawable_direction(
-        host, join, owner=owner, entity_id=entity_id,
-        direction=direction, baseline_position=baseline_position,
-    )
+    try:
+        wait_for_drawable_direction(
+            host, join, owner=owner, entity_id=entity_id,
+            direction=direction, baseline_position=baseline_position,
+        )
+    except Failure as error:
+        timeout_prefix = (
+            f"timed out waiting for entity {entity_id} drawable direction "
+            f"{direction};"
+        )
+        if not str(error).startswith(timeout_prefix):
+            raise
+        raise PostCameraDirectionExpired(str(error)) from error
 
     def visible_entity(peer_driver):
         render = render_diagnostics(peer_driver) or {}
@@ -1385,6 +1398,40 @@ def recapture_attempt_record(
         "capture": dict(capture),
         "blockedOracles": blocked_oracles,
     }
+
+
+def entity_arrived_on_both_peers(
+    host, join, *, owner: int, entity_id: int,
+    destination: tuple[int, int],
+) -> bool:
+    """Return whether synchronized peers show the entity at its destination."""
+    games = matching_games(host, join)
+    if games is None:
+        return False
+    positions = [
+        owned_unit_positions(game, owner).get(entity_id)
+        for game in games
+    ]
+    return positions == [destination, destination]
+
+
+def capture_route_pixel_or_unsampled(
+    capture, host, join, *, owner: int, entity_id: int,
+    destination: tuple[int, int],
+) -> dict[str, object]:
+    """Retain only post-camera expiry at a synchronized destination."""
+    try:
+        return capture()
+    except PostCameraDirectionExpired:
+        if entity_arrived_on_both_peers(
+            host, join, owner=owner, entity_id=entity_id,
+            destination=destination,
+        ):
+            return {
+                "status": "UNSAMPLED",
+                "reason": "arrived-during-camera-preparation",
+            }
+        raise
 
 
 def exercise_all_direction_route(
@@ -1524,13 +1571,19 @@ def exercise_all_direction_route(
                     + (f"-recapture-{capture_attempt}"
                        if capture_attempt else "")
                 )
-                pixel_capture = request_prepared_correlated_pixel_capture(
-                    journey, driver, actor,
-                    observer_journey, observer_driver, observer_actor,
-                    host, join, actions, artifact_dir, capture_label,
-                    owner=owner, entity_id=unit_id, direction=direction,
-                    baseline_position=current,
+                pixel_capture = capture_route_pixel_or_unsampled(
+                    lambda: request_prepared_correlated_pixel_capture(
+                        journey, driver, actor,
+                        observer_journey, observer_driver, observer_actor,
+                        host, join, actions, artifact_dir, capture_label,
+                        owner=owner, entity_id=unit_id, direction=direction,
+                        baseline_position=current,
+                    ), host, join, owner=owner, entity_id=unit_id,
+                    destination=destination,
                 )
+                if pixel_capture.get("status") == "UNSAMPLED":
+                    # Later laps can still fill this direction cell.
+                    break
                 pixel_oracles = []
                 for peer, capture_metadata in pixel_capture["peers"].items():
                     manifest_path = artifact_dir / capture_metadata[
@@ -1668,12 +1721,10 @@ def exercise_all_direction_route(
                     # The unit can cross its final tile between exact capture
                     # metadata and this next wait. That leaves this crop
                     # truthfully BLOCKED; later laps can still fill the cell.
-                    games = matching_games(host, join)
-                    positions = [
-                        owned_unit_positions(game, owner).get(unit_id)
-                        for game in games
-                    ] if games is not None else []
-                    if positions == [destination, destination]:
+                    if entity_arrived_on_both_peers(
+                        host, join, owner=owner, entity_id=unit_id,
+                        destination=destination,
+                    ):
                         pixel_capture["visualOracles"] = pixel_oracles
                         break
                     raise

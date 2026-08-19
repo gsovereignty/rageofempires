@@ -143,6 +143,31 @@ def render_selection_overlay(
     return canvas
 
 
+def isolated_production_sprite(
+    root: Path, case: dict[str, object], canvas_size: tuple[int, int],
+) -> Image.Image | None:
+    """Place renderer-isolated production pixels back in canvas space."""
+    sprite_path = case.get("sprite")
+    if sprite_path is None:
+        return None
+    if "x" not in case or "y" not in case:
+        raise PackagedPixelOracleError(
+            "isolated production sprite is missing canvas coordinates"
+        )
+    with Image.open(root / str(sprite_path)) as source:
+        sprite = source.convert("RGBA")
+    left = int(case["x"])
+    top = int(case["y"])
+    if (left < 0 or top < 0 or left + sprite.width > canvas_size[0] or
+            top + sprite.height > canvas_size[1]):
+        raise PackagedPixelOracleError(
+            "isolated production sprite lies outside canvas"
+        )
+    actual = Image.new("RGBA", canvas_size, (0, 0, 0, 0))
+    actual.alpha_composite(sprite, (left, top))
+    return actual
+
+
 def evaluate_packaged_capture(
     *, manifest_path: Path, graphics_drs: Path, interface_drs: Path,
     expected_logical_direction: int, evidence_directory: Path,
@@ -192,11 +217,21 @@ def evaluate_packaged_capture(
             return report
     root = manifest_path.parent
     with Image.open(root / case["actual"]) as source:
-        actual = source.convert("RGBA")
+        whole_screen_actual = source.convert("RGBA")
     with Image.open(root / case["terrain"]) as source:
-        background = source.convert("RGBA")
-    if actual.size != background.size:
+        whole_screen_background = source.convert("RGBA")
+    if whole_screen_actual.size != whole_screen_background.size:
         raise PackagedPixelOracleError("actual and terrain dimensions differ")
+    actual = isolated_production_sprite(
+        root, case, whole_screen_actual.size
+    )
+    if actual is None:
+        actual = whole_screen_actual
+        background = whole_screen_background
+        pixel_source = "whole-screen-production-capture"
+    else:
+        background = Image.new("RGBA", actual.size, (0, 0, 0, 0))
+        pixel_source = "isolated-production-render"
 
     directional_counts = {
         int(draw["direction_count"]) for draw in draws
@@ -257,7 +292,10 @@ def evaluate_packaged_capture(
                 "storedDirection": resolved.stored_direction,
                 "flipHorizontal": resolved.flip_horizontal,
             })
-    selection_overlay = render_selection_overlay(actual.size, metadata)
+    selection_overlay = (
+        render_selection_overlay(actual.size, metadata)
+        if pixel_source == "whole-screen-production-capture" else None
+    )
     if selection_overlay is not None:
         for alternative in alternatives.values():
             alternative.alpha_composite(selection_overlay)
@@ -299,6 +337,9 @@ def evaluate_packaged_capture(
         "actionFrame": int(draws[0]["action_frame"]),
         "selectionOverlay": metadata.get("selection_overlay"),
         "selectionOverlayPixelAssertion": selection_overlay is not None,
+        "pixelSource": pixel_source,
+        "wholeScreenActual": str(case["actual"]),
+        "isolatedActual": str(case["sprite"]) if case.get("sprite") else None,
     })
     return write_evidence(evidence_directory, report, images)
 
@@ -384,6 +425,7 @@ def write_wrong_direction_mutation(
     mutated_actual.save(mutated_actual_path)
     mutated_manifest = json.loads(json.dumps(manifest))
     mutated_manifest["cases"][0]["actual"] = mutated_actual_path.name
+    mutated_manifest["cases"][0].pop("sprite", None)
     mutated_manifest["cases"][0]["terrain"] = str(
         (root / case["terrain"]).resolve()
     )
@@ -474,6 +516,7 @@ def write_wrong_position_mutation(
         mutated_actual.save(mutated_actual_path)
         mutated_manifest = json.loads(json.dumps(manifest))
         mutated_manifest["cases"][0]["actual"] = mutated_actual_path.name
+        mutated_manifest["cases"][0].pop("sprite", None)
         mutated_manifest["cases"][0]["terrain"] = str(
             (root / case["terrain"]).resolve()
         )

@@ -100,6 +100,36 @@ class PixelDirectionOracleTests(unittest.TestCase):
         )
         self.assertEqual(report["verdict"], "BLOCKED")
 
+    def test_missing_sprite_blocks_instead_of_inventing_displacement(self):
+        report, _ = evaluate_direction_pixels(
+            actual=self.background, background=self.background,
+            expected_direction="east", sprites=self.sprites,
+        )
+        self.assertEqual(report["verdict"], "BLOCKED")
+        self.assertNotEqual(report["bestSpatialScore"], 0.0)
+
+    def test_exact_displacement_fails_with_low_direction_signal(self):
+        east = Image.new("RGBA", self.background.size, (0, 0, 0, 0))
+        west = Image.new("RGBA", self.background.size, (0, 0, 0, 0))
+        ImageDraw.Draw(east).rectangle((6, 6, 15, 15),
+                                       fill=(240, 40, 20, 255))
+        ImageDraw.Draw(west).rectangle((6, 6, 15, 15),
+                                       fill=(240, 40, 20, 255))
+        east.putpixel((6, 6), (20, 220, 40, 255))
+        west.putpixel((15, 15), (20, 220, 40, 255))
+        sprites = {"east": east, "west": west}
+        shifted = Image.new("RGBA", self.background.size, (0, 0, 0, 0))
+        shifted.alpha_composite(east, (1, 0))
+        actual = composite(self.background, shifted)
+        report, _ = evaluate_direction_pixels(
+            actual=actual, background=self.background,
+            expected_direction="east", sprites=sprites,
+        )
+        self.assertEqual(report["verdict"], "FAIL")
+        self.assertEqual(report["bestSpatialOffset"], "1,0")
+        self.assertEqual(report["bestSpatialScore"], 0.0)
+        self.assertEqual(report["maximumDisplacedScore"], 0.0)
+
     def test_evidence_images_and_report_are_retained(self):
         actual = composite(self.background, self.sprites["west"])
         report, images = evaluate_direction_pixels(

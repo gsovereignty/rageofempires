@@ -10,12 +10,13 @@ from pathlib import Path
 from PIL import Image, ImageChops
 
 
-PIXEL_ORACLE_VERSION = "occlusion-aware-direction-score-v2"
+PIXEL_ORACLE_VERSION = "isolated-direction-score-v3"
 # Direction classification follows the TODO contract: expected direction must
-# be the best alternative by the configured confidence margin. This ceiling is
-# retained only for displaced-position detection; production color fidelity is
-# checked by separate palette/layer oracles. Synthetic mutations pass 0.
+# be the best alternative by the configured confidence margin. Production
+# color fidelity is checked separately. Displacement, however, needs an exact
+# retained pixel match when direction evidence is otherwise insufficient.
 DEFAULT_MAXIMUM_EXPECTED_SCORE = 255.0
+DEFAULT_MAXIMUM_DISPLACED_SCORE = 0.0
 
 
 class PixelOracleError(ValueError):
@@ -133,6 +134,7 @@ def evaluate_direction_pixels(
     minimum_discriminating_pixels: int = 48,
     visibility_color_tolerance: int = 0,
     maximum_expected_score: float = DEFAULT_MAXIMUM_EXPECTED_SCORE,
+    maximum_displaced_score: float = DEFAULT_MAXIMUM_DISPLACED_SCORE,
 ) -> tuple[dict[str, object], dict[str, Image.Image]]:
     if expected_direction not in sprites:
         raise PixelOracleError("expected direction missing from alternatives")
@@ -140,6 +142,8 @@ def evaluate_direction_pixels(
         raise PixelOracleError("confidence margin must be non-negative")
     if maximum_expected_score < 0:
         raise PixelOracleError("maximum expected score must be non-negative")
+    if maximum_displaced_score < 0:
+        raise PixelOracleError("maximum displaced score must be non-negative")
     direction_mask = discriminating_mask(sprites, alpha_threshold)
     mask = observable_mask(
         actual, sprites, direction_mask,
@@ -182,7 +186,7 @@ def evaluate_direction_pixels(
     )
     displaced_match = (
         best_spatial_offset != "0,0" and
-        best_spatial_score <= maximum_expected_score and
+        best_spatial_score <= maximum_displaced_score and
         spatial_counts[best_spatial_offset] >= minimum_discriminating_pixels
     )
     if discriminating_pixels < minimum_discriminating_pixels:
@@ -217,6 +221,7 @@ def evaluate_direction_pixels(
         "confidenceMargin": margin,
         "requiredConfidenceMargin": confidence_margin,
         "maximumExpectedScore": maximum_expected_score,
+        "maximumDisplacedScore": maximum_displaced_score,
         "discriminatingPixels": discriminating_pixels,
         "minimumDiscriminatingPixels": minimum_discriminating_pixels,
         "alphaThreshold": alpha_threshold,

@@ -104,8 +104,6 @@ class PackagedPixelOracleTests(unittest.TestCase):
             manifest = {"cases": [{
                 "actual": "host-gameplay.png",
                 "terrain": "host-terrain.png",
-                "sprite": "host-unit-7-sprite.png",
-                "x": 2, "y": 6,
                 "metadata": {
                     "entity_id": 7, "zoom": 1, "tick": 12,
                     "sprite_frames": [{
@@ -146,6 +144,100 @@ class PackagedPixelOracleTests(unittest.TestCase):
             )
             self.assertEqual(failed["verdict"], "FAIL")
             self.assertEqual(failed["bestDirection"], "1")
+
+    def test_isolated_production_sprite_ignores_world_occlusion(self):
+        palette_payload = (
+            "JASC-PAL\n0100\n256\n" +
+            "".join(f"{index} {index // 2} {255 - index}\n"
+                    for index in range(256))
+        ).encode()
+        palette = [
+            (index, index // 2, 255 - index) for index in range(256)
+        ]
+        slp = synthetic_slp()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            graphics = root / "graphics.drs"
+            interface = root / "interfac.drs"
+            graphics.write_bytes(synthetic_drs("slp", 1484, slp))
+            interface.write_bytes(
+                synthetic_drs("bina", 50500, palette_payload)
+            )
+            background = Image.new("RGBA", (170, 12), (30, 70, 20, 255))
+            expected = render_decoded_draw(
+                canvas_size=background.size, payload=slp, palette=palette,
+                frame_index=0, legacy_player=0, ground=(85, 6), zoom=1,
+                flip_horizontal=False, visible=True,
+            )
+            isolated = expected.crop((53, 6, 170, 7))
+            isolated.save(root / "isolated.png")
+            # Whole-screen pixels are unusable: foreground art fully covers
+            # target. Renderer-isolated pixels still prove drawn direction.
+            occluded = background.copy()
+            occluded.alpha_composite(Image.new(
+                "RGBA", background.size, (200, 30, 20, 255)
+            ))
+            occluded.save(root / "actual.png")
+            background.save(root / "terrain.png")
+            manifest = {"cases": [{
+                "actual": "actual.png", "terrain": "terrain.png",
+                "sprite": "isolated.png", "x": 53, "y": 6,
+                "metadata": {"entity_id": 7, "zoom": 1, "tick": 12,
+                    "sprite_frames": [{"resource_id": 1484, "frame": 0,
+                        "palette_player": 0, "flip_horizontal": False,
+                        "visible": True, "ground": [85, 6],
+                        "action_frame": 0, "frames_per_direction": 1,
+                        "direction_count": 2, "mirroring_mode": 1,
+                        "physical_frame_count": 1,
+                        "logical_direction": 0}]}}]}
+            manifest_path = root / "manifest.json"
+            manifest_path.write_text(json.dumps(manifest))
+            report = evaluate_packaged_capture(
+                manifest_path=manifest_path, graphics_drs=graphics,
+                interface_drs=interface, expected_logical_direction=0,
+                evidence_directory=root / "evidence",
+            )
+            self.assertEqual(report["verdict"], "PASS")
+            self.assertEqual(report["bestDirection"], "0")
+            self.assertEqual(report["pixelSource"],
+                             "isolated-production-render")
+
+            wrong = render_decoded_draw(
+                canvas_size=background.size, payload=slp, palette=palette,
+                frame_index=0, legacy_player=0, ground=(85, 6), zoom=1,
+                flip_horizontal=True, visible=True,
+            )
+            wrong_box = wrong.getbbox()
+            self.assertIsNotNone(wrong_box)
+            wrong.crop(wrong_box).save(root / "isolated-wrong.png")
+            manifest["cases"][0].update({
+                "sprite": "isolated-wrong.png",
+                "x": wrong_box[0], "y": wrong_box[1],
+            })
+            manifest_path.write_text(json.dumps(manifest))
+            wrong_direction = evaluate_packaged_capture(
+                manifest_path=manifest_path, graphics_drs=graphics,
+                interface_drs=interface, expected_logical_direction=0,
+                evidence_directory=root / "wrong-direction",
+            )
+            self.assertEqual(wrong_direction["verdict"], "FAIL")
+            self.assertEqual(wrong_direction["bestDirection"], "1")
+            self.assertEqual(wrong_direction["pixelSource"],
+                             "isolated-production-render")
+
+            manifest["cases"][0].update({
+                "sprite": "isolated.png", "x": 52, "y": 6,
+            })
+            manifest_path.write_text(json.dumps(manifest))
+            wrong_position = evaluate_packaged_capture(
+                manifest_path=manifest_path, graphics_drs=graphics,
+                interface_drs=interface, expected_logical_direction=0,
+                evidence_directory=root / "wrong-position",
+            )
+            self.assertEqual(wrong_position["verdict"], "FAIL")
+            self.assertNotEqual(wrong_position["bestSpatialOffset"], "0,0")
+            self.assertEqual(wrong_position["pixelSource"],
+                             "isolated-production-render")
 
     def test_retained_wrong_direction_mutation_fails(self):
         palette_payload = (

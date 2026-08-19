@@ -30,6 +30,7 @@ from nostr_multiplayer_smoke_test import (
     capture_browser_overlap,
     capture_catalog_semantic_pixels,
     capture_until_arrival,
+    center_camera_for_tile,
     click_canvas_logical,
     canonical_direction_route,
     deterministic_replacement_destination,
@@ -1206,6 +1207,20 @@ class FailureEvidenceTests(unittest.TestCase):
 
 
 class RenderOracleTests(unittest.TestCase):
+    def test_camera_accepts_right_clamp_route_tile_left_of_controls(self):
+        class Journey:
+            def telemetry(self):
+                return {"camera": {"x": 1280.0, "y": 524.0, "zoom": 1.0}}
+
+        actions = []
+        with patch(
+            "nostr_multiplayer_smoke_test.audited_held_key",
+        ) as held_key:
+            center_camera_for_tile(
+                Journey(), object(), actions, "join", 40, 8,
+            )
+        held_key.assert_not_called()
+
     def test_route_selection_reacquires_position_after_camera_pan(self):
         class Journey:
             def telemetry(self):

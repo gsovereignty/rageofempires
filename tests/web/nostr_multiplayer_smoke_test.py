@@ -941,12 +941,13 @@ def center_camera_for_tile(
                      float(camera["x"])) * zoom
         logical_y = (32 + (tile_x + tile_y) * 16 -
                      float(camera["y"])) * zoom
-        # The production Nostr session controls occupy the right side of the
-        # canvas. Keep world commands left of that overlay so they reach SDL.
+        # The production signal controls begin at x=1070. Keep world commands
+        # left of them while allowing route tiles near the camera's right
+        # clamp; on the 48x32 audit map tile (40,8) cannot project below x=768.
         # Keep audited sprite well inside unobstructed world viewport. Merely
         # being clickable is insufficient: edge placement can put buildings
         # between target sprite and terrain-only semantic pixel background.
-        if 300.0 < logical_x < 750.0 and 160.0 < logical_y < 400.0:
+        if 300.0 < logical_x < 1000.0 and 160.0 < logical_y < 400.0:
             return
         if logical_y >= 400.0:
             key = Keys.ARROW_DOWN

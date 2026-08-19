@@ -1965,28 +1965,118 @@ def exercise_formation_route(
             abs(candidates[unit_id][1] - center[1]), unit_id,
         ),
     )[:2]
-    for index, unit_id in enumerate(selected):
-        position = candidates[unit_id]
-        center_camera_for_tile(journey, driver, actions, actor, *position)
-        audited_world_pointer(
-            journey, driver, actions, actor, *position, button=0,
-            modifiers=0 if index == 0 else CDP_SHIFT_MODIFIER,
+    destination = (
+        sum(candidates[unit_id][0] for unit_id in selected) // 2,
+        min(30, max(candidates[unit_id][1] for unit_id in selected) + 4),
+    )
+
+    def select_members() -> None:
+        for selection_attempt in range(4):
+            select_route_unit_at_current_position(
+                journey, driver, actor, owner, selected[0],
+                host, join, actions,
+            )
+            def stopped_formation_members() -> list[dict[str, object]] | None:
+                current = matching_games(host, join)
+                if current is None:
+                    return None
+                for game in current:
+                    members = {
+                        int(unit["id"]): unit
+                        for unit in game.get("units", [])
+                        if isinstance(unit, dict) and
+                        int(unit.get("id", -1)) in selected
+                    }
+                    if set(members) != set(selected) or any(
+                        bool(unit.get("moving"))
+                        for unit in members.values()
+                    ):
+                        return None
+                return current
+
+            games = wait_until(
+                f"{actor} formation members synchronized and stopped",
+                stopped_formation_members, timeout=WAIT_SECONDS,
+            )
+            second_positions = owned_villager_positions(games[0], owner)
+            if selected[1] not in second_positions:
+                raise Failure(f"{actor} formation second member disappeared")
+            position = second_positions[selected[1]]
+            center_camera_for_tile(journey, driver, actions, actor, *position)
+            audited_world_pointer(
+                journey, driver, actions, actor, *position, button=0,
+                modifiers=CDP_SHIFT_MODIFIER,
+            )
+            try:
+                wait_until(
+                    f"{actor} two-unit formation selection",
+                    lambda: True if int(journey.telemetry().get(
+                        "selectedUnitCount", 0
+                    )) == 2 else None,
+                    timeout=2.0,
+                )
+                actions[-1]["formationSelectionAttempt"] = \
+                    selection_attempt + 1
+                return
+            except Failure:
+                actions[-1]["formationSelectionAttempt"] = \
+                    selection_attempt + 1
+                actions[-1]["selectedUnitCount"] = int(
+                    journey.telemetry().get("selectedUnitCount", 0)
+                )
+        raise Failure(f"{actor} could not select two formation members")
+
+    command_misses: list[dict[str, object]] = []
+    for command_attempt in range(3):
+        select_members()
+        before = matching_games(host, join)
+        if before is None:
+            continue
+        before_positions = owned_villager_positions(before[0], owner)
+        center_camera_for_tile(journey, driver, actions, actor, *destination)
+        audited_world_pointer(journey, driver, actions, actor, *destination)
+
+        def formation_command_accepted() -> list[dict[str, object]] | None:
+            current = matching_games(host, join)
+            if current is None:
+                return None
+            by_id = {
+                int(unit["id"]): unit for unit in current[0].get("units", [])
+                if isinstance(unit, dict) and int(unit.get("id", -1)) in selected
+            }
+            if len(by_id) != 2:
+                return current
+            changed = any(
+                (int(unit["x"]), int(unit["y"])) !=
+                before_positions[unit_id] or bool(unit.get("moving")) or
+                int(unit.get("formationGroupId", 0)) != 0
+                for unit_id, unit in by_id.items()
+            )
+            return current if changed else None
+
+        try:
+            wait_until(
+                f"{actor} formation command accepted",
+                formation_command_accepted,
+                timeout=COMMAND_ACCEPTANCE_SECONDS,
+            )
+            actions[-1]["formationCommandAttempt"] = command_attempt + 1
+            break
+        except Failure as error:
+            actions[-1]["formationCommandAttempt"] = command_attempt + 1
+            command_misses.append({
+                "attempt": command_attempt + 1, "error": str(error),
+            })
+    else:
+        raise InfrastructureBlocked(
+            f"BLOCKED_COMMAND_ABSENT: {actor} formation command was not "
+            "accepted by both peers"
         )
-    wait_until(
-        f"{actor} two-unit formation selection",
-        lambda: True if int(journey.telemetry().get(
-            "selectedUnitCount", 0
-        )) == 2 else None,
-    )
-    destination = (center[0] + 4, center[1] + 4)
-    center_camera_for_tile(journey, driver, actions, actor, *destination)
-    audited_world_pointer(
-        journey, driver, actions, actor, *destination,
-    )
 
     frames: list[dict[str, object]] = []
     formation_observations: list[dict[str, object]] = []
     pixel_capture: dict[str, object] | None = None
+    pixel_capture_failures: list[str] = []
     movement_seen = False
     settled_polls = 0
     deadline = time.monotonic() + WAIT_SECONDS
@@ -2037,16 +2127,23 @@ def exercise_formation_route(
                 "anchor": list(next(iter(anchors))),
                 "slots": [list(slot) for slot in sorted(slots)],
             })
-            if moving and pixel_capture is None:
-                pixel_capture = capture_catalog_semantic_pixels(
-                    host, join, artifact_dir,
-                    f"{actor}-formation-semantic", selected[0],
-                    owner=owner, unit_kind="unit-villager",
-                    action="formation", catalog_ids=[
-                        "formation", "villager-empty-moving",
-                    ],
-                    phase=f"{actor}-formation-regroup",
-                )
+            if (moving and pixel_capture is None and
+                    len(pixel_capture_failures) < 3):
+                while (pixel_capture is None and
+                       len(pixel_capture_failures) < 3):
+                    try:
+                        pixel_capture = capture_catalog_semantic_pixels(
+                            host, join, artifact_dir,
+                            f"{actor}-formation-semantic-attempt-"
+                            f"{len(pixel_capture_failures) + 1}", selected[0],
+                            owner=owner, unit_kind="unit-villager",
+                            action="formation", catalog_ids=[
+                                "formation", "villager-empty-moving",
+                            ],
+                            phase=f"{actor}-formation-regroup",
+                        )
+                    except Failure as error:
+                        pixel_capture_failures.append(str(error))
         if movement_seen and not moving:
             settled_polls += 1
             if settled_polls >= 2:
@@ -2058,14 +2155,20 @@ def exercise_formation_route(
     if not formation_observations:
         raise Failure(f"{actor} formation group was never authoritative")
     if pixel_capture is None:
-        raise Failure(f"{actor} formation lacked drawable pixel proof")
+        raise Failure(
+            f"{actor} formation lacked drawable pixel proof after "
+            f"{len(pixel_capture_failures)} attempts: "
+            f"{pixel_capture_failures}"
+        )
     if settled_polls < 2:
         raise Failure(f"{actor} formation did not regroup and settle")
     return {
         "actor": actor, "owner": owner, "unitIds": selected,
         "destination": {"x": destination[0], "y": destination[1]},
+        "commandMisses": command_misses,
         "formationObservations": formation_observations,
         "pixelCapture": pixel_capture,
+        "pixelCaptureFailures": pixel_capture_failures,
         "frameCount": len(frames), "frames": frames,
         "renderOracle": analyze_render_samples_for_audit(
             frames, f"{actor}-formation-regroup"
@@ -2507,6 +2610,12 @@ def exercise_narrow_passage_route(
         raise Failure(
             f"{actor} bypassed narrow passage: {corridor}"
         )
+    # Both owners use the same passage in sequence. Leaving the first unit on
+    # the shared destination turns the second owner's ordinary right-click
+    # into an attack command, which can kill the first unit during later audit
+    # phases. Move each completed traveler clear through production input.
+    egress = narrow_passage_egress(owner)
+    egress_frames = command_with_retries(egress, "egress")
     return {
         "actor": actor, "owner": owner, "unitId": unit_id,
         "routeKind": "narrow-passage",
@@ -2516,6 +2625,7 @@ def exercise_narrow_passage_route(
         ],
         "start": {"x": start[0], "y": start[1]},
         "destination": {"x": destination[0], "y": destination[1]},
+        "egress": {"x": egress[0], "y": egress[1]},
         "commandMisses": command_misses,
         "approachStagingTargets": [
             {"x": value[0], "y": value[1]} for value in staging_targets
@@ -2524,11 +2634,154 @@ def exercise_narrow_passage_route(
             {"x": value[0], "y": value[1]} for value in corridor
         ],
         "approachFrameCount": len(approach),
+        "egressFrameCount": len(egress_frames),
         "frameCount": len(frames), "frames": frames,
         "renderOracle": analyze_render_samples_for_audit(
             frames, f"{actor}-narrow-passage"
         ),
     }
+
+
+def narrow_passage_egress(owner: int) -> tuple[int, int]:
+    """Return owner-side tile clearing shared passage destination."""
+    if owner not in {0, 1}:
+        raise ValueError("narrow-passage owner must be 0 or 1")
+    return (19, 8) if owner == 0 else (30, 8)
+
+
+def validate_cand003_route_state(
+    games: list[dict[str, object]],
+    route_units: dict[int, int],
+    current_owner: int,
+) -> dict[str, object]:
+    """Require converged, harmless post-egress state on both peers."""
+    if len(games) != 2:
+        raise Failure("CAND-003 requires two peer states")
+    fields = ("currentTick", "stateHash", "blueContiguous", "redContiguous")
+    for field in fields:
+        if games[0].get(field) != games[1].get(field):
+            raise Failure(f"CAND-003 peer divergence in {field}")
+    if any(game.get("blueMissing") or game.get("redMissing") for game in games):
+        raise Failure("CAND-003 peer sequence gap after egress")
+    expected = narrow_passage_egress(current_owner)
+    peer_units: list[dict[int, dict[str, object]]] = []
+    for game in games:
+        by_id = {
+            int(unit["id"]): unit for unit in game.get("units", [])
+            if isinstance(unit, dict) and int(unit.get("id", -1)) in
+            route_units.values()
+        }
+        if len(by_id) != len(route_units):
+            raise Failure("CAND-003 route unit disappeared")
+        peer_units.append(by_id)
+    for unit_id in route_units.values():
+        for peer in peer_units:
+            unit = peer[unit_id]
+            if int(unit.get("hitPoints", 0)) <= 0:
+                raise Failure(f"CAND-003 route unit {unit_id} died")
+            if int(unit.get("attackTargetId", 0)) != 0:
+                raise Failure(f"CAND-003 route unit {unit_id} retained attack")
+    current_id = route_units[current_owner]
+    position = (
+        int(peer_units[0][current_id]["x"]),
+        int(peer_units[0][current_id]["y"]),
+    )
+    if abs(position[0] - expected[0]) + abs(position[1] - expected[1]) > 1:
+        raise Failure(
+            f"CAND-003 owner {current_owner} missed egress: {position}"
+        )
+    return {
+        "tick": games[0].get("currentTick"),
+        "stateHash": games[0].get("stateHash"),
+        "blueContiguous": games[0].get("blueContiguous"),
+        "redContiguous": games[0].get("redContiguous"),
+        "routeUnits": dict(route_units),
+        "currentPosition": {"x": position[0], "y": position[1]},
+        "expectedEgress": {"x": expected[0], "y": expected[1]},
+    }
+
+
+def exercise_cand003_focused_routes(
+    actor_specs: dict[int, tuple[object, ...]],
+    owner_order: list[int], host, join,
+    actions: list[dict[str, object]], artifact_dir: Path,
+) -> dict[str, object]:
+    """Run shared passage then formation in production owner order."""
+    result: dict[str, object] = {
+        "ownerOrder": list(owner_order), "narrowPassage": {},
+        "postEgress": [], "formation": {}, "postFormation": [],
+    }
+
+    def fully_converged_games() -> list[dict[str, object]] | None:
+        games = matching_games(host, join)
+        if games is None:
+            return None
+        for field in ("blueContiguous", "redContiguous"):
+            if games[0].get(field) != games[1].get(field):
+                return None
+        if any(game.get("blueMissing") or game.get("redMissing")
+               for game in games):
+            return None
+        return games
+
+    route_units: dict[int, int] = {}
+    for owner in owner_order:
+        actor, journey, driver, _, _, _, center = actor_specs[owner]
+        games = wait_until(
+            f"{actor} CAND-003 pre-route convergence",
+            lambda: matching_games(host, join), timeout=WAIT_SECONDS,
+        )
+        candidates = owned_villager_positions(games[0], owner)
+        if not candidates:
+            raise Failure(f"{actor} CAND-003 lacks route villager")
+        unit_id = min(candidates, key=lambda candidate: (
+            abs(candidates[candidate][0] - center[0]) +
+            abs(candidates[candidate][1] - center[1]), candidate,
+        ))
+        route_units[owner] = unit_id
+        result["narrowPassage"][actor] = exercise_narrow_passage_route(
+            journey, driver, actor, owner, unit_id,
+            host, join, actions, artifact_dir,
+        )
+        games = wait_until(
+            f"{actor} CAND-003 post-egress convergence",
+            fully_converged_games, timeout=WAIT_SECONDS,
+        )
+        result["postEgress"].append(validate_cand003_route_state(
+            games, route_units, owner,
+        ))
+    # CAND-003's affected oracle is the first (join/Red) formation immediately
+    # after both owners traverse the passage in production owner order.
+    for owner in owner_order[:1]:
+        actor, journey, driver, _, _, _, center = actor_specs[owner]
+        formation = exercise_formation_route(
+            journey, driver, actor, owner, host, join,
+            actions, artifact_dir, center,
+        )
+        result["formation"][actor] = formation
+        games = wait_until(
+            f"{actor} CAND-003 post-formation convergence",
+            fully_converged_games, timeout=WAIT_SECONDS,
+        )
+        selected = {int(value) for value in formation["unitIds"]}
+        for game in games:
+            surviving = {
+                int(unit["id"]): unit for unit in game.get("units", [])
+                if isinstance(unit, dict) and int(unit.get("id", -1)) in selected
+            }
+            if set(surviving) != selected:
+                raise Failure(f"{actor} CAND-003 formation member died")
+            if any(bool(unit.get("moving")) for unit in surviving.values()):
+                raise Failure(f"{actor} CAND-003 formation did not settle")
+        result["postFormation"].append({
+            "actor": actor, "owner": owner,
+            "unitIds": sorted(selected),
+            "tick": games[0].get("currentTick"),
+            "stateHash": games[0].get("stateHash"),
+            "blueContiguous": games[0].get("blueContiguous"),
+            "redContiguous": games[0].get("redContiguous"),
+        })
+    return result
 
 
 def exercise_moving_target_chase(
@@ -4922,7 +5175,8 @@ def run(headed: bool, port: int = 8888,
         viewport: tuple[int, int] = (1280, 900),
         dpr: float = 1.0, zoom: float = 1.0,
         browser_arguments: list[str] | None = None,
-        action_limit: int | None = None) -> dict[str, object]:
+        action_limit: int | None = None,
+        focused_cand003: bool = False) -> dict[str, object]:
     if artifact_dir is None:
         artifact_dir = allocate_audit_directory()
     if not (DIST / "aoe_web.html").exists():
@@ -5305,6 +5559,22 @@ def run(headed: bool, port: int = 8888,
                     simultaneous_frames, "simultaneous-move"
                 ),
             }
+
+            if focused_cand003:
+                actor_specs = {
+                    0: ("host", host_journey, host, "join", join_journey,
+                        join, (20, 12)),
+                    1: ("join", join_journey, join, "host", host_journey,
+                        host, (28, 12)),
+                }
+                evidence["cand003Focused"] = exercise_cand003_focused_routes(
+                    actor_specs,
+                    [int(value) for value in evidence["actionPlan"][
+                        "ownerOrder"
+                    ]],
+                    host, join, actions, artifact_dir,
+                )
+                return evidence
 
             # Slow speed is ordinary negotiated multiplayer control. It keeps
             # four-tile route segments drawable long enough for three exact
@@ -6417,6 +6687,7 @@ def main() -> int:
     parser.add_argument("--zoom", type=float, choices=(1.0, 2.0), default=1.0)
     parser.add_argument("--browser-argument", action="append", default=[])
     parser.add_argument("--action-limit", type=int)
+    parser.add_argument("--focused-cand003", action="store_true")
     arguments = parser.parse_args()
     destination = allocate_audit_destination(
         arguments.audit_root, arguments.report_root
@@ -6461,6 +6732,7 @@ def main() -> int:
             zoom=arguments.zoom,
             browser_arguments=arguments.browser_argument,
             action_limit=arguments.action_limit,
+            focused_cand003=arguments.focused_cand003,
         )
         evidence_path.write_text(
             json.dumps(evidence, indent=2, sort_keys=True) + "\n",
@@ -6533,6 +6805,19 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
+    if arguments.focused_cand003:
+        atomic_write_json(audit_dir / "verdict.json", {
+            "schemaVersion": 1, "status": "FOCUSED_PASS",
+            "candidate": "CAND-003",
+            "evidence": evidence.get("cand003Focused"),
+        })
+        write_report(
+            audit_dir, "FOCUSED_PASS",
+            "CAND-003 narrow-passage egress and formation closure passed.",
+            report_path=destination.report,
+        )
+        print(f"CAND-003 focused audit passed: {audit_dir}")
+        return 0
     failures = visual_failures(evidence)
     if failures:
         write_report(

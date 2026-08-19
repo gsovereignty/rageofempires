@@ -45,6 +45,8 @@ from nostr_multiplayer_smoke_test import (
     load_default_relays,
     relay_pool_digest,
     negotiate_game_speed,
+    narrow_passage_egress,
+    validate_cand003_route_state,
     parse_viewport,
     probe_relay_pool,
     prepare_correlated_entity_capture,
@@ -63,6 +65,58 @@ from nostr_multiplayer_smoke_test import (
     write_audit_bundle,
     write_overlap_checkpoint,
 )
+
+
+class NarrowPassageTests(unittest.TestCase):
+    def test_each_owner_exits_shared_destination_on_own_side(self):
+        self.assertEqual(narrow_passage_egress(0), (19, 8))
+        self.assertEqual(narrow_passage_egress(1), (30, 8))
+        self.assertNotEqual(narrow_passage_egress(0), (24, 8))
+        self.assertNotEqual(narrow_passage_egress(1), (24, 8))
+
+    def test_unknown_owner_has_no_unsafe_default_egress(self):
+        with self.assertRaisesRegex(ValueError, "owner must be 0 or 1"):
+            narrow_passage_egress(2)
+
+    def test_post_egress_requires_converged_alive_idle_units(self):
+        units = [
+            {"id": 10, "x": 30, "y": 8, "hitPoints": 25,
+             "attackTargetId": 0},
+            {"id": 1, "x": 19, "y": 8, "hitPoints": 25,
+             "attackTargetId": 0},
+        ]
+        game = {
+            "currentTick": 80, "stateHash": "same",
+            "blueContiguous": 12, "redContiguous": 12,
+            "blueMissing": [], "redMissing": [], "units": units,
+        }
+        result = validate_cand003_route_state(
+            [copy.deepcopy(game), copy.deepcopy(game)], {1: 10, 0: 1}, 0,
+        )
+        self.assertEqual(result["currentPosition"], {"x": 19, "y": 8})
+        attacking = copy.deepcopy(game)
+        attacking["units"][0]["attackTargetId"] = 1
+        with self.assertRaisesRegex(Failure, "retained attack"):
+            validate_cand003_route_state(
+                [attacking, copy.deepcopy(attacking)], {1: 10, 0: 1}, 0,
+            )
+
+    def test_post_egress_rejects_peer_divergence_and_death(self):
+        game = {
+            "currentTick": 80, "stateHash": "same",
+            "blueContiguous": 12, "redContiguous": 12,
+            "blueMissing": [], "redMissing": [],
+            "units": [{"id": 10, "x": 30, "y": 8, "hitPoints": 25,
+                       "attackTargetId": 0}],
+        }
+        divergent = copy.deepcopy(game)
+        divergent["stateHash"] = "different"
+        with self.assertRaisesRegex(Failure, "peer divergence"):
+            validate_cand003_route_state([game, divergent], {1: 10}, 1)
+        dead = copy.deepcopy(game)
+        dead["units"][0]["hitPoints"] = 0
+        with self.assertRaisesRegex(Failure, "died"):
+            validate_cand003_route_state([dead, copy.deepcopy(dead)], {1: 10}, 1)
 
 
 class VirtualFsDriver:

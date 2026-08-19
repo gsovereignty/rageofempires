@@ -104,6 +104,24 @@ WebDriver installations, public Nostr relays, and run evidence under
 Do not introduce a parent-directory runtime dependency to provide any of these
 pieces.
 
+## Archived decompiled-source evidence
+
+The repository tracks a deterministic archive of the decompiled reference
+corpus at `resources/decompiled-source/decompiled.tar.xz`. Its checksum lives
+beside it as `decompiled.tar.xz.sha256`.
+
+When decompiled evidence is required, run
+`scripts/extract_decompiled_source.sh`. The script verifies the archive and
+always extracts it to the fixed repository-local `decompiled/` directory.
+That directory is ignored by Git. Treat extracted contents as read-only
+research evidence: never edit them, stage them, compile them, package them, or
+make production/build/runtime code depend on them.
+
+Use `tools/create_decompiled_source_archive.py <source-directory>` only when
+the archive must be deliberately regenerated. It sorts entries, normalizes
+archive ownership and timestamps, and excludes `.DS_Store` metadata so equal
+source trees produce equal archive bytes.
+
 ## Production-fix completion gate
 
 Never classify, describe, count, or report a bug as fixed until all of these

@@ -9,3 +9,4 @@ __pycache__/
 target/
 web/nostr/node_modules/
 .codebase-memory/
+/decompiled/

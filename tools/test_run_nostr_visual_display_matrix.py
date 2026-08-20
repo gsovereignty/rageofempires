@@ -2,15 +2,47 @@
 
 import importlib.util
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 
 MODULE_PATH = Path(__file__).with_name("run_nostr_visual_display_matrix.py")
 SPEC = importlib.util.spec_from_file_location("nostr_display_matrix", MODULE_PATH)
 MODULE = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(MODULE)
+
+
+def load_runner_without_browser_dependencies():
+    """Load pure matrix helpers without requiring Selenium."""
+    selenium_modules = {
+        name: MagicMock()
+        for name in (
+            "PIL",
+            "PIL.Image",
+            "PIL.ImageChops",
+            "websocket",
+            "selenium",
+            "selenium.common",
+            "selenium.common.exceptions",
+            "selenium.webdriver",
+            "selenium.webdriver.common",
+            "selenium.webdriver.common.action_chains",
+            "selenium.webdriver.common.actions",
+            "selenium.webdriver.common.actions.action_builder",
+            "selenium.webdriver.common.actions.pointer_input",
+            "selenium.webdriver.common.by",
+            "selenium.webdriver.common.keys",
+            "selenium.webdriver.support",
+            "selenium.webdriver.support.ui",
+        )
+    }
+    with patch.dict(sys.modules, selenium_modules):
+        SPEC.loader.exec_module(MODULE)
+
+
+load_runner_without_browser_dependencies()
 
 
 class DisplayMatrixTests(unittest.TestCase):

@@ -4860,7 +4860,7 @@ void cavalier_upgrade_converts_existing_queued_and_future_knights() {
     require(rules.pierce_armor == 2);
     require(rules.food_cost == 60);
     require(rules.gold_cost == 75);
-    require(rules.training_ticks == 12);
+    require(rules.training_ticks == 150);
     require(rules.vision_range == 4);
     require(rules.minimum_age == aoe::Age::imperial);
 

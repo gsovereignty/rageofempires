@@ -5617,7 +5617,7 @@ void paladin_requires_cavalier_and_finishes_heavy_cavalry_line() {
     require(rules.vision_range == 5);
     require(rules.food_cost == 60);
     require(rules.gold_cost == 75);
-    require(rules.training_ticks == 12);
+    require(rules.training_ticks == 150);
 
     aoe::Simulation simulation(aoe::GameMap(24, 8));
     const aoe::EntityId stable = simulation.add_building(

@@ -77,10 +77,18 @@ Use existing harness first:
 
 ```sh
 build-web/selenium-venv/bin/python \
-  tests/web/nostr_multiplayer_smoke_test.py \
-  --port 8888 \
-  --evidence artifacts/nostr-multiplayer/<run-id>/production-smoke.json
+  tests/web/nostr_multiplayer_protocol_test.py \
+  --port 8888
 ```
+
+Or build and run it through the repository target:
+
+```sh
+make test-nostr-multiplayer NOSTR_AUDIT_PORT=8888
+```
+
+The runner allocates `artifacts/nostr-multiplayer/<run-id>/` and the dated
+`docs/audits/<date>-NOSTR-MULTIPLAYER.md` before launching either browser.
 
 If port 8888 is occupied by an audit-owned process, reuse or stop that process
 cleanly. If another process owns it, choose a free port with `--port` and record

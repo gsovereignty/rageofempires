@@ -21,7 +21,7 @@ endif
 
 .PHONY: all configure build run web web-build web-tests \
 	web-tests-only audit-browser-risk-spike audit-browser-risk-spike-only \
-	audit-nostr-oracles audit-nostr-multiplayer \
+	audit-nostr-oracles audit-nostr-multiplayer test-nostr-multiplayer \
 	ci-nostr-visual-per-change ci-nostr-visual-display-matrix \
 	ci-nostr-visual-seeds \
 	ci-nostr-visual-scheduled \
@@ -58,6 +58,7 @@ web-build:
 		emcmake $(CMAKE) -S . -B build-web \
 			-DCMAKE_BUILD_TYPE="$(BUILD_TYPE)" \
 			-DAOE_BUILD_WEB=ON \
+			-DAOE_BUILD_SDL3=ON \
 			-DAOE_ENABLE_MPG123=OFF && \
 		$(CMAKE) --build build-web --target aoe_web \
 			--parallel "$(JOBS)"
@@ -78,6 +79,7 @@ web-tests-only:
 		exit 1; \
 	}
 	"$(NOSTR_AUDIT_PYTHON)" tests/web/test_nostr_multiplayer_audit_tools.py
+	"$(NOSTR_AUDIT_PYTHON)" tests/web/test_nostr_multiplayer_protocol.py
 
 audit-browser-risk-spike:
 	$(MAKE) web-build
@@ -107,6 +109,16 @@ audit-nostr-multiplayer: web-build
 	@"$(NOSTR_AUDIT_PYTHON)" tools/run_nostr_visual_audit.py \
 			--port "$(NOSTR_AUDIT_PORT)" \
 			$(NOSTR_AUDIT_ARGS)
+
+test-nostr-multiplayer: web-build
+	@test -x "$(NOSTR_AUDIT_PYTHON)" || { \
+		echo "Missing isolated Selenium Python: $(NOSTR_AUDIT_PYTHON)" >&2; \
+		exit 1; \
+	}
+	@"$(NOSTR_AUDIT_PYTHON)" \
+		tests/web/nostr_multiplayer_protocol_test.py \
+		--port "$(NOSTR_AUDIT_PORT)" \
+		$(NOSTR_AUDIT_ARGS)
 
 audit-nostr-oracles:
 	@test -x "$(NOSTR_AUDIT_PYTHON)" || { \
@@ -166,6 +178,7 @@ help:
 	@echo "make web-tests       Build web package and run browser-runtime tests"
 	@echo "make audit-browser-risk-spike  Run packaged browser acceptance matrix"
 	@echo "make audit-nostr-multiplayer  Run packaged two-browser public-relay audit"
+	@echo "make test-nostr-multiplayer   Run bounded two-browser Nostr protocol acceptance"
 	@echo "make audit-nostr-oracles      Run independent visual oracle tests"
 	@echo "make ci-nostr-visual-per-change  Run required build and oracle tier"
 	@echo "make ci-nostr-visual-display-matrix  Run aspect-ratio and DPR matrix"

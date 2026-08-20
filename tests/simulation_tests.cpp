@@ -10480,9 +10480,11 @@ void construction_pauses_and_resumes_with_builder() {
 
     require(simulation.command_unit(builder, {2, 1}));
     require(simulation.buildings().back().builder_ids.size() == 1);
-    for (int tick = 0; tick < 20; ++tick) {
+    for (int tick = 1; tick < paused_progress; ++tick) {
         simulation.update();
     }
+    require(!simulation.buildings().back().completed());
+    simulation.update();
     require(simulation.buildings().back().completed());
 }
 

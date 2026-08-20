@@ -8375,7 +8375,7 @@ void scout_cavalry_receives_original_automatic_age_bonuses() {
     require(rules.pierce_armor == 2);
     require(rules.food_cost == 80);
     require(rules.gold_cost == 0);
-    require(rules.training_ticks == 12);
+    require(rules.training_ticks == 150);
     require(rules.vision_range == 4);
 
     aoe::Simulation simulation(aoe::GameMap(30, 24));

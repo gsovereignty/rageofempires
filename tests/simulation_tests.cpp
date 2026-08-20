@@ -2366,8 +2366,10 @@ void sheep_retask_after_gold_deposit_carries_food() {
     const int deposited_gold =
         simulation.economy(aoe::Player::blue).gold;
     const int food_before = simulation.economy(aoe::Player::blue).food;
+    // Shepherds gather at the DAT-backed 0.33 food/second rate, so filling a
+    // ten-food carry and returning across this fixture takes about 180 ticks.
     for (int tick = 0;
-         tick < 60 &&
+         tick < 220 &&
          simulation.economy(aoe::Player::blue).food == food_before;
          ++tick) {
         simulation.update();

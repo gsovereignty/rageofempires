@@ -52,6 +52,7 @@ class LiteralCatalogTests(unittest.TestCase):
             "terrain_transition_texture",
             "terrain_elevation_texture",
             "begin_overlap_case",
+            "browser_render_telemetry_json",
             # Bug families explicitly excluded from this localization pass.
             "render_campaign_presentation",
             "render_multiplayer_presentation",
@@ -64,6 +65,8 @@ class LiteralCatalogTests(unittest.TestCase):
             "terrain_elevation_texture":
                 "SDL_Texture* terrain_elevation_texture(",
             "begin_overlap_case": "void begin_overlap_case(",
+            "browser_render_telemetry_json":
+                "std::string browser_render_telemetry_json(",
             "render_campaign_presentation":
                 "void render_campaign_presentation(",
             "render_multiplayer_presentation":

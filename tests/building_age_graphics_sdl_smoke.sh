@@ -101,26 +101,17 @@ for age, capture in captures.items():
             raise SystemExit(f"{age}: oversized/nested building silhouette")
 
 # Exact root-ID transition assertions live in render_asset_coverage_tests.
-# Hermetic fallback changes its age marker only inside central building ROI;
-# every other gameplay pixel must remain stable.
+# With legacy assets disabled, every age uses the same age-neutral procedural
+# fallback. Require exact gameplay-pixel stability so this hermetic test never
+# mistakes synthetic decoration for production age-specific building art.
 dark = captures["dark"]
 for age in ("feudal", "castle", "imperial"):
     changed = [
         point for point in dark
         if dark[point] != captures[age][point]
     ]
-    if not 120 <= len(changed) <= 450:
+    if changed:
         raise SystemExit(
-            f"{age}: unexpected age-boundary pixel count {len(changed)}"
-        )
-    escaped = [
-        (x, y) for x, y in changed
-        if not (320 <= x <= 480 and 70 <= y <= 150)
-    ]
-    if escaped:
-        raise SystemExit(
-            f"{age}: visual change escaped building ROI: "
-            f"x={min(x for x, _ in escaped)}..{max(x for x, _ in escaped)} "
-            f"y={min(y for _, y in escaped)}..{max(y for _, y in escaped)}"
+            f"{age}: age-neutral fallback changed at {len(changed)} pixels"
         )
 PY

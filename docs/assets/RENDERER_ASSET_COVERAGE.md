@@ -169,9 +169,10 @@ Watch/Guard/Keep remain technology variant slots independent of Age index.
 
 `building_age_graphics_sdl_smoke` captures Dark, Feudal, Castle, and Imperial
 tracked fixtures under SDL software rendering. Color-component, occupancy,
-extent, ROI, and outside-ROI checks reject oversized or nested fallback
-silhouettes. Exact root IDs and composition policies are asserted separately
-in `render_asset_coverage_tests`, so hermetic CI needs no proprietary graphics.
+extent, and exact cross-Age pixel-stability checks reject oversized, nested, or
+Age-decorated fallback silhouettes. Exact root IDs and composition policies are
+asserted separately in `render_asset_coverage_tests`, so hermetic CI needs no
+proprietary graphics.
 
 The expanded runtime suite exposed and now guards two former disagreements:
 absent root SLP `2263` is allowed only when a naval DAT root has drawable

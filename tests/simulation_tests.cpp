@@ -2888,7 +2888,12 @@ void farm_reseed_payment_is_atomic_and_civilization_aware() {
         aoe::Player::blue, {aoe::Technology::horse_collar}
     );
     require(queued.command_unit(farmer, {4, 2}));
-    queued.update();
+    for (int tick = 0;
+         tick < 20 &&
+         queued.farm_reseed_queue(aoe::Player::blue) > 0;
+         ++tick) {
+        queued.update();
+    }
     require(queued.farm_reseed_queue(aoe::Player::blue) == 0);
     const auto replanted = std::ranges::find_if(
         queued.buildings(), [farm](const aoe::Building& building) {

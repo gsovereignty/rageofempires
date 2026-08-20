@@ -2589,9 +2589,14 @@ void destroyed_drop_off_reroutes_carrier() {
     );
 
     require(simulation.command_unit(villager, {8, 1}));
-    for (int tick = 0; tick < 10; ++tick) {
+    for (int tick = 0;
+         tick < 200 &&
+         !simulation.units().front().returning_resource;
+         ++tick) {
         simulation.update();
     }
+    require(simulation.units().front().carried_amount == 10);
+    require(simulation.units().front().returning_resource);
     require(
         simulation.units().front().destination ==
         aoe::TilePosition(4, 1)

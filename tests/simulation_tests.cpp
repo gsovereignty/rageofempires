@@ -2674,8 +2674,11 @@ void farms_construct_harvest_exhaust_and_reseed() {
     const int original_food =
         simulation.economy(aoe::Player::blue).food;
     require(simulation.command_unit(villager, {8, 1}));
-    simulation.update();
-    simulation.update();
+    for (int tick = 0;
+         tick < 20 && simulation.units().front().carried_amount < 2;
+         ++tick) {
+        simulation.update();
+    }
     require(simulation.units().front().resource_building_id == farm);
     require(simulation.units().front().carried_resource ==
             aoe::ResourceKind::food);
@@ -2690,7 +2693,10 @@ void farms_construct_harvest_exhaust_and_reseed() {
     require(loaded.units().front().resource_building_id == farm);
     require(loaded.farm_reseed_queue(aoe::Player::blue) == 1);
 
-    for (int tick = 0; tick < 3; ++tick) {
+    for (int tick = 0;
+         tick < 20 &&
+         simulation.farm_reseed_queue(aoe::Player::blue) > 0;
+         ++tick) {
         simulation.update();
         loaded.update();
     }

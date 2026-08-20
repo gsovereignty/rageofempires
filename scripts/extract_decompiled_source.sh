@@ -3,8 +3,8 @@ set -eu
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
-archive="$repo_root/resources/decompiled-source/decompiled.tar.xz"
-checksum="$repo_root/resources/decompiled-source/decompiled.tar.xz.sha256"
+archive="$repo_root/docs/evidence/decompiled-source/decompiled.tar.xz"
+checksum="$repo_root/docs/evidence/decompiled-source/decompiled.tar.xz.sha256"
 destination="$repo_root/decompiled"
 staging=$(mktemp -d "$repo_root/.decompiled-extract.XXXXXX")
 

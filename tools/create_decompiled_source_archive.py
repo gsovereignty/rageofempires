@@ -12,7 +12,7 @@ import tempfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT_DIR = ROOT / "resources" / "decompiled-source"
+OUTPUT_DIR = ROOT / "docs" / "evidence" / "decompiled-source"
 ARCHIVE = OUTPUT_DIR / "decompiled.tar.xz"
 CHECKSUM = OUTPUT_DIR / "decompiled.tar.xz.sha256"
 

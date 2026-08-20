@@ -107,7 +107,7 @@ pieces.
 ## Archived decompiled-source evidence
 
 The repository tracks a deterministic archive of the decompiled reference
-corpus at `resources/decompiled-source/decompiled.tar.xz`. Its checksum lives
+corpus at `docs/evidence/decompiled-source/decompiled.tar.xz`. Its checksum lives
 beside it as `decompiled.tar.xz.sha256`.
 
 When decompiled evidence is required, run

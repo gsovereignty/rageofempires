@@ -2425,7 +2425,14 @@ void villagers_deliver_all_resource_types() {
         );
 
         require(simulation.command_unit(villager, {2, 1}));
-        for (int tick = 0; tick < 10; ++tick) {
+        // Gathering uses each resource's DAT-backed work rate, followed by
+        // normal movement to the drop-off. Wait for the three-unit source to
+        // be delivered instead of assuming the old ten-tick instant cycle.
+        for (int tick = 0;
+             tick < 100 &&
+             amount(simulation.economy(aoe::Player::blue), resource) ==
+                 before;
+             ++tick) {
             simulation.update();
         }
         require(

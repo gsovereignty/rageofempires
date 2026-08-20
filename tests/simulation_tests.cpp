@@ -5521,7 +5521,7 @@ void hussar_requires_light_cavalry_and_finishes_scout_line() {
     require(rules.vision_range == 10);
     require(rules.food_cost == 80);
     require(rules.gold_cost == 0);
-    require(rules.training_ticks == 6);
+    require(rules.training_ticks == 150);
 
     aoe::Simulation simulation(aoe::GameMap(24, 8));
     const aoe::EntityId stable = simulation.add_building(

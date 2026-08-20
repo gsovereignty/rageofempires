@@ -72,7 +72,10 @@ int main() {
     const int initial_wood = gathering.economy(aoe::Player::blue).wood;
     require(gathering.command_unit(villager, {3, 5}),
             "gather order rejected");
-    for (int tick = 0; tick < 100; ++tick) {
+    // Base wood gathering is 0.39 resource per source second, while one
+    // simulation source second spans five ticks. Allow enough time to fill
+    // the villager's ten-resource capacity and complete the delivery route.
+    for (int tick = 0; tick < 200; ++tick) {
         gathering.update();
         for (const auto& event : gathering.reactive_sound_events()) {
             require(event.source_entity_id != villager || event.sound_id != 301,

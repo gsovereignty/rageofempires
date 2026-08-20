@@ -5323,7 +5323,7 @@ void arbalester_completes_classic_foot_archer_line() {
     require(rules.attack_range == 5);
     require(rules.wood_cost == 25);
     require(rules.gold_cost == 45);
-    require(rules.training_ticks == 11);
+    require(rules.training_ticks == 135);
 
     aoe::Simulation simulation(aoe::GameMap(24, 8));
     const aoe::EntityId range = simulation.add_building(

@@ -59,6 +59,17 @@ idle = ram_case(0)
 moving = ram_case(1)
 assert [frame["resource_id"] for frame in idle["metadata"]["sprite_frames"]] == [179]
 assert [frame["resource_id"] for frame in moving["metadata"]["sprite_frames"]] == [183, 181]
-assert tga_size(idle, 0) == tga_size(moving, 1) == (85, 112)
-assert (idle["x"], idle["y"]) == (moving["x"], moving["y"]) == (116, 78)
+assert [frame["frame"] for frame in idle["metadata"]["sprite_frames"]] == [2]
+assert [frame["frame"] for frame in moving["metadata"]["sprite_frames"]] == [30, 2]
+assert all(frame["logical_direction"] == 0
+           for case in (idle, moving)
+           for frame in case["metadata"]["sprite_frames"])
+assert all(frame["stored_direction"] == 2
+           for case in (idle, moving)
+           for frame in case["metadata"]["sprite_frames"])
+assert all(frame["flip_horizontal"] == 1
+           for case in (idle, moving)
+           for frame in case["metadata"]["sprite_frames"])
+assert tga_size(idle, 0) == tga_size(moving, 1) == (120, 80)
+assert (idle["x"], idle["y"]) == (moving["x"], moving["y"]) == (105, 101)
 PY

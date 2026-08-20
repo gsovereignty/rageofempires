@@ -31,7 +31,10 @@ uses root 686; movement uses root 690; attack uses root 680; death uses root
 `battering_ram_composite_sdl_smoke` runs
 `movement-gait-audit.scenario` twice per checkpoint using dummy video/audio and
 software rendering. Overlap manifests prove idle draws SLP 179 while movement
-draws SLPs 183 and 181. Both isolated composites are exactly 85x112 pixels at
-the same `(116,78)` capture anchor. Repeated full frames are byte-identical.
+draws SLPs 183 and 181. For logical east direction 0, DAT mirroring mode 6
+selects stored direction 2 and horizontally mirrors idle frame 2, moving root
+frame 30, and moving child frame 2. At 1.25x capture zoom, both isolated
+composites are exactly 120x80 pixels at the same `(105,101)` capture anchor.
+Repeated full frames are byte-identical.
 
 Local audit output lives under `artifacts/bug-visual-004/` and is untracked.

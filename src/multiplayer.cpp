@@ -975,12 +975,8 @@ bool LockstepSession::receive(
         frame.sequence != frame.tick) return false;
     if (frame.tick > current_tick_ + 4096 ||
         frame.commands.size() > 256) return false;
-    if (frame.tick == current_tick_) {
-        if ((frame.tick % hash_interval_ == 0) !=
-            !frame.state_hash.empty()) return false;
-    } else if (!frame.state_hash.empty()) {
-        return false;
-    }
+    if ((frame.tick % hash_interval_ == 0) !=
+        !frame.state_hash.empty()) return false;
     auto& destination =
         turns_[frame.tick].slots[*frame_slot.index()];
     if (destination) {

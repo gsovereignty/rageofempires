@@ -2451,23 +2451,45 @@ void villagers_deliver_all_resource_types() {
 void villagers_choose_compatible_specialized_drop_offs() {
     struct Case {
         aoe::Terrain terrain;
+        aoe::ResourceKind resource;
         aoe::BuildingKind compatible;
         aoe::BuildingKind incompatible;
+        int gathering_ticks;
     };
     constexpr std::array<Case, 4> cases{{
         {aoe::Terrain::forest,
+         aoe::ResourceKind::wood,
          aoe::BuildingKind::lumber_camp,
-         aoe::BuildingKind::mill},
-        {aoe::Terrain::berry_bush,
          aoe::BuildingKind::mill,
-         aoe::BuildingKind::lumber_camp},
+         129},
+        {aoe::Terrain::berry_bush,
+         aoe::ResourceKind::food,
+         aoe::BuildingKind::mill,
+         aoe::BuildingKind::lumber_camp,
+         162},
         {aoe::Terrain::gold_mine,
+         aoe::ResourceKind::gold,
          aoe::BuildingKind::mining_camp,
-         aoe::BuildingKind::mill},
+         aoe::BuildingKind::mill,
+         132},
         {aoe::Terrain::stone_mine,
+         aoe::ResourceKind::stone,
          aoe::BuildingKind::mining_camp,
-         aoe::BuildingKind::lumber_camp},
+         aoe::BuildingKind::lumber_camp,
+         139},
     }};
+
+    const auto amount = [](const aoe::Economy& economy,
+                           aoe::ResourceKind resource) {
+        switch (resource) {
+            case aoe::ResourceKind::wood: return economy.wood;
+            case aoe::ResourceKind::food: return economy.food;
+            case aoe::ResourceKind::gold: return economy.gold;
+            case aoe::ResourceKind::stone: return economy.stone;
+            case aoe::ResourceKind::none: return 0;
+        }
+        return 0;
+    };
 
     for (const Case& test : cases) {
         aoe::GameMap map(10, 5);
@@ -2507,14 +2529,27 @@ void villagers_choose_compatible_specialized_drop_offs() {
         require(loaded.buildings()[2].kind == test.compatible);
 
         require(simulation.command_unit(villager, {8, 1}));
-        for (int tick = 0; tick < 10; ++tick) {
+        for (int tick = 1; tick < test.gathering_ticks; ++tick) {
             simulation.update();
         }
+        require(!simulation.units().front().returning_resource);
+        simulation.update();
         require(simulation.units().front().returning_resource);
+        require(simulation.units().front().carried_amount == 10);
         require(
             simulation.units().front().destination ==
             aoe::TilePosition(6, 1)
         );
+        const int before = amount(
+            simulation.economy(aoe::Player::blue), test.resource
+        );
+        simulation.update();
+        require(
+            amount(simulation.economy(aoe::Player::blue), test.resource) ==
+            before + 10
+        );
+        require(simulation.units().front().carried_amount == 0);
+        require(!simulation.units().front().returning_resource);
     }
 }
 

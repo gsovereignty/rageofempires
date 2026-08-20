@@ -1461,6 +1461,20 @@ def capture_route_pixel_or_unsampled(
         raise
 
 
+def complete_pixel_oracle_pair(
+    pixel_oracles: list[dict[str, object]],
+) -> dict[str, dict[str, object]] | None:
+    """Return peer-keyed oracles only when both peers were visible."""
+    by_peer = {
+        str(oracle.get("peer")): oracle
+        for oracle in pixel_oracles
+        if oracle.get("peer") in {"host", "join"}
+    }
+    if len(pixel_oracles) != 2 or set(by_peer) != {"host", "join"}:
+        return None
+    return by_peer
+
+
 def exercise_all_direction_route(
     journey: Journey, driver, actor: str, owner: int,
     observer_journey: Journey, observer_driver, observer_actor: str,
@@ -1670,8 +1684,24 @@ def exercise_all_direction_route(
                 ):
                     pixel_capture["visualOracles"] = pixel_oracles
                     if actor == "host" and lap == 0 and direction == 0:
+                        paired_oracles = complete_pixel_oracle_pair(
+                            pixel_oracles
+                        )
+                        if paired_oracles is None:
+                            pixel_capture["mutationProof"] = {
+                                "status": "NOT_RUN",
+                                "reason": (
+                                    "paired mutation control requires both "
+                                    "peers to render the entity"
+                                ),
+                                "visiblePeers": sorted(
+                                    str(oracle.get("peer"))
+                                    for oracle in pixel_oracles
+                                ),
+                            }
+                            break
                         mutations = {}
-                        for peer, oracle in zip(("host", "join"), pixel_oracles):
+                        for peer, oracle in paired_oracles.items():
                             if oracle["verdict"] != "PASS":
                                 raise Failure(
                                     "baseline pixel oracle must pass before mutation"
@@ -1690,7 +1720,7 @@ def exercise_all_direction_route(
                         pixel_capture["mutationProof"] = {
                             "onePeerWrong": (
                                 mutations["host"]["verdict"] == "FAIL" and
-                                pixel_oracles[1]["verdict"] == "PASS"
+                                paired_oracles["join"]["verdict"] == "PASS"
                             ),
                             "bothPeersIdenticallyWrong": all(
                                 value["verdict"] == "FAIL"
@@ -1699,7 +1729,7 @@ def exercise_all_direction_route(
                             "peers": mutations,
                         }
                         position_mutations = {}
-                        for peer, oracle in zip(("host", "join"), pixel_oracles):
+                        for peer, oracle in paired_oracles.items():
                             peer_manifest = Path(str(oracle["manifestPath"]))
                             position_mutations[peer] = \
                                 write_wrong_position_mutation(
@@ -2232,10 +2262,12 @@ def exercise_formation_route(
                 while (pixel_capture is None and
                        len(pixel_capture_failures) < 3):
                     try:
-                        pixel_capture = capture_catalog_semantic_pixels(
+                        pixel_capture = \
+                            capture_owner_then_visible_observer_pixels(
                             host, join, artifact_dir,
                             f"{actor}-formation-semantic-attempt-"
                             f"{len(pixel_capture_failures) + 1}", selected[0],
+                            actor=actor, observer=observer_actor,
                             owner=owner, unit_kind="unit-villager",
                             action="formation", catalog_ids=[
                                 "formation", "villager-empty-moving",
@@ -4730,14 +4762,15 @@ def capture_catalog_semantic_pixels(
     host, join, root: Path, label: str, entity_id: int, *, owner: int,
     unit_kind: str, action: str, catalog_ids: list[str], phase: str,
     direction_positions: tuple[tuple[int, int], tuple[int, int]] | None = None,
+    peers: tuple[str, ...] = ("host", "join"),
 ) -> dict[str, object] | None:
     """Retain peer pixel proof using direction derived from captured motion."""
     capture = request_correlated_pixel_capture(
-        host, join, root, label, entity_id,
+        host, join, root, label, entity_id, peers=peers,
     )
     peer_directions: dict[str, int] = {}
     manifests: dict[str, tuple[Path, dict[str, object]]] = {}
-    for peer in ("host", "join"):
+    for peer in peers:
         capture_metadata = capture["peers"][peer]
         manifest_path = root / capture_metadata["manifest"]
         manifest = json.loads(manifest_path.read_text())
@@ -4775,9 +4808,9 @@ def capture_catalog_semantic_pixels(
         raise Failure(
             f"catalog pixel peer direction divergence: {peer_directions}"
         )
-    expected_direction = peer_directions["host"]
+    expected_direction = next(iter(peer_directions.values()))
     visual_oracles = []
-    for peer in ("host", "join"):
+    for peer in peers:
         capture_metadata = capture["peers"][peer]
         manifest_path, _ = manifests[peer]
         retained = evaluate_packaged_capture(
@@ -4822,6 +4855,66 @@ def capture_catalog_semantic_pixels(
         })
     capture["visualOracles"] = visual_oracles
     return capture
+
+
+def capture_owner_then_visible_observer_pixels(
+    host, join, root: Path, label: str, entity_id: int, *, actor: str,
+    observer: str, owner: int, unit_kind: str, action: str,
+    catalog_ids: list[str], phase: str,
+) -> dict[str, object] | None:
+    """Capture owner first, then independently resample optional observer."""
+    drivers = {"host": host, "join": join}
+    owner_capture = capture_catalog_semantic_pixels(
+        host, join, root, f"{label}-owner", entity_id, owner=owner,
+        unit_kind=unit_kind, action=action, catalog_ids=catalog_ids,
+        phase=phase, peers=(actor,),
+    )
+    if owner_capture is None:
+        return None
+
+    observer_driver = drivers[observer]
+    before_frame = int(
+        (render_diagnostics(observer_driver) or {}).get("frame", -1)
+    )
+    if before_frame >= 0:
+        wait_until(
+            f"{observer} fresh optional pixel frame {entity_id}",
+            lambda: True if int(
+                (render_diagnostics(observer_driver) or {}).get("frame", -1)
+            ) > before_frame else None,
+            timeout=WAIT_SECONDS,
+        )
+    fresh_render = render_diagnostics(observer_driver) or {}
+    observer_visible = any(
+        isinstance(entity, dict) and
+        int(entity.get("id", -1)) == entity_id and
+        any(isinstance(layer, dict) and bool(layer.get("visible", False))
+            for layer in entity.get("layers", []))
+        for entity in fresh_render.get("entities", [])
+    )
+    if not observer_visible:
+        owner_capture["optionalObserver"] = {
+            "peer": observer, "status": "NOT_VISIBLE",
+            "renderFrame": fresh_render.get("frame"),
+        }
+        return owner_capture
+
+    observer_capture = capture_catalog_semantic_pixels(
+        host, join, root, f"{label}-observer", entity_id, owner=owner,
+        unit_kind=unit_kind, action=action, catalog_ids=catalog_ids,
+        phase=phase, peers=(observer,),
+    )
+    if observer_capture is None:
+        return None
+    owner_capture["peers"].update(observer_capture["peers"])
+    owner_capture["visualOracles"].extend(
+        observer_capture["visualOracles"]
+    )
+    owner_capture["optionalObserver"] = {
+        "peer": observer, "status": "CAPTURED",
+        "renderFrame": fresh_render.get("frame"),
+    }
+    return owner_capture
 
 
 def capture_directional_combat_lifetime(

@@ -27,9 +27,11 @@ from nostr_multiplayer_smoke_test import (
     audited_zoom,
     banked_resource_increased,
     capture_failure_value,
+    complete_pixel_oracle_pair,
     capture_initial_gameplay_overlap,
     capture_browser_overlap,
     capture_catalog_semantic_pixels,
+    capture_owner_then_visible_observer_pixels,
     capture_route_pixel_or_unsampled,
     capture_until_arrival,
     center_camera_for_tile,
@@ -123,6 +125,22 @@ class NarrowPassageTests(unittest.TestCase):
         dead["units"][0]["hitPoints"] = 0
         with self.assertRaisesRegex(Failure, "died"):
             validate_cand003_route_state([dead, copy.deepcopy(dead)], {1: 10}, 1)
+
+
+class PixelOraclePairTests(unittest.TestCase):
+    def test_hidden_peer_does_not_form_mutation_pair(self):
+        self.assertIsNone(complete_pixel_oracle_pair([
+            {"peer": "host", "verdict": "PASS"},
+        ]))
+
+    def test_visible_peers_are_keyed_independent_of_capture_order(self):
+        join = {"peer": "join", "verdict": "PASS"}
+        host = {"peer": "host", "verdict": "PASS"}
+
+        self.assertEqual(
+            complete_pixel_oracle_pair([join, host]),
+            {"host": host, "join": join},
+        )
 
 
 class VirtualFsDriver:
@@ -928,6 +946,137 @@ class AuditedInputTests(unittest.TestCase):
              for oracle in result["visualOracles"]],
             [7, 7],
         )
+
+    def test_catalog_pixel_capture_accepts_only_visible_owner_peer(self):
+        capture = {"peers": {"join": {
+            "manifest": "join/manifest.json",
+            "previousPosition": {"x": 2, "y": 2},
+            "currentPosition": {"x": 2, "y": 3},
+            "actualLogicalDirection": 1,
+        }}}
+        manifest = {"cases": [{"metadata": {"sprite_frames": [{
+            "direction_count": 8,
+        }]}}]}
+        retained = {
+            "verdict": "PASS", "images": {"actual": "actual.png"},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            host = object()
+            join = object()
+            (root / "join").mkdir()
+            (root / "join" / "manifest.json").write_text(
+                json.dumps(manifest)
+            )
+            with patch(
+                "nostr_multiplayer_smoke_test.request_correlated_pixel_capture",
+                return_value=capture,
+            ) as request, patch(
+                "nostr_multiplayer_smoke_test.evaluate_packaged_capture",
+                return_value=retained,
+            ):
+                result = capture_catalog_semantic_pixels(
+                    host, join, root, "formation", 9, owner=1,
+                    unit_kind="unit-villager", action="formation",
+                    catalog_ids=["formation"], phase="formation",
+                    peers=("join",),
+                )
+
+        request.assert_called_once_with(
+            host, join, root, "formation", 9, peers=("join",),
+        )
+        self.assertEqual(
+            [oracle["peer"] for oracle in result["visualOracles"]],
+            ["join"],
+        )
+
+    def test_formation_pixels_capture_owner_before_fresh_observer(self):
+        owner_capture = {
+            "peers": {"join": {}}, "visualOracles": [{"peer": "join"}],
+        }
+        observer_capture = {
+            "peers": {"host": {}}, "visualOracles": [{"peer": "host"}],
+        }
+        renders = iter((
+            {"frame": 10},
+            {"frame": 11, "entities": [{
+                "id": 9, "layers": [{"visible": True}],
+            }]},
+            {"frame": 11, "entities": [{
+                "id": 9, "layers": [{"visible": True}],
+            }]},
+        ))
+        with patch(
+            "nostr_multiplayer_smoke_test.capture_catalog_semantic_pixels",
+            side_effect=(owner_capture, observer_capture),
+        ) as capture, patch(
+            "nostr_multiplayer_smoke_test.render_diagnostics",
+            side_effect=lambda _driver: next(renders),
+        ), patch(
+            "nostr_multiplayer_smoke_test.wait_until",
+            side_effect=lambda _label, callback, timeout=None: callback(),
+        ):
+            result = capture_owner_then_visible_observer_pixels(
+                object(), object(), Path("root"), "formation", 9,
+                actor="join", observer="host", owner=1,
+                unit_kind="unit-villager", action="formation",
+                catalog_ids=["formation"], phase="formation",
+            )
+
+        self.assertEqual(
+            [call.args[3] for call in capture.call_args_list],
+            ["formation-owner", "formation-observer"],
+        )
+        self.assertEqual(
+            [call.kwargs["peers"] for call in capture.call_args_list],
+            [("join",), ("host",)],
+        )
+        self.assertEqual(result["optionalObserver"]["renderFrame"], 11)
+        self.assertEqual(set(result["peers"]), {"host", "join"})
+
+    def test_formation_pixels_skip_fresh_hidden_observer(self):
+        owner_capture = {
+            "peers": {"join": {}}, "visualOracles": [{"peer": "join"}],
+        }
+        renders = iter((
+            {"frame": 20}, {"frame": 21, "entities": []},
+            {"frame": 21, "entities": []},
+        ))
+        with patch(
+            "nostr_multiplayer_smoke_test.capture_catalog_semantic_pixels",
+            return_value=owner_capture,
+        ) as capture, patch(
+            "nostr_multiplayer_smoke_test.render_diagnostics",
+            side_effect=lambda _driver: next(renders),
+        ), patch(
+            "nostr_multiplayer_smoke_test.wait_until",
+            side_effect=lambda _label, callback, timeout=None: callback(),
+        ):
+            result = capture_owner_then_visible_observer_pixels(
+                object(), object(), Path("root"), "formation", 9,
+                actor="join", observer="host", owner=1,
+                unit_kind="unit-villager", action="formation",
+                catalog_ids=["formation"], phase="formation",
+            )
+
+        self.assertEqual(capture.call_count, 1)
+        self.assertEqual(result["optionalObserver"]["status"], "NOT_VISIBLE")
+
+    def test_formation_pixels_propagate_owner_capture_failure(self):
+        with patch(
+            "nostr_multiplayer_smoke_test.capture_catalog_semantic_pixels",
+            side_effect=Failure("owner exact pixel capture found 0 layers"),
+        ), patch(
+            "nostr_multiplayer_smoke_test.render_diagnostics",
+        ) as render:
+            with self.assertRaisesRegex(Failure, "owner exact pixel"):
+                capture_owner_then_visible_observer_pixels(
+                    object(), object(), Path("root"), "formation", 9,
+                    actor="join", observer="host", owner=1,
+                    unit_kind="unit-villager", action="formation",
+                    catalog_ids=["formation"], phase="formation",
+                )
+        render.assert_not_called()
 
     def test_direction_change_before_pixel_readback_is_recapturable_block(self):
         manifest = {

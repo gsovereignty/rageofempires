@@ -61,5 +61,6 @@ void publish_browser_telemetry(const BrowserTelemetry& telemetry);
 void publish_browser_render_telemetry(std::string_view json);
 [[nodiscard]] std::string consume_browser_pixel_capture_request();
 void publish_browser_pixel_capture_complete(std::string_view directory);
+void publish_browser_shutdown_diagnostics(std::string_view reason);
 
 }  // namespace aoe

@@ -33,6 +33,19 @@ EM_JS(void, publish_browser_pixel_capture_complete_js,
       Module.browserPixelCaptureComplete = UTF8ToString(directory);
     });
 
+EM_JS(void, publish_browser_shutdown_diagnostics_js, (const char* reason), {
+    const diagnostics = {
+      reason: UTF8ToString(reason),
+      monotonicMs: performance.now(),
+      lifecycle: Module.browserLifecycle
+        ? {...Module.browserLifecycle} : null
+    };
+    Module.browserShutdownDiagnostics = diagnostics;
+    if (Module.browserNostrShutdownDiagnostics) {
+      Module.browserNostrShutdownDiagnostics.context = diagnostics;
+    }
+});
+
 EM_JS(void, publish_browser_telemetry_js,
     (std::uint64_t tick,
      std::uint64_t selected_unit,
@@ -180,6 +193,11 @@ std::string consume_browser_pixel_capture_request() {
 void publish_browser_pixel_capture_complete(std::string_view directory) {
     const std::string owned{directory};
     publish_browser_pixel_capture_complete_js(owned.c_str());
+}
+
+void publish_browser_shutdown_diagnostics(std::string_view reason) {
+    const std::string owned{reason};
+    publish_browser_shutdown_diagnostics_js(owned.c_str());
 }
 
 }  // namespace aoe

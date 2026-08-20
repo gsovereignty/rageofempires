@@ -7,6 +7,7 @@
 #include <string>
 
 #include "aoe/sdl_app.hpp"
+#include "aoe/browser_telemetry.hpp"
 #include "aoe/runtime_paths.hpp"
 
 namespace {
@@ -77,6 +78,9 @@ void browser_frame() {
         }
         emscripten_cancel_main_loop();
     } catch (const std::exception& error) {
+        aoe::publish_browser_shutdown_diagnostics(
+            std::string{"frame-exception: "} + error.what()
+        );
         emscripten_cancel_main_loop();
         report_browser_failure(error.what());
         application.shutdown();
@@ -113,7 +117,6 @@ int main() {
     if (use_risk_fixture) {
         setenv("AOE_FOG", "0", true);
     }
-    setenv("AOE_RENDER_FALLBACK_REPORT", "/user/fallback-report.json", true);
     try {
         initialize_application();
         emscripten_set_main_loop(browser_frame, 0, false);

@@ -8302,7 +8302,7 @@ void named_rules_define_balance_values() {
     require(knight.pierce_armor == 2);
     require(knight.food_cost == 60);
     require(knight.gold_cost == 75);
-    require(knight.training_ticks == 12);
+    require(knight.training_ticks == 150);
     require(knight.vision_range == 4);
     require(!aoe::can_train(
         aoe::BuildingKind::barracks,

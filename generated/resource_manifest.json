@@ -299,8 +299,8 @@
     },
     {
       "path": "resources/nostr-relays.json",
-      "size": 855,
-      "sha256": "0a92c2b359203a679ea348e4d79fc40052c10b28985acd613dbe4d47916774f7"
+      "size": 874,
+      "sha256": "7b99fba1f359607434f97ad10251e8de95643e35f0debdc0e18fcec699c2bc02"
     },
     {
       "path": "resources/nostr-visual-gameplay-coverage.json",

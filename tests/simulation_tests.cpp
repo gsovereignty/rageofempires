@@ -5860,7 +5860,19 @@ void completed_villager_order_retries_once_on_valid_land() {
     const int food_after_queue =
         simulation.economy(aoe::Player::red).food;
     require(food_after_queue < food_before);
-    for (int tick = 0; tick < 100; ++tick) simulation.update();
+    const int maximum_training_ticks =
+        aoe::rules_for(aoe::UnitKind::villager).training_ticks;
+    for (int tick = 0; tick < maximum_training_ticks; ++tick) {
+        const auto queued_building = std::ranges::find(
+            simulation.buildings(), town_center, &aoe::Building::id
+        );
+        require(queued_building != simulation.buildings().end());
+        require(!queued_building->production_queue.empty());
+        if (queued_building->production_queue.front().ticks_remaining == 0) {
+            break;
+        }
+        simulation.update();
+    }
 
     const auto blocked_building = std::ranges::find(
         simulation.buildings(), town_center, &aoe::Building::id

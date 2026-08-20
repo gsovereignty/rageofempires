@@ -18225,8 +18225,15 @@ ApplicationLoop SdlApp::loop() {
     };
     double gameplay_benchmark_command_ms{};
     std::size_t gameplay_benchmark_commanded_units{};
+    const char* multiplayer_launch = SDL_getenv("AOE_MULTIPLAYER");
+    const bool new_multiplayer_match =
+        multiplayer_launch != nullptr &&
+        (std::string_view{multiplayer_launch} == "host" ||
+         std::string_view{multiplayer_launch} == "join");
     const std::optional<std::filesystem::path> startup_autosave =
-        startup_autosave_path();
+        new_multiplayer_match
+        ? std::nullopt
+        : startup_autosave_path();
     Simulation simulation =
         startup_autosave && std::filesystem::is_regular_file(*startup_autosave)
         ? load_presentable_game(*startup_autosave)

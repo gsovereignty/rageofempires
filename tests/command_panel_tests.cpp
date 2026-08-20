@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <span>
+#include <utility>
 
 namespace {
 int failures{};
@@ -46,6 +47,23 @@ aoe::EntityId add_building_at_empty_tile(
         }
     }
     throw std::runtime_error("no empty building tile");
+}
+
+aoe::Simulation make_building_matrix(aoe::BuildingKind kind) {
+    aoe::GameMap map(16, 12);
+    if (kind == aoe::BuildingKind::dock) {
+        for (int y = 4; y < 7; ++y) {
+            for (int x = 4; x < 7; ++x) {
+                map.set_terrain({x, y}, aoe::Terrain::water);
+            }
+        }
+        for (int x = 4; x < 7; ++x) {
+            map.set_terrain({x, 3}, aoe::Terrain::beach);
+        }
+    } else if (kind == aoe::BuildingKind::fish_trap) {
+        map.set_terrain({4, 4}, aoe::Terrain::water);
+    }
+    return aoe::Simulation(std::move(map));
 }
 }
 
@@ -641,8 +659,8 @@ int main() {
     }
 
     for (std::size_t value = 0; value < aoe::building_kind_count; ++value) {
-        aoe::Simulation building_matrix = aoe::Simulation::create_demo();
         const auto kind = static_cast<aoe::BuildingKind>(value);
+        aoe::Simulation building_matrix = make_building_matrix(kind);
         const aoe::EntityId id =
             add_building_at_empty_tile(building_matrix, kind);
         const auto found = std::ranges::find(

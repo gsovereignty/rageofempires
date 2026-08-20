@@ -58,15 +58,21 @@ bmp_stride = ((bmp_width * 3 + 3) // 4) * 4
 
 opaque = 0
 visible = 0
+# Production HUD composition tiles original game_b frame 0 (32 pixels high)
+# across screen top after world objects. Pixels beneath that opaque chrome are
+# intentionally not world-visible and cannot prove object contact ordering.
+top_hud_height = 32
 for y in range(height):
     for x in range(width):
         sprite_offset = (y * width + x) * 4
         blue, green, red, alpha = sprite[sprite_offset:sprite_offset + 4]
         if alpha == 0:
             continue
-        opaque += 1
         actual_x = ram["x"] + x
         actual_y = ram["y"] + y
+        if actual_y < top_hud_height:
+            continue
+        opaque += 1
         actual_offset = (bmp_offset +
                          (bmp_height - 1 - actual_y) * bmp_stride +
                          actual_x * 3)

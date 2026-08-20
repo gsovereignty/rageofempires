@@ -29,7 +29,10 @@ preventing premature foreground promotion while pathing.
 `ai-building-attack-audit.scenario` twice at tick 40 with dummy video/audio and
 software rendering. Frames must be byte-identical. Overlap capture proves the
 Ram uses attack SLP 173 plus present composite child SLP 171. Every one of more
-than 7,000 opaque isolated Ram pixels must remain byte-identical in the final
-composed frame, proving the target House no longer erases the strike.
+than 7,000 opaque isolated Ram pixels below the original 32-pixel-high top HUD
+chrome must remain byte-identical in the final composed frame, proving the
+target House no longer erases the world-visible strike. Pixels beneath that
+opaque HUD chrome are intentionally excluded because HUD composition follows
+world-object rendering and correctly replaces them.
 
 Local, untracked audit output lives under `artifacts/bug-visual-005/`.

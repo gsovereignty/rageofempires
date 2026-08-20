@@ -84,7 +84,7 @@ class ScreenshotAuditTests(unittest.TestCase):
                 }],
             }) + "\n")
 
-            findings = provenance_findings(root)
+            findings = MODULE.provenance_findings(root)
 
         self.assertEqual(findings, [])
 

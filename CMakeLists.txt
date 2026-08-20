@@ -786,44 +786,25 @@ else()
     target_compile_definitions(aoe_reconstruction PRIVATE AOE_HAVE_MPG123=0)
 endif()
 target_compile_options(aoe_reconstruction PRIVATE -Wall -Wextra -Wpedantic)
-file(
-    GLOB_RECURSE AOE_RUNTIME_RESOURCE_FILES
-    CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/resources/*"
-)
-file(
-    GLOB_RECURSE AOE_GAME_DATA_FILES
-    CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/game_data/*"
-)
-# Track every runtime resource, not just executable relinks.
-add_custom_command(
-    OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/deployed-runtime-resources.stamp"
-    COMMAND ${CMAKE_COMMAND} -E rm -rf
-        "$<TARGET_FILE_DIR:aoe_reconstruction>/resources"
-        "$<TARGET_FILE_DIR:aoe_reconstruction>/game_data"
-    COMMAND ${CMAKE_COMMAND} -E make_directory
-        "$<TARGET_FILE_DIR:aoe_reconstruction>/resources"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_CURRENT_SOURCE_DIR}/resources"
-        "$<TARGET_FILE_DIR:aoe_reconstruction>/resources"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_CURRENT_SOURCE_DIR}/game_data"
-        "$<TARGET_FILE_DIR:aoe_reconstruction>/game_data"
+# Synchronize on every requested deployment, including builds where no source
+# input changed. This removes files deleted from source without deleting either
+# explicit deployment root or recopying unchanged large game-data files.
+add_custom_target(aoe_deploy_runtime_resources ALL
+    COMMAND ${CMAKE_COMMAND}
+        "-DSOURCE=${CMAKE_CURRENT_SOURCE_DIR}/resources"
+        "-DDESTINATION=$<TARGET_FILE_DIR:aoe_reconstruction>/resources"
+        "-DDEPLOYMENT_ROOT=${CMAKE_CURRENT_BINARY_DIR}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/SyncDirectory.cmake"
+    COMMAND ${CMAKE_COMMAND}
+        "-DSOURCE=${CMAKE_CURRENT_SOURCE_DIR}/game_data"
+        "-DDESTINATION=$<TARGET_FILE_DIR:aoe_reconstruction>/game_data"
+        "-DDEPLOYMENT_ROOT=${CMAKE_CURRENT_BINARY_DIR}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/SyncDirectory.cmake"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_CURRENT_SOURCE_DIR}/generated/resource_manifest.json"
         "$<TARGET_FILE_DIR:aoe_reconstruction>/resource-manifest.json"
-    COMMAND ${CMAKE_COMMAND} -E touch
-        "${CMAKE_CURRENT_BINARY_DIR}/deployed-runtime-resources.stamp"
-    DEPENDS
-        ${AOE_RUNTIME_RESOURCE_FILES}
-        ${AOE_GAME_DATA_FILES}
-        "${CMAKE_CURRENT_SOURCE_DIR}/generated/resource_manifest.json"
     COMMENT "Deploying tracked runtime resources"
     VERBATIM
-)
-add_custom_target(aoe_deploy_runtime_resources ALL
-    DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/deployed-runtime-resources.stamp"
 )
 add_dependencies(aoe_deploy_runtime_resources aoe_reconstruction)
 
@@ -838,22 +819,39 @@ if(APPLE)
     )
     add_custom_command(
         TARGET aoe_reconstruction_app POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E rm -rf
-            "$<TARGET_BUNDLE_CONTENT_DIR:aoe_reconstruction_app>/Resources/resources"
-            "$<TARGET_BUNDLE_CONTENT_DIR:aoe_reconstruction_app>/Resources/game_data"
-        COMMAND ${CMAKE_COMMAND} -E make_directory
-            "$<TARGET_BUNDLE_CONTENT_DIR:aoe_reconstruction_app>/Resources/resources"
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-            "${CMAKE_CURRENT_SOURCE_DIR}/resources"
-            "$<TARGET_BUNDLE_CONTENT_DIR:aoe_reconstruction_app>/Resources/resources"
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-            "${CMAKE_CURRENT_SOURCE_DIR}/game_data"
-            "$<TARGET_BUNDLE_CONTENT_DIR:aoe_reconstruction_app>/Resources/game_data"
+        COMMAND ${CMAKE_COMMAND}
+            "-DSOURCE=${CMAKE_CURRENT_SOURCE_DIR}/resources"
+            "-DDESTINATION=$<TARGET_BUNDLE_CONTENT_DIR:aoe_reconstruction_app>/Resources/resources"
+            "-DDEPLOYMENT_ROOT=${CMAKE_CURRENT_BINARY_DIR}"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/SyncDirectory.cmake"
+        COMMAND ${CMAKE_COMMAND}
+            "-DSOURCE=${CMAKE_CURRENT_SOURCE_DIR}/game_data"
+            "-DDESTINATION=$<TARGET_BUNDLE_CONTENT_DIR:aoe_reconstruction_app>/Resources/game_data"
+            "-DDEPLOYMENT_ROOT=${CMAKE_CURRENT_BINARY_DIR}"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/SyncDirectory.cmake"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${CMAKE_CURRENT_SOURCE_DIR}/generated/resource_manifest.json"
             "$<TARGET_BUNDLE_CONTENT_DIR:aoe_reconstruction_app>/Resources/resource-manifest.json"
         VERBATIM
     )
+    add_custom_target(aoe_deploy_app_resources ALL
+        COMMAND ${CMAKE_COMMAND}
+            "-DSOURCE=${CMAKE_CURRENT_SOURCE_DIR}/resources"
+            "-DDESTINATION=$<TARGET_BUNDLE_CONTENT_DIR:aoe_reconstruction_app>/Resources/resources"
+            "-DDEPLOYMENT_ROOT=${CMAKE_CURRENT_BINARY_DIR}"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/SyncDirectory.cmake"
+        COMMAND ${CMAKE_COMMAND}
+            "-DSOURCE=${CMAKE_CURRENT_SOURCE_DIR}/game_data"
+            "-DDESTINATION=$<TARGET_BUNDLE_CONTENT_DIR:aoe_reconstruction_app>/Resources/game_data"
+            "-DDEPLOYMENT_ROOT=${CMAKE_CURRENT_BINARY_DIR}"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/SyncDirectory.cmake"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_CURRENT_SOURCE_DIR}/generated/resource_manifest.json"
+            "$<TARGET_BUNDLE_CONTENT_DIR:aoe_reconstruction_app>/Resources/resource-manifest.json"
+        COMMENT "Deploying tracked app-bundle resources"
+        VERBATIM
+    )
+    add_dependencies(aoe_deploy_app_resources aoe_reconstruction_app)
     target_link_libraries(
         aoe_reconstruction_app PRIVATE aoe_core SDL3::SDL3
     )

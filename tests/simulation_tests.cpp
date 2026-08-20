@@ -8860,9 +8860,17 @@ void castle_uses_atomic_stone_cost_and_persists() {
         loaded.buildings().back().construction_ticks_remaining ==
         simulation.buildings().back().construction_ticks_remaining
     );
-    for (int tick = 0; tick < 35; ++tick) {
+    const int remaining_ticks =
+        loaded.buildings().back().construction_ticks_remaining;
+    require(
+        remaining_ticks ==
+        aoe::rules_for(aoe::BuildingKind::castle).construction_ticks - 5
+    );
+    for (int tick = 1; tick < remaining_ticks; ++tick) {
         loaded.update();
     }
+    require(!loaded.buildings().back().completed());
+    loaded.update();
     require(loaded.buildings().back().completed());
 
     aoe::Simulation first(aoe::GameMap(8, 8));

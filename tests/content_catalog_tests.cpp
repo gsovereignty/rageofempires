@@ -4,6 +4,7 @@
 #include "aoe/game_command.hpp"
 #include "aoe/localization.hpp"
 
+#include <algorithm>
 #include <cstdlib>
 #include <iostream>
 #include <filesystem>

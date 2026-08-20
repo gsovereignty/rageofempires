@@ -2,6 +2,7 @@
 
 #include "fog_edge_geometry.hpp"
 
+#include <algorithm>
 #include <stdexcept>
 
 namespace aoe::fog {

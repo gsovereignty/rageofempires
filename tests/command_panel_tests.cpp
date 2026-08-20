@@ -1,6 +1,7 @@
 #include "aoe/command_panel.hpp"
 #include "aoe/game_rules.hpp"
 
+#include <algorithm>
 #include <cstdlib>
 #include <iostream>
 #include <span>

@@ -32,10 +32,12 @@ death composites, debris, and fire remain reachable only from
 ## Deterministic background proof
 
 `tests/villager_death_sdl_smoke.sh` runs `combat-pose-audit.scenario` twice at
-ticks 10 and 16 with SDL dummy video/audio and software rendering. Both runs
-must be byte-identical. Overlap manifests prove entity 2 is classified
-`unit-death-villager`, drawing only SLP 1476 frame 4 while falling and frame 14
-for the held corpse. Native hotspot-derived isolation bounds are pinned at
-`(310,95) 25x46` and `(296,100) 48x31`. Test rejects any building-rubble case
-for entity 2. Scenario SHA-256 is
+ticks 12 and 18 with SDL dummy video/audio and software rendering. Both runs
+must be byte-identical. Overlap manifests prove one effect is classified
+`unit-death-villager`, drawing only SLP 1476 physical frame 33/action frame 3
+while falling and physical frame 44/action frame 14 for held corpse. Both
+frames use logical direction 0, mirrored stored direction 2, and effect capture
+ID 3. Native hotspot-derived isolation bounds are pinned at `(282,106) 42x41`
+and `(246,120) 55x35`. Test rejects every building-rubble case. Scenario
+SHA-256 is
 `850f694f2028090e9282e00fee6f5d9c14d4214e1cb28f84a6e0e7c493f8a511`.

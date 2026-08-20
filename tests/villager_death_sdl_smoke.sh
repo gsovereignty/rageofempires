@@ -31,12 +31,12 @@ capture() {
 }
 
 for run in 1 2; do
-    capture 10 "$run"
-    capture 16 "$run"
+    capture 12 "$run"
+    capture 18 "$run"
 done
 
-cmp "$smoke_dir/tick-10-1/actual.bmp" "$smoke_dir/tick-10-2/actual.bmp"
-cmp "$smoke_dir/tick-16-1/actual.bmp" "$smoke_dir/tick-16-2/actual.bmp"
+cmp "$smoke_dir/tick-12-1/actual.bmp" "$smoke_dir/tick-12-2/actual.bmp"
+cmp "$smoke_dir/tick-18-1/actual.bmp" "$smoke_dir/tick-18-2/actual.bmp"
 
 python3 - "$smoke_dir" <<'PY'
 import json
@@ -53,29 +53,56 @@ def cases(tick):
 
 def villager_death(tick):
     matches = [case for case in cases(tick)
-               if case["metadata"]["entity_id"] == 2]
+               if case["metadata"]["entity"] == "unit-death-villager"]
     assert len(matches) == 1
     return matches[0]
 
-falling = villager_death(10)
-corpse = villager_death(16)
+falling = villager_death(12)
+corpse = villager_death(18)
 assert falling["metadata"]["entity"] == "unit-death-villager"
 assert corpse["metadata"]["entity"] == "unit-death-villager"
-assert falling["metadata"]["sprite_frames"] == [
-    {"resource_id": 1476, "frame": 4, "palette_player": 2}
-]
-assert corpse["metadata"]["sprite_frames"] == [
-    {"resource_id": 1476, "frame": 14, "palette_player": 2}
-]
-assert (falling["x"], falling["y"]) == (310, 95)
-assert (corpse["x"], corpse["y"]) == (296, 100)
+assert falling["metadata"]["entity_id"] == 3
+assert corpse["metadata"]["entity_id"] == 3
+assert len(falling["metadata"]["sprite_frames"]) == 1
+assert len(corpse["metadata"]["sprite_frames"]) == 1
+falling_frame = falling["metadata"]["sprite_frames"][0]
+corpse_frame = corpse["metadata"]["sprite_frames"][0]
+assert {
+    key: falling_frame[key]
+    for key in ("resource_id", "frame", "palette_player",
+                "flip_horizontal", "logical_direction",
+                "stored_direction", "action_frame")
+} == {
+    "resource_id": 1476,
+    "frame": 33,
+    "palette_player": 2,
+    "flip_horizontal": 1,
+    "logical_direction": 0,
+    "stored_direction": 2,
+    "action_frame": 3,
+}
+assert {
+    key: corpse_frame[key]
+    for key in ("resource_id", "frame", "palette_player",
+                "flip_horizontal", "logical_direction",
+                "stored_direction", "action_frame")
+} == {
+    "resource_id": 1476,
+    "frame": 44,
+    "palette_player": 2,
+    "flip_horizontal": 1,
+    "logical_direction": 0,
+    "stored_direction": 2,
+    "action_frame": 14,
+}
+assert (falling["x"], falling["y"]) == (282, 106)
+assert (corpse["x"], corpse["y"]) == (246, 120)
 assert struct.unpack_from(
-    "<HH", (root / "tick-10-1" / falling["sprite"]).read_bytes(), 12
-) == (25, 46)
+    "<HH", (root / "tick-12-1" / falling["sprite"]).read_bytes(), 12
+) == (42, 41)
 assert struct.unpack_from(
-    "<HH", (root / "tick-16-1" / corpse["sprite"]).read_bytes(), 12
-) == (48, 31)
+    "<HH", (root / "tick-18-1" / corpse["sprite"]).read_bytes(), 12
+) == (55, 35)
 assert not any(case["metadata"]["entity"].startswith("building-rubble")
-               and case["metadata"]["entity_id"] == 2
-               for tick in (10, 16) for case in cases(tick))
+               for tick in (12, 18) for case in cases(tick))
 PY

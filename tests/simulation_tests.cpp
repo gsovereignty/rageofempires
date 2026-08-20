@@ -10395,10 +10395,20 @@ void save_round_trip_preserves_active_construction() {
         loaded.buildings().back().builder_id ==
         simulation.buildings().back().builder_id
     );
-    for (int tick = 0; tick < 20; ++tick) {
+    const int remaining_ticks =
+        simulation.buildings().back().construction_ticks_remaining;
+    require(
+        remaining_ticks ==
+        aoe::rules_for(aoe::BuildingKind::barracks).construction_ticks - 2
+    );
+    for (int tick = 1; tick < remaining_ticks; ++tick) {
         simulation.update();
         loaded.update();
     }
+    require(!simulation.buildings().back().completed());
+    require(!loaded.buildings().back().completed());
+    simulation.update();
+    loaded.update();
     require(loaded.buildings().back().completed());
     require(
         loaded.buildings().back().hit_points ==

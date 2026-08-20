@@ -5044,7 +5044,7 @@ void light_cavalry_upgrade_converts_scout_line() {
     require(rules.vision_range == 8);
     require(rules.food_cost == 80);
     require(rules.gold_cost == 0);
-    require(rules.training_ticks == 6);
+    require(rules.training_ticks == 150);
 
     aoe::Simulation simulation(aoe::GameMap(24, 8));
     const aoe::EntityId stable = simulation.add_building(

@@ -19156,8 +19156,12 @@ ApplicationLoop SdlApp::loop() {
             activation.type = SDL_EVENT_MOUSE_BUTTON_UP;
             SDL_PushEvent(&activation);
             activation.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
-            activation.button.x = 500.0F;
-            activation.button.y = 170.0F;
+            const FrontendMenuRect tiny_bounds =
+                ai_arabia_size_menu_items().front().bounds;
+            activation.button.x =
+                tiny_bounds.x + tiny_bounds.width * 0.5F;
+            activation.button.y =
+                tiny_bounds.y + tiny_bounds.height * 0.5F;
             SDL_PushEvent(&activation);
             activation.type = SDL_EVENT_MOUSE_BUTTON_UP;
             SDL_PushEvent(&activation);

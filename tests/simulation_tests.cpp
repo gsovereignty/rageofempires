@@ -9283,9 +9283,15 @@ void siege_workshop_trains_persistent_battering_rams() {
         {2, 1}
     ));
     require(simulation.economy(aoe::Player::blue).wood == 300);
-    for (int tick = 0; tick < 20; ++tick) {
+    const int workshop_construction_ticks =
+        aoe::rules_for(
+            aoe::BuildingKind::siege_workshop
+        ).construction_ticks;
+    for (int tick = 1; tick < workshop_construction_ticks; ++tick) {
         simulation.update();
     }
+    require(!simulation.buildings().back().completed());
+    simulation.update();
     const aoe::EntityId workshop = simulation.buildings().back().id;
     require(simulation.buildings().back().completed());
 
@@ -9359,9 +9365,17 @@ void siege_workshop_trains_persistent_battering_rams() {
         loaded.buildings().back().production_queue.front().kind ==
         aoe::UnitKind::battering_ram
     );
-    for (int tick = 0; tick < 13; ++tick) {
+    const int remaining_training_ticks =
+        loaded.buildings().back().production_queue.front().ticks_remaining;
+    require(
+        remaining_training_ticks ==
+        aoe::rules_for(aoe::UnitKind::battering_ram).training_ticks - 5
+    );
+    for (int tick = 1; tick < remaining_training_ticks; ++tick) {
         loaded.update();
     }
+    require(loaded.units().back().kind != aoe::UnitKind::battering_ram);
+    loaded.update();
     require(loaded.units().back().kind == aoe::UnitKind::battering_ram);
     require(loaded.units().back().hit_points == 175);
 }

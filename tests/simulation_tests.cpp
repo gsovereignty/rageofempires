@@ -6700,7 +6700,8 @@ void stone_gates_use_feudal_cost_armor_replay_and_persistence() {
     require(second.buildings().back().kind ==
             aoe::BuildingKind::stone_gate_x);
     for (int tick = 0;
-         tick < 25 && !first.buildings().back().completed();
+         tick <= along_x.construction_ticks &&
+             !first.buildings().back().completed();
          ++tick) {
         first.update();
         second.update();

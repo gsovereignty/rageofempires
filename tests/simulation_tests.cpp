@@ -7782,8 +7782,16 @@ void man_at_arms_research_upgrades_line_and_persists() {
         simulation.buildings()[1].production_queue.front().kind ==
         aoe::UnitKind::man_at_arms
     );
+    const int remaining_training_ticks =
+        simulation.buildings()[1].production_queue.front().ticks_remaining;
+    require(remaining_training_ticks == unit_rules.training_ticks - 10);
+    const std::size_t units_before_training = simulation.units().size();
+    for (int tick = 1; tick < remaining_training_ticks; ++tick) {
+        simulation.update();
+    }
+    require(simulation.units().size() == units_before_training);
     simulation.update();
-    simulation.update();
+    require(simulation.units().size() == units_before_training + 1);
     require(simulation.units().back().kind ==
             aoe::UnitKind::man_at_arms);
 
